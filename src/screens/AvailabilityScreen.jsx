@@ -1,0 +1,408 @@
+import React, { useEffect, useState } from 'react';
+import { useAvailability } from '../context/AvailabilityContext';
+import { useAuth } from '../context/AuthContext';
+import { useViewTracking } from '../context/ViewTrackingContext';
+import DatePickerField from '../components/DatePickerField';
+import { nike } from '../theme/nike';
+
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const DAY_LABELS = { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday' };
+const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
+
+function formatDate(ts) {
+  return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export default function AvailabilityScreen() {
+  const { user } = useAuth();
+  const {
+    timeOffRequests,
+    weeklyAvailability,
+    submitTimeOff,
+    resolveTimeOff,
+    updateTimeOffRequest,
+    deleteTimeOffRequest,
+    setMyWeeklyAvailability,
+    getWeekStart,
+  } = useAvailability();
+  const { markTimeOffViewed } = useViewTracking();
+  const isAdmin = user?.role === 'admin';
+  const isExecutive = user?.role === 'executive';
+
+  useEffect(() => {
+    markTimeOffViewed();
+  }, []);
+
+  const [tab, setTab] = useState('mine');
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [reason, setReason] = useState('');
+
+  const [denyingId, setDenyingId] = useState(null);
+  const [denyReason, setDenyReason] = useState('');
+
+  const [editingRequest, setEditingRequest] = useState(null);
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
+  const [editReason, setEditReason] = useState('');
+
+  const [weeklyForm, setWeeklyForm] = useState(() => Object.fromEntries(DAYS.map((d) => [d, ''])));
+  const [editingWeekly, setEditingWeekly] = useState(false);
+  const [viewingPerson, setViewingPerson] = useState(null);
+
+  const openEditWeekly = (prefillCurrent) => {
+    setWeeklyForm(Object.fromEntries(DAYS.map((d) => [d, prefillCurrent ? myWeekly?.[d] ?? '' : ''])));
+    setEditingWeekly(true);
+  };
+
+  const myTimeOff = timeOffRequests.filter((r) => r.uid === user?.uid);
+  const myWeekly = weeklyAvailability.find((w) => w.uid === user?.uid);
+  const otherWeekly = weeklyAvailability.filter((w) => w.uid !== user?.uid);
+  const pendingCount = timeOffRequests.filter((r) => r.status === 'pending').length;
+
+  // A new week starting means last week's answers no longer apply — treat
+  // it as if nothing's been set yet, rather than showing stale info.
+  const currentWeekStart = getWeekStart();
+  const myWeeklyIsCurrent = myWeekly && myWeekly.weekStartDate === currentWeekStart;
+  const weekRangeLabel = (() => {
+    const start = new Date(currentWeekStart);
+    const end = new Date(currentWeekStart + 6 * 24 * 60 * 60 * 1000);
+    return `${start.toLocaleDateString([], { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+  })();
+
+  const handleSubmit = async () => {
+    if (!startDate || !endDate || !reason.trim()) return;
+    await submitTimeOff(new Date(startDate).getTime(), new Date(endDate).getTime(), reason.trim());
+    setFormOpen(false);
+    setStartDate('');
+    setEndDate('');
+    setReason('');
+  };
+
+  const openDeny = (id) => {
+    setDenyingId(id);
+    setDenyReason('');
+  };
+  const confirmDeny = async () => {
+    await resolveTimeOff(denyingId, 'denied', denyReason.trim());
+    setDenyingId(null);
+  };
+
+  const openEdit = (r) => {
+    setEditingRequest(r);
+    setEditStart(new Date(r.startDate).toISOString().slice(0, 10));
+    setEditEnd(new Date(r.endDate).toISOString().slice(0, 10));
+    setEditReason(r.reason);
+  };
+  const saveEdit = async () => {
+    await updateTimeOffRequest(editingRequest.id, {
+      startDate: new Date(editStart).getTime(),
+      endDate: new Date(editEnd).getTime(),
+      reason: editReason.trim(),
+    });
+    setEditingRequest(null);
+  };
+  const handleDelete = (r) => {
+    if (window.confirm('Delete this request? This cannot be undone.')) deleteTimeOffRequest(r.id);
+  };
+
+  const saveWeekly = async () => {
+    await setMyWeeklyAvailability(weeklyForm);
+    setEditingWeekly(false);
+  };
+
+  return (
+    <div style={styles.page}>
+      <header style={styles.header}>
+        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Availability</h1>
+        <div style={styles.tabRow}>
+          <button style={{ ...styles.tab, ...(tab === 'mine' ? styles.tabActive : {}) }} onClick={() => setTab('mine')}>
+            My Time Off
+          </button>
+          <button style={{ ...styles.tab, ...(tab === 'weekly' ? styles.tabActive : {}) }} onClick={() => setTab('weekly')}>
+            Weekly Availability
+          </button>
+          {isAdmin || isExecutive ? (
+            <button style={{ ...styles.tab, ...(tab === 'admin' ? styles.tabActive : {}) }} onClick={() => setTab('admin')}>
+              All Requests {pendingCount > 0 ? `(${pendingCount})` : ''}
+            </button>
+          ) : null}
+        </div>
+      </header>
+
+      <div style={styles.body}>
+        {tab === 'mine' ? (
+          <>
+            {myTimeOff.length === 0 ? (
+              <p style={styles.hint}>No time off requested yet.</p>
+            ) : (
+              myTimeOff.map((r) => (
+                <div key={r.id} style={styles.card}>
+                  <div style={styles.cardHeaderRow}>
+                    <span style={styles.cardDates}>
+                      {formatDate(r.startDate)} – {formatDate(r.endDate)}
+                    </span>
+                    <span style={{ ...styles.statusBadge, background: STATUS_COLORS[r.status] }}>{r.status.toUpperCase()}</span>
+                  </div>
+                  <p style={styles.cardReason}>{r.reason}</p>
+                  {r.status === 'denied' && r.denialReason ? (
+                    <p style={styles.denialReason}>Reason for denial: {r.denialReason}</p>
+                  ) : null}
+                  {r.status === 'denied' ? (
+                    <button style={styles.linkButtonDanger} onClick={() => handleDelete(r)}>
+                      Delete Request
+                    </button>
+                  ) : null}
+                </div>
+              ))
+            )}
+            <button style={styles.addButton} onClick={() => setFormOpen(true)}>
+              + Request Time Off
+            </button>
+          </>
+        ) : null}
+
+        {tab === 'weekly' ? (
+          <>
+            <p style={styles.weekRangeLabel}>Week of {weekRangeLabel}</p>
+
+            {!myWeeklyIsCurrent && !editingWeekly ? (
+              <div style={styles.staleBanner}>
+                <p style={styles.staleBannerText}>
+                  {myWeekly
+                    ? "A new week has started — last week's availability no longer applies. Set your hours for this week."
+                    : "You haven't set your availability for this week yet."}
+                </p>
+                <button style={styles.addButton} onClick={() => openEditWeekly(false)}>
+                  Set My Availability
+                </button>
+              </div>
+            ) : null}
+
+            {myWeeklyIsCurrent && !editingWeekly ? (
+              <div style={styles.card}>
+                {DAYS.map((day) => (
+                  <div key={day} style={styles.weeklyDisplayRow}>
+                    <span style={styles.weeklyDisplayDay}>{DAY_LABELS[day]}</span>
+                    <span style={styles.weeklyDisplayValue}>{myWeekly[day] || '—'}</span>
+                  </div>
+                ))}
+                <button style={{ ...styles.addButton, marginTop: 12 }} onClick={() => openEditWeekly(true)}>
+                  Change My Availability
+                </button>
+              </div>
+            ) : null}
+
+            {editingWeekly ? (
+              <div style={styles.card}>
+                {DAYS.map((day) => (
+                  <div key={day} style={{ marginBottom: 10 }}>
+                    <label style={styles.label}>{DAY_LABELS[day]}</label>
+                    <input
+                      style={styles.input}
+                      placeholder="e.g. 9am-5pm or Unavailable"
+                      value={weeklyForm[day]}
+                      onChange={(e) => setWeeklyForm((prev) => ({ ...prev, [day]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                  {myWeeklyIsCurrent ? (
+                    <button style={styles.cancelButton} onClick={() => setEditingWeekly(false)}>
+                      Cancel
+                    </button>
+                  ) : null}
+                  <button style={styles.saveButton} onClick={saveWeekly}>
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {otherWeekly.length > 0 ? (
+              <>
+                <h3 style={styles.subheading}>Team</h3>
+                {otherWeekly.map((w) => (
+                  <button key={w.uid} style={styles.personRow} onClick={() => setViewingPerson(w)}>
+                    <span>{w.name}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>›</span>
+                  </button>
+                ))}
+              </>
+            ) : null}
+          </>
+        ) : null}
+
+        {tab === 'admin' && (isAdmin || isExecutive) ? (
+          <>
+            {timeOffRequests.length === 0 ? (
+              <p style={styles.hint}>No requests yet.</p>
+            ) : (
+              [...timeOffRequests]
+                .sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1))
+                .map((r) => {
+                  const isOwnRequest = r.uid === user?.uid;
+                  const canResolve = (isAdmin || (isExecutive && !isOwnRequest)) && r.status === 'pending';
+                  return (
+                  <div key={r.id} style={styles.card}>
+                    <div style={styles.cardHeaderRow}>
+                      <span style={styles.cardDates}>{r.name}</span>
+                      <span style={{ ...styles.statusBadge, background: STATUS_COLORS[r.status] }}>{r.status.toUpperCase()}</span>
+                    </div>
+                    <p style={styles.cardReason}>
+                      {formatDate(r.startDate)} – {formatDate(r.endDate)}
+                    </p>
+                    <p style={styles.cardReason}>{r.reason}</p>
+                    {r.status === 'denied' && r.denialReason ? (
+                      <p style={styles.denialReason}>Reason for denial: {r.denialReason}</p>
+                    ) : null}
+                    {isExecutive && isOwnRequest && r.status === 'pending' ? (
+                      <p style={styles.hint}>This is your own request — another admin or executive needs to approve it.</p>
+                    ) : null}
+                    <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                      {canResolve ? (
+                        <>
+                          <button style={styles.saveButton} onClick={() => resolveTimeOff(r.id, 'approved')}>
+                            Approve
+                          </button>
+                          <button style={styles.cancelButton} onClick={() => openDeny(r.id)}>
+                            Deny
+                          </button>
+                        </>
+                      ) : null}
+                      {isAdmin ? (
+                        <>
+                          <button style={styles.linkButton} onClick={() => openEdit(r)}>
+                            Edit
+                          </button>
+                          <button style={styles.linkButtonDanger} onClick={() => handleDelete(r)}>
+                            Delete
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                  );
+                })
+            )}
+          </>
+        ) : null}
+      </div>
+
+      {formOpen ? (
+        <div style={styles.modalBackdrop} onClick={() => setFormOpen(false)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Request Time Off</h2>
+            <label style={styles.label}>Start Date</label>
+            <DatePickerField value={startDate} onChange={setStartDate} placeholder="Start date" />
+            <label style={styles.label}>End Date</label>
+            <DatePickerField value={endDate} onChange={setEndDate} placeholder="End date" />
+            <label style={styles.label}>Reason</label>
+            <input style={styles.input} value={reason} onChange={(e) => setReason(e.target.value)} />
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button style={styles.cancelButton} onClick={() => setFormOpen(false)}>
+                Cancel
+              </button>
+              <button style={styles.saveButton} onClick={handleSubmit}>
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {denyingId ? (
+        <div style={styles.modalBackdrop} onClick={() => setDenyingId(null)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Reason for Denial</h2>
+            <input style={styles.input} value={denyReason} onChange={(e) => setDenyReason(e.target.value)} placeholder="e.g. Short staffed those dates" />
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button style={styles.cancelButton} onClick={() => setDenyingId(null)}>
+                Cancel
+              </button>
+              <button style={styles.saveButton} onClick={confirmDeny}>
+                Confirm Deny
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editingRequest ? (
+        <div style={styles.modalBackdrop} onClick={() => setEditingRequest(null)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Edit Request</h2>
+            <label style={styles.label}>Start Date</label>
+            <DatePickerField value={editStart} onChange={setEditStart} placeholder="Start date" />
+            <label style={styles.label}>End Date</label>
+            <DatePickerField value={editEnd} onChange={setEditEnd} placeholder="End date" />
+            <label style={styles.label}>Reason</label>
+            <input style={styles.input} value={editReason} onChange={(e) => setEditReason(e.target.value)} />
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button style={styles.cancelButton} onClick={() => setEditingRequest(null)}>
+                Cancel
+              </button>
+              <button style={styles.saveButton} onClick={saveEdit}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {viewingPerson ? (
+        <div style={styles.modalBackdrop} onClick={() => setViewingPerson(null)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>{viewingPerson.name}</h2>
+            {DAYS.map((day) => (
+              <div key={day} style={styles.viewRow}>
+                <span style={styles.viewDayLabel}>{DAY_LABELS[day]}</span>
+                <span>{viewingPerson[day] || 'Not set'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const styles = {
+  page: { padding: '28px 36px', maxWidth: 700 },
+  header: { marginBottom: 20 },
+  title: { fontSize: 22, fontWeight: 700, margin: '0 0 14px' },
+  tabRow: { display: 'flex', gap: 8 },
+  tab: { padding: '7px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' },
+  tabActive: { background: 'var(--neon)', color: 'var(--neon-text)' },
+  body: {},
+  hint: { color: 'var(--text-secondary)', fontSize: 13 },
+  card: { background: 'var(--bg-card)', border: 'none', borderRadius: 10, padding: 16, marginBottom: 10 },
+  weekRangeLabel: { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', margin: '0 0 12px' },
+  staleBanner: { background: 'rgba(232,82,75,0.1)', border: '1px solid rgba(232,82,75,0.35)', borderRadius: 10, padding: 14, marginBottom: 14 },
+  staleBannerText: { fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5, margin: '0 0 10px' },
+  weeklyDisplayRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--border)' },
+  weeklyDisplayDay: { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' },
+  weeklyDisplayValue: { fontSize: 13, color: 'var(--text-primary)' },
+  cardHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  cardDates: { fontSize: 14, fontWeight: 700 },
+  cardReason: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0' },
+  denialReason: { fontSize: 12, color: 'var(--danger)', fontStyle: 'italic', margin: '6px 0 0' },
+  statusBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px' },
+  addButton: { padding: '11px 0', width: '100%', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 14, marginTop: 4, textTransform: 'uppercase' },
+  label: { display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4, marginTop: 10 },
+  input: { width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', boxSizing: 'border-box' },
+  saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
+  cancelButton: { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
+  linkButton: { fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 },
+  linkButtonDanger: { fontSize: 12, color: 'var(--danger)', fontWeight: 600 },
+  subheading: { fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', margin: '20px 0 10px' },
+  personRow: { display: 'flex', justifyContent: 'space-between', width: '100%', padding: '10px 14px', borderRadius: 8, background: 'var(--bg-card)', border: '1px solid var(--border)', marginBottom: 6, fontSize: 13 },
+  viewRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 },
+  viewDayLabel: { color: 'var(--accent)', fontWeight: 600 },
+
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  modalCard: { width: 360, background: 'var(--bg-card)', border: 'none', borderRadius: 18, padding: 22, maxHeight: '80vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' },
+  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
+};

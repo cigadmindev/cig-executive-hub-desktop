@@ -1,0 +1,229 @@
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { brands, categories, marketAnalysisId, marketAnalysisLabel } from '../data/mockData';
+import { JOB_OPTIONS } from '../context/EventRequestsContext';
+import { nike } from '../theme/nike';
+
+function toggleInArray(arr, id) {
+  return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
+}
+
+export default function AdminUsersScreen() {
+  const { users, addUser, sendPasswordReset, setUserActive, user: currentUser } = useAuth();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('manager');
+  const [job, setJob] = useState(null);
+  const [brandIds, setBrandIds] = useState([]);
+  const [categoryIds, setCategoryIds] = useState([]);
+  const [creating, setCreating] = useState(false);
+
+  if (currentUser?.role !== 'admin') {
+    return (
+      <div style={styles.page}>
+        <p style={{ color: 'var(--text-secondary)' }}>Admins only.</p>
+      </div>
+    );
+  }
+
+  const handleCreate = async () => {
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      alert('Fill in name, email, and password.');
+      return;
+    }
+    if (password.length < 6) {
+      alert('Password too short — Firebase requires at least 6 characters.');
+      return;
+    }
+    setCreating(true);
+    try {
+      await addUser({ name: name.trim(), email: email.trim(), password, role, permissions: { brandIds, categoryIds }, job });
+      setName('');
+      setEmail('');
+      setPassword('');
+      setBrandIds([]);
+      setCategoryIds([]);
+      setJob(null);
+      alert(`${name} can sign in as ${role}. They've also been emailed a link to set their own password.`);
+    } catch (err) {
+      alert(`Could not create login: ${err?.message ?? 'Something went wrong.'}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleSendReset = async (targetEmail, targetName) => {
+    if (!window.confirm(`${targetName} will get an email to set a new password. Send it?`)) return;
+    try {
+      await sendPasswordReset(targetEmail);
+      alert(`Password reset email sent to ${targetName}.`);
+    } catch (err) {
+      alert(`Could not send: ${err?.message ?? 'Something went wrong.'}`);
+    }
+  };
+
+  const handleDeactivate = async (uid, targetName) => {
+    if (!window.confirm(`Deactivate ${targetName}? This removes them from the app completely — Manage Logins, every assignee picker, everywhere. This can't be undone; they'd need a brand new login to come back.`)) return;
+    try {
+      await setUserActive(uid, false);
+    } catch (err) {
+      alert(`Could not deactivate: ${err?.message ?? 'Something went wrong.'}`);
+    }
+  };
+
+  return (
+    <div style={styles.page}>
+      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Manage Logins</h1>
+
+      <h3 style={styles.sectionTitle}>Create a Login</h3>
+      <input style={styles.input} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+      <input style={styles.input} placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <input style={styles.input} type="password" placeholder="Temporary password" value={password} onChange={(e) => setPassword(e.target.value)} />
+
+      <div style={styles.roleRow}>
+        <button style={{ ...styles.roleButton, ...(role === 'manager' ? styles.roleButtonActive : {}) }} onClick={() => setRole('manager')}>
+          Manager
+        </button>
+        <button style={{ ...styles.roleButton, ...(role === 'executive' ? styles.roleButtonActive : {}) }} onClick={() => setRole('executive')}>
+          Executive
+        </button>
+        <button style={{ ...styles.roleButton, ...(role === 'admin' ? styles.roleButtonActive : {}) }} onClick={() => setRole('admin')}>
+          Admin
+        </button>
+      </div>
+
+      <p style={styles.permissionLabel}>Job / Department (optional)</p>
+      <div style={styles.chipWrap}>
+        {JOB_OPTIONS.map((j) => (
+          <button
+            key={j}
+            style={{ ...styles.chip, ...(job === j ? styles.chipActive : {}) }}
+            onClick={() => setJob(job === j ? null : j)}
+          >
+            {j}
+          </button>
+        ))}
+      </div>
+
+      {role === 'manager' ? (
+        <>
+          <p style={styles.permissionLabel}>Which restaurants can they see?</p>
+          <div style={styles.chipWrap}>
+            {[...brands, { id: marketAnalysisId, name: marketAnalysisLabel }].map((b) => (
+              <button
+                key={b.id}
+                style={{ ...styles.chip, ...(brandIds.includes(b.id) ? styles.chipActive : {}) }}
+                onClick={() => setBrandIds(toggleInArray(brandIds, b.id))}
+              >
+                {b.name}
+              </button>
+            ))}
+          </div>
+
+          <p style={styles.permissionLabel}>Which categories can they see?</p>
+          <div style={styles.chipWrap}>
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                style={{ ...styles.chip, ...(categoryIds.includes(c.id) ? styles.chipActive : {}) }}
+                onClick={() => setCategoryIds(toggleInArray(categoryIds, c.id))}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : role === 'executive' ? (
+        <p style={styles.adminNote}>
+          Executives automatically see everything, and can approve requests, post announcements, and
+          manage the calendar — but can't manage logins, connect Drive folders, set an opening date, or
+          approve their own requests.
+        </p>
+      ) : (
+        <p style={styles.adminNote}>Admins automatically see everything — no need to set permissions.</p>
+      )}
+
+      <button style={styles.button} disabled={creating} onClick={handleCreate}>
+        {creating ? 'Creating…' : 'Create Login'}
+      </button>
+
+      <h3 style={styles.sectionTitle}>Existing Logins</h3>
+      {users.map((item) => (
+        <div key={item.uid} style={{ ...styles.userRow, ...(!item.active ? styles.userRowInactive : {}) }}>
+          <div style={styles.userHeaderRow}>
+            <span style={styles.userName}>{item.name}</span>
+            {!item.active ? <span style={styles.inactiveBadge}>DEACTIVATED</span> : null}
+          </div>
+          <p style={styles.userDetail}>
+            {item.email} · {item.role}
+            {item.job ? ` · ${item.job}` : ''}
+          </p>
+          {item.role === 'manager' ? (
+            <p style={styles.userPermissions}>
+              {item.permissions.brandIds.length > 0 ? `Restaurants: ${item.permissions.brandIds.length}` : 'No restaurants granted yet'}
+              {' · '}
+              {item.permissions.categoryIds.length > 0 ? `Categories: ${item.permissions.categoryIds.length}` : 'No categories granted yet'}
+            </p>
+          ) : null}
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button style={styles.resetButton} onClick={() => handleSendReset(item.email, item.name)}>
+              Send Password Reset
+            </button>
+            {item.uid !== currentUser?.uid ? (
+              <button style={styles.deactivateButton} onClick={() => handleDeactivate(item.uid, item.name)}>
+                Deactivate Login
+              </button>
+            ) : (
+              <span style={styles.selfNote}>This is your own account</span>
+            )}
+          </div>
+        </div>
+      ))}
+
+      <p style={styles.note}>
+        These are real Firebase accounts — logins persist across restarts, for everyone on their own
+        device. New logins get an email to set their own password automatically. If anyone forgets
+        theirs later, use "Send Password Reset" above.
+      </p>
+    </div>
+  );
+}
+
+const styles = {
+  page: { padding: '28px 36px', maxWidth: 640 },
+  title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },
+  sectionTitle: { fontSize: 15, fontWeight: 700, marginTop: 20, marginBottom: 10 },
+  input: {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-card)',
+    color: 'var(--text-primary)',
+    fontSize: 13,
+    outline: 'none',
+    boxSizing: 'border-box',
+    marginBottom: 10,
+  },
+  roleRow: { display: 'flex', gap: 10, marginBottom: 12 },
+  roleButton: { flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 },
+  roleButtonActive: { background: 'var(--neon)', color: 'var(--neon-text)', borderColor: 'var(--neon)' },
+  permissionLabel: { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginTop: 10, marginBottom: 6 },
+  chipWrap: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  chip: { padding: '6px 12px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 12 },
+  chipActive: { background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, borderColor: 'var(--neon)' },
+  adminNote: { color: 'var(--text-secondary)', fontSize: 12, fontStyle: 'italic', marginTop: 4, marginBottom: 8 },
+  button: { width: '100%', padding: '12px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 14, marginTop: 8, textTransform: 'uppercase' },
+  userRow: { background: 'var(--bg-card)', borderRadius: 12, padding: 14, marginBottom: 8, border: 'none' },
+  userRowInactive: { opacity: 0.55, borderColor: 'rgba(232,82,75,0.4)' },
+  userHeaderRow: { display: 'flex', alignItems: 'center', gap: 8 },
+  inactiveBadge: { fontSize: 10, fontWeight: 700, color: 'var(--danger)', letterSpacing: 0.5 },
+  userName: { fontSize: 14, fontWeight: 600 },
+  userDetail: { fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' },
+  userPermissions: { fontSize: 11, color: 'var(--text-secondary)', margin: '4px 0 0' },
+  resetButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 },
+  deactivateButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'rgba(232,82,75,0.12)', color: 'var(--danger)', fontSize: 12, fontWeight: 700 },
+  selfNote: { color: 'var(--text-secondary)', fontSize: 11, fontStyle: 'italic', alignSelf: 'center' },
+  note: { marginTop: 16, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6 },
+};

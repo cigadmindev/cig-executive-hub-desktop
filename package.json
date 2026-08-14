@@ -1,0 +1,67 @@
+{
+  "name": "cig-executive-hub-desktop",
+  "version": "1.0.0",
+  "description": "CIG Executive Hub — Mac & Windows desktop app",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"npm:electron:dev\"",
+    "electron:dev": "wait-on tcp:5173 && cross-env NODE_ENV=development electron .",
+    "build": "vite build",
+    "dist:mac": "npm run build && dotenv -e .env -- electron-builder --mac",
+    "dist:win": "npm run build && dotenv -e .env -- electron-builder --win",
+    "dist:all": "npm run build && dotenv -e .env -- electron-builder --mac --win",
+    "publish:mac": "npm run build && dotenv -e .env -- electron-builder --mac --publish always",
+    "publish:win": "npm run build && dotenv -e .env -- electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "firebase": "^10.14.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "electron-updater": "^6.3.9",
+    "googleapis": "^144.0.0",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "dotenv-cli": "^7.4.2",
+    "electron": "^31.3.0",
+    "electron-builder": "^24.13.3",
+    "vite": "^5.4.1",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.cigconcepts.executivehub.desktop",
+    "productName": "CIG Executive Hub",
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "cigadmindev",
+      "repo": "cig-executive-hub-desktop"
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "target": ["dmg", "zip"],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": {
+        "teamId": "84D9V872YX"
+      }
+    },
+    "win": {
+      "target": ["nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
