@@ -2,6 +2,7 @@
   "name": "cig-executive-hub-desktop",
   "version": "1.0.0",
   "description": "CIG Executive Hub — Mac & Windows desktop app",
+  "author": "Culinary Innovations Group",
   "main": "electron/main.js",
   "private": true,
   "scripts": {
@@ -9,10 +10,10 @@
     "electron:dev": "wait-on tcp:5173 && cross-env NODE_ENV=development electron .",
     "build": "vite build",
     "dist:mac": "npm run build && dotenv -e .env -- electron-builder --mac",
-    "dist:win": "npm run build && dotenv -e .env -- electron-builder --win",
-    "dist:all": "npm run build && dotenv -e .env -- electron-builder --mac --win",
+    "dist:win": "npm run build && dotenv -e .env.windows -- electron-builder --win",
+    "dist:all": "npm run build && dotenv -e .env -e .env.windows -- electron-builder --mac --win",
     "publish:mac": "npm run build && dotenv -e .env -- electron-builder --mac --publish always",
-    "publish:win": "npm run build && dotenv -e .env -- electron-builder --win --publish always"
+    "publish:win": "npm run build && dotenv -e .env.windows -- electron-builder --win --publish always"
   },
   "dependencies": {
     "firebase": "^10.14.1",
