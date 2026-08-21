@@ -57,7 +57,7 @@ export default function AdminChatMonitorScreen() {
                 onClick={() => setActiveId(c.id)}
               >
                 <span style={styles.convoName}>
-                  {c.type === 'group' ? '👥 ' : '💬 '}
+                  
                   {c.name}
                 </span>
                 <span style={styles.convoMembers}>{c.memberNames.join(', ')}</span>

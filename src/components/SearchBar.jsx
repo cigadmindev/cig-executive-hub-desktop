@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Icon from './Icon';
 
 // Click the icon to reveal a text input; clearing the text (or clicking
 // the icon again) collapses it back. `query` is lifted to the parent so it
@@ -51,7 +52,7 @@ export default function SearchBar({ query, onChange, suggestions = [], placehold
   if (!open) {
     return (
       <button style={styles.iconButton} onClick={() => setOpen(true)} title="Search">
-        🔍
+        <Icon name="search" size={15} color="#FFFFFF" />
       </button>
     );
   }
@@ -59,7 +60,7 @@ export default function SearchBar({ query, onChange, suggestions = [], placehold
   return (
     <div style={styles.outerWrap} ref={wrapRef}>
       <div style={styles.wrap}>
-        <span style={styles.icon}>🔍</span>
+        <Icon name="search" size={14} color="var(--neon)" />
         <input
           ref={inputRef}
           style={styles.input}
@@ -73,7 +74,7 @@ export default function SearchBar({ query, onChange, suggestions = [], placehold
           onKeyDown={(e) => e.key === 'Escape' && close()}
         />
         <button style={styles.clearButton} onClick={close} title="Close search">
-          ✕
+          <Icon name="close" size={13} color="var(--text-secondary)" />
         </button>
       </div>
       {dropdownOpen && matches.length > 0 ? (
@@ -91,8 +92,10 @@ export default function SearchBar({ query, onChange, suggestions = [], placehold
 
 const styles = {
   iconButton: {
-    fontSize: 15,
-    padding: '6px 10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '8px 10px',
     borderRadius: 'var(--radius-sm)',
     border: '1px solid var(--border)',
     background: 'var(--bg-inset)',
@@ -108,7 +111,6 @@ const styles = {
     border: '1px solid var(--border-strong)',
     background: 'var(--bg-inset)',
   },
-  icon: { fontSize: 13 },
   input: {
     flex: 1,
     border: 'none',

@@ -36,7 +36,7 @@ export default function OperationalPOCScreen() {
         ‹ {location.name}
       </Link>
       <div style={styles.titleRow}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>🧾 Operational POC</h1>
+        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Operational POC</h1>
         <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={contacts.map((c) => c.item)} placeholder="Search contacts…" />
       </div>
       <p style={styles.subtitle}>

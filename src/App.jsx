@@ -18,7 +18,10 @@ import { OpeningInfoProvider } from './context/OpeningInfoContext';
 import { OpeningOngoingContactsProvider } from './context/OpeningOngoingContactsContext';
 import { ExecutiveNotesProvider } from './context/ExecutiveNotesContext';
 import { WorkOrdersProvider } from './context/WorkOrdersContext';
+import { ThemeProvider } from './context/ThemeContext';
 import LoginScreen from './screens/LoginScreen';
+import DirectoryScreen from './screens/DirectoryScreen';
+import ProfileScreen from './screens/ProfileScreen';
 import AppLayout from './layout/AppLayout';
 import HomeScreen from './screens/HomeScreen';
 import BrandScreen from './screens/BrandScreen';
@@ -33,7 +36,6 @@ import EventRequestsScreen from './screens/EventRequestsScreen';
 import RenewalsScreen from './screens/RenewalsScreen';
 import AdminUsersScreen from './screens/AdminUsersScreen';
 import PendingRequestsScreen from './screens/PendingRequestsScreen';
-import AdminChatMonitorScreen from './screens/AdminChatMonitorScreen';
 import SupportScreen from './screens/SupportScreen';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
@@ -78,11 +80,11 @@ function Gate() {
         <Route path="/announcements/new" element={<HomeAnnouncementsScreen />} />
         <Route path="/messages" element={<MessagesScreen />} />
         <Route path="/calendar" element={<CalendarScreen />} />
-        <Route path="/brand/:brandId/calendar" element={<CalendarScreen />} />
+        <Route path="/directory" element={<DirectoryScreen />} />
+        <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/availability" element={<AvailabilityScreen />} />
         <Route path="/admin/users" element={<AdminUsersScreen />} />
         <Route path="/admin/pending-requests" element={<PendingRequestsScreen />} />
-        <Route path="/admin/chats" element={<AdminChatMonitorScreen />} />
         <Route path="/brand/:brandId/location/:locationId/opening-checklist" element={<OpeningChecklistScreen />} />
         <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<OperationalPOCScreen />} />
         <Route path="/brand/:brandId/location/:locationId/integrations" element={<IntegrationsScreen />} />
@@ -100,6 +102,7 @@ function Gate() {
 export default function App() {
   return (
     <AuthProvider>
+      <ThemeProvider>
       <WorkOrdersProvider>
       <ExecutiveNotesProvider>
       <CategoryDriveLinksProvider>
@@ -140,6 +143,7 @@ export default function App() {
       </CategoryDriveLinksProvider>
       </ExecutiveNotesProvider>
       </WorkOrdersProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

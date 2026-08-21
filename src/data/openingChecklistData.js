@@ -152,12 +152,10 @@ export const PRE_OPENING_ORDERS_SECTIONS = [
     key: 'marketing_social',
     label: 'Marketing / Social Media',
     items: [
-      'Social Media: All',
       'Pre-Open Marketing Info To',
       'Establish w/ Google Address/Info',
       'All Banners/Sidewalk Signs',
       'Update Website New Locations',
-      'Videographer/Photography',
     ],
   },
   {
@@ -218,6 +216,11 @@ export const PRE_OPENING_ORDERS_SECTIONS = [
 // Operations Ongoing Business = permanent vendor relationships. Other
 // Tasks/Numbers = the misc contacts table from the PDF's bottom-right.
 export const OPERATIONAL_POC_SECTIONS = [
+  {
+    key: 'marketing_media',
+    label: 'Marketing / Media',
+    items: ['Social Media: All', 'Videographer/Photography'],
+  },
   {
     key: 'ongoing_business',
     label: 'Operations Ongoing Business',
@@ -339,7 +342,7 @@ export function computeRenewalOpeningTaskDates(openingDate, renewalTypeNames) {
 // see the rollover logic in ScheduleContext.
 export function getOpeningItemUrgency(item, now) {
   if (item.done) return { label: 'Done', color: '#5FA377' };
-  if (item.attentionFlag) return { label: '🚨 Needs Attention', color: '#E8524B' };
+  if (item.attentionFlag) return { label: 'Needs Attention', color: '#E8524B' };
   const daysUntilDue = (item.dateTime - now) / (24 * 60 * 60 * 1000);
   if (daysUntilDue < 0) return { label: 'Overdue', color: '#E8524B' };
   if (daysUntilDue <= 3) return { label: 'Due now', color: '#D9822B' };

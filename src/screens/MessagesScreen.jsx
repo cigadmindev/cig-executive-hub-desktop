@@ -20,8 +20,8 @@ const SENDER_COLORS = ['#DFFF4F', '#4A90D9', '#E8524B', '#5FA377', '#D9822B', '#
 function colorForSender(uid) {
   if (!uid) return SENDER_COLORS[0];
   let hash = 0;
-  for (let i = 0; i < uid.length; i++) hash = (hash * 31 + uid.charCodeAt(i)) % SENDER_COLORS.length;
-  return SENDER_COLORS[hash];
+  for (let i = 0; i < uid.length; i++) hash = (hash * 31 + uid.charCodeAt(i)) >>> 0;
+  return SENDER_COLORS[hash % SENDER_COLORS.length];
 }
 
 export default function MessagesScreen() {
@@ -154,7 +154,7 @@ export default function MessagesScreen() {
                   style={{ ...styles.convoRow, ...(activeId === c.id ? styles.convoRowActive : {}) }}
                   onClick={() => openConversation(c.id)}
                 >
-                  <div style={styles.convoIcon}>{c.type === 'group' ? '👥' : '💬'}</div>
+                  <div style={styles.convoIcon}>{c.type === 'group' ? '⁂' : '◦'}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={styles.convoName}>{c.name}</div>
                     <div style={styles.convoPreview}>{c.lastMessageText || 'No messages yet'}</div>
@@ -186,7 +186,7 @@ export default function MessagesScreen() {
         ) : (
           <>
             <div style={styles.threadHeader}>{activeConvo.name}</div>
-            <p style={styles.disclaimer}>Messages here aren't private — an admin can view any conversation.</p>
+            <p style={styles.disclaimer}>Messages here aren't private — stored in our database, message with that in mind.</p>
             <div style={styles.threadScroll}>
               {activeMessages.map((m, index) => {
                 const isMe = m.senderUid === user?.uid;

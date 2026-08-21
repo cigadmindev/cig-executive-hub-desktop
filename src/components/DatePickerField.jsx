@@ -38,7 +38,7 @@ export default function DatePickerField({ value, onChange, placeholder = 'Select
     <div style={styles.wrap} ref={wrapRef}>
       <button type="button" style={styles.trigger} onClick={() => setOpen((v) => !v)}>
         <span style={{ color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{display}</span>
-        <span style={styles.icon}>📅</span>
+        
       </button>
 
       {open ? (

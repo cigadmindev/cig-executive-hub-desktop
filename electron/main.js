@@ -1,53 +1,21 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
-const { google } = require('googleapis');
 
 const isDev = process.env.NODE_ENV === 'development';
 
-// Executive Notes preview — this is the only place the service account
-// credential ever gets loaded. It's a main-process-only file, never bundled
-// into anything the renderer (the React app / DevTools) can read directly,
-// which is the whole point of doing this here instead of in the browser
-// side of the app.
-const driveAuth = new google.auth.GoogleAuth({
-  keyFile: path.join(__dirname, 'drive-service-account.json'),
-  scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-});
-
-function extractFolderId(driveUrl) {
-  const match = driveUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : null;
-}
-
-ipcMain.handle('drive:getLatestFile', async (event, driveUrl) => {
-  const folderId = extractFolderId(driveUrl);
-  if (!folderId) return { error: "That doesn't look like a Drive folder link." };
-
-  try {
-    const authClient = await driveAuth.getClient();
-    const drive = google.drive({ version: 'v3', auth: authClient });
-    const res = await drive.files.list({
-      q: `'${folderId}' in parents and trashed = false`,
-      orderBy: 'modifiedTime desc',
-      pageSize: 1,
-      fields: 'files(id, name, modifiedTime, webViewLink, iconLink, thumbnailLink, mimeType)',
-      // Without these two, the API silently ignores anything inside a
-      // Shared Drive (Team Drive) and just returns zero results — no
-      // error, so it looks like an empty folder even when it isn't. Since
-      // the Executive Hub Drive structure is a Shared Drive, this is
-      // required, not optional.
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-    });
-    const file = res.data.files?.[0];
-    if (!file) return { error: 'No files found in that folder yet.' };
-    return { file };
-  } catch (err) {
-    // Most common cause: the folder hasn't been shared with the service
-    // account's email yet, or the Drive API isn't enabled on the project.
-    return { error: err.message || 'Could not reach Google Drive.' };
-  }
+// Executive Notes is temporarily offline. The Drive service account key
+// was revoked because it shipped inside the packaged app, where anyone
+// with the DMG could extract it from app.asar. Access is being rebuilt
+// server-side via a Cloud Function so the credential never leaves our
+// infrastructure and the executive-only role check is actually enforced
+// rather than just hidden in the renderer. Until then this returns a
+// clean message instead of throwing a Google API error.
+ipcMain.handle('drive:getLatestFile', async () => {
+  return {
+    error:
+      'Executive Notes is temporarily unavailable while we upgrade how it connects to Drive. It will return in an upcoming update.',
+  };
 });
 
 function createWindow() {
@@ -56,9 +24,10 @@ function createWindow() {
     height: 820,
     minWidth: 960,
     minHeight: 640,
+    icon: path.join(__dirname, '..', 'build', 'icon.png'),
     // Native traffic-light look on Mac; Windows just gets its normal title bar.
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : {}),
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#16161A',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

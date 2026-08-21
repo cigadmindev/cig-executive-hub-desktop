@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSchedule } from '../context/ScheduleContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
@@ -20,17 +20,15 @@ function formatTime(dateTime) {
 }
 
 export default function CalendarScreen() {
-  const { brandId: lockedBrandId } = useParams(); // present only on /brand/:brandId/calendar
   const { user, hasBrandAccess } = useAuth();
   const { entries, addEntry, updateEntry, deleteEntry, toggleOpeningItemDone } = useSchedule();
   const { getByBrand } = useCustomLocations();
   const { markCalendarViewed, hasUnseenCalendar } = useViewTracking();
   const isAdmin = user?.role === 'admin';
   const isExecutive = user?.role === 'executive';
-  const lockedBrand = lockedBrandId ? brands.find((b) => b.id === lockedBrandId) : null;
 
   const visibleBrands = brands.filter((b) => hasBrandAccess(user, b.id));
-  const [filterBrandId, setFilterBrandId] = useState(lockedBrandId ?? 'all');
+  const [filterBrandId, setFilterBrandId] = useState('all');
   const [selectedDate, setSelectedDate] = useState(null);
   const [confirmingOpeningItem, setConfirmingOpeningItem] = useState(null);
   const [editingOpeningDateId, setEditingOpeningDateId] = useState(null);
@@ -58,20 +56,9 @@ export default function CalendarScreen() {
     }
   }, [filterBrandId]);
 
-  // The unscoped Master Calendar (/calendar, no brandId) is admin/executive
-  // only — managers land here only via /brand/:brandId/calendar, scoped to
-  // a restaurant they actually have access to. Placed after every hook
-  // call above so hook order never changes between renders.
-  if (!lockedBrandId && !isAdmin && !isExecutive) {
-    return (
-      <div style={{ padding: '28px 36px' }}>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-          The Master Calendar is available to admins and executives. Open a specific restaurant to see
-          its calendar instead.
-        </p>
-      </div>
-    );
-  }
+  // No longer blocked for managers — visibleBrands (from hasBrandAccess)
+  // already scopes everything below to only what this user can see, the
+  // same fix mobile got: a filtered view instead of a hard block.
 
   const filteredEntries = entries.filter((e) => {
     const info = locationInfo[e.locationId];
@@ -91,9 +78,7 @@ export default function CalendarScreen() {
     ? filteredEntries.filter((e) => dayKey(new Date(e.dateTime)) === dayKey(selectedDate)).sort((a, b) => a.dateTime - b.dateTime)
     : [];
 
-  const allLocationOptions = Object.entries(locationInfo)
-    .map(([id, info]) => ({ id, ...info }))
-    .filter((loc) => !lockedBrandId || loc.brandId === lockedBrandId);
+  const allLocationOptions = Object.entries(locationInfo).map(([id, info]) => ({ id, ...info }));
 
   const openNewForm = () => {
     setEditingEntry(null);
@@ -163,39 +148,28 @@ export default function CalendarScreen() {
   return (
     <div style={styles.page}>
       <header style={styles.header}>
-        {lockedBrand ? (
-          <>
-            <Link to={`/brand/${lockedBrand.id}`} style={styles.backLink}>
-              ‹ {lockedBrand.name}
-            </Link>
-            <h1 style={styles.title}>Calendar</h1>
-          </>
-        ) : (
-          <>
-            <h1 style={styles.title}>Calendar</h1>
-            <div style={styles.filterRow}>
-              <button
-                style={{ ...styles.filterChip, ...(filterBrandId === 'all' ? styles.filterChipActive : {}) }}
-                onClick={() => setFilterBrandId('all')}
-              >
-                All
-              </button>
-              {visibleBrands.map((b) => (
-                <button
-                  key={b.id}
-                  style={{ ...styles.filterChip, ...(filterBrandId === b.id ? styles.filterChipActive : {}), position: 'relative' }}
-                  onClick={() => setFilterBrandId(b.id)}
-                >
-                  <span style={{ ...styles.filterDot, background: brandColors[b.name] ?? '#8A8A8A' }} />
-                  {b.name}
-                  {hasUnseenCalendar(b.id, [...b.locations.map((l) => l.id), ...getByBrand(b.id).map((l) => l.id)]) ? (
-                    <span style={styles.chipUnseenDot} />
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+        <h1 style={styles.title}>Calendar</h1>
+        <div style={styles.filterRow}>
+          <button
+            style={{ ...styles.filterChip, ...(filterBrandId === 'all' ? styles.filterChipActive : {}) }}
+            onClick={() => setFilterBrandId('all')}
+          >
+            All
+          </button>
+          {visibleBrands.map((b) => (
+            <button
+              key={b.id}
+              style={{ ...styles.filterChip, ...(filterBrandId === b.id ? styles.filterChipActive : {}), position: 'relative' }}
+              onClick={() => setFilterBrandId(b.id)}
+            >
+              <span style={{ ...styles.filterDot, background: brandColors[b.name] ?? '#8A8A8A' }} />
+              {b.name}
+              {hasUnseenCalendar(b.id, [...b.locations.map((l) => l.id), ...getByBrand(b.id).map((l) => l.id)]) ? (
+                <span style={styles.chipUnseenDot} />
+              ) : null}
+            </button>
+          ))}
+        </div>
       </header>
 
       <div style={styles.body}>
@@ -206,7 +180,7 @@ export default function CalendarScreen() {
         <div style={styles.detailCol}>
           {!selectedDate ? (
             <div style={styles.emptyState}>
-              <span style={styles.emptyStateIcon}>📅</span>
+              
               <p style={styles.hint}>Select a date to see what's scheduled.</p>
             </div>
           ) : (
@@ -216,7 +190,7 @@ export default function CalendarScreen() {
                   <p style={styles.detailEyebrow}>{selectedDate.toLocaleDateString([], { weekday: 'long' })}</p>
                   <h2 style={styles.detailTitle}>{selectedDate.toLocaleDateString([], { month: 'long', day: 'numeric' })}</h2>
                 </div>
-                {isAdmin ? (
+                {isAdmin || isExecutive ? (
                   <button style={styles.addButton} onClick={openNewForm}>
                     + Add Event
                   </button>
@@ -234,7 +208,7 @@ export default function CalendarScreen() {
                       <div style={{ ...styles.entryAccentBar, background: info.color }} />
                       <div style={styles.entryContent}>
                         <div style={styles.entryHeaderRow}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                             {e.openingItem ? (
                               <button
                                 style={styles.openingCheckbox}
@@ -250,9 +224,9 @@ export default function CalendarScreen() {
                             </span>
                           </div>
                           {e.renewalItem ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                               <span style={{ ...styles.openingBadge, background: urgency.color }}>
-                                {e.done ? 'Done' : e.attentionFlag ? '🚨 Needs Attention' : '🔑 License/Permit'}
+                                {e.done ? 'Done' : e.attentionFlag ? 'Needs Attention' : 'License/Permit'}
                               </span>
                               {!e.done ? (
                                 <Link
@@ -264,9 +238,9 @@ export default function CalendarScreen() {
                               ) : null}
                             </div>
                           ) : e.openingItem ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                               <span style={{ ...styles.openingBadge, background: urgency.color }}>
-                                {e.done ? 'Done' : e.attentionFlag ? '🚨 Needs Attention' : '🚀 Opening'}
+                                {e.done ? 'Done' : e.attentionFlag ? 'Needs Attention' : 'Opening'}
                               </span>
                               {!e.done ? (
                                 <button style={styles.linkButton} onClick={() => startEditOpeningDate(e)}>
@@ -274,7 +248,7 @@ export default function CalendarScreen() {
                                 </button>
                               ) : null}
                             </div>
-                          ) : isAdmin ? (
+                          ) : isAdmin || isExecutive ? (
                             <div style={{ display: 'flex', gap: 10 }}>
                               <button style={styles.linkButton} onClick={() => openEditForm(e)}>
                                 Edit
@@ -403,7 +377,7 @@ export default function CalendarScreen() {
 }
 
 const styles = {
-  page: { padding: '32px 40px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
+  page: { padding: '32px 40px', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
   header: { marginBottom: 24 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 8 },
   title: { fontSize: 30, fontWeight: 900, letterSpacing: -0.7, textTransform: 'uppercase', color: '#FFFFFF', margin: '0 0 14px' },
@@ -423,13 +397,13 @@ const styles = {
   filterChipActive: { background: 'var(--neon)', color: 'var(--neon-text)', borderColor: 'var(--neon)', fontWeight: 800 },
   filterDot: { width: 7, height: 7, borderRadius: 4, flexShrink: 0 },
   chipUnseenDot: { width: 6, height: 6, borderRadius: 3, background: 'var(--danger)', marginLeft: 2, flexShrink: 0 },
-  body: { display: 'flex', gap: 32, flex: 1, minHeight: 0 },
+  body: { display: 'flex', flexWrap: 'wrap', gap: 32, flex: 1, minHeight: 0 },
   calendarCol: { width: 420, flexShrink: 0 },
-  detailCol: { flex: 1, overflowY: 'auto', paddingTop: 4 },
+  detailCol: { flex: 1, minWidth: 340, overflowY: 'auto', paddingTop: 4 },
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 },
   emptyStateIcon: { fontSize: 28, opacity: 0.4 },
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
-  detailHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
+  detailHeaderRow: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18 },
   detailEyebrow: { fontSize: 11, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 2px' },
   detailTitle: { fontSize: 24, fontWeight: 900, letterSpacing: -0.5, margin: 0, textTransform: 'uppercase', color: '#FFFFFF' },
   addButton: {
@@ -452,8 +426,8 @@ const styles = {
   },
   entryAccentBar: { width: 4, flexShrink: 0 },
   entryContent: { padding: '14px 16px', flex: 1, minWidth: 0 },
-  entryHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  entryTitle: { fontSize: 14, fontWeight: 700 },
+  entryHeaderRow: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+  entryTitle: { fontSize: 14, fontWeight: 700, wordBreak: 'break-word' },
   entryTitleDone: { textDecoration: 'line-through', color: 'var(--text-tertiary)' },
   signedOffNote: { fontSize: 11, color: 'var(--success)', fontWeight: 600, margin: '2px 0 4px' },
   dateEditRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 6, flexWrap: 'wrap' },

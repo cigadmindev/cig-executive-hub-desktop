@@ -16,6 +16,13 @@ function formatDateTime(dt) {
   return `${d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
 }
 
+
+// Older records stored needs/jobs with a leading emoji — normalize for
+// display and for matching, so old data keeps working with new labels.
+function cleanNeed(n) {
+  return (n || '').replace(/^[^\u0000-\u007F]+\s*/, '');
+}
+
 export default function EventRequestsScreen() {
   const { brandId, locationId } = useParams();
   const { user } = useAuth();
@@ -150,10 +157,10 @@ export default function EventRequestsScreen() {
             const isExecutive = user?.role === 'executive';
             const isOwnRequest = r.requestedByUid === user?.uid;
             const canResolve = (isAdmin || (isExecutive && !isOwnRequest)) && r.status === 'pending';
-            const needsMe = !!user?.job && (r.needs ?? []).includes(user.job);
+            const needsMe = !!user?.job && (r.needs ?? []).map(cleanNeed).includes(cleanNeed(user.job));
             return (
               <div key={r.id} style={{ ...styles.card, ...(needsMe ? styles.cardNeedsMe : {}) }}>
-                {needsMe ? <p style={styles.needsMeBadge}>🔔 This needs you — {user.job}</p> : null}
+                {needsMe ? <p style={styles.needsMeBadge}>This needs you — {cleanNeed(user.job)}</p> : null}
                 <div style={styles.cardHeaderRow}>
                   <span style={styles.cardTitle}>{r.title}</span>
                   <span style={{ ...styles.statusBadge, background: STATUS_COLORS[r.status] }}>{r.status.toUpperCase()}</span>
@@ -163,7 +170,7 @@ export default function EventRequestsScreen() {
                 <p style={styles.cardDetails}>{r.details}</p>
                 {r.needs && r.needs.length > 0 ? (
                   <div style={styles.needsRow}>
-                    {r.needs.map((n) => (
+                    {r.needs.map((rawN) => cleanNeed(rawN)).map((n) => (
                       <span key={n} style={{ ...styles.needChip, ...(n === user?.job ? styles.needChipMine : {}) }}>
                         {n}
                       </span>
@@ -333,12 +340,17 @@ const styles = {
   },
   chipWrap: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   needOption: {
-    padding: '6px 12px',
-    borderRadius: 16,
+    flexBasis: '48%',
+    flexGrow: 1,
+    textAlign: 'left',
+    padding: '10px 12px',
+    borderRadius: 12,
     border: '1px solid var(--border)',
-    background: 'var(--bg-inset)',
+    background: 'rgba(255,255,255,0.04)',
     color: 'var(--text-secondary)',
     fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
   },
-  needOptionActive: { background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, borderColor: 'var(--neon)' },
+  needOptionActive: { background: 'rgba(223,255,79,0.10)', color: 'var(--neon)', fontWeight: 900, borderColor: 'var(--neon)' },
 };

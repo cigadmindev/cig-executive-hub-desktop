@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Icon from './Icon';
 
 // value/onChange work with plain 'HH:MM' (24hr) strings, same as a native
 // time input, so this drops in wherever one was used before.
@@ -51,7 +52,7 @@ export default function TimePickerField({ value, onChange }) {
     <div style={styles.wrap} ref={wrapRef}>
       <button type="button" style={styles.trigger} onClick={() => setOpen((v) => !v)}>
         <span style={{ color: value ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{display}</span>
-        <span style={styles.icon}>🕐</span>
+        <Icon name="clock" size={14} color="var(--text-secondary)" />
       </button>
 
       {open ? (
@@ -91,7 +92,6 @@ const styles = {
     alignItems: 'center',
     textAlign: 'left',
   },
-  icon: { fontSize: 12, opacity: 0.6 },
   popover: {
     position: 'absolute',
     top: 'calc(100% + 6px)',

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { brands, marketAnalysisId, marketAnalysisLabel } from '../data/mockData';
+import { brands } from '../data/mockData';
 import { brandColors } from '../theme/colors';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
@@ -9,8 +9,6 @@ import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useEventRequests } from '../context/EventRequestsContext';
 import RequestAccessModal from '../components/RequestAccessModal';
 import { nike } from '../theme/nike';
-
-const homeListData = [...brands, { id: marketAnalysisId, name: marketAnalysisLabel, locations: [] }];
 
 export default function HomeScreen() {
   const { user, hasBrandAccess } = useAuth();
@@ -24,7 +22,7 @@ export default function HomeScreen() {
 
   const handleCardClick = (item, allowed) => {
     if (allowed) {
-      navigate(item.id === marketAnalysisId ? '/overall-analysis' : `/brand/${item.id}`);
+      navigate(`/brand/${item.id}`);
       return;
     }
     if (!user) return;
@@ -57,17 +55,15 @@ export default function HomeScreen() {
       </header>
 
       <div style={styles.grid}>
-        {homeListData.map((item) => {
+        {brands.map((item) => {
           const allowed = hasBrandAccess(user, item.id);
           const activeLocations = item.locations.filter((l) => l.status === 'active');
-          const customLocations = item.id === marketAnalysisId ? [] : getByBrand(item.id);
+          const customLocations = getByBrand(item.id);
           const color = brandColors[item.name] ?? '#8A8A8A';
           const clickable = true;
           const allLocationIds = [...activeLocations.map((l) => l.id), ...customLocations.map((l) => l.id)];
           const hasUnseen =
-            allowed &&
-            item.id !== marketAnalysisId &&
-            (hasUnseenForBrand(item.id, allLocationIds) || hasNeedMatchingJob(allLocationIds, user?.job));
+            allowed && (hasUnseenForBrand(item.id, allLocationIds) || hasNeedMatchingJob(allLocationIds, user?.job));
           const totalLocations = activeLocations.length + customLocations.length;
           const isHovered = hoveredId === item.id && clickable;
           const pendingRequest = !allowed && user ? hasPendingRequest(user.email, 'brand', item.id) : false;
@@ -88,14 +84,12 @@ export default function HomeScreen() {
                 }}
               >
                 <div style={styles.cardBody}>
-                  <span style={styles.cardName}>{allowed ? item.name : `🔒 ${item.name}`}</span>
+                  <span style={styles.cardName}>{item.name}</span>
                   <span style={styles.cardMeta}>
                     {!allowed
                       ? pendingRequest
                         ? 'Request pending'
                         : 'Tap to request access'
-                      : item.id === marketAnalysisId
-                      ? 'Live data across every location'
                       : totalLocations > 0
                       ? `${totalLocations} location${totalLocations > 1 ? 's' : ''}`
                       : 'In Progress'}

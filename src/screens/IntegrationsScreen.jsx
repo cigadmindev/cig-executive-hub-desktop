@@ -1,12 +1,13 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { brands } from '../data/mockData';
+import Icon from '../components/Icon';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 
 const INTEGRATIONS = [
-  { key: 'toast', label: 'Toast POS', icon: '🍞', blurb: 'Sales, labor, and shift data pulled in from Toast.' },
-  { key: 'r365', label: 'Restaurant365', icon: '📊', blurb: 'Financial and inventory data pulled in from R365.' },
-  { key: 'opentable', label: 'OpenTable', icon: '🍽️', blurb: 'Reservation and covers data pulled in from OpenTable.' },
+  { key: 'toast', label: 'Toast POS', blurb: 'Sales, labor, and shift data pulled in from Toast.' },
+  { key: 'r365', label: 'Restaurant365', blurb: 'Financial and inventory data pulled in from R365.' },
+  { key: 'opentable', label: 'OpenTable', blurb: 'Reservation and covers data pulled in from OpenTable.' },
 ];
 
 export default function IntegrationsScreen() {
@@ -24,13 +25,15 @@ export default function IntegrationsScreen() {
       <Link to={`/brand/${brand.id}/location/${location.id}`} style={styles.backLink}>
         ‹ {location.name}
       </Link>
-      <h1 style={styles.title}>🔌 Integrations</h1>
+      <h1 style={{ ...styles.title, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Icon name="plug" size={22} color="#FFFFFF" />
+        Integrations
+      </h1>
       <p style={styles.subtitle}>Connections specific to this location — set these up whenever you're ready.</p>
 
       <div style={styles.grid}>
         {INTEGRATIONS.map((i) => (
           <div key={i.key} style={styles.card}>
-            <p style={styles.cardIcon}>{i.icon}</p>
             <h2 style={styles.cardTitle}>{i.label}</h2>
             <p style={styles.cardBlurb}>{i.blurb}</p>
             <button style={styles.connectButton} disabled>

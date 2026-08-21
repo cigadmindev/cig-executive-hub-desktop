@@ -26,7 +26,7 @@ export default function HomeAnnouncementsScreen() {
 
   const pickAll = () => {
     setSelectedTargetId('all');
-    setSelectedLabel('📢 Everywhere');
+    setSelectedLabel('Everywhere');
     setExpandedBrandId(null);
   };
 
@@ -60,7 +60,7 @@ export default function HomeAnnouncementsScreen() {
       <label style={styles.label}>Post to</label>
 
       <button style={{ ...styles.allButton, ...(selectedTargetId === 'all' ? styles.allButtonActive : {}) }} onClick={pickAll}>
-        📢 Everywhere
+        Everywhere
       </button>
 
       <div style={styles.brandList}>

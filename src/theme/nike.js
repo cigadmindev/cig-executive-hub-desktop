@@ -59,7 +59,7 @@ export const nike = {
     color: 'var(--neon-text)',
   },
   modalCard: {
-    background: '#161618',
+    background: 'var(--bg-card)',
     border: 'none',
     borderRadius: 16,
   },

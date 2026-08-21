@@ -23,6 +23,8 @@ export function CustomLocationsProvider({ children }) {
           name: data.name,
           createdBy: data.createdBy ?? null,
           timestamp: data.timestamp,
+          latitude: data.latitude ?? undefined,
+          longitude: data.longitude ?? undefined,
         };
       });
       setLocations(list);
@@ -33,12 +35,14 @@ export function CustomLocationsProvider({ children }) {
   const getByBrand = (brandId) =>
     locations.filter((l) => l.brandId === brandId).sort((a, b) => a.timestamp - b.timestamp);
 
-  const addLocation = async (brandId, name) => {
+  const addLocation = async (brandId, name, latitude, longitude) => {
     await addDoc(collection(db, 'customLocations'), {
       brandId,
       name,
       createdBy: auth.currentUser?.uid ?? null,
       timestamp: Date.now(),
+      latitude,
+      longitude,
     });
   };
 

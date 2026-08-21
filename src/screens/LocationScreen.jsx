@@ -8,6 +8,18 @@ import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import RequestAccessModal from '../components/RequestAccessModal';
 import { nike } from '../theme/nike';
+import Icon from '../components/Icon';
+import { iconName } from '../utils/iconGlyphs';
+
+// Same directory-card language as mobile's LocationScreen: icon circle,
+// title, subtitle, badge, chevron.
+const OPERATIONAL_ITEMS = [
+  { key: 'event-requests', icon: 'sparkles-outline', title: 'Event / Promo Requests', subtitle: 'Request and track events & promotions', path: 'event-requests' },
+  { key: 'renewals', icon: 'document-text-outline', title: 'License & Lease Renewals', subtitle: 'Expiration dates and renewals', path: 'renewals' },
+  { key: 'opening-checklist', icon: 'rocket-outline', title: 'Opening Checklist', subtitle: 'Everything needed before opening day', path: 'opening-checklist' },
+  { key: 'operational-poc', icon: 'call-outline', title: 'Operational POC', subtitle: 'Points of contact and set-up info', path: 'operational-poc' },
+  { key: 'integrations', icon: 'git-network-outline', title: 'Integrations', subtitle: 'Toast, R365, OpenTable & more', path: 'integrations' },
+];
 
 export default function LocationScreen() {
   const { brandId, locationId } = useParams();
@@ -27,14 +39,6 @@ export default function LocationScreen() {
   if (!location) return null;
 
   const hasUpcomingRenewal = getByLocation(locationId).some(isRenewalDueSoon);
-
-  const operationalTiles = [
-    { key: 'event-requests', label: '🎉 Event / Promo Requests', path: 'event-requests', badge: hasUnseenEventRequests(locationId) },
-    { key: 'renewals', label: '📄 License & Lease Renewals', path: 'renewals', badge: hasUpcomingRenewal },
-    { key: 'opening-checklist', label: '🚀 Opening Checklist', path: 'opening-checklist' },
-    { key: 'operational-poc', label: '🧾 Operational POC', path: 'operational-poc' },
-    { key: 'integrations', label: '🔌 Integrations', path: 'integrations' },
-  ];
 
   const handleCategoryClick = (cat) => {
     const allowed = hasCategoryAccess(user, cat.id);
@@ -72,22 +76,33 @@ export default function LocationScreen() {
 
       <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel }}>Operations</h3>
       <div style={styles.grid}>
-        {operationalTiles.map((tile) => (
-          <button
-            key={tile.key}
-            style={{ ...styles.card, ...nike.card }}
-            onClick={() => navigate(`/brand/${brand.id}/location/${location.id}/${tile.path}`)}
-          >
-            <span style={nike.cardName}>{tile.label}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {tile.badge ? <span style={nike.dot} /> : null}
-              <span style={nike.chevron}>›</span>
-            </div>
-          </button>
-        ))}
+        {OPERATIONAL_ITEMS.map((item) => {
+          const showRenewalBadge = item.key === 'renewals' && hasUpcomingRenewal;
+          const showEventBadge = item.key === 'event-requests' && hasUnseenEventRequests(locationId);
+          const showBadge = showRenewalBadge || showEventBadge;
+          return (
+            <button
+              key={item.key}
+              style={{ ...styles.card, ...nike.card }}
+              onClick={() => navigate(`/brand/${brand.id}/location/${location.id}/${item.path}`)}
+            >
+              <div style={styles.iconCircle}>
+                <Icon name={iconName(item.icon)} color="var(--neon)" />
+              </div>
+              <div style={styles.textCol}>
+                <span style={nike.cardName}>{item.title}</span>
+                <span style={styles.cardSubtitle}>{item.subtitle}</span>
+              </div>
+              <div style={styles.trailingCol}>
+                {showBadge ? <span style={nike.dot} /> : null}
+                <span style={nike.chevron}>›</span>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel }}>Categories</h3>
+      <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel }}>Directories</h3>
       <div style={styles.grid}>
         {categories.map((cat) => {
           const allowed = hasCategoryAccess(user, cat.id);
@@ -96,11 +111,19 @@ export default function LocationScreen() {
           return (
             <button
               key={cat.id}
-              style={{ ...styles.card, ...nike.card, opacity: allowed ? 1 : 0.55 }}
+              style={{ ...styles.card, ...nike.card, opacity: allowed ? 1 : 0.6 }}
               onClick={() => handleCategoryClick(cat)}
             >
-              <span style={nike.cardName}>{allowed ? cat.label : `🔒 ${cat.label}`}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={styles.iconCircle}>
+                <Icon name={iconName(allowed ? cat.icon : 'lock-closed-outline')} color={allowed ? 'var(--neon)' : 'var(--text-tertiary)'} />
+              </div>
+              <div style={styles.textCol}>
+                <span style={nike.cardName}>{cat.label}</span>
+                {!allowed ? (
+                  <span style={styles.cardSubtitle}>{pending ? 'Request pending' : 'Tap to request access'}</span>
+                ) : null}
+              </div>
+              <div style={styles.trailingCol}>
                 {showBadge ? <span style={nike.dot} /> : null}
                 <span style={nike.chevron}>{allowed ? '›' : pending ? 'Pending' : 'Request'}</span>
               </div>
@@ -121,12 +144,25 @@ const styles = {
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 20 },
   title: { margin: '4px 0 32px' },
   sectionHeader: { margin: '32px 0 12px' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 },
+  grid: { display: 'flex', flexDirection: 'column', gap: 10 },
   card: {
     width: '100%',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 16,
     textAlign: 'left',
   },
+  iconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    background: 'rgba(34,211,238,0.12)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  textCol: { display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 },
+  cardSubtitle: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, fontWeight: 400, textTransform: 'none', letterSpacing: 0 },
+  trailingCol: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
 };

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import Icon from './Icon';
 
 function formatDateTime(ts) {
   const d = new Date(ts);
@@ -52,14 +53,14 @@ export default function PostCard({ post, isNewest, onToggleLike, onAddComment, o
           style={{ ...styles.actionPill, ...(post.likedByMe ? styles.actionPillActive : {}) }}
           onClick={() => onToggleLike(post.id)}
         >
-          <span>👍</span>
+          <Icon name="thumbsUp" size={14} filled={post.likedByMe} color={post.likedByMe ? 'var(--neon)' : '#96969C'} />
           <span>{post.likes > 0 ? post.likes : 'Like'}</span>
         </button>
         <button
           style={{ ...styles.actionPill, ...(showComments ? styles.actionPillOpen : {}) }}
           onClick={() => setShowComments((v) => !v)}
         >
-          <span>💬</span>
+          <span>Comments</span>
           <span>{post.comments.length > 0 ? post.comments.length : 'Comment'}</span>
         </button>
       </div>
@@ -77,10 +78,17 @@ export default function PostCard({ post, isNewest, onToggleLike, onAddComment, o
                   <p style={styles.commentText}>{c.text}</p>
                   <div style={styles.commentMetaRow}>
                     <button
-                      style={{ ...styles.commentLike, color: c.likedByMe ? 'var(--accent)' : 'var(--text-tertiary)' }}
+                      style={{
+                        ...styles.commentLike,
+                        color: c.likedByMe ? 'var(--accent)' : 'var(--text-tertiary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
                       onClick={() => onToggleCommentLike(post.id, c.id)}
                     >
-                      👍{c.likes > 0 ? ` ${c.likes}` : ''}
+                      <Icon name="thumbsUp" size={12} filled={c.likedByMe} color="currentColor" />
+                      {c.likes > 0 ? c.likes : ''}
                     </button>
                     {isAdmin ? (
                       <button style={styles.commentDelete} onClick={() => handleDeleteComment(c.id)}>

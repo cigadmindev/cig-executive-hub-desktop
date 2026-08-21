@@ -1,5 +1,19 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
+// Same WinAnsi safety net as mobile — pdf-lib's built-in fonts can't
+// encode every Unicode character, and a stray one (most commonly a
+// narrow no-break space from toLocaleString()'s AM/PM formatting) was
+// enough to crash generation entirely.
+function sanitizeForPdf(text) {
+  return text
+    .replace(/[\u2000-\u200B\u202F\u205F\u3000]/g, ' ')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/[^\x00-\xFF]/g, '?');
+}
+
+
 function dataUrlToBytes(dataUrl) {
   const base64 = dataUrl.split(',')[1];
   const binary = atob(base64);
@@ -25,20 +39,28 @@ export async function embedSignatures(originalPdfBytes, title, signatures) {
   const { width, height } = page.getSize();
 
   page.drawText('Signature Record', { x: 50, y: height - 60, size: 16, font: boldFont, color: rgb(0.1, 0.1, 0.1) });
-  page.drawText(title, { x: 50, y: height - 82, size: 11, font, color: rgb(0.35, 0.35, 0.35) });
+  page.drawText(sanitizeForPdf(title), { x: 50, y: height - 82, size: 11, font, color: rgb(0.35, 0.35, 0.35) });
 
   let y = height - 140;
-  const rowHeight = 90;
+  const rowHeight = 130;
 
   for (const sig of signatures) {
-    if (y < 100) break; // safety: stop rather than draw off the bottom of the page
+    if (y < 140) break; // safety: stop rather than draw off the bottom of the page
+
+    let cursorY = y; // top of this row, moves down as each piece is drawn
 
     if (sig.signatureImageDataUrl) {
       try {
         const pngBytes = dataUrlToBytes(sig.signatureImageDataUrl);
         const pngImage = await pdfDoc.embedPng(pngBytes);
         const imgDims = pngImage.scaleToFit(180, 50);
-        page.drawImage(pngImage, { x: 50, y: y - 10, width: imgDims.width, height: imgDims.height });
+        // pdf-lib's drawImage y is the image's BOTTOM-LEFT corner — the
+        // image extends UPWARD from that point, not downward. Placing it
+        // at (cursorY - imgDims.height) puts its top at cursorY and lets
+        // it grow down correctly, instead of climbing back up into
+        // whatever was drawn above it.
+        page.drawImage(pngImage, { x: 50, y: cursorY - imgDims.height, width: imgDims.width, height: imgDims.height });
+        cursorY -= imgDims.height + 10;
       } catch {
         // A malformed signature image shouldn't take down the whole
         // document generation — just skip drawing it, the name/timestamp
@@ -46,15 +68,15 @@ export async function embedSignatures(originalPdfBytes, title, signatures) {
       }
     }
 
-    page.drawText(`${sig.name}`, { x: 50, y: y - 62, size: 11, font: boldFont, color: rgb(0.1, 0.1, 0.1) });
-    page.drawText(`Signed ${new Date(sig.signedAt).toLocaleString()}`, {
+    page.drawText(sanitizeForPdf(`${sig.name}`), { x: 50, y: cursorY - 12, size: 11, font: boldFont, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText(sanitizeForPdf(`Signed ${new Date(sig.signedAt).toLocaleString()}`), {
       x: 50,
-      y: y - 78,
+      y: cursorY - 28,
       size: 9,
       font,
       color: rgb(0.45, 0.45, 0.45),
     });
-    page.drawLine({ start: { x: 50, y: y - 88 }, end: { x: width - 50, y: y - 88 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
+    page.drawLine({ start: { x: 50, y: cursorY - 38 }, end: { x: width - 50, y: cursorY - 38 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
 
     y -= rowHeight;
   }

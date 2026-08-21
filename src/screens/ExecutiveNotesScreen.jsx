@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useExecutiveNotes } from '../context/ExecutiveNotesContext';
+import Icon from '../components/Icon';
 import { nike } from '../theme/nike';
 
 function formatDate(iso) {
@@ -40,17 +41,20 @@ export default function ExecutiveNotesScreen() {
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>📝 Executive Notes</h1>
+      <h1 style={{ ...styles.title, ...nike.pageTitleSm, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Icon name="document" size={22} color="#FFFFFF" />
+        Executive Notes
+      </h1>
       <p style={styles.subtitle}>Documented notes from executive meetings — an overview, not tied to any one location.</p>
 
       {driveUrl && !editing ? (
         <div style={styles.card}>
-          <p style={styles.cardText}>Connected to your executive notes folder.</p>
+          <p style={styles.cardText}>Executive notes are stored in Google Drive.</p>
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
             <button style={styles.openButton} onClick={() => window.open(driveUrl, '_blank')}>
-              📁 Open in Google Drive
+              Open in Google Drive
             </button>
-            {isAdmin ? (
+            {isAdmin && !(preview && preview.error) ? (
               <button style={styles.editButton} onClick={startEdit}>
                 Edit link
               </button>
@@ -62,10 +66,7 @@ export default function ExecutiveNotesScreen() {
             {preview === null ? (
               <p style={styles.cardText}>Checking Drive…</p>
             ) : preview.error ? (
-              <p style={styles.previewError}>
-                Couldn't load a preview — {preview.error}. Make sure this folder is shared with the
-                connection's service account as a Viewer.
-              </p>
+              <p style={styles.cardText}>{preview.error}</p>
             ) : (
               <a
                 href={preview.file.webViewLink}

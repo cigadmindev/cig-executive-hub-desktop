@@ -13,17 +13,17 @@ const DENIED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 // Shared by Event Requests' "who needs to be looped in" picker and Manage
 // Logins' job/department picker — same exact list both places.
 export const EVENT_NEEDS_OPTIONS = [
-  '🎨 Branding / Marketing Team',
-  '👔 Management',
-  '🍸 Drink / Beverage Manager',
-  '🍳 Kitchen / Chef',
-  '🧑‍🍳 Serving Staff',
-  '📸 Photography / Videography',
-  '👑 CEO',
-  '🧭 COO',
-  '💰 Financials',
-  '📣 Communications',
-  '💻 IT',
+  'Branding / Marketing Team',
+  'Management',
+  'Drink / Beverage Manager',
+  'Kitchen / Chef',
+  'Serving Staff',
+  'Photography / Videography',
+  'CEO',
+  'COO',
+  'Financials',
+  'Communications',
+  'IT',
   'Other',
 ];
 

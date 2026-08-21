@@ -144,6 +144,16 @@ export function AuthProvider({ children }) {
     setUser((prev) => (prev && prev.uid === uid ? { ...prev, permissions } : prev));
   };
 
+  // Changing an existing login's role from Manage Logins. Managers'
+  // brand/category permissions stay on the record even if they're moved
+  // to admin/executive — switching back to manager later restores
+  // exactly what they had before.
+  const updateUserRole = async (uid, role) => {
+    await updateDoc(doc(db, 'users', uid), { role });
+    await refreshUsers();
+    setUser((prev) => (prev && prev.uid === uid ? { ...prev, role } : prev));
+  };
+
   // Self-service profile editing — name and/or a profile photo, from the
   // sidebar. photoFile is an actual File from a picker; passing null for
   // it leaves the existing photo untouched (so name-only edits don't wipe
@@ -203,6 +213,7 @@ export function AuthProvider({ children }) {
         logout,
         addUser,
         updatePermissions,
+        updateUserRole,
         updateMyProfile,
         setUserActive,
         sendPasswordReset,

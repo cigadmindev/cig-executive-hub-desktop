@@ -112,10 +112,10 @@ export default function CategoryDetailScreen() {
             <div key={item}>
               <button style={{ ...styles.row, ...nike.card }} onClick={() => handleItemClick(item)}>
                 <span style={styles.itemName}>{item}</span>
-                {link ? (
-                  <span style={{ ...styles.connectedBadge, color: isAdmin ? 'var(--success)' : 'var(--text-tertiary)' }}>
-                    {isAdmin ? '📁 Connected' : '📁'}
-                  </span>
+                {link && isAdmin ? (
+                  <span style={{ ...styles.connectedBadge, color: 'var(--neon)' }}>✓</span>
+                ) : link ? (
+                  <span style={nike.chevron}>›</span>
                 ) : isAdmin ? (
                   <span style={{ ...styles.connectHint, color: 'var(--neon)' }}>+ Connect</span>
                 ) : (
@@ -163,7 +163,7 @@ export default function CategoryDetailScreen() {
       {posts.length > 0 ? (
         <div style={styles.postsSection}>
           <div style={styles.divider} />
-          <h2 style={{ ...styles.postsHeader, ...nike.sectionLabel, fontSize: 12 }}>📌 TEAM POSTS</h2>
+          <h2 style={{ ...styles.postsHeader, ...nike.sectionLabel, fontSize: 12 }}>TEAM POSTS</h2>
           {posts.map((post, index) => (
             <PostCard
               key={post.id}

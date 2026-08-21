@@ -8,8 +8,13 @@ function toggleInArray(arr, id) {
   return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 }
 
+
+function cleanJob(j) {
+  return (j || '').replace(/^[^\u0000-\u007F]+\s*/, '');
+}
+
 export default function AdminUsersScreen() {
-  const { users, addUser, sendPasswordReset, setUserActive, user: currentUser } = useAuth();
+  const { users, addUser, sendPasswordReset, setUserActive, updateUserRole, user: currentUser } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,6 +23,8 @@ export default function AdminUsersScreen() {
   const [brandIds, setBrandIds] = useState([]);
   const [categoryIds, setCategoryIds] = useState([]);
   const [creating, setCreating] = useState(false);
+  const [roleEditUser, setRoleEditUser] = useState(null);
+  const [savingRole, setSavingRole] = useState(false);
 
   if (currentUser?.role !== 'admin') {
     return (
@@ -69,6 +76,19 @@ export default function AdminUsersScreen() {
       await setUserActive(uid, false);
     } catch (err) {
       alert(`Could not deactivate: ${err?.message ?? 'Something went wrong.'}`);
+    }
+  };
+
+  const handleChangeRole = async (newRole) => {
+    if (!roleEditUser) return;
+    setSavingRole(true);
+    try {
+      await updateUserRole(roleEditUser.uid, newRole);
+      setRoleEditUser(null);
+    } catch (err) {
+      alert(`Could not change role: ${err?.message ?? 'Something went wrong.'}`);
+    } finally {
+      setSavingRole(false);
     }
   };
 
@@ -157,7 +177,7 @@ export default function AdminUsersScreen() {
           </div>
           <p style={styles.userDetail}>
             {item.email} · {item.role}
-            {item.job ? ` · ${item.job}` : ''}
+            {item.job ? ` · ${cleanJob(item.job)}` : ''}
           </p>
           {item.role === 'manager' ? (
             <p style={styles.userPermissions}>
@@ -171,9 +191,14 @@ export default function AdminUsersScreen() {
               Send Password Reset
             </button>
             {item.uid !== currentUser?.uid ? (
-              <button style={styles.deactivateButton} onClick={() => handleDeactivate(item.uid, item.name)}>
-                Deactivate Login
-              </button>
+              <>
+                <button style={styles.resetButton} onClick={() => setRoleEditUser({ uid: item.uid, name: item.name, role: item.role })}>
+                  Change Role
+                </button>
+                <button style={styles.deactivateButton} onClick={() => handleDeactivate(item.uid, item.name)}>
+                  Deactivate Login
+                </button>
+              </>
             ) : (
               <span style={styles.selfNote}>This is your own account</span>
             )}
@@ -186,6 +211,47 @@ export default function AdminUsersScreen() {
         device. New logins get an email to set their own password automatically. If anyone forgets
         theirs later, use "Send Password Reset" above.
       </p>
+
+      {roleEditUser ? (
+        <div style={styles.modalBackdrop} onClick={() => !savingRole && setRoleEditUser(null)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Change Role</h2>
+            <p style={styles.modalSubtitle}>{roleEditUser.name}</p>
+            <div style={styles.roleRow}>
+              <button
+                style={{ ...styles.roleButton, ...(roleEditUser.role === 'manager' ? styles.roleButtonActive : {}) }}
+                onClick={() => handleChangeRole('manager')}
+                disabled={savingRole}
+              >
+                Manager
+              </button>
+              <button
+                style={{ ...styles.roleButton, ...(roleEditUser.role === 'executive' ? styles.roleButtonActive : {}) }}
+                onClick={() => handleChangeRole('executive')}
+                disabled={savingRole}
+              >
+                Executive
+              </button>
+              <button
+                style={{ ...styles.roleButton, ...(roleEditUser.role === 'admin' ? styles.roleButtonActive : {}) }}
+                onClick={() => handleChangeRole('admin')}
+                disabled={savingRole}
+              >
+                Admin
+              </button>
+            </div>
+            {roleEditUser.role === 'manager' ? (
+              <p style={styles.modalNote}>
+                Switching to Admin or Executive gives full access immediately — their existing restaurant/category
+                permissions stay saved, so switching back to Manager later restores exactly what they had.
+              </p>
+            ) : null}
+            <button style={styles.cancelButton} onClick={() => setRoleEditUser(null)} disabled={savingRole}>
+              {savingRole ? 'Saving…' : 'Cancel'}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -211,8 +277,20 @@ const styles = {
   roleButtonActive: { background: 'var(--neon)', color: 'var(--neon-text)', borderColor: 'var(--neon)' },
   permissionLabel: { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginTop: 10, marginBottom: 6 },
   chipWrap: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  chip: { padding: '6px 12px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 12 },
-  chipActive: { background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, borderColor: 'var(--neon)' },
+  chip: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    textAlign: 'left',
+    padding: '10px 12px',
+    borderRadius: 12,
+    border: '1px solid var(--border)',
+    background: 'rgba(255,255,255,0.04)',
+    color: 'var(--text-primary)',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  chipActive: { background: 'rgba(223,255,79,0.10)', color: 'var(--neon)', fontWeight: 900, borderColor: 'var(--neon)' },
   adminNote: { color: 'var(--text-secondary)', fontSize: 12, fontStyle: 'italic', marginTop: 4, marginBottom: 8 },
   button: { width: '100%', padding: '12px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 14, marginTop: 8, textTransform: 'uppercase' },
   userRow: { background: 'var(--bg-card)', borderRadius: 12, padding: 14, marginBottom: 8, border: 'none' },
@@ -226,4 +304,20 @@ const styles = {
   deactivateButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'rgba(232,82,75,0.12)', color: 'var(--danger)', fontSize: 12, fontWeight: 700 },
   selfNote: { color: 'var(--text-secondary)', fontSize: 11, fontStyle: 'italic', alignSelf: 'center' },
   note: { marginTop: 16, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6 },
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  modalCard: { width: 380, background: 'var(--bg-card)', border: 'none', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 4px' },
+  modalSubtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px' },
+  modalNote: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, marginTop: 4 },
+  cancelButton: {
+    width: '100%',
+    marginTop: 16,
+    padding: '11px 0',
+    borderRadius: 10,
+    border: '1px solid var(--border)',
+    background: 'none',
+    color: 'var(--text-secondary)',
+    fontWeight: 600,
+    fontSize: 13,
+  },
 };

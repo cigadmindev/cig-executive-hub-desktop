@@ -3,6 +3,7 @@ import { collection, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { nike } from '../theme/nike';
+import Icon from '../components/Icon';
 
 // Grouped for the checkbox picker — each group maps to one or more actual
 // Firestore collections, but admins choose at this human-readable level.
@@ -96,7 +97,10 @@ export default function ResetAppDataScreen() {
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>⚠️ Reset App Data</h1>
+      <h1 style={{ ...styles.title, ...nike.pageTitleSm, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Icon name="warning" size={22} color="var(--danger)" />
+        Reset App Data
+      </h1>
       <p style={styles.subtitle}>
         Wipes working data back to a clean slate — pick exactly what to reset below. Only for resetting
         the app before real day-to-day use begins.

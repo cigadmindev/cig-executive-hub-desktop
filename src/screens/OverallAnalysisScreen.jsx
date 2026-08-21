@@ -3,13 +3,14 @@ import { brands } from '../data/mockData';
 import { brandColors } from '../theme/colors';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { nike } from '../theme/nike';
+import Icon from '../components/Icon';
 
 export default function OverallAnalysisScreen() {
   const { getByBrand } = useCustomLocations();
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>📊 Overall Analysis</h1>
+      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Overall Analysis</h1>
       <p style={styles.subtitle}>Live data pulled in from your connected tools, across every open location.</p>
 
       <div style={styles.connectRow}>
@@ -38,7 +39,10 @@ export default function OverallAnalysisScreen() {
                   <h3 style={styles.locationName}>{loc.name}</h3>
 
                   <div style={styles.section}>
-                    <p style={styles.sectionLabel}>💳 Expensify</p>
+                    <p style={{ ...styles.sectionLabel, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Icon name="creditCard" size={14} color="var(--text-secondary)" />
+                      Expensify
+                    </p>
                     <div style={styles.dataRow}>
                       <span style={styles.dataLabel}>Budget</span>
                       <span style={styles.notConnected}>Not connected yet</span>

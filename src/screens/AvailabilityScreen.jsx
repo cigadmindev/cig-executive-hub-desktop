@@ -33,7 +33,7 @@ export default function AvailabilityScreen() {
     markTimeOffViewed();
   }, []);
 
-  const [tab, setTab] = useState('mine');
+  const [tab, setTab] = useState(isAdmin || isExecutive ? 'weekly' : 'mine');
 
   const [formOpen, setFormOpen] = useState(false);
   const [startDate, setStartDate] = useState('');
@@ -118,9 +118,11 @@ export default function AvailabilityScreen() {
       <header style={styles.header}>
         <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Availability</h1>
         <div style={styles.tabRow}>
-          <button style={{ ...styles.tab, ...(tab === 'mine' ? styles.tabActive : {}) }} onClick={() => setTab('mine')}>
-            My Time Off
-          </button>
+          {isAdmin || isExecutive ? null : (
+            <button style={{ ...styles.tab, ...(tab === 'mine' ? styles.tabActive : {}) }} onClick={() => setTab('mine')}>
+              My Time Off
+            </button>
+          )}
           <button style={{ ...styles.tab, ...(tab === 'weekly' ? styles.tabActive : {}) }} onClick={() => setTab('weekly')}>
             Weekly Availability
           </button>

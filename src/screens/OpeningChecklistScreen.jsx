@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { brands } from '../data/mockData';
+import Icon from '../components/Icon';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useSchedule } from '../context/ScheduleContext';
 import { useOpeningInfo } from '../context/OpeningInfoContext';
@@ -113,7 +114,7 @@ export default function OpeningChecklistScreen() {
   };
 
   const renderUrgencyBadge = (item, urgency, onClick) => {
-    const label = item.done ? 'Done' : urgency.label === '🚨 Needs Attention' ? urgency.label : `${formatDate(item.dateTime)} ✎`;
+    const label = item.done ? 'Done' : urgency.label === 'Needs Attention' ? urgency.label : `${formatDate(item.dateTime)} ✎`;
     return item.done ? (
       <span style={{ ...styles.urgencyBadge, background: urgency.color }}>{label}</span>
     ) : (
@@ -142,12 +143,13 @@ export default function OpeningChecklistScreen() {
         ‹ {location.name}
       </Link>
       <div style={styles.titleRow}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>🚀 Opening Checklist</h1>
+        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Opening Checklist</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={searchSuggestions} placeholder="Search tasks…" />
           {isAdmin ? (
-            <button style={styles.regenerateButton} onClick={() => setConfirmingRegenerate(true)}>
-              🔄 Regenerate
+            <button style={{ ...styles.regenerateButton, display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setConfirmingRegenerate(true)}>
+              <Icon name="refresh" size={13} color="currentColor" />
+              Regenerate
             </button>
           ) : null}
         </div>
@@ -246,13 +248,13 @@ export default function OpeningChecklistScreen() {
                               ...(isLocked ? styles.doneCheckboxLocked : {}),
                             }}
                           >
-                            {item.done ? '✓' : isLocked ? '🔒' : ''}
+                            {item.done ? '✓' : isLocked ? '•' : ''}
                           </span>
                         </button>
                         <span style={{ ...styles.itemTitle, ...(item.done ? styles.itemTitleDone : {}) }}>{item.title}</span>
                         {renderUrgencyBadge(item, urgency, () => startEditItemDate(item))}
                       </div>
-                      {isLocked ? <p style={styles.lockedNote}>🔒 Requires: {blockedBy.join(', ')}</p> : null}
+                      {isLocked ? <p style={styles.lockedNote}>Requires: {blockedBy.join(', ')}</p> : null}
                       {neededFor.length > 0 ? <p style={styles.neededForNote}>↳ Needed for: {neededFor.join(', ')}</p> : null}
                       {item.done && item.doneBy ? <p style={styles.signedOffNote}>Signed off by {item.doneBy}</p> : null}
                       {editingDateItemId === item.id ? (

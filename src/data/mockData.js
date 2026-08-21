@@ -33,7 +33,8 @@ export const brands = [
 export const categories = [
   {
     id: 'operations',
-    label: '⚙️ Operations',
+    label: 'Operations',
+    icon: 'settings-outline',
     items: [
       'Daily Shift Reports',
       'Opening & Closing Checklists',
@@ -44,7 +45,8 @@ export const categories = [
   },
   {
     id: 'financials',
-    label: '💰 Financials',
+    label: 'Financials',
+    icon: 'cash-outline',
     items: [
       'P&L Reports (by month/year)',
       'Sales Reports & Summaries',
@@ -57,7 +59,8 @@ export const categories = [
   },
   {
     id: 'inventory',
-    label: '📦 Inventory',
+    label: 'Inventory',
+    icon: 'cube-outline',
     items: [
       'Stock Counts & Audits',
       'Supplier Information & Contacts',
@@ -69,7 +72,8 @@ export const categories = [
   },
   {
     id: 'menu',
-    label: '🍽️ Menu',
+    label: 'Menu',
+    icon: 'restaurant-outline',
     items: [
       'Current Menus (by location/concept)',
       'Recipe Cards & Standards',
@@ -79,7 +83,8 @@ export const categories = [
   },
   {
     id: 'staffing',
-    label: '👥 Staffing',
+    label: 'Staffing',
+    icon: 'people-outline',
     items: [
       'Employee Schedules',
       'Job Descriptions',
@@ -92,7 +97,8 @@ export const categories = [
   },
   {
     id: 'marketing',
-    label: '📣 Marketing & Media',
+    label: 'Marketing & Media',
+    icon: 'megaphone-outline',
     items: [
       'Social Media Content',
       'Event & Promotion Materials',
@@ -108,7 +114,8 @@ export const categories = [
   },
   {
     id: 'maintenance',
-    label: '🔧 Maintenance',
+    label: 'Maintenance',
+    icon: 'build-outline',
     items: [
       'Equipment Maintenance Logs',
       'Repair Requests & Work Orders',
@@ -120,7 +127,8 @@ export const categories = [
   },
   {
     id: 'projects',
-    label: '🏗️ Projects',
+    label: 'Projects',
+    icon: 'hammer-outline',
     items: [
       'Renovation & Construction Plans',
       'Expansion & Site Selection Documents',
@@ -134,7 +142,8 @@ export const categories = [
   },
   {
     id: 'compliance',
-    label: '📋 Compliance',
+    label: 'Compliance',
+    icon: 'clipboard-outline',
     items: [
       'Health & Safety Inspection Reports',
       'Food Safety & HACCP Documents',
@@ -145,7 +154,8 @@ export const categories = [
   },
   {
     id: 'techai',
-    label: '🤖 Tech & AI',
+    label: 'Tech & AI',
+    icon: 'hardware-chip-outline',
     items: [
       'Toast POS Setup & Notes',
       'AI Pilot Projects (Timers, Upsells, Order Accuracy, etc.)',
@@ -158,7 +168,8 @@ export const categories = [
   },
   {
     id: 'archives',
-    label: '🗄️ Archives',
+    label: 'Archives',
+    icon: 'archive-outline',
     items: [
       'Old Financials',
       'Completed Projects',
@@ -173,4 +184,4 @@ export const categories = [
 // Overall Analysis is a hub-level feature (like a brand), not nested inside
 // a category — used consistently across Home, permissions, and Admin.
 export const marketAnalysisId = 'market-analysis';
-export const marketAnalysisLabel = '📊 Overall Analysis';
+export const marketAnalysisLabel = 'Overall Analysis';

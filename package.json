@@ -1,7 +1,7 @@
 {
   "name": "cig-executive-hub-desktop",
-  "version": "1.0.0",
-  "description": "CIG Executive Hub — Mac & Windows desktop app",
+  "version": "1.0.1",
+  "description": "CIG Executive Hub \u2014 Mac & Windows desktop app",
   "author": "Culinary Innovations Group",
   "main": "electron/main.js",
   "private": true,
@@ -39,7 +39,9 @@
     "productName": "CIG Executive Hub",
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "!electron/*service-account*.json",
+      "!electron/*.bak"
     ],
     "publish": {
       "provider": "github",
@@ -47,8 +49,12 @@
       "repo": "cig-executive-hub-desktop"
     },
     "mac": {
+      "icon": "build/icon.png",
       "category": "public.app-category.business",
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
@@ -58,7 +64,10 @@
       }
     },
     "win": {
-      "target": ["nsis"]
+      "icon": "build/icon.png",
+      "target": [
+        "nsis"
+      ]
     },
     "nsis": {
       "oneClick": false,

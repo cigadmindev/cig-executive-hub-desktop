@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSupportRequests, SUPPORT_AREAS, SUPPORT_ERROR_TYPES, BRENNER_EMAIL } from '../context/SupportRequestsContext';
 import { useSupportAnnouncements } from '../context/SupportAnnouncementsContext';
 import { nike } from '../theme/nike';
+import Icon from '../components/Icon';
 
 function formatDateTime(ts) {
   const d = new Date(ts);
@@ -110,10 +111,17 @@ function RegularSupportView() {
                 </div>
                 <p style={styles.postMessage}>{post.message}</p>
                 <button
-                  style={{ ...styles.likeButton, color: post.likedByMe ? 'var(--accent)' : 'var(--text-secondary)' }}
+                  style={{
+                    ...styles.likeButton,
+                    color: post.likedByMe ? 'var(--accent)' : 'var(--text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
                   onClick={() => toggleLike(post.id)}
                 >
-                  👍 {post.likes > 0 ? post.likes : ''}
+                  <Icon name="thumbsUp" size={13} filled={post.likedByMe} color="currentColor" />
+                  {post.likes > 0 ? post.likes : ''}
                 </button>
 
                 <div style={styles.commentsBlock}>
@@ -293,7 +301,10 @@ function BrennerSupportView() {
                   <span style={styles.postTime}>{formatDateTime(post.timestamp)}</span>
                 </div>
                 <p style={styles.postMessage}>{post.message}</p>
-                <p style={styles.likeCount}>👍 {post.likes}</p>
+                <p style={{ ...styles.likeCount, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Icon name="thumbsUp" size={13} color="var(--text-secondary)" />
+                  {post.likes}
+                </p>
                 {post.comments.length > 0 ? (
                   <div style={styles.commentsBlock}>
                     {post.comments.map((c) => (

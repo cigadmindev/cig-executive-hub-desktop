@@ -4,3 +4,14 @@ dist-electron/
 .DS_Store
 electron/drive-service-account.json
 .env
+.env.windows
+
+# Credentials — never commit
+.env*
+!.env.example
+!.env.windows.example
+*service-account*.json
+*recovery-codes*
+*.p12
+*.mobileprovision
+*.keystore

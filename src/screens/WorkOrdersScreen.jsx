@@ -109,11 +109,11 @@ export default function WorkOrdersScreen() {
                 {o.description ? <p style={styles.cardDescription}>{o.description}</p> : null}
                 {o.originalFileUrl ? (
                   <a href={o.originalFileUrl} target="_blank" rel="noreferrer" style={styles.docLink}>
-                    📄 View document{o.originalFileName ? ` — ${o.originalFileName}` : ''}
+                    View document{o.originalFileName ? ` — ${o.originalFileName}` : ''}
                   </a>
                 ) : o.documentUrl ? (
                   <a href={o.documentUrl} target="_blank" rel="noreferrer" style={styles.docLink}>
-                    📁 View document
+                    View document
                   </a>
                 ) : null}
                 <p style={styles.progressNote}>
@@ -145,7 +145,7 @@ export default function WorkOrdersScreen() {
                 ) : o.status === 'completed' && o.signedFileUrl ? (
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
                     <a href={o.signedFileUrl} target="_blank" rel="noreferrer" style={styles.downloadButton}>
-                      ⬇️ Download Signed Document
+                      Download Signed Document
                     </a>
                     <button style={styles.deleteFilesButton} onClick={() => handleDeleteFiles(o)}>
                       Delete files from storage
@@ -159,7 +159,17 @@ export default function WorkOrdersScreen() {
                     </button>
                   </div>
                 ) : o.status === 'completed' && o.originalFileUrl ? (
-                  <p style={styles.hint}>Everyone's signed — putting the final document together…</p>
+                  <div style={styles.errorBlock}>
+                    <p style={styles.hint}>Everyone's signed — putting the final document together… If this seems stuck, retry.</p>
+                    <button style={styles.retryButton} onClick={() => handleRetry(o)}>
+                      Retry
+                    </button>
+                  </div>
+                ) : o.status === 'completed' && o.documentUrl ? (
+                  <p style={styles.hint}>
+                    All signatures recorded. This order used a Drive link rather than an uploaded PDF, so there's no
+                    generated signed file — the signature record lives here.
+                  </p>
                 ) : null}
                 <div style={styles.signaturesBlock}>
                   {o.assignedUids.map((uid) => {
