@@ -11,8 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { auth, db, storage } from '../firebaseConfig';
+import { auth, secondaryAuth, db, storage } from '../firebaseConfig';
 
 const AuthContext = createContext(undefined);
 
@@ -97,20 +96,21 @@ export function AuthProvider({ children }) {
 
   const logout = () => signOut(auth);
 
-  // Account creation runs server-side in a Cloud Function. Public sign-up is
-  // disabled on the project, so the client SDK can't create users at all —
-  // and shouldn't. The function verifies the caller is an admin against their
-  // own users document before doing anything, which a client-side check can't
-  // guarantee since anyone could call the endpoint directly.
-  //
-  // This also makes the auth user and the profile document a single unit: if
-  // the profile write fails, the function deletes the login it just created
-  // rather than leaving someone who can sign in but has no role.
+  // Uses a SECOND, independent Firebase Auth instance to create the new
+  // account so the admin doesn't get signed out of their own session.
   const addUser = async ({ name, email, password, role, permissions, job }) => {
-    const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'createUser');
-    const result = await fn({ name, email, password, role, permissions, job });
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password);
+    await setDoc(doc(db, 'users', cred.user.uid), {
+      name,
+      email: email.trim(),
+      role,
+      permissions,
+      active: true,
+      job: job ?? null,
+    });
+    await signOut(secondaryAuth);
+    await sendPasswordResetEmail(auth, email.trim());
     await refreshUsers();
-    return result.data;
   };
 
   const sendPasswordReset = async (email) => {
