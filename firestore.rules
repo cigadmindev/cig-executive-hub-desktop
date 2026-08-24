@@ -1,0 +1,153 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    function isAdminOrExecutive() {
+      return request.auth != null &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'executive');
+    }
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(resource) {
+      return isSignedIn() && resource.data.authorUid == request.auth.uid;
+    }
+    function isBrenner() {
+      return isSignedIn() && request.auth.token.email == 'brenner@cigconcepts.com';
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pushToken']));
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+    }
+
+    match /categoryPosts/{postId} {
+      allow read, update: if isSignedIn();
+      allow create: if isSignedIn();
+      allow delete: if isAdmin() || isOwner(resource);
+    }
+
+    match /brandPosts/{postId} {
+      allow read, update: if isSignedIn();
+      allow create: if isSignedIn();
+      allow delete: if isAdmin() || isOwner(resource);
+    }
+
+    match /accessRequests/{requestId} {
+      allow read, create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /schedules/{entryId} {
+      allow read: if isSignedIn();
+      allow create: if isAdminOrExecutive();
+      allow update: if isAdminOrExecutive() || (
+        isSignedIn() &&
+        resource.data.openingItem == true &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'openingFields', 'dateTime'])
+      );
+      allow delete: if isAdminOrExecutive() || isOwner(resource);
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.memberUids);
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.memberUids);
+      allow delete: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.memberUids);
+    }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.memberUids);
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && request.auth.uid == resource.data.senderUid;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.senderUid || request.auth.uid in resource.data.memberUids || isAdmin());
+    }
+
+    match /timeOffRequests/{requestId} {
+      allow read, create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'denied');
+    }
+
+    match /weeklyAvailability/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+    }
+
+    match /customLocations/{locationId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /eventRequests/{requestId} {
+      allow read, create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /licenseRenewals/{itemId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /viewTracking/{docId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    match /supportRequests/{id} {
+      allow read: if isSignedIn() && (isBrenner() || resource.data.submitterUid == request.auth.uid);
+      allow create: if isSignedIn();
+      allow update: if isBrenner();
+      allow delete: if isAdmin();
+    }
+
+    match /supportAnnouncements/{id} {
+      allow read: if isSignedIn();
+      allow create: if isBrenner();
+      allow update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /openingLocationInfo/{locationId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /openingOngoingContacts/{id} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /openingOngoingContactsSeedMarker/{locationId} {
+      allow read, create: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /categoryDriveLinks/{id} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin();
+    }
+
+    match /appSettings/{doc} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /workOrders/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signatures', 'status', 'completedAt', 'signedFileUrl', 'signedPdfError', 'filesDeleted']);
+      allow delete: if isAdmin();
+    }
+  }
+}
