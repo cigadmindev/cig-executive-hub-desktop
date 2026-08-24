@@ -1,22 +1,8 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 
 const isDev = process.env.NODE_ENV === 'development';
-
-// Executive Notes is temporarily offline. The Drive service account key
-// was revoked because it shipped inside the packaged app, where anyone
-// with the DMG could extract it from app.asar. Access is being rebuilt
-// server-side via a Cloud Function so the credential never leaves our
-// infrastructure and the executive-only role check is actually enforced
-// rather than just hidden in the renderer. Until then this returns a
-// clean message instead of throwing a Google API error.
-ipcMain.handle('drive:getLatestFile', async () => {
-  return {
-    error:
-      'Executive Notes is temporarily unavailable while we upgrade how it connects to Drive. It will return in an upcoming update.',
-  };
-});
 
 function createWindow() {
   const win = new BrowserWindow({

@@ -1,6 +1,7 @@
 const { onCall, HttpsError } = require('firebase-functions/https');
 const { setGlobalOptions } = require('firebase-functions');
 const admin = require('firebase-admin');
+const { google } = require('googleapis');
 
 admin.initializeApp();
 
@@ -81,4 +82,75 @@ exports.createUser = onCall(async (request) => {
   }
 
   return { uid: userRecord.uid, email: email.trim() };
+});
+
+// Executive Notes — returns metadata for the most recently modified file in
+// the executive notes Drive folder.
+//
+// The previous version ran in the Electron main process with the service
+// account key bundled inside the app. That key could be extracted from
+// app.asar by anyone who had the DMG, which meant every manager with the app
+// installed could read the executive folder regardless of the role check —
+// that check only hid the tile in the renderer, it didn't gate the data.
+//
+// Here the credential is held in Secret Manager and never reaches a client.
+// The role check runs server-side against the caller's own users document,
+// so it can't be bypassed by calling the endpoint directly.
+exports.getExecutiveNotesFile = onCall({ secrets: ['DRIVE_SA_KEY'] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be signed in.');
+  }
+
+  const callerDoc = await admin
+    .firestore()
+    .collection('users')
+    .doc(request.auth.uid)
+    .get();
+
+  if (!callerDoc.exists) {
+    throw new HttpsError('permission-denied', 'No profile found for this account.');
+  }
+  const role = callerDoc.data().role;
+  if (role !== 'admin' && role !== 'executive') {
+    throw new HttpsError('permission-denied', 'Executive Notes is restricted.');
+  }
+
+  const { driveUrl } = request.data || {};
+  if (!driveUrl) {
+    throw new HttpsError('invalid-argument', 'No Drive folder is configured.');
+  }
+
+  // Accepts either a /folders/<id> share URL or a bare folder id.
+  const match = String(driveUrl).match(/[-\w]{25,}/);
+  if (!match) {
+    throw new HttpsError('invalid-argument', "That doesn't look like a Drive folder link.");
+  }
+  const folderId = match[0];
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(process.env.DRIVE_SA_KEY),
+    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+  });
+  const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
+
+  let res;
+  try {
+    res = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = false`,
+      orderBy: 'modifiedTime desc',
+      pageSize: 1,
+      fields: 'files(name,webViewLink,iconLink,modifiedTime)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+  } catch (err) {
+    return { error: `Couldn't reach Google Drive: ${err.message}` };
+  }
+
+  const file = res.data.files && res.data.files[0];
+  if (!file) {
+    return { error: 'That folder is empty, or the connection account cannot see it.' };
+  }
+
+  return { file };
 });

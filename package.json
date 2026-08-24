@@ -1,7 +1,7 @@
 {
   "name": "cig-executive-hub-desktop",
   "version": "1.0.1",
-  "description": "CIG Executive Hub \u2014 Mac & Windows desktop app",
+  "description": "CIG Executive Hub — Mac & Windows desktop app",
   "author": "Culinary Innovations Group",
   "main": "electron/main.js",
   "private": true,
@@ -16,13 +16,12 @@
     "publish:win": "npm run build && dotenv -e .env.windows -- electron-builder --win --publish always"
   },
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "firebase": "^10.14.1",
+    "pdf-lib": "^1.17.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.0",
-    "electron-updater": "^6.3.9",
-    "googleapis": "^144.0.0",
-    "pdf-lib": "^1.17.1"
+    "react-router-dom": "^6.26.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

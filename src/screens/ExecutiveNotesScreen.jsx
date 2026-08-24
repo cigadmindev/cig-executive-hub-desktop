@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { useExecutiveNotes } from '../context/ExecutiveNotesContext';
 import Icon from '../components/Icon';
@@ -22,9 +23,12 @@ export default function ExecutiveNotesScreen() {
       return;
     }
     setPreview(null);
-    window.driveAPI
-      .getLatestFile(driveUrl)
-      .then(setPreview)
+    // Runs server-side: the Drive credential lives in Secret Manager and the
+    // admin/executive check happens in the function, not here. A role check in
+    // the renderer only hides the tile — it doesn't protect the data.
+    const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'getExecutiveNotesFile');
+    fn({ driveUrl })
+      .then((res) => setPreview(res.data))
       .catch((err) => setPreview({ error: err.message || 'Could not reach Google Drive.' }));
   }, [driveUrl]);
 

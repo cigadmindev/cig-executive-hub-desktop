@@ -1,9 +1,12 @@
-const { contextBridge, ipcRenderer } = require('electron');
-
-// Only ever expose specific, narrow functions here — never raw Node or
-// Electron APIs. The renderer can call window.driveAPI.getLatestFile(...),
-// which hands off to the main process; it never sees the actual service
-// account credential, just whatever result comes back.
-contextBridge.exposeInMainWorld('driveAPI', {
-  getLatestFile: (driveUrl) => ipcRenderer.invoke('drive:getLatestFile', driveUrl),
-});
+// Intentionally empty.
+//
+// This file used to expose window.driveAPI so the renderer could ask the main
+// process to fetch Executive Notes from Drive — that indirection existed only
+// because the service account key lived in the main process. The key now sits
+// in Secret Manager and the renderer calls a Cloud Function directly, so no
+// bridge is needed.
+//
+// Don't delete this file: main.js still points webPreferences.preload here,
+// and removing it breaks window creation. Leave it until that reference goes
+// too. New bridges, if any are ever needed, belong here via contextBridge —
+// never expose raw Node or Electron APIs to the renderer.
