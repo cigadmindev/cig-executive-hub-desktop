@@ -110,11 +110,26 @@ export function AuthProvider({ children }) {
     const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'createUser');
     const result = await fn({ name, email, password, role, permissions, job });
     await refreshUsers();
-    return result.data;
+
+    // The account is usable whether or not the invite lands, so a failed send
+    // is reported rather than thrown — rolling back a good account because an
+    // email bounced would be worse than telling the admin to resend.
+    let invited = true;
+    try {
+      const invite = httpsCallable(getFunctions(undefined, 'us-central1'), 'sendInviteEmail');
+      await invite({ email, name, isReset: false });
+    } catch (err) {
+      invited = false;
+    }
+    return { ...result.data, invited };
   };
 
-  const sendPasswordReset = async (email) => {
-    await sendPasswordResetEmail(auth, email.trim());
+  // Firebase's own reset email can't be styled on this project and lands in
+  // spam. The function generates the action link server-side and sends it
+  // through Resend from our own authenticated domain.
+  const sendPasswordReset = async (email, name) => {
+    const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'sendInviteEmail');
+    await fn({ email, name, isReset: true });
   };
 
   // Apple requires apps that support login to also let people delete their

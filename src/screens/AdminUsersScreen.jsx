@@ -45,14 +45,18 @@ export default function AdminUsersScreen() {
     }
     setCreating(true);
     try {
-      await addUser({ name: name.trim(), email: email.trim(), password, role, permissions: { brandIds, categoryIds }, job });
+      const created = await addUser({ name: name.trim(), email: email.trim(), password, role, permissions: { brandIds, categoryIds }, job });
       setName('');
       setEmail('');
       setPassword('');
       setBrandIds([]);
       setCategoryIds([]);
       setJob(null);
-      alert(`${name} can sign in as ${role}. They've also been emailed a link to set their own password.`);
+      alert(
+        created?.invited
+          ? `${name} can sign in as ${role}. They've been emailed a link to set their own password.`
+          : `${name} can sign in as ${role}, but the invite email didn't send. Use "Send reset" to try again.`
+      );
     } catch (err) {
       alert(`Could not create login: ${err?.message ?? 'Something went wrong.'}`);
     } finally {
@@ -63,7 +67,7 @@ export default function AdminUsersScreen() {
   const handleSendReset = async (targetEmail, targetName) => {
     if (!window.confirm(`${targetName} will get an email to set a new password. Send it?`)) return;
     try {
-      await sendPasswordReset(targetEmail);
+      await sendPasswordReset(targetEmail, targetName);
       alert(`Password reset email sent to ${targetName}.`);
     } catch (err) {
       alert(`Could not send: ${err?.message ?? 'Something went wrong.'}`);

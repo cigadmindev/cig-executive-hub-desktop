@@ -2,6 +2,8 @@ const { onCall, HttpsError } = require('firebase-functions/https');
 const { setGlobalOptions } = require('firebase-functions');
 const admin = require('firebase-admin');
 const { google } = require('googleapis');
+const { Resend } = require('resend');
+const { welcomeHtml } = require('./welcomeEmail');
 
 admin.initializeApp();
 
@@ -153,4 +155,99 @@ exports.getExecutiveNotesFile = onCall({ secrets: ['DRIVE_SA_KEY'] }, async (req
   }
 
   return { file };
+});
+
+// Branded invite / password-reset email.
+//
+// Firebase's own templates are uneditable on this project and its mail lands
+// in spam, so we generate the action link with the Admin SDK — which returns
+// the URL without sending anything — and deliver it ourselves through Resend
+// from an authenticated domain we control.
+//
+// Table-based layout with explicit per-cell backgrounds: Outlook renders with
+// Word's engine and ignores flexbox, and several clients won't inherit a dark
+// background reliably.
+function inviteHtml({ name, link, isReset }) {
+  const heading = isReset ? 'Reset your password' : 'Your account is ready';
+  const body = isReset
+    ? 'Use the button below to choose a new password for your CIG Executive Hub account.'
+    : 'An account has been created for you in the CIG Executive Hub. Set a password to get started.';
+  const cta = isReset ? 'Set new password' : 'Set your password';
+
+  return `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+</head>
+<body style="margin:0;padding:0;background-color:#0A0A0B;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0A0A0B;">
+<tr><td align="center" style="padding:40px 16px;">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:100%;">
+
+    <tr><td style="font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:bold;letter-spacing:-0.4px;text-transform:uppercase;color:#FFFFFF;padding-bottom:12px;">CIG Executive Hub</td></tr>
+    <tr><td style="padding-bottom:26px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="width:48px;height:3px;background-color:#22D3EE;font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
+
+    <tr><td style="background-color:#1C1C22;border:1px solid #2A2A33;border-radius:10px;padding:32px;">
+      <div style="font-family:Helvetica,Arial,sans-serif;font-size:12px;font-weight:bold;letter-spacing:1.2px;text-transform:uppercase;color:#22D3EE;padding-bottom:12px;">${isReset ? 'Password reset' : 'Welcome'}</div>
+      <div style="font-family:Helvetica,Arial,sans-serif;font-size:24px;font-weight:bold;letter-spacing:-0.4px;text-transform:uppercase;color:#FFFFFF;padding-bottom:14px;">${heading}</div>
+      <div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:23px;color:#9A9AA6;padding-bottom:28px;">${name ? name + ',<br><br>' : ''}${body}</div>
+
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr><td style="background-color:#22D3EE;border-radius:8px;">
+          <a href="${link}" style="display:inline-block;padding:14px 28px;font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:bold;color:#0A0A0B;text-decoration:none;">${cta}</a>
+        </td></tr>
+      </table>
+
+      <div style="font-family:Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#9A9AA6;padding-top:28px;">If the button doesn't work, paste this into your browser:</div>
+      <div style="font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#22D3EE;word-break:break-all;padding-top:6px;">${link}</div>
+    </td></tr>
+
+    <tr><td style="font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#6A6A76;padding-top:22px;">This link expires in one hour. If you weren't expecting it, you can ignore this email.</td></tr>
+
+  </table>
+</td></tr>
+</table>
+</body></html>`;
+}
+
+exports.sendInviteEmail = onCall({ secrets: ['RESEND_API_KEY'] }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be signed in.');
+  }
+
+  const callerDoc = await admin.firestore().collection('users').doc(request.auth.uid).get();
+  if (!callerDoc.exists || callerDoc.data().role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Only admins can send invites.');
+  }
+
+  const { email, name, isReset } = request.data || {};
+  if (!email) {
+    throw new HttpsError('invalid-argument', 'An email address is required.');
+  }
+
+  let link;
+  try {
+    link = await admin.auth().generatePasswordResetLink(email.trim());
+  } catch (err) {
+    if (err.code === 'auth/user-not-found') {
+      throw new HttpsError('not-found', 'No account exists for that email.');
+    }
+    throw new HttpsError('internal', err.message);
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: 'CIG Executive Hub <no-reply@cigconcepts.com>',
+    to: [email.trim()],
+    subject: isReset ? 'Reset your CIG Executive Hub password' : 'Set up your CIG Executive Hub account',
+    html: isReset ? inviteHtml({ name, link, isReset: true }) : welcomeHtml({ name, link }),
+  });
+
+  if (error) {
+    throw new HttpsError('internal', `Email failed to send: ${error.message}`);
+  }
+
+  return { sent: true, email: email.trim() };
 });
