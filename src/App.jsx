@@ -65,6 +65,7 @@ function Gate() {
   }
 
   return (
+    <Providers>
     <AppLayout>
       <Routes>
         <Route path="/" element={<HomeScreen />} />
@@ -96,12 +97,18 @@ function Gate() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppLayout>
+    </Providers>
   );
 }
 
-export default function App() {
+// Every one of these opens a Firestore listener the moment it mounts.
+// They used to sit above the auth gate, so on a cold start they all fired
+// while signed out and each threw permission-denied — correct behaviour
+// from the rules, but it buried real errors in console noise. Mounting
+// them only once there's a user means the listeners start with a token.
+function Providers({ children }) {
   return (
-    <AuthProvider>
+
       <ThemeProvider>
       <WorkOrdersProvider>
       <ExecutiveNotesProvider>
@@ -120,12 +127,8 @@ export default function App() {
                             <RenewalsProvider>
                               <AccessRequestsProvider>
                                 <ViewTrackingProvider>
-                                  {/* HashRouter, not BrowserRouter — Electron loads from a local
-                                      file:// path in production, and HashRouter is the one that
-                                      works reliably there without extra server config. */}
-                                  <HashRouter>
-                                    <Gate />
-                                  </HashRouter>
+    {children}
+
                                 </ViewTrackingProvider>
                               </AccessRequestsProvider>
                             </RenewalsProvider>
@@ -144,6 +147,18 @@ export default function App() {
       </ExecutiveNotesProvider>
       </WorkOrdersProvider>
       </ThemeProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      {/* HashRouter, not BrowserRouter — Electron loads from a local
+          file:// path in production, and HashRouter is the one that
+          works reliably there without extra server config. */}
+      <HashRouter>
+        <Gate />
+      </HashRouter>
     </AuthProvider>
   );
 }
