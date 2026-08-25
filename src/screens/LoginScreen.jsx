@@ -47,6 +47,9 @@ export default function LoginScreen() {
             {submitting ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+        <p style={styles.helpNote}>
+          Forgot your password? Contact your administrator to be sent a reset link.
+        </p>
       </div>
     </div>
   );
@@ -99,6 +102,10 @@ const styles = {
     outline: 'none',
   },
   error: { color: '#E8524B', fontSize: 12, marginTop: -2, marginBottom: 10 },
+  // There's deliberately no self-service reset link. An unauthenticated
+  // reset endpoint would let anyone probe which addresses have accounts,
+  // so resets run through an admin who already has a session.
+  helpNote: { color: 'var(--text-secondary)', fontSize: 12, lineHeight: '17px', textAlign: 'center', marginTop: 18, marginBottom: 0, opacity: 0.75 },
   button: {
     width: '100%',
     padding: '11px 0',
