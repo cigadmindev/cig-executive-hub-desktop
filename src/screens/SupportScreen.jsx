@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useSupportRequests, SUPPORT_AREAS, SUPPORT_ERROR_TYPES, BRENNER_EMAIL } from '../context/SupportRequestsContext';
+import { useSupportRequests, SUPPORT_AREAS, SUPPORT_ERROR_TYPES, isSupportAdmin } from '../context/SupportRequestsContext';
 import { useSupportAnnouncements } from '../context/SupportAnnouncementsContext';
 import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
@@ -24,8 +24,7 @@ function getUrgency(timestamp, status, now) {
 
 export default function SupportScreen() {
   const { user } = useAuth();
-  const isBrenner = user?.email === BRENNER_EMAIL;
-  return isBrenner ? <BrennerSupportView /> : <RegularSupportView />;
+  return isSupportAdmin(user) ? <AdminSupportView /> : <RegularSupportView />;
 }
 
 // ---------- Regular users: submit a request, or view Brenner's updates ----------
@@ -169,7 +168,7 @@ function RegularSupportView() {
 
 // ---------- Brenner: review queue + post updates ----------
 
-function BrennerSupportView() {
+function AdminSupportView() {
   const { requests, setStatus } = useSupportRequests();
   const { users } = useAuth();
   const { posts, postUpdate } = useSupportAnnouncements();

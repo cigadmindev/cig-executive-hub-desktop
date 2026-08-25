@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useSupportRequests, BRENNER_EMAIL } from '../context/SupportRequestsContext';
+import { useSupportRequests } from '../context/SupportRequestsContext';
 import { useTheme } from '../context/ThemeContext';
 import Icon from '../components/Icon';
 
@@ -10,7 +10,6 @@ export default function ProfileScreen() {
   const { user, logout, deleteMyAccount, updateMyProfile } = useAuth();
   const { requests: supportRequests } = useSupportRequests();
   const { hue, intensity, setAccentTheme, previewHue, previewIntensity } = useTheme();
-  const isBrenner = user?.email === BRENNER_EMAIL;
   const isAdmin = user?.role === 'admin';
   const isExecutive = user?.role === 'executive';
 
@@ -88,7 +87,7 @@ export default function ProfileScreen() {
       key: 'support',
       icon: 'lifeBuoy',
       label: 'Support',
-      badge: isBrenner && supportRequests.some((r) => r.status !== 'completed'),
+      badge: isAdmin && supportRequests.some((r) => r.status !== 'completed'),
       onClick: () => navigate('/support'),
     },
     ...(isAdmin ? [{ key: 'manageLogins', icon: 'people', label: 'Manage Logins', onClick: () => navigate('/admin/users') }] : []),

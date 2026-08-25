@@ -1,0 +1,33 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /privacy-policy.html {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /support-page.html {
+      allow read: if true;
+      allow write: if false;
+    }
+    // Read is open to any signed-in user because Storage rules can't reach
+    // Firestore, so they can't tell who submitted or received a work order.
+    // Per-order access is coming via signed URLs issued by a Cloud Function
+    // that checks the work order document first. Until then, the limits below
+    // at least stop arbitrary uploads and after-the-fact tampering.
+    match /workOrders/{orderId}/{fileName} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf');
+      allow update: if request.auth != null
+        && request.resource.size < 20 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf');
+      allow delete: if request.auth != null;
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

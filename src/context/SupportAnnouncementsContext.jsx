@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, addDoc, doc, runTransaction } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
-import { BRENNER_EMAIL } from './SupportRequestsContext';
+import { isSupportAdmin } from './SupportRequestsContext';
 
 const SupportAnnouncementsContext = createContext(undefined);
 const COLLECTION = 'supportAnnouncements';
@@ -38,13 +38,13 @@ export function SupportAnnouncementsProvider({ children }) {
   // Everyone sees posts targeted at them (or "everyone"); Brenner sees all
   // his own posts regardless. Comments are filtered separately below —
   // being able to see a post is not the same as seeing every comment on it.
-  const isBrenner = user?.email === BRENNER_EMAIL;
+  const isAdmin = isSupportAdmin(user);
   const visiblePosts = raw
-    .filter((p) => isBrenner || p.visibleToAll || p.visibleToUids.includes(user?.uid))
+    .filter((p) => isAdmin || p.visibleToAll || p.visibleToUids.includes(user?.uid))
     .map((p) => ({
       ...p,
       // Anyone but Brenner only ever sees their own private thread with him.
-      comments: isBrenner ? p.comments : p.comments.filter((c) => c.uid === user?.uid),
+      comments: isAdmin ? p.comments : p.comments.filter((c) => c.uid === user?.uid),
       likes: p.likedBy.length,
       likedByMe: !!user && p.likedBy.includes(user.uid),
     }))
@@ -92,7 +92,7 @@ export function SupportAnnouncementsProvider({ children }) {
   };
 
   return (
-    <SupportAnnouncementsContext.Provider value={{ posts: visiblePosts, postUpdate, toggleLike, addComment, isBrenner }}>
+    <SupportAnnouncementsContext.Provider value={{ posts: visiblePosts, postUpdate, toggleLike, addComment, isSupportAdmin: isAdmin }}>
       {children}
     </SupportAnnouncementsContext.Provider>
   );

@@ -60,8 +60,8 @@ export default function PostCard({ post, isNewest, onToggleLike, onAddComment, o
           style={{ ...styles.actionPill, ...(showComments ? styles.actionPillOpen : {}) }}
           onClick={() => setShowComments((v) => !v)}
         >
-          <span>Comments</span>
-          <span>{post.comments.length > 0 ? post.comments.length : 'Comment'}</span>
+          <span>{post.comments.length > 0 ? 'Comments' : 'Comment'}</span>
+          {post.comments.length > 0 ? <span>{post.comments.length}</span> : null}
         </button>
       </div>
 

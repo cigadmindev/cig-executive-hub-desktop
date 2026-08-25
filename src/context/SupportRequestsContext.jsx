@@ -30,7 +30,9 @@ export const SUPPORT_ERROR_TYPES = [
   'Other',
 ];
 
-export const BRENNER_EMAIL = 'brenner@cigconcepts.com';
+// Support is handled by admins as a role. Kept as a named export so call
+// sites read clearly, but it resolves from the user's role, not an address.
+export const isSupportAdmin = (user) => user?.role === 'admin';
 
 export function SupportRequestsProvider({ children }) {
   const { user } = useAuth();

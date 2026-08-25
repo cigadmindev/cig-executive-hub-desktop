@@ -5,7 +5,7 @@ import { useChat } from '../context/ChatContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import { useAvailability } from '../context/AvailabilityContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
-import { useSupportRequests, BRENNER_EMAIL } from '../context/SupportRequestsContext';
+import { useSupportRequests } from '../context/SupportRequestsContext';
 import { useWorkOrders } from '../context/WorkOrdersContext';
 import { useEventRequests } from '../context/EventRequestsContext';
 import { brands } from '../data/mockData';
@@ -27,7 +27,6 @@ export default function AppLayout({ children }) {
   const { getByBrand } = useCustomLocations();
   const { requests: supportRequests } = useSupportRequests();
   const { getMyQueue } = useWorkOrders();
-  const isBrenner = user?.email === BRENNER_EMAIL;
   const isAdmin = user?.role === 'admin';
   const isExecutive = user?.role === 'executive';
 
@@ -46,7 +45,7 @@ export default function AppLayout({ children }) {
   // Same formulas as mobile's BottomBar badge logic — one aggregate dot
   // per tab, not a badge per item inside it.
   const directoryNeedsAttention = myWeeklyIsStale || hasUnseenTimeOff() || getMyQueue().length > 0;
-  const profileNeedsAttention = isBrenner && supportRequests.some((r) => r.status !== 'completed');
+  const profileNeedsAttention = isAdmin && supportRequests.some((r) => r.status !== 'completed');
 
   const navItemStyle = ({ isActive }) => ({
     ...styles.navItem,
