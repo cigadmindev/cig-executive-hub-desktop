@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, addDoc, doc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { categories } from '../data/mockData';
 import { useAuth } from './AuthContext';
 
 const AnnouncementsContext = createContext(undefined);
@@ -64,8 +65,12 @@ export function AnnouncementsProvider({ children }) {
   };
 
   const addAnnouncement = async (categoryId, locationId, message, authorName) => {
+    // categoryLabel is stored on the document so the push-notification
+    // function can name the category without knowing our taxonomy.
+    const category = categories.find((c) => c.id === categoryId);
     await addDoc(collection(db, COLLECTION), {
       categoryId,
+      categoryLabel: category?.label ?? null,
       locationId,
       message,
       authorName,
@@ -74,8 +79,6 @@ export function AnnouncementsProvider({ children }) {
       likedBy: [],
       comments: [],
     });
-    // Note: mobile also sends a push notification here — not wired up for
-    // desktop yet, same as Chat/Event Requests.
   };
 
   const toggleLike = async (id) => {

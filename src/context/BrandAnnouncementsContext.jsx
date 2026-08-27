@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, addDoc, doc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { brands } from '../data/mockData';
 import { useAuth } from './AuthContext';
 
 const BrandAnnouncementsContext = createContext(undefined);
@@ -62,8 +63,13 @@ export function BrandAnnouncementsProvider({ children }) {
   };
 
   const addAnnouncement = async (targetId, message, authorName) => {
+    // targetName is stored on the document so the push-notification function
+    // can name the brand. Brands live in mockData inside the app, so the
+    // server has no way to resolve an id like 'taste' on its own.
+    const brand = brands.find((b) => b.id === targetId);
     await addDoc(collection(db, COLLECTION), {
       targetId,
+      targetName: targetId === 'all' ? null : brand?.name ?? null,
       message,
       authorName,
       authorUid: auth.currentUser?.uid ?? null,
