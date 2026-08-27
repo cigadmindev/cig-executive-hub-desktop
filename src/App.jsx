@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ChatProvider } from './context/ChatContext';
 import { ScheduleProvider } from './context/ScheduleContext';
@@ -151,14 +151,17 @@ function Providers({ children }) {
 }
 
 export default function App() {
+  const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
   return (
     <AuthProvider>
-      {/* HashRouter, not BrowserRouter — Electron loads from a local
-          file:// path in production, and HashRouter is the one that
-          works reliably there without extra server config. */}
-      <HashRouter>
+      {/* Packaged Electron loads from file://, where BrowserRouter can't
+          resolve paths — hence HashRouter there. Everywhere else (the web
+          build, and Electron in dev against the Vite server) has a real
+          origin and a history fallback, so BrowserRouter gives clean,
+          shareable URLs instead of /#/messages. */}
+      <Router>
         <Gate />
-      </HashRouter>
+      </Router>
     </AuthProvider>
   );
 }
