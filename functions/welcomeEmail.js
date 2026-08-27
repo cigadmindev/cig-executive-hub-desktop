@@ -9,7 +9,7 @@
 // block remote images by default — real icons can layer in later once there's
 // a public asset host.
 const MAC_DOWNLOAD_URL = 'https://drive.google.com/drive/folders/1W0DfCJQ1lA-iO6thNKtddynxGgzOlJGI';
-const IOS_DOWNLOAD_URL = null;
+const IOS_DOWNLOAD_URL = 'https://apps.apple.com/app/id6790941894';
 
 const F = 'Helvetica,Arial,sans-serif';
 
