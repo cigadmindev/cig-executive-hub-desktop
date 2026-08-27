@@ -16,3 +16,4 @@ electron/drive-service-account.json
 *.mobileprovision
 *.keystore
 *.bak
+.firebase/
