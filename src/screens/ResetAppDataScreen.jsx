@@ -1,37 +1,54 @@
 import React, { useState } from 'react';
-import { collection, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, query, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
+import { useCustomLocations } from '../context/CustomLocationsContext';
+import { brands } from '../data/mockData';
 import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
 
 // Grouped for the checkbox picker — each group maps to one or more actual
 // Firestore collections, but admins choose at this human-readable level.
+// Only content that ages out. The destructive groups that used to live here —
+// opening checklist, renewals, availability, signed work orders, custom
+// locations — were removed before rollout: those are operational records, and
+// a button that permanently deletes them doesn't belong in a UI a future
+// admin might click through out of curiosity. Wipe them from the Firebase
+// console if it's ever genuinely needed.
+//
+// Groups with `filterable` can be narrowed to one brand or location instead
+// of clearing everything.
 const RESET_GROUPS = [
   { key: 'messages', label: 'Messages & Conversations', collections: ['conversations', 'messages'] },
   {
-    key: 'opening',
-    label: 'Calendar, Opening Checklist & Operational POC',
-    collections: ['schedules', 'openingLocationInfo', 'openingOngoingContacts', 'openingOngoingContactsSeedMarker'],
+    // The locationId filter here is untested — categoryPosts was still empty
+    // when this was written, so there was no document to check the field name
+    // against. brandPosts turned out to store location ids in a field called
+    // targetId, so verify this one against a real post before trusting it.
+    key: 'categoryPosts',
+    label: 'Category Announcements',
+    collections: ['categoryPosts'],
+    filterable: 'location',
   },
-  { key: 'renewals', label: 'License & Lease Renewals', collections: ['licenseRenewals'] },
   {
-    key: 'requests',
-    label: 'Event Requests, Time Off & Availability',
-    collections: ['eventRequests', 'timeOffRequests', 'weeklyAvailability'],
+    key: 'brandPosts',
+    label: 'Brand Announcements',
+    collections: ['brandPosts'],
+    filterable: 'brand',
   },
-  { key: 'accessPosts', label: 'Access Requests & Team Posts', collections: ['accessRequests', 'categoryPosts', 'brandPosts'] },
+  { key: 'accessRequests', label: 'Access Requests', collections: ['accessRequests'] },
   { key: 'support', label: 'Support Requests & Hub Updates', collections: ['supportRequests', 'supportAnnouncements'] },
-  { key: 'signatures', label: 'Signature Directory', collections: ['workOrders'] },
-  { key: 'locations', label: 'Custom Locations', collections: ['customLocations'] },
   { key: 'notifications', label: 'Notification / Seen-Status Tracking', collections: ['viewTracking'] },
 ];
 
 // Explicitly kept, never selectable — logins and every Drive connection.
 const COLLECTIONS_KEPT = ['users', 'categoryDriveLinks', 'appSettings (Executive Notes link)'];
 
-async function wipeCollection(name) {
-  const snap = await getDocs(collection(db, name));
+// filter is { field, value } or null. Announcements can be narrowed to a
+// single brand or location; everything else clears wholesale.
+async function wipeCollection(name, filter) {
+  const ref = collection(db, name);
+  const snap = await getDocs(filter ? query(ref, where(filter.field, '==', filter.value)) : ref);
   const docs = snap.docs;
   for (let i = 0; i < docs.length; i += 450) {
     const batch = writeBatch(db);
@@ -43,9 +60,18 @@ async function wipeCollection(name) {
 
 export default function ResetAppDataScreen() {
   const { user } = useAuth();
+  const { getByBrand } = useCustomLocations();
+  // Locations are split between the static list on each brand and any the
+  // team has added since, so the picker has to merge both.
+  const allLocations = brands.flatMap((b) => [
+    ...b.locations.map((l) => ({ id: l.id, name: `${b.name} — ${l.name}` })),
+    ...getByBrand(b.id).map((l) => ({ id: l.id, name: `${b.name} — ${l.name}` })),
+  ]);
   const isAdmin = user?.role === 'admin';
   const [selectedGroups, setSelectedGroups] = useState(() => new Set(RESET_GROUPS.map((g) => g.key)));
   const [confirmText, setConfirmText] = useState('');
+  // { [groupKey]: brandId | locationId } — empty means clear everything.
+  const [groupFilters, setGroupFilters] = useState({});
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState(null);
   const [resultPopup, setResultPopup] = useState(null); // { totalDeleted }
@@ -74,12 +100,22 @@ export default function ResetAppDataScreen() {
     setResetting(true);
     setResetError(null);
     let total = 0;
-    const collectionsToWipe = RESET_GROUPS.filter((g) => selectedGroups.has(g.key)).flatMap((g) => g.collections);
+    // Carry the group with each collection so filterable groups know which
+    // brand or location was picked. An unpicked filter means clear the lot,
+    // which matches the old all-or-nothing behaviour.
+    const targets = RESET_GROUPS.filter((g) => selectedGroups.has(g.key)).flatMap((g) =>
+      g.collections.map((name) => ({ name, group: g }))
+    );
     let currentCollection = null;
     try {
-      for (const name of collectionsToWipe) {
+      for (const { name, group } of targets) {
         currentCollection = name;
-        total += await wipeCollection(name);
+        const picked = groupFilters[group.key];
+        const filter =
+          group.filterable && picked
+            ? { field: group.filterable === 'brand' ? 'targetId' : 'locationId', value: picked }
+            : null;
+        total += await wipeCollection(name, filter);
       }
       setConfirmText('');
       setResultPopup({ totalDeleted: total });
@@ -109,10 +145,32 @@ export default function ResetAppDataScreen() {
       <div style={styles.section}>
         <p style={styles.sectionLabel}>Choose what to reset</p>
         {RESET_GROUPS.map((g) => (
-          <label key={g.key} style={styles.checkboxRow}>
-            <input type="checkbox" checked={selectedGroups.has(g.key)} onChange={() => toggleGroup(g.key)} style={styles.checkbox} />
-            {g.label}
-          </label>
+          <div key={g.key}>
+            <label style={styles.checkboxRow}>
+              <input type="checkbox" checked={selectedGroups.has(g.key)} onChange={() => toggleGroup(g.key)} style={styles.checkbox} />
+              {g.label}
+            </label>
+            {g.filterable && selectedGroups.has(g.key) ? (
+              <select
+                style={styles.input}
+                value={groupFilters[g.key] ?? ''}
+                onChange={(e) => setGroupFilters((f) => ({ ...f, [g.key]: e.target.value }))}
+              >
+                <option value="">Everything</option>
+                {(g.filterable === 'brand'
+                  ? // targetId holds a brand id when a post targets a whole
+                    // brand, and a location id when it targets one restaurant,
+                    // so both belong in this list.
+                    [...brands.map((b) => ({ id: b.id, name: b.name })), ...allLocations]
+                  : allLocations
+                ).map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+          </div>
         ))}
 
         <p style={{ ...styles.sectionLabel, marginTop: 16 }}>This will NOT touch, regardless of selection:</p>

@@ -45,7 +45,7 @@ function buildMessages(recipients, title, body, data) {
 
 // Category announcements. Mirrors the targeting the mobile client used:
 // admins always, plus anyone whose permissions include this category.
-exports.onAnnouncementCreated = onDocumentCreated('announcements/{id}', async (event) => {
+exports.onAnnouncementCreated = onDocumentCreated('categoryPosts/{id}', async (event) => {
   const post = event.data?.data();
   if (!post) return;
 
