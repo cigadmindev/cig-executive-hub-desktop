@@ -10,6 +10,7 @@ import { TIMELINE_BUCKETS, getOpeningItemUrgency, getBlockingDependencies, getDe
 import { getTemplateForLocation } from '../data/checklists';
 import { useAuth } from '../context/AuthContext';
 import ConfirmEditField from '../components/ConfirmEditField';
+import ItemDetails from '../components/ItemDetails';
 import DatePickerField from '../components/DatePickerField';
 import SearchBar from '../components/SearchBar';
 import { nike } from '../theme/nike';
@@ -34,6 +35,13 @@ export default function OpeningChecklistScreen() {
   const [confirmingDate, setConfirmingDate] = useState(false);
   const [confirmingItem, setConfirmingItem] = useState(null); // item pending a sign-off confirmation
   const [editingDateItemId, setEditingDateItemId] = useState(null); // item whose due date is being edited inline
+  // One row open at a time. With 56 items, leaving several expanded loses the
+  // compactness the row layout exists for.
+  const [expandedItemId, setExpandedItemId] = useState(null);
+  // Location Info is reference data — set once, read occasionally. Left open
+  // it pushes the checklist a full screen down, so it starts collapsed with a
+  // summary and opens on demand.
+  const [infoOpen, setInfoOpen] = useState(false);
   const [itemDateDraft, setItemDateDraft] = useState('');
   const [confirmingItemDate, setConfirmingItemDate] = useState(null); // { item, newDate } pending confirmation
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,8 +170,14 @@ export default function OpeningChecklistScreen() {
       {q ? <p style={styles.searchHint}>Showing results for "{searchQuery}" across Initial Set-Up and Timeline.</p> : null}
 
       <div style={styles.section}>
-        <h2 style={styles.sectionHeader}>Location Info</h2>
-        <div style={styles.grid2}>
+        <button style={styles.infoToggle} onClick={() => setInfoOpen((v) => !v)}>
+          <h2 style={styles.sectionHeader}>Location Info</h2>
+          {!infoOpen && (info.landlord || info.propertyManager) ? (
+            <span style={styles.infoSummary}>{info.landlord || info.propertyManager}</span>
+          ) : null}
+          <span style={styles.infoChevron}>{infoOpen ? '▾' : '▸'}</span>
+        </button>
+        <div style={{ ...styles.grid2, display: infoOpen ? 'grid' : 'none' }}>
           <ConfirmEditField label="Property Manager" value={info.propertyManager} onSave={(v) => updateInfoField(locationId, 'propertyManager', v)} />
           <ConfirmEditField label="Property Manager Contact" value={info.propertyManagerContact} onSave={(v) => updateInfoField(locationId, 'propertyManagerContact', v)} />
           <ConfirmEditField label="Landlord" value={info.landlord} onSave={(v) => updateInfoField(locationId, 'landlord', v)} />
@@ -173,8 +187,8 @@ export default function OpeningChecklistScreen() {
           <ConfirmEditField label="Project Manager" value={info.projectManager} onSave={(v) => updateInfoField(locationId, 'projectManager', v)} />
         </div>
 
-        <p style={styles.label}>Important Numbers</p>
-        <div style={styles.grid2}>
+        <p style={{ ...styles.label, display: infoOpen ? 'block' : 'none' }}>Important Numbers</p>
+        <div style={{ ...styles.grid2, display: infoOpen ? 'grid' : 'none' }}>
           {info.importantNumbers.map((num, i) => (
             <ConfirmEditField
               key={i}
@@ -210,26 +224,45 @@ export default function OpeningChecklistScreen() {
             </button>
           </div>
         ) : null}
+        {/* Shown only while the date is being changed — this is surprising
+            enough to warrant explaining, but only at the moment it applies. */}
+        {dateDraft ? (
+          <p style={styles.hint}>
+            {info.openingDate
+              ? 'Re-spreads unfinished tasks across the new window and adds anything missing. Completed work keeps its date.'
+              : 'Builds the checklist and spreads it across the calendar, with permits landing after everything they depend on.'}
+          </p>
+        ) : null}
         {!isAdmin && !info.openingDate ? <p style={styles.hint}>Ask an admin to set the opening date to generate the checklist below.</p> : null}
-        <p style={styles.hint}>
-          Setting or changing this date builds (or rebuilds) the full Initial Set-Up and Timeline
-          checklists below, spread across the calendar — on this location's calendar and the Master
-          Calendar. Parent tasks (Food Permit, Beer Permit, Liquor License, Privilege/Business
-          License) always land after everything they depend on.
-        </p>
       </div>
 
       <div style={styles.section}>
         <h2 style={styles.sectionHeader}>Initial Set-Up POC</h2>
-        <p style={styles.hint}>Also shown on the Operational POC screen — same record, either place updates both.</p>
         {setupItems.length === 0 ? (
           <p style={styles.hint}>Set an opening date above to generate this checklist.</p>
         ) : visibleSetupItems.length === 0 ? (
           <p style={styles.hint}>No Initial Set-Up items match "{searchQuery}".</p>
         ) : (
           [...new Set(visibleSetupItems.map((i) => i.openingSection))].map((sectionName) => (
-            <div key={sectionName} style={{ marginBottom: 18 }}>
-              <p style={styles.bucketLabel}>{sectionName}</p>
+            <div key={sectionName} style={{ marginBottom: 22 }}>
+              {(() => {
+                // Progress per section, so you can see how far along Health
+                // Dept is without counting rows.
+                const inSection = visibleSetupItems.filter((i) => i.openingSection === sectionName);
+                const doneCount = inSection.filter((i) => i.done).length;
+                const pct = inSection.length ? Math.round((doneCount / inSection.length) * 100) : 0;
+                return (
+                  <div style={styles.sectionHead}>
+                    <span style={styles.sectionName}>{sectionName}</span>
+                    <span style={styles.sectionCount}>
+                      {doneCount} of {inSection.length}
+                    </span>
+                    <div style={styles.sectionBarTrack}>
+                      <div style={{ ...styles.sectionBarFill, width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })()}
               {visibleSetupItems
                 .filter((i) => i.openingSection === sectionName)
                 .map((item) => {
@@ -237,47 +270,90 @@ export default function OpeningChecklistScreen() {
                   const blockedBy = getBlockingDependencies(item, setupItems, template);
                   const isLocked = blockedBy.length > 0 && !item.done;
                   const neededFor = getDependentParents(item, template);
+                  const isOpen = expandedItemId === item.id;
+                  const hasDetails = Object.values(item.openingFields ?? {}).some(Boolean);
+                  const overdue = !item.done && item.dateTime < now;
                   return (
-                    <div key={item.id} style={styles.itemCard}>
-                      <div style={styles.itemHeaderRow}>
+                    <div key={item.id} style={styles.row}>
+                      {/* The whole row toggles — a chevron alone is a tiny target,
+                          and there's nothing else on the row to click. */}
+                      <div
+                        style={{
+                          ...styles.rowMain,
+                          ...(overdue ? styles.rowOverdue : {}),
+                          ...(item.done ? styles.rowDone : {}),
+                        }}
+                        onClick={() => setExpandedItemId(isOpen ? null : item.id)}
+                      >
                         <button
-                          style={styles.doneCheckbox}
-                          onClick={() => (isLocked ? null : requestToggleDone(item))}
+                          style={{
+                            ...styles.check,
+                            ...(item.done ? styles.checkDone : {}),
+                            ...(isLocked ? styles.checkLocked : {}),
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isLocked) requestToggleDone(item);
+                          }}
                           disabled={isLocked}
                           title={isLocked ? `Locked — requires: ${blockedBy.join(', ')}` : undefined}
                         >
-                          <span
-                            style={{
-                              ...styles.doneCheckboxInner,
-                              ...(item.done ? styles.doneCheckboxChecked : {}),
-                              ...(isLocked ? styles.doneCheckboxLocked : {}),
+                          {item.done ? '✓' : isLocked ? '🔒' : ''}
+                        </button>
+
+                        <span style={{ ...styles.rowTitle, ...(item.done ? styles.rowTitleDone : {}) }}>
+                          {item.title}
+                        </span>
+
+                        {/* A dot rather than a count — you only need to know
+                            something's there, and the number isn't meaningful. */}
+                        {hasDetails && !isOpen ? <span style={styles.detailDot} /> : null}
+
+                        {/* Status by exception. A pending item on schedule says
+                            nothing but its date; red is reserved for actually
+                            overdue, so it means something when it appears. */}
+                        {item.done ? (
+                          <span style={styles.rowMeta}>{item.doneBy || 'Done'}</span>
+                        ) : overdue ? (
+                          <span style={styles.rowOverdueLabel}>Overdue</span>
+                        ) : (
+                          <button
+                            style={styles.rowDateButton}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditItemDate(item);
                             }}
                           >
-                            {item.done ? '✓' : isLocked ? '•' : ''}
-                          </span>
-                        </button>
-                        <span style={{ ...styles.itemTitle, ...(item.done ? styles.itemTitleDone : {}) }}>{item.title}</span>
-                        {renderUrgencyBadge(item, urgency, () => startEditItemDate(item))}
+                            {new Date(item.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                          </button>
+                        )}
+
+                        <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
                       </div>
-                      {isLocked ? <p style={styles.lockedNote}>Requires: {blockedBy.join(', ')}</p> : null}
-                      {neededFor.length > 0 ? <p style={styles.neededForNote}>↳ Needed for: {neededFor.join(', ')}</p> : null}
-                      {item.done && item.doneBy ? <p style={styles.signedOffNote}>Signed off by {item.doneBy}</p> : null}
-                      {editingDateItemId === item.id ? (
-                        <div style={styles.dateEditRow}>
-                          <DatePickerField value={itemDateDraft} onChange={setItemDateDraft} />
-                          <button style={styles.saveDateButton} onClick={() => requestItemDateChange(item)}>
-                            Save
-                          </button>
-                          <button style={styles.cancelDateButton} onClick={() => setEditingDateItemId(null)}>
-                            ✕
-                          </button>
+
+                      {/* Dependencies stay visible when collapsed — whether you
+                          can start something matters more than its details. */}
+                      {isLocked ? <p style={styles.blockedNote}>Requires {blockedBy.join(', ')}</p> : null}
+
+                      {isOpen ? (
+                        <div style={styles.rowBody}>
+                          {neededFor.length > 0 ? (
+                            <p style={styles.neededForNote}>Needed for {neededFor.join(', ')}</p>
+                          ) : null}
+                          {editingDateItemId === item.id ? (
+                            <div style={styles.dateEditRow}>
+                              <DatePickerField value={itemDateDraft} onChange={setItemDateDraft} />
+                              <button style={styles.saveDateButton} onClick={() => requestItemDateChange(item)}>
+                                Save
+                              </button>
+                              <button style={styles.cancelDateButton} onClick={() => setEditingDateItemId(null)}>
+                                ✕
+                              </button>
+                            </div>
+                          ) : null}
+                          <ItemDetails item={item} onSave={updateSetupField} />
                         </div>
                       ) : null}
-                      <div style={styles.grid3}>
-                        <ConfirmEditField label="Company" value={item.openingFields?.company} onSave={(v) => updateSetupField(item, 'company', v)} />
-                        <ConfirmEditField label="Account Number" value={item.openingFields?.accountNumber} onSave={(v) => updateSetupField(item, 'accountNumber', v)} />
-                        <ConfirmEditField label="Contact" value={item.openingFields?.contact} onSave={(v) => updateSetupField(item, 'contact', v)} />
-                      </div>
                     </div>
                   );
                 })}
@@ -295,23 +371,52 @@ export default function OpeningChecklistScreen() {
           const items = visibleTimelineItems.filter((i) => i.openingSection === bucket.label);
           if (items.length === 0) return null;
           return (
-            <div key={bucket.key} style={{ marginBottom: 18 }}>
-              <p style={styles.bucketLabel}>{bucket.label}</p>
-              {items.map((item) => {
-                const urgency = getOpeningItemUrgency(item, now);
+            <div key={bucket.key} style={{ marginBottom: 22 }}>
+              {(() => {
+                const doneCount = items.filter((i) => i.done).length;
+                const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
                 return (
-                  <div key={item.id} style={styles.timelineItemWrap}>
-                    <div style={styles.timelineRow}>
-                      <button style={styles.doneCheckbox} onClick={() => requestToggleDone(item)}>
-                        <span style={{ ...styles.doneCheckboxInner, ...(item.done ? styles.doneCheckboxChecked : {}) }}>
-                          {item.done ? '✓' : ''}
-                        </span>
+                  <div style={styles.sectionHead}>
+                    <span style={styles.sectionName}>{bucket.label}</span>
+                    <span style={styles.sectionCount}>
+                      {doneCount} of {items.length}
+                    </span>
+                    <div style={styles.sectionBarTrack}>
+                      <div style={{ ...styles.sectionBarFill, width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })()}
+              {items.map((item) => {
+                const overdue = !item.done && item.dateTime < now;
+                return (
+                  <div key={item.id} style={styles.row}>
+                    <div
+                      style={{
+                        ...styles.rowMain,
+                        ...(overdue ? styles.rowOverdue : {}),
+                        ...(item.done ? styles.rowDone : {}),
+                        cursor: 'default',
+                      }}
+                    >
+                      <button
+                        style={{ ...styles.check, ...(item.done ? styles.checkDone : {}) }}
+                        onClick={() => requestToggleDone(item)}
+                      >
+                        {item.done ? '✓' : ''}
                       </button>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ ...styles.itemTitle, ...(item.done ? styles.itemTitleDone : {}) }}>{item.title}</span>
-                        {item.done && item.doneBy ? <p style={styles.signedOffNote}>Signed off by {item.doneBy}</p> : null}
-                      </div>
-                      {renderUrgencyBadge(item, urgency, () => startEditItemDate(item))}
+                      <span style={{ ...styles.rowTitle, ...(item.done ? styles.rowTitleDone : {}) }}>
+                        {item.title}
+                      </span>
+                      {item.done ? (
+                        <span style={styles.rowMeta}>{item.doneBy || 'Done'}</span>
+                      ) : overdue ? (
+                        <span style={styles.rowOverdueLabel}>Overdue</span>
+                      ) : (
+                        <button style={styles.rowDateButton} onClick={() => startEditItemDate(item)}>
+                          {new Date(item.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        </button>
+                      )}
                     </div>
                     {editingDateItemId === item.id ? (
                       <div style={styles.dateEditRow}>
@@ -451,6 +556,83 @@ const styles = {
   setDateButton: { padding: '9px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
 
   itemCard: { background: 'var(--bg-inset)', border: 'none', borderRadius: 10, padding: 12, marginBottom: 8 },
+
+  // Rows, not cards. A card per item meant ~110px each and a 6000px page;
+  // these are ~40px and the whole section fits on screen. Separated by a hair
+  // line rather than gaps and shadows, so the list reads as one thing.
+  infoToggle: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 10,
+    width: '100%',
+    padding: 0,
+    background: 'none',
+    border: 'none',
+    textAlign: 'left',
+    marginBottom: 12,
+  },
+  infoSummary: { fontSize: 13, color: 'var(--text-tertiary)', flex: 1 },
+  infoChevron: { fontSize: 11, color: 'var(--text-tertiary)' },
+  row: { borderBottom: '1px solid var(--border)' },
+  rowMain: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '10px 14px',
+    cursor: 'pointer',
+  },
+  rowOverdue: { background: 'rgba(232,82,75,0.07)' },
+  rowDone: { opacity: 0.55 },
+  check: {
+    width: 18,
+    height: 18,
+    flexShrink: 0,
+    borderRadius: 5,
+    border: '1.5px solid var(--border-strong)',
+    background: 'transparent',
+    color: 'var(--neon-text)',
+    fontSize: 11,
+    lineHeight: '15px',
+    padding: 0,
+  },
+  checkDone: { background: '#5FA377', borderColor: '#5FA377', color: '#0F0F12' },
+  checkLocked: { borderStyle: 'dashed', fontSize: 9, cursor: 'not-allowed' },
+  rowTitle: { fontSize: 14, flex: 1, minWidth: 0, color: 'var(--text-primary)' },
+  rowTitleDone: { textDecoration: 'line-through', color: 'var(--text-secondary)' },
+  // Presence, not a count — you need to know something's attached, and the
+  // number of fields isn't information anyone acts on.
+  detailDot: { width: 5, height: 5, borderRadius: 3, background: 'var(--neon)', flexShrink: 0 },
+  rowMeta: { fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0 },
+  rowOverdueLabel: { fontSize: 12, fontWeight: 600, color: 'var(--danger)', flexShrink: 0 },
+  rowDateButton: {
+    fontSize: 12,
+    color: 'var(--text-tertiary)',
+    background: 'none',
+    border: 'none',
+    padding: '2px 4px',
+    flexShrink: 0,
+  },
+  chevron: { fontSize: 10, color: 'var(--text-tertiary)', flexShrink: 0 },
+  blockedNote: { fontSize: 11, color: 'var(--text-tertiary)', margin: '0 0 8px 44px' },
+  rowBody: { paddingBottom: 4 },
+
+  sectionHead: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '14px 14px 9px',
+    borderBottom: '1px solid var(--border-strong)',
+  },
+  sectionName: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionCount: { fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0 },
+  sectionBarTrack: { flex: 1, height: 3, background: 'var(--border)', borderRadius: 2, minWidth: 40 },
+  sectionBarFill: { height: 3, background: 'var(--neon)', borderRadius: 2 },
   itemHeaderRow: { display: 'flex', alignItems: 'center', gap: 10 },
   itemTitle: { fontSize: 13, fontWeight: 600, flex: 1 },
   itemTitleDone: { textDecoration: 'line-through', color: 'var(--text-tertiary)' },

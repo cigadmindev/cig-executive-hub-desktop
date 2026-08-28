@@ -1,16 +1,22 @@
 :root {
-  --bg-window: #292930;
-  --bg-sidebar: #222228;
-  --bg-card: #515160;
-  --bg-card-hover: #5B5B6B;
-  --bg-inset: rgba(255, 255, 255, 0.14);
+  /* Dark base, surfaces layered above it in translucent white. The old
+     palette ran window #292930 / card #515160 — cards lighter than the page,
+     everything inside twenty points of mid-grey, so nothing could read as
+     foreground and no amount of styling made a row stand out. Now the page is
+     near-black and each layer lifts slightly, which is what gives text and
+     accents something to sit against. */
+  --bg-window: #131317;
+  --bg-sidebar: #0E0E11;
+  --bg-card: rgba(255, 255, 255, 0.055);
+  --bg-card-hover: rgba(255, 255, 255, 0.09);
+  --bg-inset: rgba(255, 255, 255, 0.085);
   --text-primary: #FFFFFF;
-  --text-secondary: #D2D2D8;
-  --text-tertiary: #A5A5AC;
-  --border: rgba(255, 255, 255, 0.16);
-  --border-strong: rgba(255, 255, 255, 0.32);
-  --accent: #68686F;
-  --accent-hover: #76767E;
+  --text-secondary: #C8C8D0;
+  --text-tertiary: #83838E;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --accent: #6E6E7A;
+  --accent-hover: #8A8A96;
   --neon: #22D3EE;
   --neon-text: #0A0A0B;
   --accent-soft: rgba(255, 255, 255, 0.13);
