@@ -8,6 +8,9 @@
   --bg-window: #131317;
   --bg-sidebar: #0E0E11;
   --bg-card: rgba(255, 255, 255, 0.055);
+  /* Solid, for anything that floats over content. Translucent surfaces work
+     layered on the page but let text bleed through in a modal. */
+  --bg-elevated: #1E1E25;
   --bg-card-hover: rgba(255, 255, 255, 0.09);
   --bg-inset: rgba(255, 255, 255, 0.085);
   --text-primary: #FFFFFF;

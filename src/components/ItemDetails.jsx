@@ -85,21 +85,30 @@ export default function ItemDetails({ item, onSave }) {
 
 const styles = {
   wrap: { padding: '10px 16px 14px 46px' },
-  fieldRow: { display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
-  field: { width: 220, position: 'relative' },
-  fieldWide: { width: 360, maxWidth: '100%', position: 'relative' },
+  // Stacked rather than side by side — a row of narrow boxes reads as a form
+  // to fill out; a short vertical list reads as the few things this item
+  // actually holds.
+  fieldRow: { display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 10, maxWidth: 420 },
+  field: { position: 'relative' },
+  fieldWide: { position: 'relative' },
+  // Sits on the label line rather than floating over the field's corner,
+  // and uses flex centring so the glyph is actually centred in its circle.
   remove: {
     position: 'absolute',
-    top: -2,
-    right: -2,
+    top: 0,
+    right: 0,
     width: 16,
     height: 16,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 8,
     border: 'none',
-    background: 'var(--bg-card)',
+    background: 'transparent',
     color: 'var(--text-tertiary)',
-    fontSize: 13,
-    lineHeight: '14px',
+    fontSize: 14,
+    lineHeight: 1,
+    padding: 0,
     zIndex: 1,
   },
   picker: {

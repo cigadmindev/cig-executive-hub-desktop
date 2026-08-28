@@ -172,10 +172,7 @@ export default function OpeningChecklistScreen() {
       <div style={styles.section}>
         <button style={styles.infoToggle} onClick={() => setInfoOpen((v) => !v)}>
           <h2 style={styles.sectionHeader}>Location Info</h2>
-          {!infoOpen && (info.landlord || info.propertyManager) ? (
-            <span style={styles.infoSummary}>{info.landlord || info.propertyManager}</span>
-          ) : null}
-          <span style={styles.infoChevron}>{infoOpen ? '▾' : '▸'}</span>
+          <span style={styles.infoChevron}>{infoOpen ? 'Hide' : 'Show'}</span>
         </button>
         <div style={{ ...styles.grid2, display: infoOpen ? 'grid' : 'none' }}>
           <ConfirmEditField label="Property Manager" value={info.propertyManager} onSave={(v) => updateInfoField(locationId, 'propertyManager', v)} />
@@ -298,7 +295,7 @@ export default function OpeningChecklistScreen() {
                           disabled={isLocked}
                           title={isLocked ? `Locked — requires: ${blockedBy.join(', ')}` : undefined}
                         >
-                          {item.done ? '✓' : isLocked ? '🔒' : ''}
+                          {item.done ? '✓' : isLocked ? '–' : ''}
                         </button>
 
                         <span style={{ ...styles.rowTitle, ...(item.done ? styles.rowTitleDone : {}) }}>
@@ -572,7 +569,16 @@ const styles = {
     marginBottom: 12,
   },
   infoSummary: { fontSize: 13, color: 'var(--text-tertiary)', flex: 1 },
-  infoChevron: { fontSize: 11, color: 'var(--text-tertiary)' },
+  infoChevron: {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: 'var(--text-secondary)',
+    border: '1px solid var(--border-strong)',
+    borderRadius: 'var(--radius-sm)',
+    padding: '4px 10px',
+  },
   row: { borderBottom: '1px solid var(--border)' },
   rowMain: {
     display: 'flex',
@@ -662,8 +668,8 @@ const styles = {
   saveDateButton: { padding: '9px 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, flexShrink: 0, textTransform: 'uppercase' },
   cancelDateButton: { padding: '9px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, flexShrink: 0 },
 
-  confirmBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
-  confirmCard: { width: 400, background: 'var(--bg-card)', border: 'none', borderRadius: 16, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  confirmBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
+  confirmCard: { width: 400, background: 'var(--bg-elevated)', border: 'none', borderRadius: 16, padding: 22, boxShadow: 'var(--shadow-lg)' },
   confirmTitle: { fontSize: 15, fontWeight: 700, marginBottom: 10 },
   confirmBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 },
   confirmButtonsRow: { display: 'flex', gap: 10 },
