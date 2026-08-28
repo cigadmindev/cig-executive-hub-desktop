@@ -296,16 +296,19 @@ function computeDepths(items) {
 // dependency order: items are grouped by depth, and each depth group is
 // spread across a slightly later slice of the window than the group
 // before it, so a parent's date is always after every item it depends on.
-export function computeInitialSetupDates(openingDate) {
-  const depths = computeDepths(INITIAL_SETUP_ITEMS);
+export function computeInitialSetupDates(openingDate, template) {
+  const items = template?.items ?? INITIAL_SETUP_ITEMS;
+  const depths = computeDepths(items);
   const maxDepth = Math.max(0, ...Object.values(depths));
-  const { windowStartDaysBefore, windowEndDaysBefore } = INITIAL_SETUP_WINDOW;
+  // Runways differ by city — Birmingham's city-then-state sequence with a
+  // council agenda slot needs longer than Mississippi's four months.
+  const { windowStartDaysBefore, windowEndDaysBefore } = template?.window ?? INITIAL_SETUP_WINDOW;
   const totalSpan = windowStartDaysBefore - windowEndDaysBefore;
   const sliceSize = totalSpan / (maxDepth + 1);
 
   const dateByKey = {};
   for (let depth = 0; depth <= maxDepth; depth++) {
-    const keysAtDepth = INITIAL_SETUP_ITEMS.filter((i) => depths[i.key] === depth).map((i) => i.key);
+    const keysAtDepth = items.filter((i) => depths[i.key] === depth).map((i) => i.key);
     // This depth's slice: further from "start" as depth increases, so
     // depth 0 items land earliest and higher-depth parents land latest.
     const sliceWindowStart = windowStartDaysBefore - depth * sliceSize;
@@ -356,10 +359,11 @@ export function getOpeningItemUrgency(item, now) {
 // setupKey within the same location, since that's what's actually stored
 // on each generated schedule doc (dependsOnKeys refer to the static data
 // definition, not doc ids).
-export function getBlockingDependencies(item, allSetupItemsForLocation) {
-  const dataDef = INITIAL_SETUP_ITEMS.find((i) => i.key === item.setupKey);
+export function getBlockingDependencies(item, allSetupItemsForLocation, template) {
+  const defs = template?.items ?? INITIAL_SETUP_ITEMS;
+  const dataDef = defs.find((i) => i.key === item.setupKey);
   if (!dataDef || dataDef.dependsOnKeys.length === 0) return [];
-  const byKey = Object.fromEntries(INITIAL_SETUP_ITEMS.map((i) => [i.key, i]));
+  const byKey = Object.fromEntries(defs.map((i) => [i.key, i]));
   return dataDef.dependsOnKeys
     .map((depKey) => {
       const depDef = byKey[depKey];
@@ -376,7 +380,8 @@ export function getBlockingDependencies(item, allSetupItemsForLocation) {
 // sub-item like "Sales Tax" show "Needed for: Beer Permit,
 // Privilege/Business License" so it's clear why a seemingly small task
 // matters, not just which tasks are blocking a given parent.
-export function getDependentParents(item) {
+export function getDependentParents(item, template) {
   if (!item.setupKey) return [];
-  return INITIAL_SETUP_ITEMS.filter((i) => i.dependsOnKeys.includes(item.setupKey)).map((i) => i.name);
+  const defs = template?.items ?? INITIAL_SETUP_ITEMS;
+  return defs.filter((i) => i.dependsOnKeys.includes(item.setupKey)).map((i) => i.name);
 }

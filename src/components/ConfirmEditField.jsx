@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 
 // Click to edit inline; hitting Save shows a confirmation step with the
 // old and new value side by side before it actually commits.
-export default function ConfirmEditField({ label, value, placeholder, onSave }) {
+// `type` accepts anything an <input> does — 'date' for expiries, 'text' for
+// everything else. `multiline` swaps in a textarea for notes, where a single
+// line would make anything longer than a sentence unreadable.
+export default function ConfirmEditField({ label, value, placeholder, onSave, type = 'text', multiline = false }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value || '');
   const [confirming, setConfirming] = useState(false);
@@ -31,14 +34,25 @@ export default function ConfirmEditField({ label, value, placeholder, onSave }) 
       <div style={styles.wrap}>
         {label ? <span style={styles.label}>{label}</span> : null}
         <div style={styles.editRow}>
-          <input
-            style={styles.input}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={placeholder}
-            autoFocus
-            onKeyDown={(e) => e.key === 'Enter' && requestSave()}
-          />
+          {multiline ? (
+            <textarea
+              style={{ ...styles.input, minHeight: 70, resize: 'vertical', fontFamily: 'inherit' }}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={placeholder}
+              autoFocus
+            />
+          ) : (
+            <input
+              type={type}
+              style={styles.input}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={placeholder}
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && requestSave()}
+            />
+          )}
           <button style={styles.saveBtn} onClick={requestSave}>
             Save
           </button>

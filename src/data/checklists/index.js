@@ -17,7 +17,15 @@ export const DEFAULT_TEMPLATE_ID = 'ms-starkville';
 
 // Location id -> template id. Locations absent from this map get the default.
 export const LOCATION_TEMPLATES = {
+  // Keyed by where a restaurant is, not whose it is — two brands in the same
+  // city face the same permitting.
   'taste-starkville': 'ms-starkville',
+  'blutos-starkville': 'ms-starkville',
+  'heritage-starkville': 'ms-starkville',
+  // Ridgeland is Mississippi too, but its privilege license is city-issued
+  // and hasn't been researched. Left unmapped deliberately — an empty
+  // checklist makes the gap obvious, where a borrowed one would look
+  // authoritative and be wrong about the city-level pieces.
 };
 
 export function getTemplateForLocation(locationId) {

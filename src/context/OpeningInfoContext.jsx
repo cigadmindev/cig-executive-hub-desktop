@@ -4,11 +4,11 @@ import { db, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 import {
   TIMELINE_BUCKETS,
-  INITIAL_SETUP_ITEMS,
   computeInitialSetupDates,
   computeRenewalOpeningTaskDates,
   spreadDatesInWindow,
 } from '../data/openingChecklistData';
+import { getTemplateForLocation } from '../data/checklists';
 import { renewalTypes, RENEWAL_TYPES_WITH_OPENING_TASK } from '../data/renewalTypes';
 import { renewalDocId } from './RenewalsContext';
 
@@ -82,8 +82,16 @@ export function OpeningInfoProvider({ children }) {
       where('openingItem', '==', true)
     );
     const existingSnap = await getDocs(existingQuery);
+    const existingSetupByKey = {};
     const deleteBatch = writeBatch(db);
-    existingSnap.docs.forEach((d) => deleteBatch.delete(d.ref));
+    existingSnap.docs.forEach((d) => {
+      const data = d.data();
+      if (data.openingItemType === 'setup' && data.setupKey) {
+        existingSetupByKey[data.setupKey] = { ref: d.ref, data };
+      } else {
+        deleteBatch.delete(d.ref);
+      }
+    });
     await deleteBatch.commit();
 
     // Also clear out any previously-generated renewal-linked calendar tasks
@@ -156,11 +164,36 @@ export function OpeningInfoProvider({ children }) {
         });
       });
 
-      // Dependency-aware: parents (Food Permit, Beer Permit, Liquor License,
-      // Privilege/Business License) always get a later date than everything
-      // they depend on — see computeInitialSetupDates.
-      const setupDatesByKey = computeInitialSetupDates(openingDate);
-      INITIAL_SETUP_ITEMS.forEach((item) => {
+      // Requirements differ by city, so the item list comes from this
+      // location's template rather than one global list. Everything
+      // downstream — depth ordering, date spreading, dependency locking —
+      // works the same; it just operates on whichever template applies.
+      //
+      // Dependency-aware: capstone items (Food Permit, Liquor License,
+      // Business License) always land after everything they depend on —
+      // see computeInitialSetupDates.
+      const template = getTemplateForLocation(locationId);
+      const setupDatesByKey = computeInitialSetupDates(openingDate, template);
+      const seenKeys = new Set();
+      template.items.forEach((item) => {
+        seenKeys.add(item.key);
+        const existing = existingSetupByKey[item.key];
+
+        if (existing) {
+          // Already done: leave it entirely alone. Its date records when the
+          // work actually happened, and re-spreading it into a future window
+          // would misrepresent history.
+          if (existing.data.done) return;
+          // Not done yet: move it to its new slot, but keep any fields
+          // someone has already filled in.
+          createBatch.update(existing.ref, {
+            dateTime: setupDatesByKey[item.key],
+            openingSection: item.section,
+            templateId: template.id,
+          });
+          return;
+        }
+
         const ref = doc(collection(db, SCHEDULES_COLLECTION));
         createBatch.set(ref, {
           locationId,
@@ -175,11 +208,22 @@ export function OpeningInfoProvider({ children }) {
           openingSection: item.section,
           openingFields: { company: '', accountNumber: '', contact: '' },
           setupKey: item.key,
+          // Which template produced this, so an old checklist can still be
+          // explained after its template changes.
+          templateId: template.id,
           done: false,
           doneBy: null,
           doneAt: null,
           attentionFlag: false,
         });
+      });
+
+      // Anything on this location that the template no longer lists — a
+      // requirement that was removed, or an item from before this location
+      // was mapped to the right city. Dropped so the checklist reflects
+      // what actually applies rather than accumulating history.
+      Object.entries(existingSetupByKey).forEach(([key, entry]) => {
+        if (!seenKeys.has(key)) createBatch.delete(entry.ref);
       });
     }
 

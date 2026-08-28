@@ -7,6 +7,7 @@ import { useSchedule } from '../context/ScheduleContext';
 import { useOpeningInfo } from '../context/OpeningInfoContext';
 import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
 import { TIMELINE_BUCKETS, getOpeningItemUrgency, getBlockingDependencies, getDependentParents } from '../data/openingChecklistData';
+import { getTemplateForLocation } from '../data/checklists';
 import { useAuth } from '../context/AuthContext';
 import ConfirmEditField from '../components/ConfirmEditField';
 import DatePickerField from '../components/DatePickerField';
@@ -49,6 +50,10 @@ export default function OpeningChecklistScreen() {
   const location = allLocations.find((l) => l.id === locationId);
   if (!location) return null;
 
+  // Which city's requirements apply here. Dependency lookups resolve against
+  // this rather than one global list, so a Birmingham checklist doesn't get
+  // told it's blocked by a Mississippi item that doesn't exist there.
+  const template = getTemplateForLocation(locationId);
   const info = getInfo(locationId);
   const openingItems = getOpeningItemsByLocation(locationId);
   const setupItems = openingItems.filter((i) => i.openingItemType === 'setup');
@@ -229,9 +234,9 @@ export default function OpeningChecklistScreen() {
                 .filter((i) => i.openingSection === sectionName)
                 .map((item) => {
                   const urgency = getOpeningItemUrgency(item, now);
-                  const blockedBy = getBlockingDependencies(item, setupItems);
+                  const blockedBy = getBlockingDependencies(item, setupItems, template);
                   const isLocked = blockedBy.length > 0 && !item.done;
-                  const neededFor = getDependentParents(item);
+                  const neededFor = getDependentParents(item, template);
                   return (
                     <div key={item.id} style={styles.itemCard}>
                       <div style={styles.itemHeaderRow}>
