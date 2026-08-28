@@ -12,6 +12,7 @@ import {
 import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { setSentryUser } from '../sentry';
 import { auth, db, storage } from '../firebaseConfig';
 
 const AuthContext = createContext(undefined);
@@ -68,12 +69,16 @@ export function AuthProvider({ children }) {
         if (profile && !profile.active) {
           await signOut(auth);
           setUser(null);
+          setSentryUser(null);
         } else {
           setUser(profile);
+          // So an error report says who hit it, not just that something broke.
+          setSentryUser(profile);
         }
         await refreshUsers();
       } else {
         setUser(null);
+        setSentryUser(null);
       }
       setLoading(false);
     });
