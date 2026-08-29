@@ -32,3 +32,23 @@ export function getTemplateForLocation(locationId) {
   const id = LOCATION_TEMPLATES[locationId] ?? DEFAULT_TEMPLATE_ID;
   return TEMPLATES[id] ?? TEMPLATES[DEFAULT_TEMPLATE_ID];
 }
+
+// Checklist item key -> renewal type name.
+//
+// A permit has two lives: getting it, which is dependency-gated and happens
+// once before opening, and renewing it, which recurs forever after. The
+// checklist owns the first and License & Lease Renewals owns the second, and
+// this map is what connects them — signing an item off here fills in the
+// renewal record rather than making someone type the same dates twice.
+//
+// The names differ because the two systems were built separately: the
+// checklist calls it privilegeLicense, renewals calls it Business License.
+// Same permit. New cities add their entries here.
+export const RENEWAL_TYPE_BY_KEY = {
+  foodPermit: 'Food Permit',
+  liquorLicense: 'Liquor License',
+  beerPermit: 'Beer Permit',
+  privilegeLicense: 'Business License',
+  buildingPermit: 'Building Permit',
+  signPermit: 'Sign Permit',
+};

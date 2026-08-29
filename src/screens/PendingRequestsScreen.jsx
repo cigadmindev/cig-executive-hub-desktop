@@ -163,12 +163,12 @@ const styles = {
   approveButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
   denyButton: { flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 13 },
 
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   modalCard: {
     width: 460,
     maxHeight: '82vh',
     overflowY: 'auto',
-    background: 'var(--bg-card)',
+    background: 'var(--bg-elevated)',
     border: 'none',
     borderRadius: 16,
     padding: 24,

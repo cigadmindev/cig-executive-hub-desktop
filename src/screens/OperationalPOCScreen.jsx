@@ -14,6 +14,7 @@ export default function OperationalPOCScreen() {
   const { brandId, locationId } = useParams();
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
+  const [expandedId, setExpandedId] = useState(null);
   const { getByLocation: getContacts, ensureSeeded, updateContactField } = useOpeningOngoingContacts();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -52,17 +53,36 @@ export default function OperationalPOCScreen() {
         if (items.length === 0) return null;
         return (
           <div key={section.key} style={styles.section}>
-            <h2 style={styles.sectionHeader}>{section.label}</h2>
-            {items.map((c) => (
-              <div key={c.id} style={styles.itemCard}>
-                <p style={styles.itemTitle}>{c.item}</p>
-                <div style={styles.grid3}>
-                  <ConfirmEditField label="Who" value={c.who} onSave={(v) => updateContactField(c.id, 'who', v)} />
-                  <ConfirmEditField label="Vendor / Company" value={c.vendor} onSave={(v) => updateContactField(c.id, 'vendor', v)} />
-                  <ConfirmEditField label="Contact Name / #" value={c.contactNameNumber} onSave={(v) => updateContactField(c.id, 'contactNameNumber', v)} />
+            <div style={styles.sectionHead}>
+              <span style={styles.sectionName}>{section.label}</span>
+            </div>
+            {items.map((c) => {
+              const isOpen = expandedId === c.id;
+              return (
+                <div key={c.id} style={styles.row}>
+                  {/* Unlike the checklist, values stay visible when collapsed —
+                      on a contact list the number is the content, so hiding it
+                      behind a disclosure would defeat the point. */}
+                  <div style={styles.rowMain} onClick={() => setExpandedId(isOpen ? null : c.id)}>
+                    <span style={styles.rowTitle}>{c.item}</span>
+                    <span style={styles.rowVendor}>{c.vendor || '—'}</span>
+                    <span style={styles.rowContact}>{c.contactNameNumber || '—'}</span>
+                    <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
+                  </div>
+                  {isOpen ? (
+                    <div style={styles.rowBody}>
+                      <ConfirmEditField label="Who" value={c.who} onSave={(v) => updateContactField(c.id, 'who', v)} />
+                      <ConfirmEditField label="Vendor / Company" value={c.vendor} onSave={(v) => updateContactField(c.id, 'vendor', v)} />
+                      <ConfirmEditField
+                        label="Contact Name / #"
+                        value={c.contactNameNumber}
+                        onSave={(v) => updateContactField(c.id, 'contactNameNumber', v)}
+                      />
+                    </div>
+                  ) : null}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         );
       })}
@@ -81,7 +101,28 @@ const styles = {
   subtitle: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 20px', lineHeight: 1.5 },
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
   sectionHeader: { fontSize: 15, fontWeight: 700, margin: '0 0 14px' },
-  itemCard: { background: 'var(--bg-inset)', border: 'none', borderRadius: 10, padding: 12, marginBottom: 8 },
+  sectionHead: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '14px 14px 9px',
+    borderBottom: '1px solid var(--border-strong)',
+  },
+  sectionName: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  row: { borderBottom: '1px solid var(--border)' },
+  rowMain: { display: 'flex', alignItems: 'center', gap: 14, padding: '10px 14px', cursor: 'pointer' },
+  rowTitle: { fontSize: 14, color: 'var(--text-primary)', flex: '0 0 190px' },
+  rowVendor: { fontSize: 13, color: 'var(--text-secondary)', flex: 1, minWidth: 0 },
+  rowContact: { fontSize: 13, color: 'var(--text-secondary)', flex: '0 0 150px' },
+  chevron: { fontSize: 10, color: 'var(--text-tertiary)' },
+  rowBody: { padding: '4px 14px 14px 14px', maxWidth: 420 },
+
   itemTitle: { fontSize: 13, fontWeight: 600, margin: '0 0 4px' },
   grid3: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 8 },
   hint: { fontSize: 13, color: 'var(--text-secondary)' },

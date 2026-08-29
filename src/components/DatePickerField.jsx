@@ -108,9 +108,11 @@ const styles = {
     position: 'absolute',
     top: 'calc(100% + 6px)',
     left: 0,
-    zIndex: 50,
+    // Above the confirm modals, which sit at 200 — otherwise the calendar
+    // opens behind the dialog that contains it.
+    zIndex: 300,
     width: 260,
-    background: 'var(--bg-card)',
+    background: 'var(--bg-elevated)',
     border: '1px solid var(--border-strong)',
     borderRadius: 'var(--radius-md)',
     boxShadow: 'var(--shadow-lg)',

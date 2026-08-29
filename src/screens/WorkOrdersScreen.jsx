@@ -323,8 +323,8 @@ const styles = {
   signatureImage: { height: 32, marginLeft: 20, opacity: 0.9 },
   signedNote: { color: 'var(--text-tertiary)', fontWeight: 400 },
 
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 420, maxHeight: '82vh', overflowY: 'auto', background: 'var(--bg-card)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)' },
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  modalCard: { width: 420, maxHeight: '82vh', overflowY: 'auto', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   confirmBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 12 },
   testNote: { fontSize: 11, color: 'var(--accent)', lineHeight: 1.5, marginBottom: 14, fontStyle: 'italic' },

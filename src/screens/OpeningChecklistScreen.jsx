@@ -7,7 +7,8 @@ import { useSchedule } from '../context/ScheduleContext';
 import { useOpeningInfo } from '../context/OpeningInfoContext';
 import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
 import { TIMELINE_BUCKETS, getOpeningItemUrgency, getBlockingDependencies, getDependentParents } from '../data/openingChecklistData';
-import { getTemplateForLocation } from '../data/checklists';
+import { getTemplateForLocation, RENEWAL_TYPE_BY_KEY } from '../data/checklists';
+import { useRenewals, renewalDocId } from '../context/RenewalsContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmEditField from '../components/ConfirmEditField';
 import ItemDetails from '../components/ItemDetails';
@@ -26,6 +27,7 @@ export default function OpeningChecklistScreen() {
   const isAdmin = user?.role === 'admin';
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
+  const { updateDates } = useRenewals();
   const { getOpeningItemsByLocation, toggleOpeningItemDone, updateEntry } = useSchedule();
   const { getInfo, updateInfoField, setOpeningDate } = useOpeningInfo();
   const { regenerateForLocation } = useOpeningOngoingContacts();
@@ -42,6 +44,11 @@ export default function OpeningChecklistScreen() {
   // it pushes the checklist a full screen down, so it starts collapsed with a
   // summary and opens on demand.
   const [infoOpen, setInfoOpen] = useState(false);
+  // A permit being signed off is the one moment someone has the document in
+  // hand, so it's the right time to capture its expiry — rather than making
+  // them re-enter it on the Renewals screen later, or never.
+  const [renewalPrompt, setRenewalPrompt] = useState(null); // { item, type }
+  const [renewalExpiry, setRenewalExpiry] = useState('');
   const [itemDateDraft, setItemDateDraft] = useState('');
   const [confirmingItemDate, setConfirmingItemDate] = useState(null); // { item, newDate } pending confirmation
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,8 +107,30 @@ export default function OpeningChecklistScreen() {
   // and the Calendar, since they're reading the exact same document.
   const requestToggleDone = (item) => setConfirmingItem(item);
   const confirmToggleDone = () => {
-    toggleOpeningItemDone(confirmingItem.id, !confirmingItem.done, user?.name ?? 'Unknown');
+    const item = confirmingItem;
+    toggleOpeningItemDone(item.id, !item.done, user?.name ?? 'Unknown');
     setConfirmingItem(null);
+
+    // Permits and licenses have a second life after they're obtained. Rather
+    // than making someone re-enter the same dates on the Renewals screen —
+    // which in practice means it never happens — ask for the expiry here,
+    // while the document is in front of them.
+    const type = RENEWAL_TYPE_BY_KEY[item.setupKey];
+    if (type && !item.done) {
+      setRenewalExpiry('');
+      setRenewalPrompt({ item, type });
+    }
+  };
+
+  const saveRenewalFromSignOff = async () => {
+    if (!renewalPrompt) return;
+    const { type } = renewalPrompt;
+    await updateDates(
+      renewalDocId(locationId, type),
+      Date.now(),
+      renewalExpiry ? new Date(renewalExpiry).getTime() : null
+    );
+    setRenewalPrompt(null);
   };
 
   // Anyone can move an individual item's due date — this is separate from
@@ -455,6 +484,32 @@ export default function OpeningChecklistScreen() {
               </button>
               <button style={styles.saveBtnFull} onClick={confirmSetOpeningDate}>
                 Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Appears right after a permit is signed off. The alternative is
+          asking for this on the Renewals screen, which means asking someone
+          to go find a document they already had open. */}
+      {renewalPrompt ? (
+        <div style={styles.confirmBackdrop}>
+          <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
+            <p style={styles.confirmTitle}>{renewalPrompt.type} obtained</p>
+            <p style={styles.confirmBody}>
+              When does it expire? This fills in the renewal record so it starts tracking, and you
+              won't be asked again.
+            </p>
+            <div style={{ margin: '14px 0' }}>
+              <DatePickerField value={renewalExpiry} onChange={setRenewalExpiry} />
+            </div>
+            <div style={styles.confirmButtonsRow}>
+              <button style={styles.cancelBtnFull} onClick={() => setRenewalPrompt(null)}>
+                Skip for now
+              </button>
+              <button style={styles.saveBtnFull} onClick={saveRenewalFromSignOff} disabled={!renewalExpiry}>
+                Save
               </button>
             </div>
           </div>

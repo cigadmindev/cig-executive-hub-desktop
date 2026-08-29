@@ -40,8 +40,8 @@ export default function RequestAccessModal({ target, onSubmit, onClose }) {
 }
 
 const styles = {
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 380, background: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', padding: 24, boxShadow: 'var(--shadow-lg)' },
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  modalCard: { width: 380, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', padding: 24, boxShadow: 'var(--shadow-lg)' },
   modalTitle: { fontSize: 17, fontWeight: 700, margin: '0 0 8px', letterSpacing: -0.2 },
   modalBody: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 },

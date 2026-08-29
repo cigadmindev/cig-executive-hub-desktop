@@ -126,7 +126,7 @@ const styles = {
     left: 0,
     right: 0,
     marginTop: 4,
-    background: 'var(--bg-card)',
+    background: 'var(--bg-elevated)',
     border: '1px solid var(--border-strong)',
     borderRadius: 'var(--radius-sm)',
     boxShadow: 'var(--shadow-lg)',

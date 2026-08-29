@@ -101,7 +101,7 @@ const styles = {
     minWidth: 140,
     maxHeight: 220,
     overflowY: 'auto',
-    background: 'var(--bg-card)',
+    background: 'var(--bg-elevated)',
     border: '1px solid var(--border-strong)',
     borderRadius: 'var(--radius-md)',
     boxShadow: 'var(--shadow-lg)',
