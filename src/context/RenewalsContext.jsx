@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, updateDoc, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 import { renewalTypes, RENEWAL_WARNING_WINDOW_DAYS } from '../data/renewalTypes';
@@ -38,6 +38,7 @@ export function RenewalsProvider({ children }) {
           type: data.type,
           approvedDate: data.approvedDate ?? null,
           expirationDate: data.expirationDate ?? null,
+          document: data.document ?? null,
           signedOffBy: data.signedOffBy ?? null,
           signedOffAt: data.signedOffAt ?? null,
         };
@@ -77,8 +78,18 @@ export function RenewalsProvider({ children }) {
     );
   };
 
-  const updateDates = async (itemId, approvedDate, expirationDate) => {
-    await updateDoc(doc(db, COLLECTION, itemId), { approvedDate, expirationDate });
+  const updateDates = async (itemId, approvedDate, expirationDate, document) => {
+    const patch = { approvedDate, expirationDate };
+    // Only written when a document is passed, so editing dates by hand from
+    // the Renewals screen doesn't clear an attachment that's already there.
+    if (document !== undefined) patch.document = document;
+    await updateDoc(doc(db, COLLECTION, itemId), patch);
+  };
+
+  // Writes only the document, leaving dates alone — attaching a permit from
+  // the checklist shouldn't disturb renewal dates someone has already set.
+  const setRenewalDocument = async (itemId, document) => {
+    await setDoc(doc(db, COLLECTION, itemId), { document }, { merge: true });
   };
 
   const markRenewed = async (itemId, signedOffBy, newExpirationDate) => {
@@ -93,7 +104,7 @@ export function RenewalsProvider({ children }) {
   const hasUpcomingRenewal = (locationId) => getByLocation(locationId).some(isRenewalDueSoon);
 
   return (
-    <RenewalsContext.Provider value={{ getByLocation, ensureSeeded, updateDates, markRenewed, hasUpcomingRenewal }}>
+    <RenewalsContext.Provider value={{ getByLocation, ensureSeeded, updateDates, setRenewalDocument, markRenewed, hasUpcomingRenewal }}>
       {children}
     </RenewalsContext.Provider>
   );

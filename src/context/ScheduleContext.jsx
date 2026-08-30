@@ -46,6 +46,10 @@ export function ScheduleProvider({ children }) {
           openingSection: data.openingSection ?? null,
           openingFields: data.openingFields ?? null, // { company, accountNumber, contact } — setup items only
           setupKey: data.setupKey ?? null, // links a setup item back to its INITIAL_SETUP_ITEMS entry, for dependency lookups
+          // The permit or certificate itself: { url, path, name, uploadedAt,
+          // uploadedBy }. Lives on the task that produced it, and gets copied
+          // to the renewal record on sign-off so it's there at renewal time.
+          document: data.document ?? null,
           renewalItem: data.renewalItem ?? false, // the migrated license/permit's initial "get this" calendar task
           renewalType: data.renewalType ?? null, // matches a type in renewalTypes.js
           done: data.done ?? false,

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ConfirmEditField from './ConfirmEditField';
+import DocumentField from './DocumentField';
 
 // The expanded body of a checklist row. The row itself owns whether this is
 // shown — one chevron per item rather than a separate Details button, which
@@ -18,7 +19,7 @@ const FIELDS = [
   { key: 'contact', label: 'Contact' },
 ];
 
-export default function ItemDetails({ item, onSave }) {
+export default function ItemDetails({ item, onSave, locationId, userName }) {
   // Fields added this session but not yet saved — without this they'd vanish
   // the moment the picker closes, since they hold no value to render from.
   const [added, setAdded] = useState([]);
@@ -61,6 +62,19 @@ export default function ItemDetails({ item, onSave }) {
             </div>
           ))}
         </div>
+      ) : null}
+
+      {/* The permit itself. Kept out of the field picker because it isn't
+          one of several optional notes — it's the artifact the task exists
+          to produce, and it travels into the renewal record afterwards. */}
+      {locationId && item.setupKey ? (
+        <DocumentField
+          locationId={locationId}
+          itemKey={item.setupKey}
+          value={item.document ?? null}
+          userName={userName}
+          onChange={(doc) => onSave(item, '__document', doc)}
+        />
       ) : null}
 
       {available.length > 0 ? (

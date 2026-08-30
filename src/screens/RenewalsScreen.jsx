@@ -6,6 +6,8 @@ import { brands } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import DatePickerField from '../components/DatePickerField';
 import { useSchedule } from '../context/ScheduleContext';
+import DocumentField from '../components/DocumentField';
+import { RENEWAL_TYPE_BY_KEY } from '../data/checklists';
 import { nike } from '../theme/nike';
 
 function formatDate(ts) {
@@ -17,6 +19,17 @@ export default function RenewalsScreen() {
   const { brandId, locationId } = useParams();
   const { user } = useAuth();
   const { getByLocation, ensureSeeded, updateDates, markRenewed } = useRenewals();
+
+  // Maps a renewal type back to the checklist item that produced it, so a
+  // document removed here also clears there.
+  const clearChecklistDocument = (type) => {
+    const key = Object.keys(RENEWAL_TYPE_BY_KEY).find((k) => RENEWAL_TYPE_BY_KEY[k] === type);
+    if (!key) return;
+    const match = entries.find(
+      (e) => e.locationId === locationId && e.setupKey === key && e.document
+    );
+    if (match) updateEntry(match.id, { document: null });
+  };
   const { getByBrand } = useCustomLocations();
   const { entries, updateEntry } = useSchedule();
 
@@ -37,6 +50,7 @@ export default function RenewalsScreen() {
   const location = allLocations.find((l) => l.id === locationId);
 
   const [editingItem, setEditingItem] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
   const [editApproved, setEditApproved] = useState('');
   const [editExpiration, setEditExpiration] = useState('');
 
@@ -86,33 +100,78 @@ export default function RenewalsScreen() {
       <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>License & Lease Renewals</h1>
 
       <div style={styles.body}>
-        {items.map((item) => {
-          const dueSoon = isRenewalDueSoon(item);
-          return (
-            <div key={item.id} style={{ ...styles.card, borderColor: dueSoon ? 'var(--danger)' : 'var(--border)' }}>
-              <div style={styles.cardHeaderRow}>
-                <span style={styles.cardTitle}>{item.type}</span>
-                {dueSoon ? (
-                  <span style={{ ...styles.badge, background: 'var(--danger)' }}>DUE SOON</span>
-                ) : item.expirationDate ? (
-                  <span style={{ ...styles.badge, background: '#5C7A52' }}>OK</span>
+        <div style={styles.headRow}>
+          <span style={styles.headName}>Permit</span>
+          <span style={styles.headCol}>Approved</span>
+          <span style={styles.headCol}>Expires</span>
+          <span style={styles.headStatus} />
+          <span style={styles.headChevron} />
+        </div>
+
+        {/* Soonest first, unset at the bottom. The old order came from the
+            renewalTypes array, which put whatever happens to be listed first
+            at the top regardless of whether it needed attention. */}
+        {[...items]
+          .sort((a, b) => (a.expirationDate ?? Infinity) - (b.expirationDate ?? Infinity))
+          .map((item) => {
+            const dueSoon = isRenewalDueSoon(item);
+            const isOpen = expandedId === item.id;
+            const days = item.expirationDate
+              ? Math.round((item.expirationDate - Date.now()) / (24 * 60 * 60 * 1000))
+              : null;
+            return (
+              <div key={item.id} style={styles.row}>
+                <div
+                  data-row=""
+                  style={{ ...styles.rowMain, ...(dueSoon ? styles.rowDue : {}) }}
+                  onClick={() => setExpandedId(isOpen ? null : item.id)}
+                >
+                  <span style={styles.rowName}>{item.type}</span>
+                  <span style={styles.rowCol}>{item.approvedDate ? formatDate(item.approvedDate) : '—'}</span>
+                  <span style={{ ...styles.rowCol, color: dueSoon ? 'var(--danger)' : 'var(--text-secondary)' }}>
+                    {item.expirationDate ? formatDate(item.expirationDate) : '—'}
+                    {days != null && days >= 0 ? <span style={styles.daysNote}> · {days}d</span> : null}
+                  </span>
+                  <span style={styles.headStatus}>
+                    {dueSoon ? <span style={styles.dueBadge}>DUE SOON</span> : null}
+                  </span>
+                  <span style={styles.headChevron}>{isOpen ? '▾' : '▸'}</span>
+                </div>
+
+                {isOpen ? (
+                  <div style={styles.rowBody} data-reveal="">
+                    <div style={styles.actionRow}>
+                      <button style={styles.cancelButton} onClick={() => openEdit(item)}>
+                        Edit Dates
+                      </button>
+                      <button style={styles.saveButton} onClick={() => openSignOff(item)}>
+                        Mark Renewed
+                      </button>
+                    </div>
+                    {item.signedOffBy ? (
+                      <p style={styles.signOffNote}>Last renewed by {item.signedOffBy}</p>
+                    ) : null}
+                    <DocumentField
+                      locationId={locationId}
+                      itemKey={item.type.replace(/\s+/g, '-').toLowerCase()}
+                      value={item.document ?? null}
+                      userName={user?.name}
+                      onChange={(docRef) => {
+                        updateDates(item.id, item.approvedDate, item.expirationDate, docRef);
+                        // Removing a permit should clear it everywhere it was
+                        // shared — the file is gone from Storage, so leaving
+                        // the checklist pointing at it is a dead link.
+                        // Attaching stays one-way: after a renewal the new
+                        // document belongs to the renewal, not the original
+                        // setup task.
+                        if (docRef === null) clearChecklistDocument(item.type);
+                      }}
+                    />
+                  </div>
                 ) : null}
               </div>
-              <p style={styles.dateLine}>Approved: {formatDate(item.approvedDate)}</p>
-              <p style={styles.dateLine}>Expires / Renewal due: {formatDate(item.expirationDate)}</p>
-              {item.signedOffBy ? <p style={styles.signOffNote}>Last renewed by {item.signedOffBy}</p> : null}
-
-              <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-                <button style={styles.cancelButton} onClick={() => openEdit(item)}>
-                  Edit Dates
-                </button>
-                <button style={styles.saveButton} onClick={() => openSignOff(item)}>
-                  Mark Renewed
-                </button>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
 
       {editingItem ? (
@@ -161,6 +220,32 @@ export default function RenewalsScreen() {
 }
 
 const styles = {
+  // A table, because that's what this is — seven rows of the same three
+  // fields. As cards it was three screens of scrolling and you couldn't
+  // compare expiry dates without reading each one.
+  headRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '12px 14px',
+    borderBottom: '1px solid var(--border-strong)',
+  },
+  headName: { flex: 1, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-primary)' },
+  headCol: { width: 130, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  headStatus: { width: 84, flexShrink: 0 },
+  headChevron: { width: 12, fontSize: 10, color: 'var(--text-tertiary)', flexShrink: 0 },
+
+  row: { borderBottom: '1px solid var(--border)' },
+  rowMain: { display: 'flex', alignItems: 'center', gap: 10, padding: '13px 14px', cursor: 'pointer' },
+  rowDue: { background: 'rgba(232,82,75,0.07)' },
+  rowName: { flex: 1, fontSize: 14, color: 'var(--text-primary)' },
+  rowCol: { width: 130, fontSize: 13, color: 'var(--text-secondary)' },
+  daysNote: { color: 'var(--text-tertiary)' },
+  dueBadge: { fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: 'var(--danger)' },
+  rowBody: { padding: '4px 14px 16px' },
+  actionRow: { display: 'flex', gap: 10, marginBottom: 10 },
+  docNote: { fontSize: 12, color: 'var(--text-tertiary)', margin: 0 },
+
   page: { padding: '28px 36px', maxWidth: 640 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },

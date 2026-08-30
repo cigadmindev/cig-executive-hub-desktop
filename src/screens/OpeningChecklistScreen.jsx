@@ -27,7 +27,7 @@ export default function OpeningChecklistScreen() {
   const isAdmin = user?.role === 'admin';
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
-  const { updateDates } = useRenewals();
+  const { updateDates, setRenewalDocument } = useRenewals();
   const { getOpeningItemsByLocation, toggleOpeningItemDone, updateEntry } = useSchedule();
   const { getInfo, updateInfoField, setOpeningDate } = useOpeningInfo();
   const { regenerateForLocation } = useOpeningOngoingContacts();
@@ -124,11 +124,16 @@ export default function OpeningChecklistScreen() {
 
   const saveRenewalFromSignOff = async () => {
     if (!renewalPrompt) return;
-    const { type } = renewalPrompt;
+    const { type, item } = renewalPrompt;
+    // Read the item fresh rather than trusting the copy captured when the
+    // checkbox was clicked — a document attached moments earlier isn't on
+    // that snapshot, and the whole point is that it travels across.
+    const current = setupItems.find((i) => i.id === item.id) ?? item;
     await updateDates(
       renewalDocId(locationId, type),
       Date.now(),
-      renewalExpiry ? new Date(renewalExpiry).getTime() : null
+      renewalExpiry ? new Date(renewalExpiry).getTime() : null,
+      current.document ?? null
     );
     setRenewalPrompt(null);
   };
@@ -152,6 +157,18 @@ export default function OpeningChecklistScreen() {
   };
 
   const updateSetupField = (item, field, value) => {
+    // The document sits at the top level rather than inside openingFields —
+    // it's a file reference, not a text field, and the renewal record reads
+    // it from there when a permit is signed off.
+    if (field === '__document') {
+      updateEntry(item.id, { document: value });
+      // Both places hold the same permit, so attaching it once should be
+      // enough. Waiting for sign-off meant a document could sit on the
+      // checklist for weeks while the renewal record showed nothing.
+      const type = RENEWAL_TYPE_BY_KEY[item.setupKey];
+      if (type) setRenewalDocument(renewalDocId(locationId, type), value);
+      return;
+    }
     updateEntry(item.id, { openingFields: { ...item.openingFields, [field]: value } });
   };
 
@@ -378,7 +395,12 @@ export default function OpeningChecklistScreen() {
                               </button>
                             </div>
                           ) : null}
-                          <ItemDetails item={item} onSave={updateSetupField} />
+                          <ItemDetails
+                            item={item}
+                            onSave={updateSetupField}
+                            locationId={locationId}
+                            userName={user?.name}
+                          />
                         </div>
                       ) : null}
                     </div>
@@ -506,10 +528,10 @@ export default function OpeningChecklistScreen() {
               <DatePickerField value={renewalExpiry} onChange={setRenewalExpiry} />
             </div>
             <div style={styles.confirmButtonsRow}>
-              <button style={styles.cancelBtnFull} onClick={() => setRenewalPrompt(null)}>
+              <button style={styles.cancelBtnFull} onClick={saveRenewalFromSignOff}>
                 Skip for now
               </button>
-              <button style={styles.saveBtnFull} onClick={saveRenewalFromSignOff} disabled={!renewalExpiry}>
+              <button style={styles.saveBtnFull} onClick={saveRenewalFromSignOff}>
                 Save
               </button>
             </div>
