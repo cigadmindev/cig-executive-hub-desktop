@@ -302,7 +302,16 @@ export function computeInitialSetupDates(openingDate, template) {
   const maxDepth = Math.max(0, ...Object.values(depths));
   // Runways differ by city — Birmingham's city-then-state sequence with a
   // council agenda slot needs longer than Mississippi's four months.
-  const { windowStartDaysBefore, windowEndDaysBefore } = template?.window ?? INITIAL_SETUP_WINDOW;
+  let { windowStartDaysBefore, windowEndDaysBefore } = template?.window ?? INITIAL_SETUP_WINDOW;
+
+  // A 120-day runway set 72 days out would start in July — every task born
+  // overdue, and a checklist that's red before anyone touches it. Compress the
+  // window to what's actually left instead. The sequencing still holds; it
+  // just happens faster, which is the real situation.
+  const daysUntilOpening = Math.floor((openingDate - Date.now()) / (24 * 60 * 60 * 1000));
+  if (daysUntilOpening < windowStartDaysBefore) {
+    windowStartDaysBefore = Math.max(daysUntilOpening, windowEndDaysBefore + 1);
+  }
   const totalSpan = windowStartDaysBefore - windowEndDaysBefore;
   const sliceSize = totalSpan / (maxDepth + 1);
 

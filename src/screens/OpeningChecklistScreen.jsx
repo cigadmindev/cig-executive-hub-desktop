@@ -309,6 +309,7 @@ export default function OpeningChecklistScreen() {
                           ...(overdue ? styles.rowOverdue : {}),
                           ...(item.done ? styles.rowDone : {}),
                         }}
+                        data-row=""
                         onClick={() => setExpandedItemId(isOpen ? null : item.id)}
                       >
                         <button
@@ -362,7 +363,7 @@ export default function OpeningChecklistScreen() {
                       {isLocked ? <p style={styles.blockedNote}>Requires {blockedBy.join(', ')}</p> : null}
 
                       {isOpen ? (
-                        <div style={styles.rowBody}>
+                        <div style={styles.rowBody} data-reveal="">
                           {neededFor.length > 0 ? (
                             <p style={styles.neededForNote}>Needed for {neededFor.join(', ')}</p>
                           ) : null}
@@ -598,7 +599,6 @@ const styles = {
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
   sectionHeader: { fontSize: 15, fontWeight: 700, margin: '0 0 14px' },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
-  grid3: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 8 },
   grid4: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginTop: 8 },
   label: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: '14px 0 8px' },
   hint: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 },
@@ -607,7 +607,6 @@ const styles = {
   smallLinkButton: { fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 },
   setDateButton: { padding: '9px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
 
-  itemCard: { background: 'var(--bg-inset)', border: 'none', borderRadius: 10, padding: 12, marginBottom: 8 },
 
   // Rows, not cards. A card per item meant ~110px each and a 6000px page;
   // these are ~40px and the whole section fits on screen. Separated by a hair
@@ -694,31 +693,9 @@ const styles = {
   sectionCount: { fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0 },
   sectionBarTrack: { flex: 1, height: 3, background: 'var(--border)', borderRadius: 2, minWidth: 40 },
   sectionBarFill: { height: 3, background: 'var(--neon)', borderRadius: 2 },
-  itemHeaderRow: { display: 'flex', alignItems: 'center', gap: 10 },
-  itemTitle: { fontSize: 13, fontWeight: 600, flex: 1 },
-  itemTitleDone: { textDecoration: 'line-through', color: 'var(--text-tertiary)' },
-  signedOffNote: { fontSize: 11, color: 'var(--success)', fontWeight: 600, margin: '2px 0 0' },
-  lockedNote: { fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, margin: '2px 0 0' },
   neededForNote: { fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic', margin: '2px 0 0' },
   urgencyBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap', margin: 0, cursor: 'pointer' },
-  doneCheckbox: { flexShrink: 0 },
-  doneCheckboxInner: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
-    border: '1.5px solid var(--border-strong)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 12,
-    color: '#FFFFFF',
-  },
-  doneCheckboxChecked: { background: 'var(--success)', borderColor: 'var(--success)' },
-  doneCheckboxLocked: { background: 'var(--bg-inset)', borderColor: 'var(--border)', opacity: 0.7 },
 
-  bucketLabel: { fontSize: 12, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
-  timelineItemWrap: { borderBottom: '1px solid var(--border)', padding: '8px 0' },
-  timelineRow: { display: 'flex', alignItems: 'center', gap: 10 },
   dateEditRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' },
   saveDateButton: { padding: '9px 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, flexShrink: 0, textTransform: 'uppercase' },
   cancelDateButton: { padding: '9px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, flexShrink: 0 },

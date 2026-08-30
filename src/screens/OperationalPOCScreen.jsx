@@ -63,14 +63,14 @@ export default function OperationalPOCScreen() {
                   {/* Unlike the checklist, values stay visible when collapsed —
                       on a contact list the number is the content, so hiding it
                       behind a disclosure would defeat the point. */}
-                  <div style={styles.rowMain} onClick={() => setExpandedId(isOpen ? null : c.id)}>
+                  <div style={styles.rowMain} data-row="" onClick={() => setExpandedId(isOpen ? null : c.id)}>
                     <span style={styles.rowTitle}>{c.item}</span>
                     <span style={styles.rowVendor}>{c.vendor || '—'}</span>
                     <span style={styles.rowContact}>{c.contactNameNumber || '—'}</span>
                     <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
                   </div>
                   {isOpen ? (
-                    <div style={styles.rowBody}>
+                    <div style={styles.rowBody} data-reveal="">
                       <ConfirmEditField label="Who" value={c.who} onSave={(v) => updateContactField(c.id, 'who', v)} />
                       <ConfirmEditField label="Vendor / Company" value={c.vendor} onSave={(v) => updateContactField(c.id, 'vendor', v)} />
                       <ConfirmEditField
