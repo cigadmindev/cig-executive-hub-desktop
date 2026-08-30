@@ -588,13 +588,11 @@ export default function OpeningChecklistScreen() {
       {confirmingRegenerate ? (
         <div style={styles.confirmBackdrop} onClick={() => !regenerating && setConfirmingRegenerate(false)}>
           <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
-            <p style={styles.confirmTitle}>Regenerate this location's data?</p>
+            <p style={styles.confirmTitle}>Bring this location up to date?</p>
             <p style={styles.confirmBody}>
-              This wipes and rebuilds the Initial Set-Up checklist, Timeline, and Operational POC for{' '}
-              <strong>{location.name}</strong> from the current code — useful after an update, or to clear
-              out test data. Any progress already signed off (checkboxes, filled-in Company/Account/Contact
-              fields) will be lost and start fresh. This does not touch License & Lease Renewals — those
-              keep their real dates.
+              Adds any checklist, timeline, or contact items introduced since <strong>{location.name}</strong>{' '}
+              was set up, and removes anything no longer in use. Completed work keeps its sign-off and its
+              date, filled-in fields are kept, and renewal records aren't touched.
             </p>
             <div style={styles.confirmButtonsRow}>
               <button style={styles.cancelBtnFull} onClick={() => setConfirmingRegenerate(false)} disabled={regenerating}>

@@ -289,7 +289,6 @@ const styles = {
   recentText: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
   openingStatRow: { display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' },
   openingOverdue: { fontSize: 11, color: 'var(--danger)' },
-  attentionList: { background: 'var(--bg-card)', borderRadius: 10, overflow: 'hidden' },
   attentionRow: {
     display: 'flex',
     alignItems: 'center',

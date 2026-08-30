@@ -30,8 +30,9 @@ export default function CalendarScreen() {
   const visibleBrands = brands.filter((b) => hasBrandAccess(user, b.id));
   const [filterBrandId, setFilterBrandId] = useState('all');
   const [selectedDate, setSelectedDate] = useState(null);
-  const [confirmingOpeningItem, setConfirmingOpeningItem] = useState(null);
   const [editingOpeningDateId, setEditingOpeningDateId] = useState(null);
+  // One row open at a time, same as the checklist and renewals.
+  const [expandedEntryId, setExpandedEntryId] = useState(null);
   const [openingDateDraft, setOpeningDateDraft] = useState('');
   const [confirmingOpeningDate, setConfirmingOpeningDate] = useState(null); // { entry, newDate }
   const [formOpen, setFormOpen] = useState(false);
@@ -202,82 +203,106 @@ export default function CalendarScreen() {
               ) : (
                 selectedEntries.map((e) => {
                   const info = locationInfo[e.locationId];
-                  const urgency = e.openingItem || e.renewalItem ? getOpeningItemUrgency(e, Date.now()) : null;
+                  const isChecklist = e.openingItem || e.renewalItem;
+                  const isOpen = expandedEntryId === e.id;
+                  const overdue = isChecklist && !e.done && e.dateTime < Date.now();
                   return (
-                    <div key={e.id} style={styles.entryCard}>
-                      <div style={{ ...styles.entryAccentBar, background: info.color }} />
-                      <div style={styles.entryContent}>
-                        <div style={styles.entryHeaderRow}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                            {e.openingItem ? (
-                              <button
-                                style={styles.openingCheckbox}
-                                onClick={() => setConfirmingOpeningItem(e)}
-                              >
-                                <span style={{ ...styles.openingCheckboxInner, ...(e.done ? styles.openingCheckboxChecked : {}) }}>
-                                  {e.done ? '✓' : ''}
-                                </span>
-                              </button>
-                            ) : null}
-                            <span style={{ ...styles.entryTitle, ...((e.openingItem || e.renewalItem) && e.done ? styles.entryTitleDone : {}) }}>
-                              {e.title}
-                            </span>
+                    <div key={e.id} style={styles.row}>
+                      <div
+                        data-row=""
+                        style={{
+                          ...styles.rowMain,
+                          ...(overdue ? styles.rowOverdue : {}),
+                          ...(isChecklist && e.done ? styles.rowDone : {}),
+                        }}
+                        onClick={() => setExpandedEntryId(isOpen ? null : e.id)}
+                      >
+                        {/* Read-only here. Signing off from a calendar row means
+                            doing it without seeing what the task depends on or
+                            attaching the permit it produced — the checklist is
+                            where that context lives, so this points there. */}
+                        {isChecklist ? (
+                          <span style={{ ...styles.check, ...(e.done ? styles.checkDone : {}) }}>
+                            {e.done ? '✓' : ''}
+                          </span>
+                        ) : (
+                          <span style={{ ...styles.dot, background: info.color }} />
+                        )}
+
+                        <div style={styles.rowText}>
+                          <div style={{ ...styles.rowTitle, ...(isChecklist && e.done ? styles.rowTitleDone : {}) }}>
+                            {e.title}
                           </div>
-                          {e.renewalItem ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                              <span style={{ ...styles.openingBadge, background: urgency.color }}>
-                                {e.done ? 'Done' : e.attentionFlag ? 'Needs Attention' : 'License/Permit'}
-                              </span>
-                              {!e.done ? (
+                          {/* Location on its own line — as a suffix it crowded
+                              the title and every row read the same width. */}
+                          <div style={styles.rowWhere}>
+                            {info.brandName} · {info.locationName}
+                            {e.renewalItem ? ' · Renewal' : e.openingItemType === 'timeline' ? ' · Opening timeline' : ''}
+                          </div>
+                        </div>
+
+                        {e.done ? (
+                          <span style={styles.rowMeta}>{e.doneBy || 'Done'}</span>
+                        ) : overdue ? (
+                          <span style={styles.rowOverdueLabel}>Overdue</span>
+                        ) : (
+                          <span style={styles.rowMeta}>
+                            {new Date(e.dateTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                          </span>
+                        )}
+                        <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
+                      </div>
+
+                      {isOpen ? (
+                        <div style={styles.rowBody} data-reveal="">
+                          {e.note ? <p style={styles.rowNote}>{e.note}</p> : null}
+                          <div style={styles.rowActions}>
+                            {isChecklist ? (
+                              <>
+                                <DatePickerField
+                                  value={
+                                    editingOpeningDateId === e.id
+                                      ? openingDateDraft
+                                      : new Date(e.dateTime).toISOString().slice(0, 10)
+                                  }
+                                  onChange={(v) => {
+                                    setEditingOpeningDateId(e.id);
+                                    setOpeningDateDraft(v);
+                                  }}
+                                />
+                                {editingOpeningDateId === e.id ? (
+                                  <button style={styles.saveButton} onClick={() => requestOpeningDateChange(e)}>
+                                    Save
+                                  </button>
+                                ) : null}
+                                <div style={{ flex: 1 }} />
                                 <Link
-                                  to={`/brand/${info.brandId}/location/${e.locationId}/renewals`}
+                                  to={
+                                    e.renewalItem
+                                      ? `/brand/${info.brandId}/location/${e.locationId}/renewals`
+                                      : `/brand/${info.brandId}/location/${e.locationId}/opening-checklist`
+                                  }
                                   style={styles.linkButton}
                                 >
-                                  Go to Renewals
+                                  {e.renewalItem ? 'Open renewals →' : 'Open checklist →'}
                                 </Link>
-                              ) : null}
-                            </div>
-                          ) : e.openingItem ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                              <span style={{ ...styles.openingBadge, background: urgency.color }}>
-                                {e.done ? 'Done' : e.attentionFlag ? 'Needs Attention' : 'Opening'}
-                              </span>
-                              {!e.done ? (
-                                <button style={styles.linkButton} onClick={() => startEditOpeningDate(e)}>
-                                  Change Date
+                              </>
+                            ) : isAdmin || isExecutive ? (
+                              <>
+                                <button style={styles.linkButton} onClick={() => openEditForm(e)}>
+                                  Edit
                                 </button>
-                              ) : null}
-                            </div>
-                          ) : isAdmin || isExecutive ? (
-                            <div style={{ display: 'flex', gap: 10 }}>
-                              <button style={styles.linkButton} onClick={() => openEditForm(e)}>
-                                Edit
-                              </button>
-                              <button style={{ ...styles.linkButton, color: 'var(--danger)' }} onClick={() => handleDelete(e)}>
-                                Delete
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                        {(e.openingItem || e.renewalItem) && e.done && e.doneBy ? (
-                          <p style={styles.signedOffNote}>Signed off by {e.doneBy}</p>
-                        ) : null}
-                        {editingOpeningDateId === e.id ? (
-                          <div style={styles.dateEditRow}>
-                            <DatePickerField value={openingDateDraft} onChange={setOpeningDateDraft} />
-                            <button style={styles.saveDateButton} onClick={() => requestOpeningDateChange(e)}>
-                              Save
-                            </button>
-                            <button style={styles.cancelDateButton} onClick={() => setEditingOpeningDateId(null)}>
-                              ✕
-                            </button>
+                                <button
+                                  style={{ ...styles.linkButton, color: 'var(--danger)' }}
+                                  onClick={() => handleDelete(e)}
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            ) : null}
                           </div>
-                        ) : null}
-                        <span style={styles.entryMeta}>
-                          {info.brandName} · {info.locationName} · {formatTime(e.dateTime)}
-                        </span>
-                        {e.note ? <p style={styles.entryNote}>{e.note}</p> : null}
-                      </div>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })
@@ -290,24 +315,40 @@ export default function CalendarScreen() {
       {formOpen ? (
         <div style={styles.modalBackdrop} onClick={closeForm}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>{editingEntry ? 'Edit Event' : 'New Event'}</h2>
+            <h2 style={styles.modalTitle}>{editingEntry ? 'Edit Event' : 'Add Event'}</h2>
+            {/* The day is already chosen — stating it is context, not another
+                field to fill in. */}
+            <p style={styles.modalDate}>
+              {selectedDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
 
             <label style={styles.label}>Title</label>
-            <input style={styles.input} value={formTitle} onChange={(e) => setFormTitle(e.target.value)} autoFocus />
+            <input
+              style={styles.input}
+              placeholder="What's happening?"
+              value={formTitle}
+              onChange={(e) => setFormTitle(e.target.value)}
+              autoFocus
+            />
 
-            <label style={styles.label}>Location</label>
-            <select style={styles.input} value={formLocationId} onChange={(e) => setFormLocationId(e.target.value)}>
-              {allLocationOptions.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.brandName} — {loc.locationName}
-                </option>
-              ))}
-            </select>
+            <div style={styles.formRow}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <label style={styles.label}>Location</label>
+                <select style={styles.input} value={formLocationId} onChange={(e) => setFormLocationId(e.target.value)}>
+                  {allLocationOptions.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.brandName} — {loc.locationName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ width: 120, flexShrink: 0 }}>
+                <label style={styles.label}>Time</label>
+                <TimePickerField value={formTime} onChange={setFormTime} />
+              </div>
+            </div>
 
-            <label style={styles.label}>Time</label>
-            <TimePickerField value={formTime} onChange={setFormTime} />
-
-            <label style={styles.label}>Notes</label>
+            <label style={styles.label}>Note</label>
             <textarea style={{ ...styles.input, minHeight: 70 }} value={formNote} onChange={(e) => setFormNote(e.target.value)} />
 
             <div style={styles.modalButtonsRow}>
@@ -322,35 +363,6 @@ export default function CalendarScreen() {
         </div>
       ) : null}
 
-      {confirmingOpeningItem ? (
-        <div style={styles.modalBackdrop} onClick={() => setConfirmingOpeningItem(null)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>
-              {confirmingOpeningItem.done ? 'Un-sign this off?' : 'Sign off on this task?'}
-            </h2>
-            <p style={styles.confirmOpeningBody}>
-              <strong>{confirmingOpeningItem.title}</strong>
-              {confirmingOpeningItem.done
-                ? ' will be marked not done again.'
-                : ` will be marked done, with your name (${user?.name ?? 'you'}) recorded as who signed off — visible here and on the Opening Checklist.`}
-            </p>
-            <div style={styles.modalButtonsRow}>
-              <button style={styles.cancelButton} onClick={() => setConfirmingOpeningItem(null)}>
-                Cancel
-              </button>
-              <button
-                style={styles.saveButton}
-                onClick={() => {
-                  toggleOpeningItemDone(confirmingOpeningItem.id, !confirmingOpeningItem.done, user?.name ?? 'Unknown');
-                  setConfirmingOpeningItem(null);
-                }}
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {confirmingOpeningDate ? (
         <div style={styles.modalBackdrop} onClick={() => setConfirmingOpeningDate(null)}>
@@ -377,6 +389,38 @@ export default function CalendarScreen() {
 }
 
 const styles = {
+  modalDate: { fontSize: 12, color: 'var(--text-tertiary)', margin: '-6px 0 16px' },
+  formRow: { display: 'flex', gap: 10, alignItems: 'flex-start' },
+  row: { borderBottom: '1px solid var(--border)' },
+  rowMain: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', cursor: 'pointer' },
+  rowOverdue: { background: 'rgba(232,82,75,0.07)' },
+  rowDone: { opacity: 0.55 },
+  check: {
+    width: 18,
+    height: 18,
+    flexShrink: 0,
+    borderRadius: 5,
+    border: '1.5px solid var(--border-strong)',
+    background: 'transparent',
+    color: '#0F0F12',
+    fontSize: 11,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkDone: { background: '#5FA377', borderColor: '#5FA377' },
+  dot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0, marginLeft: 5, marginRight: 5 },
+  rowText: { flex: 1, minWidth: 0 },
+  rowTitle: { fontSize: 14, color: 'var(--text-primary)' },
+  rowTitleDone: { textDecoration: 'line-through', color: 'var(--text-secondary)' },
+  rowWhere: { fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 },
+  rowMeta: { fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0 },
+  rowOverdueLabel: { fontSize: 12, fontWeight: 600, color: 'var(--danger)', flexShrink: 0 },
+  chevron: { fontSize: 10, color: 'var(--text-tertiary)', flexShrink: 0 },
+  rowBody: { padding: '2px 14px 14px 44px' },
+  rowNote: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px' },
+  rowActions: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+
   page: { padding: '32px 40px', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
   header: { marginBottom: 24 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 8 },
@@ -455,16 +499,19 @@ const styles = {
   modalBackdrop: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.55)',
+    background: 'rgba(0,0,0,0.78)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    // Without this the card stacked below the calendar grid, so dates showed
+    // through the form.
+    zIndex: 100,
   },
   modalCard: {
     width: 380,
-    background: 'var(--bg-card)',
-    border: 'none',
-    borderRadius: 16,
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    borderRadius: 14,
     padding: 24,
     boxShadow: 'var(--shadow-lg)',
   },

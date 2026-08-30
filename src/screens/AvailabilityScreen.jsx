@@ -55,7 +55,6 @@ export default function AvailabilityScreen() {
   const [editReason, setEditReason] = useState('');
 
   const [weeklyForm, setWeeklyForm] = useState(() => Object.fromEntries(DAYS.map((d) => [d, ''])));
-  const [editingWeekly, setEditingWeekly] = useState(false);
   const [viewingPerson, setViewingPerson] = useState(null);
 
   const openEditWeekly = (prefillCurrent) => {
@@ -139,10 +138,6 @@ export default function AvailabilityScreen() {
     if (window.confirm('Delete this request? This cannot be undone.')) deleteTimeOffRequest(r.id);
   };
 
-  const saveWeekly = async () => {
-    await setMyWeeklyAvailability(weeklyForm);
-    setEditingWeekly(false);
-  };
 
   return (
     <div style={styles.page}>
