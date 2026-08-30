@@ -29,7 +29,15 @@ exports.sweepViewedAttachments = onSchedule('every 24 hours', async () => {
     // The sender doesn't need to view their own file for it to count.
     const needToView = members.filter((uid) => uid !== msg.senderUid);
     const everyoneSeen = needToView.length > 0 && needToView.every((uid) => viewed.includes(uid));
-    if (!everyoneSeen) continue;
+
+    // Unanimity alone would leave a file forever if one person never opens it,
+    // which in a group of six is likely rather than rare. Age is the backstop:
+    // after 90 days the file has served whatever purpose it had, and anyone
+    // who needed it has had ample time to download it.
+    const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
+    const tooOld = Date.now() - (msg.timestamp ?? 0) > NINETY_DAYS;
+
+    if (!everyoneSeen && !tooOld) continue;
 
     try {
       await bucket.file(msg.attachment.path).delete();
