@@ -2,6 +2,9 @@ import React, { useRef, useState } from 'react';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import MessageReactions, { ReactionPicker } from '../components/MessageReactions';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebaseConfig';
+import ChatAttachment from '../components/ChatAttachment';
 import { nike } from '../theme/nike';
 
 function formatTime(ts) {
@@ -52,6 +55,42 @@ export default function MessagesScreen() {
   const [selectedUids, setSelectedUids] = useState([]);
   const [groupName, setGroupName] = useState('');
   const inputRef = useRef(null);
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  // Uploads and sends in one step. A staged attachment waiting for a caption
+  // is a state that can be abandoned, leaving a file in Storage with nothing
+  // referencing it — sending immediately means every upload has an owner.
+  const handleAttach = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !activeId) return;
+    if (file.size > 25 * 1024 * 1024) {
+      window.alert('Files need to be under 25MB.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const stamp = `${Date.now()}-${file.name}`;
+      const path = `chatAttachments/${activeId}/${stamp}`;
+      const fileRefStorage = storageRef(storage, path);
+      await uploadBytes(fileRefStorage, file);
+      const url = await getDownloadURL(fileRefStorage);
+      await sendMessage(activeId, '', {
+        url,
+        path,
+        name: file.name,
+        contentType: file.type,
+        size: file.size,
+        viewedBy: [],
+      });
+    } catch (err) {
+      window.alert(err?.message ?? 'Upload failed.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const otherUsers = users.filter((u) => u.uid !== user?.uid && u.active);
   const activeConvo = conversations.find((c) => c.id === activeId);
@@ -254,7 +293,13 @@ export default function MessagesScreen() {
                           <div style={{ ...styles.senderName, color: colorForSender(m.senderUid) }}>{m.senderName}</div>
                         ) : null}
 
-                        <div>{m.text}</div>
+                        {m.text ? <div>{m.text}</div> : null}
+                        {m.attachment ? (
+                          <ChatAttachment
+                            attachment={m.attachment}
+                            onView={() => markAttachmentViewed(m.id, m.attachment)}
+                          />
+                        ) : null}
                         <div style={styles.msgTime}>
                           {formatTime(m.timestamp)}
                           {m.edited ? ' · edited' : ''}
@@ -273,6 +318,21 @@ export default function MessagesScreen() {
               })}
             </div>
             <div style={styles.inputRow}>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,video/*,application/pdf,.doc,.docx"
+                style={{ display: 'none' }}
+                onChange={handleAttach}
+              />
+              <button
+                style={styles.attachButton}
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                title="Attach a file"
+              >
+                {uploading ? '…' : '+'}
+              </button>
               <textarea
                 ref={inputRef}
                 style={styles.input}
@@ -445,6 +505,18 @@ const styles = {
     outline: 'none',
   },
   editSmallButton: { fontSize: 11, color: '#FFFFFF', padding: '2px 8px' },
+  attachButton: {
+    width: 36,
+    height: 36,
+    flexShrink: 0,
+    borderRadius: 9,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-inset)',
+    color: 'var(--text-secondary)',
+    fontSize: 18,
+    lineHeight: '18px',
+    padding: 0,
+  },
   inputRow: { display: 'flex', gap: 8, padding: 16, borderTop: '1px solid var(--border)', alignItems: 'center' },
   input: {
     flex: 1,

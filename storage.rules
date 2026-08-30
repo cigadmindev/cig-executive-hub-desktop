@@ -48,7 +48,10 @@ service firebase.storage {
     //
     // Delete is denied to clients: only the sweep removes these, so a client
     // can't strip a file before others have seen it.
-    match /chatAttachments/{conversationId}/{messageId}/{fileName} {
+    // Two segments, not three: the file is uploaded before its message exists,
+    // so there's no message id to key on yet. The conversation is enough for
+    // the sweep to find everything it needs.
+    match /chatAttachments/{conversationId}/{fileName} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.resource.size < 25 * 1024 * 1024
