@@ -50,6 +50,8 @@ export function EventRequestsProvider({ children }) {
           expectedAttendees: data.expectedAttendees ?? '',
           details: data.details ?? '',
           needs: data.needs ?? [],
+          // Specific people to notify, alongside whole roles in `needs`.
+          notifyUids: data.notifyUids ?? [],
           requestedBy: data.requestedBy,
           requestedByUid: data.requestedByUid ?? null,
           status: data.status ?? 'pending',
@@ -143,9 +145,19 @@ export function EventRequestsProvider({ children }) {
   // automatic — no separate "seen" tracking needed, since it naturally
   // clears the moment the request gets approved or denied, same as how
   // the admin Pending Requests dot already works.
-  const hasNeedMatchingJob = (locationIds, job) => {
-    if (!job) return false;
-    return requests.some((r) => locationIds.includes(r.locationId) && r.status === 'pending' && (r.needs ?? []).includes(job));
+  // True when someone should know about a pending request here — either their
+  // role was picked, or they were named individually. Same signal either way:
+  // being named directly shouldn't notify you any less than being in a role.
+  //
+  // uid is optional so existing callers that only pass a job keep working.
+  const hasNeedMatchingJob = (locationIds, job, uid) => {
+    if (!job && !uid) return false;
+    return requests.some(
+      (r) =>
+        locationIds.includes(r.locationId) &&
+        r.status === 'pending' &&
+        ((job && (r.needs ?? []).includes(job)) || (uid && (r.notifyUids ?? []).includes(uid)))
+    );
   };
 
   return (

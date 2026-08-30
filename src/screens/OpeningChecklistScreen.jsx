@@ -619,7 +619,6 @@ const styles = {
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
   sectionHeader: { fontSize: 15, fontWeight: 700, margin: '0 0 14px' },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
-  grid4: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginTop: 8 },
   label: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: '14px 0 8px' },
   hint: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 },
   openingDateRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 },
@@ -642,7 +641,6 @@ const styles = {
     textAlign: 'left',
     marginBottom: 12,
   },
-  infoSummary: { fontSize: 13, color: 'var(--text-tertiary)', flex: 1 },
   infoChevron: {
     fontSize: 11,
     fontWeight: 700,

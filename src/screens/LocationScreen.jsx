@@ -102,7 +102,7 @@ export default function LocationScreen() {
         })}
       </div>
 
-      <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel }}>Directories</h3>
+      <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel }}>File Directories</h3>
       <div style={styles.grid}>
         {categories.map((cat) => {
           const allowed = hasCategoryAccess(user, cat.id);

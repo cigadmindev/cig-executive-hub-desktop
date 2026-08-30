@@ -34,7 +34,7 @@ export default function AppLayout({ children }) {
     !!user?.job &&
     brands.some((b) => {
       const locationIds = [...b.locations.filter((l) => l.status === 'active').map((l) => l.id), ...getByBrand(b.id).map((l) => l.id)];
-      return hasNeedMatchingJob(locationIds, user.job);
+      return hasNeedMatchingJob(locationIds, user.job, user.uid);
     });
 
   const visibleBrands = brands.filter((b) => hasBrandAccess(user, b.id));

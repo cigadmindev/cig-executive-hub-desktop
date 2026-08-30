@@ -54,7 +54,6 @@ export default function AvailabilityScreen() {
   const [editEnd, setEditEnd] = useState('');
   const [editReason, setEditReason] = useState('');
 
-  const [weeklyForm, setWeeklyForm] = useState(() => Object.fromEntries(DAYS.map((d) => [d, ''])));
   const [viewingPerson, setViewingPerson] = useState(null);
 
   const openEditWeekly = (prefillCurrent) => {
@@ -506,12 +505,6 @@ const styles = {
   body: {},
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
   card: { background: 'var(--bg-card)', border: 'none', borderRadius: 10, padding: 16, marginBottom: 10 },
-  weekRangeLabel: { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', margin: '0 0 12px' },
-  staleBanner: { background: 'rgba(232,82,75,0.1)', border: '1px solid rgba(232,82,75,0.35)', borderRadius: 10, padding: 14, marginBottom: 14 },
-  staleBannerText: { fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5, margin: '0 0 10px' },
-  weeklyDisplayRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--border)' },
-  weeklyDisplayDay: { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' },
-  weeklyDisplayValue: { fontSize: 13, color: 'var(--text-primary)' },
   cardHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   cardDates: { fontSize: 14, fontWeight: 700 },
   cardReason: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0' },
@@ -524,7 +517,6 @@ const styles = {
   cancelButton: { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
   linkButton: { fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 },
   linkButtonDanger: { fontSize: 12, color: 'var(--danger)', fontWeight: 600 },
-  subheading: { fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', margin: '20px 0 10px' },
   personRow: { display: 'flex', justifyContent: 'space-between', width: '100%', padding: '10px 14px', borderRadius: 8, background: 'var(--bg-card)', border: '1px solid var(--border)', marginBottom: 6, fontSize: 13 },
   viewRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 },
   viewDayLabel: { color: 'var(--accent)', fontWeight: 600 },

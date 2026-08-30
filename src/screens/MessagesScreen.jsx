@@ -203,14 +203,18 @@ export default function MessagesScreen() {
                   <div
                     style={{
                       ...styles.convoAvatar,
-                      background: c.type === 'group' ? 'var(--bg-inset)' : `${colorForSender(c.id)}22`,
+                      ...(c.type === 'group' ? styles.convoAvatarGroup : {}),
+                      background: c.type === 'group' ? 'transparent' : `${colorForSender(c.id)}22`,
                       color: c.type === 'group' ? 'var(--text-secondary)' : colorForSender(c.id),
                     }}
                   >
-                    {(c.name || '?').slice(0, 2).toUpperCase()}
+                    {c.type === 'group' ? (c.memberUids?.length ?? '') : (c.name || '?').slice(0, 2).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ ...styles.convoName, ...(unread > 0 ? styles.convoNameUnread : {}) }}>{c.name}</div>
+                    <div style={{ ...styles.convoName, ...(unread > 0 ? styles.convoNameUnread : {}) }}>
+                      {c.name}
+                      {c.type === 'group' ? <span style={styles.groupTag}>GROUP</span> : null}
+                    </div>
                     <div style={styles.convoPreview}>{c.lastMessageText || 'No messages yet'}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
@@ -447,6 +451,20 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Dashed outline and a member count rather than initials — a group isn't a
+  // person, and at a glance the shape should say so before you read the name.
+  convoAvatarGroup: { border: '1.5px dashed var(--border-strong)', fontSize: 12 },
+  groupTag: {
+    fontSize: 9,
+    fontWeight: 800,
+    letterSpacing: 0.5,
+    color: 'var(--text-tertiary)',
+    border: '1px solid var(--border)',
+    borderRadius: 5,
+    padding: '1px 5px',
+    marginLeft: 7,
+    verticalAlign: 'middle',
+  },
   convoNameUnread: { fontWeight: 800 },
   listScroll: { flex: 1, overflowY: 'auto', padding: '0 8px' },
   emptyList: { padding: 16, fontSize: 13, color: 'var(--text-secondary)' },
@@ -464,7 +482,6 @@ const styles = {
   // Background only. The left border collided with the hover bar, so an active
   // row showed two markers stacked and neither read cleanly.
   convoRowActive: { background: 'rgba(255,255,255,0.09)' },
-  convoIcon: { fontSize: 18 },
   convoName: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' },
   convoPreview: {
     fontSize: 12,

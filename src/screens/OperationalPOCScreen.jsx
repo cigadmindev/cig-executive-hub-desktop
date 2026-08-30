@@ -100,7 +100,6 @@ const styles = {
   searchHint: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 14px' },
   subtitle: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 20px', lineHeight: 1.5 },
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
-  sectionHeader: { fontSize: 15, fontWeight: 700, margin: '0 0 14px' },
   sectionHead: {
     display: 'flex',
     alignItems: 'center',
@@ -123,7 +122,5 @@ const styles = {
   chevron: { fontSize: 10, color: 'var(--text-tertiary)' },
   rowBody: { padding: '4px 14px 14px 14px', maxWidth: 420 },
 
-  itemTitle: { fontSize: 13, fontWeight: 600, margin: '0 0 4px' },
-  grid3: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 8 },
   hint: { fontSize: 13, color: 'var(--text-secondary)' },
 };

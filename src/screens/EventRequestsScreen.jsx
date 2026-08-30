@@ -25,7 +25,7 @@ function cleanNeed(n) {
 
 export default function EventRequestsScreen() {
   const { brandId, locationId } = useParams();
-  const { user } = useAuth();
+  const { user, users } = useAuth();
   const { getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest } = useEventRequests();
   const { getByBrand } = useCustomLocations();
   const { markEventRequestsViewed } = useViewTracking();
@@ -47,6 +47,13 @@ export default function EventRequestsScreen() {
   const [formAttendees, setFormAttendees] = useState('');
   const [formDetails, setFormDetails] = useState('');
   const [formNeeds, setFormNeeds] = useState([]);
+  // Named people alongside whole roles. A role covers the usual case; this is
+  // for the person who needs to know but isn't in any of them.
+  const [formPeople, setFormPeople] = useState([]);
+
+  const addNeedRole = (need) => setFormNeeds((prev) => (prev.includes(need) ? prev : [...prev, need]));
+  const addNeedPerson = (uid) => setFormPeople((prev) => (prev.includes(uid) ? prev : [...prev, uid]));
+  const removeNeedPerson = (uid) => setFormPeople((prev) => prev.filter((u) => u !== uid));
 
   const [denyingId, setDenyingId] = useState(null);
   const [denyReason, setDenyReason] = useState('');
@@ -62,6 +69,7 @@ export default function EventRequestsScreen() {
     setFormAttendees('');
     setFormDetails('');
     setFormNeeds([]);
+    setFormPeople([]);
     setFormOpen(true);
   };
 
@@ -74,6 +82,7 @@ export default function EventRequestsScreen() {
     setFormAttendees(r.expectedAttendees);
     setFormDetails(r.details);
     setFormNeeds(r.needs ?? []);
+    setFormPeople(r.notifyUids ?? []);
     setFormOpen(true);
   };
 
@@ -94,6 +103,7 @@ export default function EventRequestsScreen() {
         expectedAttendees: formAttendees.trim(),
         details: formDetails.trim(),
         needs: formNeeds,
+        notifyUids: formPeople,
       });
     } else {
       await submitRequest({
@@ -104,6 +114,7 @@ export default function EventRequestsScreen() {
         expectedAttendees: formAttendees.trim(),
         details: formDetails.trim(),
         needs: formNeeds,
+        notifyUids: formPeople,
         requestedBy: user?.name ?? 'Unknown',
       });
     }
@@ -243,19 +254,76 @@ export default function EventRequestsScreen() {
               placeholder="Wine/menu needs, dinner service, setup, anything else"
             />
 
-            <label style={styles.label}>Who needs to be looped in on this?</label>
-            <div style={styles.chipWrap}>
-              {EVENT_NEEDS_OPTIONS.map((need) => (
-                <button
-                  key={need}
-                  type="button"
-                  style={{ ...styles.needOption, ...(formNeeds.includes(need) ? styles.needOptionActive : {}) }}
-                  onClick={() => toggleNeed(need)}
-                >
-                  {need}
-                </button>
-              ))}
+            <div style={styles.divider} />
+
+            <label style={styles.label}>Notify on approval</label>
+            <p style={styles.subLabel}>Pick a role — everyone in it is added, and you can add anyone else</p>
+
+            {/* Fourteen role tiles took more room than the rest of the form.
+                A role adds its people; a person can be added on their own. */}
+            <div style={styles.notifyRow}>
+              <select
+                style={styles.input}
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) addNeedRole(e.target.value);
+                }}
+              >
+                <option value="">Add a role…</option>
+                {EVENT_NEEDS_OPTIONS.filter((n) => !formNeeds.includes(n)).map((need) => (
+                  <option key={need} value={need}>
+                    {need}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                style={styles.input}
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) addNeedPerson(e.target.value);
+                }}
+              >
+                <option value="">Add a person…</option>
+                {users
+                  .filter((u) => u.active !== false && !formPeople.includes(u.uid))
+                  .map((u) => (
+                    <option key={u.uid} value={u.uid}>
+                      {u.name}
+                      {u.job ? ` — ${u.job}` : ''}
+                    </option>
+                  ))}
+              </select>
             </div>
+
+            {formNeeds.length > 0 || formPeople.length > 0 ? (
+              <div style={styles.notifyList}>
+                {formNeeds.map((need) => (
+                  <div key={need} data-row="" style={styles.notifyItem}>
+                    <span style={styles.notifyName}>Everyone in {need}</span>
+                    <span style={styles.notifyMeta}>
+                      {users.filter((u) => u.job === need && u.active !== false).length} people
+                    </span>
+                    <button data-hover-only="" style={styles.notifyRemove} onClick={() => toggleNeed(need)}>
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {formPeople.map((uid) => {
+                  const person = users.find((u) => u.uid === uid);
+                  if (!person) return null;
+                  return (
+                    <div key={uid} data-row="" style={styles.notifyItem}>
+                      <span style={styles.notifyName}>{person.name}</span>
+                      <span style={styles.notifyMeta}>{person.job || person.role}</span>
+                      <button data-hover-only="" style={styles.notifyRemove} onClick={() => removeNeedPerson(uid)}>
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
 
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button style={styles.cancelButton} onClick={() => setFormOpen(false)}>
@@ -290,6 +358,34 @@ export default function EventRequestsScreen() {
 }
 
 const styles = {
+  divider: { height: 1, background: 'var(--border)', margin: '18px 0 16px' },
+  subLabel: { fontSize: 11, color: 'var(--text-tertiary)', margin: '-2px 0 10px' },
+  notifyRow: { display: 'flex', gap: 8, marginBottom: 10 },
+  notifyList: { background: 'var(--bg-inset)', borderRadius: 9, overflow: 'hidden', marginBottom: 4 },
+  notifyItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '9px 12px',
+    borderBottom: '1px solid var(--border)',
+    position: 'relative',
+  },
+  notifyName: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
+  notifyMeta: { fontSize: 11, color: 'var(--text-tertiary)' },
+  notifyRemove: {
+    width: 18,
+    height: 18,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 9,
+    border: 'none',
+    background: 'none',
+    color: 'var(--text-tertiary)',
+    fontSize: 15,
+    padding: 0,
+  },
+
   page: { padding: '28px 36px', maxWidth: 700 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

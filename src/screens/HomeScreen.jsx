@@ -203,7 +203,7 @@ export default function HomeScreen() {
           const clickable = true;
           const allLocationIds = [...activeLocations.map((l) => l.id), ...customLocations.map((l) => l.id)];
           const hasUnseen =
-            allowed && (hasUnseenForBrand(item.id, allLocationIds) || hasNeedMatchingJob(allLocationIds, user?.job));
+            allowed && (hasUnseenForBrand(item.id, allLocationIds) || hasNeedMatchingJob(allLocationIds, user?.job, user?.uid));
           const totalLocations = activeLocations.length + customLocations.length;
           const isHovered = hoveredId === item.id && clickable;
           const pendingRequest = !allowed && user ? hasPendingRequest(user.email, 'brand', item.id) : false;
@@ -331,7 +331,6 @@ const styles = {
   header: { marginBottom: 32 },
   eyebrow: { fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.7, margin: '0 0 6px' },
   title: { fontSize: 26, fontWeight: 700, letterSpacing: -0.4, margin: 0 },
-  subtitle: { fontSize: 14, color: 'var(--text-secondary)', marginTop: 6 },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
