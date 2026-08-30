@@ -6,6 +6,11 @@ import { useAuth } from './AuthContext';
 const AvailabilityContext = createContext(undefined);
 const DENIED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Seven days a year, company-wide. A constant rather than a per-user field
+// because it's currently uniform — when it stops being, this becomes a value
+// on the user document and the calculation reads it from there.
+export const PTO_ALLOWANCE_DAYS = 7;
+
 export function AvailabilityProvider({ children }) {
   const { user } = useAuth();
   const [timeOffRequests, setTimeOffRequests] = useState([]);
@@ -74,6 +79,19 @@ export function AvailabilityProvider({ children }) {
     };
   }, [user]);
 
+  // Days used this calendar year, derived from approved requests rather than
+  // a stored counter — a counter can drift from the requests it's meant to
+  // summarise, and then nobody knows which number is true.
+  const ptoUsed = (uid) => {
+    const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+    return timeOffRequests
+      .filter((r) => r.uid === uid && r.status === 'approved' && r.startDate >= yearStart)
+      .reduce((days, r) => {
+        const span = Math.round((r.endDate - r.startDate) / (24 * 60 * 60 * 1000)) + 1;
+        return days + Math.max(span, 1);
+      }, 0);
+  };
+
   const submitTimeOff = async (startDate, endDate, reason) => {
     if (!user) return;
     await addDoc(collection(db, 'timeOffRequests'), {
@@ -109,18 +127,21 @@ export function AvailabilityProvider({ children }) {
   // Sunday, midnight, of the week containing the given date — the anchor
   // used to detect "this is a new week, the old answers don't apply
   // anymore" on the screen.
-  const getWeekStart = (date = new Date()) => {
+  // Weeks run Sunday to Saturday. weekOffset moves forward or back, so
+  // availability can be set ahead rather than only for the current week —
+  // people know their next month before it arrives.
+  const getWeekStart = (weekOffset = 0, date = new Date()) => {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - d.getDay());
+    d.setDate(d.getDate() - d.getDay() + weekOffset * 7);
     return d.getTime();
   };
 
-  const setMyWeeklyAvailability = async (weekly) => {
+  const setMyWeeklyAvailability = async (weekly, weekStartDate) => {
     if (!user) return;
     await setDoc(doc(db, 'weeklyAvailability', user.uid), {
       name: user.name,
-      weekStartDate: getWeekStart(),
+      weekStartDate: weekStartDate ?? getWeekStart(),
       ...weekly,
     });
   };
@@ -136,6 +157,7 @@ export function AvailabilityProvider({ children }) {
         deleteTimeOffRequest,
         setMyWeeklyAvailability,
         getWeekStart,
+        ptoUsed,
       }}
     >
       {children}

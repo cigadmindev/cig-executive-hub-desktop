@@ -3,9 +3,11 @@ import { useAvailability } from '../context/AvailabilityContext';
 import { useAuth } from '../context/AuthContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import DatePickerField from '../components/DatePickerField';
+import TimePickerField from '../components/TimePickerField';
+import { PTO_ALLOWANCE_DAYS } from '../context/AvailabilityContext';
 import { nike } from '../theme/nike';
 
-const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const DAY_LABELS = { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday' };
 const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
 
@@ -24,6 +26,7 @@ export default function AvailabilityScreen() {
     deleteTimeOffRequest,
     setMyWeeklyAvailability,
     getWeekStart,
+    ptoUsed,
   } = useAvailability();
   const { markTimeOffViewed } = useViewTracking();
   const isAdmin = user?.role === 'admin';
@@ -34,6 +37,9 @@ export default function AvailabilityScreen() {
   }, []);
 
   const [tab, setTab] = useState(isAdmin || isExecutive ? 'weekly' : 'mine');
+  // 0 is this week, 1 next, -1 last. Set-ahead matters more than history, but
+  // both are cheap once the week is a parameter rather than a constant.
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const [formOpen, setFormOpen] = useState(false);
   const [startDate, setStartDate] = useState('');
@@ -64,13 +70,38 @@ export default function AvailabilityScreen() {
 
   // A new week starting means last week's answers no longer apply — treat
   // it as if nothing's been set yet, rather than showing stale info.
-  const currentWeekStart = getWeekStart();
+  const currentWeekStart = getWeekStart(weekOffset);
   const myWeeklyIsCurrent = myWeekly && myWeekly.weekStartDate === currentWeekStart;
   const weekRangeLabel = (() => {
     const start = new Date(currentWeekStart);
     const end = new Date(currentWeekStart + 6 * 24 * 60 * 60 * 1000);
     return `${start.toLocaleDateString([], { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
   })();
+
+  // Saves one day immediately rather than collecting a form and submitting.
+  // Seven fields behind a Save button meant losing everything if you navigated
+  // away, and there's no reason a single day's hours needs a transaction.
+  const setDayHours = async (day, hours) => {
+    const base = myWeeklyIsCurrent ? myWeekly : {};
+    const next = Object.fromEntries(DAYS.map((d) => [d, base?.[d] ?? null]));
+    next[day] = hours;
+    await setMyWeeklyAvailability(next, currentWeekStart);
+  };
+
+  // Approved time off replaces a day's hours — you're not available, and
+  // showing pickers next to "approved" would invite editing something that's
+  // already been decided.
+  const timeOffOnDay = (dayMs) =>
+    timeOffRequests.some(
+      (r) => r.uid === user?.uid && r.status === 'approved' && dayMs >= r.startDate && dayMs <= r.endDate
+    );
+
+  const usedDays = ptoUsed(user?.uid);
+
+  const weekEndMs = currentWeekStart + 7 * 24 * 60 * 60 * 1000;
+  const offThisWeek = timeOffRequests.filter(
+    (r) => r.status === 'approved' && r.startDate < weekEndMs && r.endDate >= currentWeekStart
+  );
 
   const handleSubmit = async () => {
     if (!startDate || !endDate || !reason.trim()) return;
@@ -126,6 +157,9 @@ export default function AvailabilityScreen() {
           <button style={{ ...styles.tab, ...(tab === 'weekly' ? styles.tabActive : {}) }} onClick={() => setTab('weekly')}>
             Weekly Availability
           </button>
+          <button style={{ ...styles.tab, ...(tab === 'team' ? styles.tabActive : {}) }} onClick={() => setTab('team')}>
+            Team
+          </button>
           {isAdmin || isExecutive ? (
             <button style={{ ...styles.tab, ...(tab === 'admin' ? styles.tabActive : {}) }} onClick={() => setTab('admin')}>
               All Requests {pendingCount > 0 ? `(${pendingCount})` : ''}
@@ -168,72 +202,122 @@ export default function AvailabilityScreen() {
 
         {tab === 'weekly' ? (
           <>
-            <p style={styles.weekRangeLabel}>Week of {weekRangeLabel}</p>
-
-            {!myWeeklyIsCurrent && !editingWeekly ? (
-              <div style={styles.staleBanner}>
-                <p style={styles.staleBannerText}>
-                  {myWeekly
-                    ? "A new week has started — last week's availability no longer applies. Set your hours for this week."
-                    : "You haven't set your availability for this week yet."}
-                </p>
-                <button style={styles.addButton} onClick={() => openEditWeekly(false)}>
-                  Set My Availability
+            <div style={styles.weekNav}>
+              <button style={styles.weekArrow} onClick={() => setWeekOffset((w) => w - 1)}>
+                ‹
+              </button>
+              <span style={styles.weekLabel}>{weekRangeLabel}</span>
+              <button style={styles.weekArrow} onClick={() => setWeekOffset((w) => w + 1)}>
+                ›
+              </button>
+              {weekOffset !== 0 ? (
+                <button style={styles.thisWeekLink} onClick={() => setWeekOffset(0)}>
+                  This week
                 </button>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
 
-            {myWeeklyIsCurrent && !editingWeekly ? (
-              <div style={styles.card}>
-                {DAYS.map((day) => (
-                  <div key={day} style={styles.weeklyDisplayRow}>
-                    <span style={styles.weeklyDisplayDay}>{DAY_LABELS[day]}</span>
-                    <span style={styles.weeklyDisplayValue}>{myWeekly[day] || '—'}</span>
-                  </div>
-                ))}
-                <button style={{ ...styles.addButton, marginTop: 12 }} onClick={() => openEditWeekly(true)}>
-                  Change My Availability
-                </button>
-              </div>
-            ) : null}
+            {/* One editable grid rather than a banner, a read-only view, and a
+                modal. Three states for what is really just seven rows meant
+                you couldn't see and change your week at the same time. */}
+            <div style={styles.weekCard}>
+              {DAYS.map((day, i) => {
+                const dayDate = new Date(currentWeekStart + i * 24 * 60 * 60 * 1000);
+                const value = myWeeklyIsCurrent ? myWeekly?.[day] : null;
+                const hours = typeof value === 'object' && value ? value : null;
+                const legacy = typeof value === 'string' && value ? value : null;
+                const off = timeOffOnDay(dayDate.getTime());
 
-            {editingWeekly ? (
-              <div style={styles.card}>
-                {DAYS.map((day) => (
-                  <div key={day} style={{ marginBottom: 10 }}>
-                    <label style={styles.label}>{DAY_LABELS[day]}</label>
-                    <input
-                      style={styles.input}
-                      placeholder="e.g. 9am-5pm or Unavailable"
-                      value={weeklyForm[day]}
-                      onChange={(e) => setWeeklyForm((prev) => ({ ...prev, [day]: e.target.value }))}
-                    />
+                return (
+                  <div key={day} data-row="" style={styles.dayRow}>
+                    <span style={styles.dayLabel}>
+                      {DAY_LABELS[day].slice(0, 3)} <span style={styles.dayNum}>{dayDate.getDate()}</span>
+                    </span>
+
+                    {off ? (
+                      <span style={styles.timeOffNote}>Time off approved</span>
+                    ) : legacy ? (
+                      // Written before hours became structured. Shown as-is so
+                      // nothing is lost, and replaced the next time it's set.
+                      <span style={styles.legacyValue}>{legacy}</span>
+                    ) : hours ? (
+                      <>
+                        <TimePickerField value={hours.start} onChange={(v) => setDayHours(day, { ...hours, start: v })} />
+                        <span style={styles.toLabel}>to</span>
+                        <TimePickerField value={hours.end} onChange={(v) => setDayHours(day, { ...hours, end: v })} />
+                        <div style={{ flex: 1 }} />
+                        <button style={styles.clearDay} onClick={() => setDayHours(day, null)}>
+                          Unavailable
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={styles.unavailable}>Unavailable</span>
+                        <div style={{ flex: 1 }} />
+                        <button style={styles.setHours} onClick={() => setDayHours(day, { start: '09:00', end: '17:00' })}>
+                          Set hours
+                        </button>
+                      </>
+                    )}
                   </div>
-                ))}
-                <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                  {myWeeklyIsCurrent ? (
-                    <button style={styles.cancelButton} onClick={() => setEditingWeekly(false)}>
-                      Cancel
-                    </button>
-                  ) : null}
-                  <button style={styles.saveButton} onClick={saveWeekly}>
-                    Save
+                );
+              })}
+            </div>
+
+            <div style={isAdmin || isExecutive ? styles.ptoGridSolo : styles.ptoGrid}>
+              {isAdmin || isExecutive ? null : (
+              <div>
+                <p style={styles.zoneLabel}>Paid time off</p>
+                <div style={styles.ptoCard}>
+                  <div style={styles.ptoTop}>
+                    <span style={styles.ptoBig}>{PTO_ALLOWANCE_DAYS - usedDays}</span>
+                    <span style={styles.ptoOf}>of {PTO_ALLOWANCE_DAYS} days left</span>
+                  </div>
+                  <div style={styles.ptoTrack}>
+                    <div style={{ ...styles.ptoFill, width: `${Math.min(100, (usedDays / PTO_ALLOWANCE_DAYS) * 100)}%` }} />
+                  </div>
+                  <p style={styles.ptoNote}>Resets January 1</p>
+                  <button style={styles.requestLink} onClick={() => setFormOpen(true)}>
+                    Request time off
                   </button>
                 </div>
               </div>
-            ) : null}
+              )}
 
-            {otherWeekly.length > 0 ? (
-              <>
-                <h3 style={styles.subheading}>Team</h3>
-                {otherWeekly.map((w) => (
-                  <button key={w.uid} style={styles.personRow} onClick={() => setViewingPerson(w)}>
-                    <span>{w.name}</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>›</span>
-                  </button>
-                ))}
-              </>
-            ) : null}
+              <div>
+                <p style={styles.zoneLabel}>Who's off this week</p>
+                <div style={styles.panel}>
+                  {offThisWeek.length === 0 ? (
+                    <p style={styles.emptyNote}>Nobody's off this week.</p>
+                  ) : (
+                    offThisWeek.map((r) => (
+                      <div key={r.id} data-row="" style={styles.offRow}>
+                        <span style={styles.offName}>{r.name}</span>
+                        <span style={styles.offDates}>
+                          {formatDate(r.startDate)}
+                          {r.endDate !== r.startDate ? ` – ${formatDate(r.endDate)}` : ''}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {tab === 'team' ? (
+          <>
+            {otherWeekly.length === 0 ? (
+              <p style={styles.emptyNote}>Nobody else has set their availability yet.</p>
+            ) : (
+              otherWeekly.map((w) => (
+                <button key={w.uid} data-row="" style={styles.personRow} onClick={() => setViewingPerson(w)}>
+                  <span>{w.name}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>›</span>
+                </button>
+              ))
+            )}
           </>
         ) : null}
 
@@ -372,6 +456,52 @@ export default function AvailabilityScreen() {
 }
 
 const styles = {
+  weekNav: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 },
+  weekArrow: { padding: '2px 8px', fontSize: 15, color: 'var(--text-secondary)', background: 'none', border: 'none' },
+  weekLabel: { fontSize: 13, fontWeight: 700, letterSpacing: 0.3, color: 'var(--text-primary)' },
+  thisWeekLink: { fontSize: 11, color: 'var(--neon)', background: 'none', border: 'none', marginLeft: 4 },
+  ptoGridSolo: { display: 'grid', gridTemplateColumns: '1fr', gap: 16, marginBottom: 20 },
+  requestLink: { fontSize: 11, color: 'var(--neon)', background: 'none', border: 'none', padding: '8px 0 0' },
+  weekCard: { background: 'var(--bg-card)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 },
+  dayRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '11px 14px',
+    borderBottom: '1px solid var(--border)',
+  },
+  dayLabel: { width: 90, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 },
+  dayNum: { color: 'var(--text-tertiary)', fontWeight: 400 },
+  toLabel: { fontSize: 12, color: 'var(--text-tertiary)' },
+  unavailable: { fontSize: 13, color: 'var(--text-tertiary)', fontStyle: 'italic' },
+  legacyValue: { fontSize: 13, color: 'var(--text-secondary)', flex: 1 },
+  timeOffNote: { fontSize: 13, color: 'var(--neon)', flex: 1 },
+  setHours: { fontSize: 11, color: 'var(--neon)', background: 'none', border: 'none', padding: '4px 6px' },
+  clearDay: { fontSize: 11, color: 'var(--text-tertiary)', background: 'none', border: 'none', padding: '4px 6px' },
+
+  ptoGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 },
+  zoneLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: 'var(--text-tertiary)',
+    margin: '0 0 8px',
+  },
+  ptoCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 15 },
+  ptoTop: { display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 },
+  ptoBig: { fontSize: 26, fontWeight: 800, color: 'var(--text-primary)' },
+  ptoOf: { fontSize: 13, color: 'var(--text-tertiary)' },
+  ptoTrack: { height: 5, background: 'rgba(255,255,255,0.13)', borderRadius: 3, marginBottom: 10 },
+  ptoFill: { height: 5, background: 'var(--neon)', borderRadius: 3 },
+  ptoNote: { fontSize: 11, color: 'var(--text-tertiary)', margin: 0 },
+
+  panel: { background: 'var(--bg-card)', borderRadius: 10, overflow: 'hidden' },
+  emptyNote: { fontSize: 12, color: 'var(--text-tertiary)', padding: '14px 16px', margin: 0 },
+  offRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)' },
+  offName: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
+  offDates: { fontSize: 11, color: 'var(--text-tertiary)' },
+
   page: { padding: '28px 36px', maxWidth: 700 },
   header: { marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 14px' },
