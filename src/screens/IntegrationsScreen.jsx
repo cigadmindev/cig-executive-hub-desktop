@@ -29,7 +29,7 @@ export default function IntegrationsScreen() {
         <Icon name="plug" size={22} color="#FFFFFF" />
         Integrations
       </h1>
-      <p style={styles.subtitle}>Connections specific to this location — set these up whenever you're ready.</p>
+      <p style={styles.subtitle}>Connections specific to this location — these will be connected soon.</p>
 
       <div style={styles.grid}>
         {INTEGRATIONS.map((i) => (

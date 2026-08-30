@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { brands, categories, marketAnalysisId, marketAnalysisLabel } from '../data/mockData';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
+import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 
 function toggleInArray(arr, id) {
@@ -14,6 +15,7 @@ function cleanJob(j) {
 }
 
 export default function AdminUsersScreen() {
+  const { dialogNode, confirm, notify } = useDialog();
   const { users, addUser, sendPasswordReset, setUserActive, updateUserRole, user: currentUser } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -36,11 +38,11 @@ export default function AdminUsersScreen() {
 
   const handleCreate = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
-      alert('Fill in name, email, and password.');
+      notify('Missing details', 'Fill in name, email, and password.');
       return;
     }
     if (password.length < 6) {
-      alert('Password too short — Firebase requires at least 6 characters.');
+      notify('Password too short', 'Passwords need at least 6 characters.');
       return;
     }
     setCreating(true);
@@ -52,35 +54,49 @@ export default function AdminUsersScreen() {
       setBrandIds([]);
       setCategoryIds([]);
       setJob(null);
-      alert(
+      notify(
+        'Login created',
         created?.invited
           ? `${name} can sign in as ${role}. They've been emailed a link to set their own password.`
           : `${name} can sign in as ${role}, but the invite email didn't send. Use "Send reset" to try again.`
       );
     } catch (err) {
-      alert(`Could not create login: ${err?.message ?? 'Something went wrong.'}`);
+      notify('Could not create login', err?.message ?? 'Something went wrong.');
     } finally {
       setCreating(false);
     }
   };
 
   const handleSendReset = async (targetEmail, targetName) => {
-    if (!window.confirm(`${targetName} will get an email to set a new password. Send it?`)) return;
-    try {
-      await sendPasswordReset(targetEmail, targetName);
-      alert(`Password reset email sent to ${targetName}.`);
-    } catch (err) {
-      alert(`Could not send: ${err?.message ?? 'Something went wrong.'}`);
-    }
+    confirm({
+      title: 'Send a password reset?',
+      body: `${targetName} will get an email to set a new password.`,
+      confirmLabel: 'Send',
+      onConfirm: async () => {
+        try {
+          await sendPasswordReset(targetEmail, targetName);
+          notify('Reset sent', `${targetName} will get an email to set a new password.`);
+        } catch (err) {
+          notify('Could not send', err?.message ?? 'Something went wrong.');
+        }
+      },
+    });
   };
 
   const handleDeactivate = async (uid, targetName) => {
-    if (!window.confirm(`Deactivate ${targetName}? This removes them from the app completely — Manage Logins, every assignee picker, everywhere. This can't be undone; they'd need a brand new login to come back.`)) return;
-    try {
-      await setUserActive(uid, false);
-    } catch (err) {
-      alert(`Could not deactivate: ${err?.message ?? 'Something went wrong.'}`);
-    }
+    confirm({
+      title: `Deactivate ${targetName}?`,
+      body: "This removes them from the app completely — Manage Logins, every assignee picker, everywhere. They'd need a brand new login to come back.",
+      confirmLabel: 'Deactivate',
+      tone: 'danger',
+      onConfirm: async () => {
+        try {
+          await setUserActive(uid, false);
+        } catch (err) {
+          notify('Could not deactivate', err?.message ?? 'Something went wrong.');
+        }
+      },
+    });
   };
 
   const handleChangeRole = async (newRole) => {
@@ -90,7 +106,7 @@ export default function AdminUsersScreen() {
       await updateUserRole(roleEditUser.uid, newRole);
       setRoleEditUser(null);
     } catch (err) {
-      alert(`Could not change role: ${err?.message ?? 'Something went wrong.'}`);
+      notify('Could not change role', err?.message ?? 'Something went wrong.');
     } finally {
       setSavingRole(false);
     }
@@ -256,6 +272,7 @@ export default function AdminUsersScreen() {
           </div>
         </div>
       ) : null}
+      {dialogNode}
     </div>
   );
 }

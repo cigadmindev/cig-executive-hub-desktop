@@ -5,6 +5,7 @@ import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import { useAvailability } from '../context/AvailabilityContext';
 import { useWorkOrders } from '../context/WorkOrdersContext';
+import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
 
@@ -12,6 +13,7 @@ import Icon from '../components/Icon';
 // here as one consolidated list, matching mobile's Directory tab exactly
 // — same items, same visibility rules, same grouping logic.
 export default function DirectoryScreen() {
+  const { dialogNode, notify } = useDialog();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { requests: accessRequests } = useAccessRequests();
@@ -46,7 +48,7 @@ export default function DirectoryScreen() {
       title: 'Wares Inventory',
       subtitle: 'Coming soon',
       comingSoon: true,
-      onClick: () => window.alert("Wares Inventory isn't built yet — we'll be working on this soon."),
+      onClick: () => notify('Wares Inventory', "Not built yet — we'll be working on this soon."),
     },
     ...(canPostAnnouncements
       ? [
@@ -64,7 +66,7 @@ export default function DirectoryScreen() {
             subtitle: 'Coming soon',
             comingSoon: true,
             onClick: () =>
-              window.alert("Expenses & Receipts isn't built yet — we'll be working on this soon."),
+              notify('Expenses & Receipts', "Not built yet — we'll be working on this soon."),
           },
           {
             key: 'announcement',
@@ -105,6 +107,7 @@ export default function DirectoryScreen() {
           </button>
         ))}
       </div>
+      {dialogNode}
     </div>
   );
 }

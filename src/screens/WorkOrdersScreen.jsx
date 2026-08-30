@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useWorkOrders } from '../context/WorkOrdersContext';
 import SignaturePad from '../components/SignaturePad';
+import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 
 function formatDateTime(ts) {
@@ -10,6 +11,7 @@ function formatDateTime(ts) {
 }
 
 export default function WorkOrdersScreen() {
+  const { dialogNode, confirm } = useDialog();
   const { user, users } = useAuth();
   const { getMyQueue, getSentByMe, createWorkOrder, signWorkOrder, retryPdfGeneration, deleteStoredFiles } = useWorkOrders();
   const [tab, setTab] = useState('queue');
@@ -18,6 +20,7 @@ export default function WorkOrdersScreen() {
   const [description, setDescription] = useState('');
   const [documentUrl, setDocumentUrl] = useState('');
   const [file, setFile] = useState(null);
+  const fileRef = useRef(null);
   const [creating, setCreating] = useState(false);
   const [assignedUids, setAssignedUids] = useState([]);
   const [signingOrder, setSigningOrder] = useState(null);
@@ -70,9 +73,16 @@ export default function WorkOrdersScreen() {
   };
 
   const handleDeleteFiles = async (order) => {
-    if (!window.confirm('Delete the stored files for this document? The signature record (who signed and when) stays — this only removes the actual PDF files from storage.')) return;
-    await deleteStoredFiles(order);
-    setSuccessPopup('Files removed from storage.');
+    confirm({
+      title: 'Delete the stored files?',
+      body: 'The signature record — who signed and when — stays. This only removes the PDF files from storage.',
+      confirmLabel: 'Delete files',
+      tone: 'danger',
+      onConfirm: async () => {
+        await deleteStoredFiles(order);
+        setSuccessPopup('Files removed from storage.');
+      },
+    });
   };
 
   const nameFor = (uid) => users.find((u) => u.uid === uid)?.name ?? 'Unknown';
@@ -197,32 +207,96 @@ export default function WorkOrdersScreen() {
         <div style={styles.modalBackdrop} onClick={() => setCreateOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>New Work Order</h2>
+            <p style={styles.modalSub}>Send a document out for signature</p>
+
             <label style={styles.label}>Title</label>
-            <input style={styles.input} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
-            <label style={styles.label}>Description</label>
-            <textarea style={{ ...styles.input, minHeight: 70 }} value={description} onChange={(e) => setDescription(e.target.value)} />
-            <label style={styles.label}>Document</label>
             <input
+              style={styles.input}
+              placeholder="What needs signing?"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+            />
+
+            <label style={styles.label}>Description</label>
+            <textarea
+              style={{ ...styles.input, minHeight: 70 }}
+              placeholder="Context for whoever signs it"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+
+            <label style={styles.label}>Document</label>
+            {/* The native file input is browser chrome, not ours — and once a
+                file is picked it says nothing useful about what was picked. */}
+            <input
+              ref={fileRef}
               type="file"
               accept="application/pdf"
+              style={{ display: 'none' }}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              style={styles.fileInput}
             />
-            {file ? <p style={styles.fileSelectedNote}>Selected: {file.name}</p> : null}
-            <label style={styles.label}>— or a Drive link instead (optional)</label>
-            <input style={styles.input} value={documentUrl} onChange={(e) => setDocumentUrl(e.target.value)} placeholder="Paste a link…" />
-            <label style={styles.label}>Who needs to sign off?</label>
-            <div style={styles.chipWrap}>
-              {users.filter((u) => u.uid !== user?.uid).map((u) => (
-                <button
-                  key={u.uid}
-                  style={{ ...styles.chip, ...(assignedUids.includes(u.uid) ? styles.chipActive : {}) }}
-                  onClick={() => toggleAssignee(u.uid)}
-                >
-                  {u.name}
+            {file ? (
+              <div style={styles.fileRow}>
+                <span style={styles.fileBadge}>PDF</span>
+                <span style={styles.fileName}>{file.name}</span>
+                <button style={styles.fileRemove} onClick={() => setFile(null)}>
+                  ×
                 </button>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <button style={styles.attachButton} onClick={() => fileRef.current?.click()}>
+                + Attach a PDF
+              </button>
+            )}
+            <p style={styles.orNote}>or paste a Drive link instead</p>
+            <input
+              style={styles.input}
+              value={documentUrl}
+              onChange={(e) => setDocumentUrl(e.target.value)}
+              placeholder="Paste a link…"
+            />
+
+            <div style={styles.divider} />
+
+            <label style={styles.label}>Signatures needed</label>
+            <p style={styles.modalSub}>Each person signs independently</p>
+            <select
+              style={styles.input}
+              value=""
+              onChange={(e) => {
+                if (e.target.value) toggleAssignee(e.target.value);
+              }}
+            >
+              <option value="">Add a signer…</option>
+              {users
+                .filter((u) => u.uid !== user?.uid && u.active !== false && !assignedUids.includes(u.uid))
+                .map((u) => (
+                  <option key={u.uid} value={u.uid}>
+                    {u.name}
+                    {u.job ? ` — ${u.job}` : ''}
+                  </option>
+                ))}
+            </select>
+
+            {assignedUids.length > 0 ? (
+              <div style={styles.signerList}>
+                {assignedUids.map((uid) => {
+                  const u = users.find((x) => x.uid === uid);
+                  if (!u) return null;
+                  return (
+                    <div key={uid} data-row="" style={styles.signerRow}>
+                      <span style={styles.signerAvatar}>{(u.name || '?').slice(0, 2).toUpperCase()}</span>
+                      <span style={styles.signerName}>{u.name}</span>
+                      <span style={styles.signerMeta}>{u.job || u.role}</span>
+                      <button data-hover-only="" style={styles.fileRemove} onClick={() => toggleAssignee(uid)}>
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
             <div style={styles.modalButtonsRow}>
               <button
                 style={styles.cancelButton}
@@ -279,11 +353,79 @@ export default function WorkOrdersScreen() {
           </div>
         </div>
       ) : null}
+      {dialogNode}
     </div>
   );
 }
 
 const styles = {
+  modalSub: { fontSize: 11, color: 'var(--text-tertiary)', margin: '-2px 0 14px' },
+  divider: { height: 1, background: 'var(--border)', margin: '18px 0 14px' },
+  attachButton: {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: 9,
+    border: '1px dashed var(--border-strong)',
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    fontSize: 12,
+    fontWeight: 600,
+  },
+  fileRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    background: 'var(--bg-inset)',
+    border: '1px solid var(--border)',
+    borderRadius: 9,
+    padding: '10px 12px',
+  },
+  fileBadge: {
+    width: 30,
+    height: 30,
+    flexShrink: 0,
+    borderRadius: 7,
+    border: '1px solid var(--border-strong)',
+    color: 'var(--text-tertiary)',
+    fontSize: 9,
+    fontWeight: 800,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileName: { flex: 1, minWidth: 0, fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  fileRemove: {
+    width: 20,
+    height: 20,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    border: 'none',
+    background: 'none',
+    color: 'var(--text-tertiary)',
+    fontSize: 16,
+    padding: 0,
+  },
+  orNote: { fontSize: 11, color: 'var(--text-tertiary)', margin: '8px 0 6px' },
+  signerList: { background: 'var(--bg-inset)', borderRadius: 9, overflow: 'hidden', marginTop: 10 },
+  signerRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderBottom: '1px solid var(--border)' },
+  signerAvatar: {
+    width: 26,
+    height: 26,
+    flexShrink: 0,
+    borderRadius: 7,
+    background: 'rgba(34,211,238,0.14)',
+    color: 'var(--neon)',
+    fontSize: 10,
+    fontWeight: 800,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signerName: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
+  signerMeta: { fontSize: 11, color: 'var(--text-tertiary)' },
+
   page: { padding: '28px 36px', maxWidth: 680 },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 700, margin: 0 },

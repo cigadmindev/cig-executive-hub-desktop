@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { brands } from '../data/mockData';
+import { useDialog } from '../hooks/useDialog';
 import { brandColors } from '../theme/colors';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
@@ -12,6 +13,7 @@ import { useHomeSummary } from '../hooks/useHomeSummary';
 import { nike } from '../theme/nike';
 
 export default function HomeScreen() {
+  const { dialogNode, notify } = useDialog();
   const { user, hasBrandAccess } = useAuth();
   const navigate = useNavigate();
   const { getByBrand } = useCustomLocations();
@@ -29,7 +31,7 @@ export default function HomeScreen() {
     }
     if (!user) return;
     if (hasPendingRequest(user.email, 'brand', item.id)) {
-      alert(`Your request for ${item.name} is still waiting on approval.`);
+      notify('Already requested', `Your request for ${item.name} is still waiting on approval.`);
       return;
     }
     setRequestTarget({ id: item.id, label: item.name });
@@ -45,7 +47,7 @@ export default function HomeScreen() {
       reason,
     });
     setRequestTarget(null);
-    alert(`Request sent — an admin will review your request for access to ${requestTarget.label}.`);
+    notify('Request sent', `An admin will review your request for access to ${requestTarget.label}.`);
   };
 
   return (
@@ -264,6 +266,7 @@ export default function HomeScreen() {
       {requestTarget ? (
         <RequestAccessModal target={requestTarget} onSubmit={submitRequest} onClose={() => setRequestTarget(null)} />
       ) : null}
+      {dialogNode}
     </div>
   );
 }

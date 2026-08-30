@@ -6,10 +6,12 @@ import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import { useCategoryDriveLinks } from '../context/CategoryDriveLinksContext';
+import { useDialog } from '../hooks/useDialog';
 import PostCard from '../components/PostCard';
 import { nike } from '../theme/nike';
 
 export default function CategoryDetailScreen() {
+  const { dialogNode, notify } = useDialog();
   const { brandId, locationId, categoryId } = useParams();
   const navigate = useNavigate();
   const category = categories.find((c) => c.id === categoryId);
@@ -53,7 +55,7 @@ export default function CategoryDetailScreen() {
       setSaveError(null);
       return;
     }
-    alert(`"${itemName}" isn't connected to a Drive folder yet — ask an admin to connect it.`);
+    notify('Not connected yet', `"${itemName}" isn't linked to a Drive folder — ask an admin to connect it.`);
   };
 
   const [savingLink, setSavingLink] = useState(false);
@@ -178,6 +180,7 @@ export default function CategoryDetailScreen() {
           ))}
         </div>
       ) : null}
+      {dialogNode}
     </div>
   );
 }

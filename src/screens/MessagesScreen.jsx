@@ -5,6 +5,7 @@ import MessageReactions, { ReactionPicker } from '../components/MessageReactions
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig';
 import ChatAttachment from '../components/ChatAttachment';
+import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 
 function formatTime(ts) {
@@ -54,6 +55,7 @@ export default function MessagesScreen() {
   const [pickerMode, setPickerMode] = useState('dm'); // 'dm' | 'group'
   const [selectedUids, setSelectedUids] = useState([]);
   const [groupName, setGroupName] = useState('');
+  const { dialogNode, confirm, notify } = useDialog();
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -66,7 +68,7 @@ export default function MessagesScreen() {
     e.target.value = '';
     if (!file || !activeId) return;
     if (file.size > 25 * 1024 * 1024) {
-      window.alert('Files need to be under 25MB.');
+      notify('File too large', 'Files need to be under 25MB.');
       return;
     }
 
@@ -86,7 +88,7 @@ export default function MessagesScreen() {
         viewedBy: [],
       });
     } catch (err) {
-      window.alert(err?.message ?? 'Upload failed.');
+      notify('Upload failed', err?.message ?? 'Something went wrong sending that file.');
     } finally {
       setUploading(false);
     }
@@ -143,10 +145,16 @@ export default function MessagesScreen() {
   };
 
   const handleDeleteChat = (id, name) => {
-    if (window.confirm(`Delete "${name}"? All its messages will be permanently removed for everyone. This cannot be undone.`)) {
-      deleteConversation(id);
-      if (activeId === id) setActiveId(null);
-    }
+    confirm({
+      title: `Delete "${name}"?`,
+      body: 'All its messages will be permanently removed for everyone. This cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: () => {
+        deleteConversation(id);
+        if (activeId === id) setActiveId(null);
+      },
+    });
   };
 
   const startEditMessage = (m) => {
@@ -163,9 +171,13 @@ export default function MessagesScreen() {
     cancelEditMessage();
   };
   const handleDeleteMessage = (id) => {
-    if (window.confirm('Delete this message? This removes it for everyone. This cannot be undone.')) {
-      deleteMessage(id);
-    }
+    confirm({
+      title: 'Delete this message?',
+      body: 'This removes it for everyone and cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: () => deleteMessage(id),
+    });
   };
 
   return (
@@ -421,6 +433,7 @@ export default function MessagesScreen() {
           </div>
         </div>
       ) : null}
+      {dialogNode}
     </div>
   );
 }

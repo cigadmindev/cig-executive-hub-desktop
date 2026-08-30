@@ -6,6 +6,7 @@ import { useRenewals, isRenewalDueSoon } from '../context/RenewalsContext';
 import { useAuth } from '../context/AuthContext';
 import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
+import { useDialog } from '../hooks/useDialog';
 import RequestAccessModal from '../components/RequestAccessModal';
 import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
@@ -22,6 +23,7 @@ const OPERATIONAL_ITEMS = [
 ];
 
 export default function LocationScreen() {
+  const { dialogNode, notify } = useDialog();
   const { brandId, locationId } = useParams();
   const navigate = useNavigate();
   const brand = brands.find((b) => b.id === brandId);
@@ -48,7 +50,7 @@ export default function LocationScreen() {
     }
     if (!user) return;
     if (hasPendingRequest(user.email, 'category', cat.id)) {
-      alert(`Your request for ${cat.label} is still waiting on approval.`);
+      notify('Already requested', `Your request for ${cat.label} is still waiting on approval.`);
       return;
     }
     setRequestTarget({ id: cat.id, label: cat.label });
@@ -64,7 +66,7 @@ export default function LocationScreen() {
       reason,
     });
     setRequestTarget(null);
-    alert(`Request sent — an admin will review your request for access to ${requestTarget.label}.`);
+    notify('Request sent', `An admin will review your request for access to ${requestTarget.label}.`);
   };
 
   return (
@@ -83,6 +85,7 @@ export default function LocationScreen() {
           return (
             <button
               key={item.key}
+              data-card=""
               style={{ ...styles.card, ...nike.card }}
               onClick={() => navigate(`/brand/${brand.id}/location/${location.id}/${item.path}`)}
             >
@@ -111,6 +114,7 @@ export default function LocationScreen() {
           return (
             <button
               key={cat.id}
+              data-card=""
               style={{ ...styles.card, ...nike.card, opacity: allowed ? 1 : 0.6 }}
               onClick={() => handleCategoryClick(cat)}
             >
@@ -135,6 +139,7 @@ export default function LocationScreen() {
       {requestTarget ? (
         <RequestAccessModal target={requestTarget} onSubmit={submitRequest} onClose={() => setRequestTarget(null)} />
       ) : null}
+      {dialogNode}
     </div>
   );
 }

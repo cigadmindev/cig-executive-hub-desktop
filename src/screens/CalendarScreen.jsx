@@ -10,6 +10,7 @@ import TimePickerField from '../components/TimePickerField';
 import DatePickerField from '../components/DatePickerField';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import { getOpeningItemUrgency } from '../data/openingChecklistData';
+import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 
 function dayKey(d) {
@@ -20,6 +21,7 @@ function formatTime(dateTime) {
 }
 
 export default function CalendarScreen() {
+  const { dialogNode, confirm, notify } = useDialog();
   const { user, hasBrandAccess } = useAuth();
   const { entries, addEntry, updateEntry, deleteEntry, toggleOpeningItemDone } = useSchedule();
   const { getByBrand } = useCustomLocations();
@@ -123,9 +125,13 @@ export default function CalendarScreen() {
   };
 
   const handleDelete = (entry) => {
-    if (window.confirm(`Delete "${entry.title}"? This cannot be undone.`)) {
-      deleteEntry(entry.id);
-    }
+    confirm({
+      title: `Delete "${entry.title}"?`,
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: () => deleteEntry(entry.id),
+    });
   };
 
   // Same capability as on the Opening Checklist screen — anyone can move an
@@ -384,6 +390,7 @@ export default function CalendarScreen() {
           </div>
         </div>
       ) : null}
+      {dialogNode}
     </div>
   );
 }

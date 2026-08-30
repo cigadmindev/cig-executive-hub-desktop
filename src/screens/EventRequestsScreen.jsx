@@ -7,6 +7,7 @@ import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import DatePickerField from '../components/DatePickerField';
 import TimePickerField from '../components/TimePickerField';
+import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 
 const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
@@ -24,6 +25,7 @@ function cleanNeed(n) {
 }
 
 export default function EventRequestsScreen() {
+  const { dialogNode, confirm, notify } = useDialog();
   const { brandId, locationId } = useParams();
   const { user, users } = useAuth();
   const { getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest } = useEventRequests();
@@ -130,7 +132,7 @@ export default function EventRequestsScreen() {
       authorName: user?.name ?? 'Unknown',
     });
     if (!ok) {
-      alert('Someone else already resolved this request — no changes made.');
+      notify('Already resolved', 'Someone else handled this request — no changes made.');
     }
   };
 
@@ -143,7 +145,13 @@ export default function EventRequestsScreen() {
     setDenyingId(null);
   };
   const handleDelete = (r) => {
-    if (window.confirm(`Delete "${r.title}"? This cannot be undone.`)) deleteEventRequest(r.id);
+    confirm({
+      title: `Delete "${r.title}"?`,
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: () => deleteEventRequest(r.id),
+    });
   };
 
   if (!brand || !location) return null;
@@ -353,6 +361,7 @@ export default function EventRequestsScreen() {
           </div>
         </div>
       ) : null}
+      {dialogNode}
     </div>
   );
 }

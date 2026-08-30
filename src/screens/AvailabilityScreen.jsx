@@ -5,6 +5,7 @@ import { useViewTracking } from '../context/ViewTrackingContext';
 import DatePickerField from '../components/DatePickerField';
 import TimePickerField from '../components/TimePickerField';
 import { PTO_ALLOWANCE_DAYS } from '../context/AvailabilityContext';
+import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -16,6 +17,7 @@ function formatDate(ts) {
 }
 
 export default function AvailabilityScreen() {
+  const { dialogNode, confirm, notify } = useDialog();
   const { user } = useAuth();
   const {
     timeOffRequests,
@@ -134,7 +136,13 @@ export default function AvailabilityScreen() {
     setEditingRequest(null);
   };
   const handleDelete = (r) => {
-    if (window.confirm('Delete this request? This cannot be undone.')) deleteTimeOffRequest(r.id);
+    confirm({
+      title: 'Delete this request?',
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: () => deleteTimeOffRequest(r.id),
+    });
   };
 
 
@@ -445,6 +453,7 @@ export default function AvailabilityScreen() {
           </div>
         </div>
       ) : null}
+      {dialogNode}
     </div>
   );
 }

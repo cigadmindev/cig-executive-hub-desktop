@@ -7,10 +7,12 @@ import { useAuth } from '../context/AuthContext';
 import { useBrandAnnouncements } from '../context/BrandAnnouncementsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import PostCard from '../components/PostCard';
+import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 import { SEC_CITIES, SEC_STATE_NAMES } from '../data/secCities';
 
 export default function BrandScreen() {
+  const { dialogNode, confirm, notify } = useDialog();
   const { brandId } = useParams();
   const navigate = useNavigate();
   const brand = brands.find((b) => b.id === brandId);
@@ -43,18 +45,18 @@ export default function BrandScreen() {
     const lat = parseFloat(newLat);
     const lng = parseFloat(newLng);
     if (newLat.trim() === '' || newLng.trim() === '' || isNaN(lat) || isNaN(lng)) {
-      window.alert("Pick a city above, or enter this location's latitude and longitude manually.");
+      notify('Location needed', "Pick a city above, or enter this location's latitude and longitude manually.");
       return;
     }
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      window.alert('Check those coordinates — latitude has to be between -90 and 90, longitude between -180 and 180.');
+      notify('Coordinates out of range', 'Latitude has to be between -90 and 90, longitude between -180 and 180.');
       return;
     }
     try {
       await addLocation(brand.id, newName.trim(), lat, lng);
       closeAddForm();
     } catch (err) {
-      window.alert(`Could not add location: ${err?.message ?? 'something went wrong saving this location. Please try again.'}`);
+      notify('Could not add location', err?.message ?? 'Something went wrong saving this location. Please try again.');
     }
   };
 
@@ -73,9 +75,13 @@ export default function BrandScreen() {
   };
 
   const handleDeleteLocation = (loc) => {
-    if (window.confirm(`Delete "${loc.name}"? Everything under it will be removed. This cannot be undone.`)) {
-      deleteLocation(loc.id);
-    }
+    confirm({
+      title: `Delete "${loc.name}"?`,
+      body: 'Everything under it will be removed. This cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: () => deleteLocation(loc.id),
+    });
   };
 
   return (
@@ -212,6 +218,7 @@ export default function BrandScreen() {
           })}
         </div>
       ) : null}
+      {dialogNode}
     </div>
   );
 }
