@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
+import MessageReactions, { ReactionPicker } from '../components/MessageReactions';
 import { nike } from '../theme/nike';
 
 function formatTime(ts) {
@@ -36,6 +37,8 @@ export default function MessagesScreen() {
     deleteConversation,
     editMessage,
     deleteMessage,
+    toggleReaction,
+    markAttachmentViewed,
   } = useChat();
   const { user, users } = useAuth();
   const [activeId, setActiveId] = useState(null);
@@ -197,7 +200,7 @@ export default function MessagesScreen() {
                 return (
                   <div
                     key={m.id}
-                    style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: 10, gap: 8, alignItems: 'flex-end' }}
+                    style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: 18, gap: 8, alignItems: 'flex-end' }}
                     onMouseEnter={() => setHoveredMsgId(m.id)}
                     onMouseLeave={() => setHoveredMsgId((prev) => (prev === m.id ? null : prev))}
                   >
@@ -212,18 +215,23 @@ export default function MessagesScreen() {
                         {(m.senderName || '?').charAt(0).toUpperCase()}
                       </div>
                     ) : null}
-                    {isMe && hoveredMsgId === m.id && !isEditing ? (
-                      <div style={styles.msgActions}>
-                        <button style={styles.msgActionButton} onClick={() => startEditMessage(m)} title="Edit">
-                          ✎
-                        </button>
-                        <button style={styles.msgActionButton} onClick={() => handleDeleteMessage(m.id)} title="Delete">
-                          ✕
-                        </button>
+                    {hoveredMsgId === m.id && !isEditing ? (
+                      <div style={{ ...styles.msgActions, order: isMe ? -1 : 1 }}>
+                        <ReactionPicker onPick={(emoji) => toggleReaction(m.id, emoji, m.reactions ?? [])} />
+                        {isMe ? (
+                          <>
+                            <button style={styles.msgActionButton} onClick={() => startEditMessage(m)} title="Edit">
+                              ✎
+                            </button>
+                            <button style={styles.msgActionButton} onClick={() => handleDeleteMessage(m.id)} title="Delete">
+                              ✕
+                            </button>
+                          </>
+                        ) : null}
                       </div>
                     ) : null}
                     {isEditing ? (
-                      <div style={{ ...styles.bubble, ...styles.bubbleMe, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ ...styles.bubble, ...styles.bubbleMe, maxWidth: '100%', width: 380, display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <input
                           style={styles.editInput}
                           value={editText}
@@ -241,16 +249,23 @@ export default function MessagesScreen() {
                         </div>
                       </div>
                     ) : (
-                      <div style={{ ...styles.bubble, ...(isMe ? styles.bubbleMe : styles.bubbleOther) }}>
+                      <div data-bubble="" style={{ ...styles.bubble, ...(isMe ? styles.bubbleMe : styles.bubbleOther) }}>
                         {showSenderInfo ? (
                           <div style={{ ...styles.senderName, color: colorForSender(m.senderUid) }}>{m.senderName}</div>
                         ) : null}
-                        {!isMe && !isGroup ? <div style={styles.senderName}>{m.senderName}</div> : null}
+
                         <div>{m.text}</div>
                         <div style={styles.msgTime}>
                           {formatTime(m.timestamp)}
                           {m.edited ? ' · edited' : ''}
                         </div>
+                        <MessageReactions
+                          reactions={m.reactions ?? []}
+                          myUid={user?.uid}
+                          isMe={isMe}
+                          onToggle={(emoji) => toggleReaction(m.id, emoji, m.reactions ?? [])}
+                          pillsOnly
+                        />
                       </div>
                     )}
                   </div>
@@ -383,9 +398,27 @@ const styles = {
   threadHeader: { padding: '16px 20px 4px', fontSize: 16, fontWeight: 700 },
   disclaimer: { padding: '0 20px 10px', fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic' },
   threadScroll: { flex: 1, overflowY: 'auto', padding: '0 20px' },
-  bubble: { maxWidth: '60%', borderRadius: 12, padding: '10px 12px', fontSize: 13 },
-  bubbleMe: { background: 'var(--accent)', color: '#FFFFFF' },
-  bubbleOther: { background: 'var(--bg-card)', color: 'var(--text-primary)' },
+  // Squared with a hairline border, matching every other surface in the app.
+  // The old solid --accent fill read as a different material from the cards
+  // around it, and rounded tails borrow a shape that isn't ours.
+  bubble: {
+    maxWidth: '68%',
+    borderRadius: 10,
+    padding: '11px 14px',
+    fontSize: 14,
+    lineHeight: 1.4,
+    position: 'relative',
+  },
+  bubbleMe: {
+    background: 'rgba(34, 211, 238, 0.14)',
+    border: '1px solid rgba(34, 211, 238, 0.3)',
+    color: 'var(--text-primary)',
+  },
+  bubbleOther: {
+    background: 'rgba(255, 255, 255, 0.085)',
+    border: '1px solid rgba(255, 255, 255, 0.13)',
+    color: 'var(--text-primary)',
+  },
   senderName: { fontSize: 11, fontWeight: 900, marginBottom: 2 },
   groupAvatar: {
     width: 24,

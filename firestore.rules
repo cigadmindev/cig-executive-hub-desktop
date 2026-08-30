@@ -66,7 +66,18 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.memberUids);
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && request.auth.uid == resource.data.senderUid;
+      // The sender can edit their own message. Everyone in the conversation can
+      // react and mark an attachment viewed — but only those fields, so a
+      // member can't rewrite someone else's words on their way to adding a
+      // thumbs up.
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.senderUid
+        || (
+          request.auth.uid in resource.data.memberUids
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['reactions', 'attachment'])
+        )
+      );
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.senderUid || request.auth.uid in resource.data.memberUids || isAdmin());
     }
 

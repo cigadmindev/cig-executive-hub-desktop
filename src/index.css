@@ -228,3 +228,29 @@ button:disabled {
   border-radius: 3px;
   background: linear-gradient(to right, hsl(var(--accent-hue, 189), 35%, 78%), hsl(var(--accent-hue, 189), 90%, 54%));
 }
+
+/* The react button sits hidden until you're on the message — one more control
+   on every bubble would outweigh the messages themselves. */
+[data-bubble]:hover button[title='React'] {
+  /* Beats the inline opacity:0 that keeps it hidden by default — inline styles
+     win over rules, so this needs the override. */
+  opacity: 1 !important;
+}
+
+/* Messages settle in rather than snapping. */
+@keyframes messageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+[data-bubble] {
+  animation: messageIn 0.16s ease-out;
+  transition: transform 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
+}
+
+/* A small lift under the cursor. Rows elsewhere brighten; a bubble is a
+   discrete object, so movement reads better than a colour change. */
+[data-bubble]:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.22);
+}
