@@ -193,19 +193,34 @@ export default function MessagesScreen() {
               return (
                 <div
                   key={c.id}
+                  data-row=""
                   style={{ ...styles.convoRow, ...(activeId === c.id ? styles.convoRowActive : {}) }}
                   onClick={() => openConversation(c.id)}
                 >
-                  <div style={styles.convoIcon}>{c.type === 'group' ? '⁂' : '◦'}</div>
+                  {/* Initials rather than a glyph — you recognise a person by
+                      their name, and every conversation looking identical
+                      makes the list something to read rather than scan. */}
+                  <div
+                    style={{
+                      ...styles.convoAvatar,
+                      background: c.type === 'group' ? 'var(--bg-inset)' : `${colorForSender(c.id)}22`,
+                      color: c.type === 'group' ? 'var(--text-secondary)' : colorForSender(c.id),
+                    }}
+                  >
+                    {(c.name || '?').slice(0, 2).toUpperCase()}
+                  </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={styles.convoName}>{c.name}</div>
+                    <div style={{ ...styles.convoName, ...(unread > 0 ? styles.convoNameUnread : {}) }}>{c.name}</div>
                     <div style={styles.convoPreview}>{c.lastMessageText || 'No messages yet'}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     <span style={styles.convoTime}>{formatTime(c.lastMessageTimestamp)}</span>
                     {unread > 0 ? <span style={styles.unreadDot} /> : null}
                   </div>
+                  {/* Hidden until the row is hovered — a permanent delete next
+                      to every conversation is an accident waiting to happen. */}
                   <button
+                    data-hover-only=""
                     style={styles.deleteButton}
                     title="Delete chat"
                     onClick={(e) => {
@@ -420,6 +435,19 @@ const styles = {
     fontWeight: 600,
     fontSize: 12,
   },
+  convoAvatar: {
+    width: 32,
+    height: 32,
+    flexShrink: 0,
+    borderRadius: 9,
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: 0.3,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  convoNameUnread: { fontWeight: 800 },
   listScroll: { flex: 1, overflowY: 'auto', padding: '0 8px' },
   emptyList: { padding: 16, fontSize: 13, color: 'var(--text-secondary)' },
   convoRow: {
@@ -433,7 +461,9 @@ const styles = {
     cursor: 'pointer',
     position: 'relative',
   },
-  convoRowActive: { background: 'var(--accent-soft)', borderLeft: '3px solid var(--neon)' },
+  // Background only. The left border collided with the hover bar, so an active
+  // row showed two markers stacked and neither read cleanly.
+  convoRowActive: { background: 'rgba(255,255,255,0.09)' },
   convoIcon: { fontSize: 18 },
   convoName: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' },
   convoPreview: {
@@ -457,7 +487,9 @@ const styles = {
   threadEmpty: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 14 },
   threadHeader: { padding: '16px 20px 4px', fontSize: 16, fontWeight: 700 },
   disclaimer: { padding: '0 20px 10px', fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic' },
-  threadScroll: { flex: 1, overflowY: 'auto', padding: '0 20px' },
+  // Top padding leaves room for a reaction pill on the first message — it
+  // overlaps the bubble's top corner, so a flush start clips it.
+  threadScroll: { flex: 1, overflowY: 'auto', padding: '18px 20px 0' },
   // Squared with a hairline border, matching every other surface in the app.
   // The old solid --accent fill read as a different material from the cards
   // around it, and rounded tails borrow a shape that isn't ours.
@@ -507,9 +539,10 @@ const styles = {
   editSmallButton: { fontSize: 11, color: '#FFFFFF', padding: '2px 8px' },
   attachButton: {
     width: 36,
-    height: 36,
+    height: 42,
+    width: 42,
     flexShrink: 0,
-    borderRadius: 9,
+    borderRadius: 10,
     border: '1px solid var(--border)',
     background: 'var(--bg-inset)',
     color: 'var(--text-secondary)',
@@ -521,8 +554,8 @@ const styles = {
   input: {
     flex: 1,
     padding: '11px 14px',
-    borderRadius: 12,
-    border: 'none',
+    borderRadius: 10,
+    border: '1px solid var(--border)',
     background: 'var(--bg-inset)',
     color: 'var(--text-primary)',
     fontSize: 13,
@@ -539,7 +572,7 @@ const styles = {
     padding: '0 22px',
     height: 42,
     flexShrink: 0,
-    borderRadius: 12,
+    borderRadius: 10,
     background: 'var(--neon)',
     color: 'var(--neon-text)',
     fontWeight: 900,

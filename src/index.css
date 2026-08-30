@@ -254,3 +254,13 @@ button:disabled {
   transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.22);
 }
+
+/* Destructive controls stay out of the way until you're on the row. */
+[data-hover-only] {
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+
+[data-row]:hover [data-hover-only] {
+  opacity: 1;
+}
