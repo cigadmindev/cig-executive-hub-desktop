@@ -42,6 +42,23 @@ service firebase.storage {
       allow delete: if request.auth != null;
     }
 
+    // Chat attachments. Deleted by a scheduled function once every member of
+    // the conversation has viewed them — photos in a busy thread accumulate
+    // faster than anyone notices, and the bill arrives quietly.
+    //
+    // Delete is denied to clients: only the sweep removes these, so a client
+    // can't strip a file before others have seen it.
+    match /chatAttachments/{conversationId}/{messageId}/{fileName} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.size < 25 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType.matches('video/.*')
+            || request.resource.contentType == 'application/pdf'
+            || request.resource.contentType.matches('application/.*document.*'));
+      allow update, delete: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

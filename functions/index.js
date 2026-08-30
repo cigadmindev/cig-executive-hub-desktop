@@ -254,3 +254,5 @@ exports.sendInviteEmail = onCall({ secrets: ['RESEND_API_KEY'] }, async (request
 
 // Push notification triggers live in their own module.
 Object.assign(exports, require('./pushNotifications'));
+
+Object.assign(exports, require('./chatCleanup'));

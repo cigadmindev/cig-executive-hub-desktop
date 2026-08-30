@@ -60,9 +60,11 @@ export default function DirectoryScreen() {
           {
             key: 'overallAnalysis',
             icon: 'barChart',
-            title: 'Overall Analysis',
-            subtitle: 'Live data across every open location',
-            onClick: () => navigate('/overall-analysis'),
+            title: 'Expenses & Receipts',
+            subtitle: 'Coming soon',
+            comingSoon: true,
+            onClick: () =>
+              window.alert("Expenses & Receipts isn't built yet — we'll be working on this soon."),
           },
           {
             key: 'announcement',
@@ -88,7 +90,7 @@ export default function DirectoryScreen() {
       <h1 style={{ ...styles.title, ...nike.pageTitle }}>Directory</h1>
       <div style={styles.grid}>
         {items.map((item) => (
-          <button key={item.key} style={{ ...styles.card, ...nike.card }} onClick={item.onClick}>
+          <button key={item.key} data-card="" style={{ ...styles.card, ...nike.card }} onClick={item.onClick}>
             <div style={styles.iconCircle}>
               <Icon name={item.icon} color="var(--neon)" />
             </div>

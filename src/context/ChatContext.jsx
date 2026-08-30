@@ -71,6 +71,15 @@ export function ChatProvider({ children }) {
           senderName: data.senderName,
           text: data.text,
           timestamp: data.timestamp,
+          // An array on the message rather than a subcollection. Reactions are
+          // small and always wanted alongside their message, so a subcollection
+          // would cost an extra read per message for data that fits inline.
+          reactions: data.reactions ?? [],
+          // { url, path, name, contentType, size, viewedBy: [uid] }. Cleared by
+          // a scheduled function once viewedBy covers everyone in the thread —
+          // deleting inline would orphan files whenever someone closes the app
+          // mid-operation, and orphans in Storage cost money forever.
+          attachment: data.attachment ?? null,
           memberUids: data.memberUids ?? [],
           edited: data.edited ?? false,
         };
@@ -146,7 +155,27 @@ export function ChatProvider({ children }) {
     return ref.id;
   };
 
-  const sendMessage = async (conversationId, text) => {
+  // Toggles one person's reaction. Stored as { emoji, uid, name } so the UI can
+  // show who reacted without a second lookup.
+  const toggleReaction = async (messageId, emoji, current) => {
+    if (!user) return;
+    const mine = current.find((r) => r.uid === user.uid && r.emoji === emoji);
+    const next = mine
+      ? current.filter((r) => !(r.uid === user.uid && r.emoji === emoji))
+      : [...current.filter((r) => r.uid !== user.uid), { emoji, uid: user.uid, name: user.name }];
+    await updateDoc(doc(db, 'messages', messageId), { reactions: next });
+  };
+
+  // Recorded per person so the cleanup sweep knows when everyone has seen it.
+  const markAttachmentViewed = async (messageId, attachment) => {
+    if (!user || !attachment) return;
+    if (attachment.viewedBy?.includes(user.uid)) return;
+    await updateDoc(doc(db, 'messages', messageId), {
+      'attachment.viewedBy': [...(attachment.viewedBy ?? []), user.uid],
+    });
+  };
+
+  const sendMessage = async (conversationId, text, attachment = null) => {
     if (!user) return;
     const convo = allConversationsRaw.find((c) => c.id === conversationId);
     await addDoc(collection(db, 'messages'), {
@@ -154,12 +183,16 @@ export function ChatProvider({ children }) {
       senderUid: user.uid,
       senderName: user.name,
       text,
+      reactions: [],
+      attachment,
       timestamp: Date.now(),
       memberUids: convo?.memberUids ?? [user.uid],
       edited: false,
     });
     await updateDoc(doc(db, 'conversations', conversationId), {
-      lastMessageText: text,
+      // An attachment with no message would leave the conversation list blank,
+      // which reads as a bug rather than a file.
+      lastMessageText: text || (attachment ? `Sent ${attachment.name}` : ''),
       lastMessageTimestamp: Date.now(),
       lastMessageSenderUid: user.uid,
       [`lastReadTimestamps.${user.uid}`]: Date.now(),
@@ -219,6 +252,8 @@ export function ChatProvider({ children }) {
   return (
     <ChatContext.Provider
       value={{
+        toggleReaction,
+        markAttachmentViewed,
         conversations,
         allConversations,
         unreadCount,
