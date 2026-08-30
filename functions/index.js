@@ -256,3 +256,4 @@ exports.sendInviteEmail = onCall({ secrets: ['RESEND_API_KEY'] }, async (request
 Object.assign(exports, require('./pushNotifications'));
 
 Object.assign(exports, require('./chatCleanup'));
+Object.assign(exports, require('./chatAndEventPush'));
