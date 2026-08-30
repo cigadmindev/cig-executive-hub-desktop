@@ -408,7 +408,7 @@ export default function MessagesScreen() {
               {otherUsers.map((u) => {
                 const selected = selectedUids.includes(u.uid);
                 return (
-                  <div
+                  <div data-row=""
                     key={u.uid}
                     style={{ ...styles.personRow, ...(selected ? styles.personRowSelected : {}) }}
                     onClick={() => (pickerMode === 'dm' ? handleStartDM(u.uid, u.name) : toggleSelect(u.uid))}

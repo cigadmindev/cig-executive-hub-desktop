@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDialog } from '../hooks/useDialog';
 import ConfirmEditField from './ConfirmEditField';
 import DocumentField from './DocumentField';
 
@@ -20,6 +21,7 @@ const FIELDS = [
 ];
 
 export default function ItemDetails({ item, onSave, locationId, userName }) {
+  const { dialogNode, confirm } = useDialog();
   // Fields added this session but not yet saved — without this they'd vanish
   // the moment the picker closes, since they hold no value to render from.
   const [added, setAdded] = useState([]);
@@ -34,9 +36,13 @@ export default function ItemDetails({ item, onSave, locationId, userName }) {
     // someone just added is harmless, and a dialog there would be friction.
     const value = item.openingFields?.[key];
     if (!value) return;
-    if (window.confirm(`Remove ${label}?\n\n"${value}" will be deleted.`)) {
-      onSave(item, key, '');
-    }
+    confirm({
+      title: `Remove ${label}?`,
+      body: `"${value}" will be deleted.`,
+      confirmLabel: 'Remove',
+      tone: 'danger',
+      onConfirm: () => onSave(item, key, ''),
+    });
   };
 
   return (
@@ -93,6 +99,7 @@ export default function ItemDetails({ item, onSave, locationId, userName }) {
           ))}
         </select>
       ) : null}
+      {dialogNode}
     </div>
   );
 }

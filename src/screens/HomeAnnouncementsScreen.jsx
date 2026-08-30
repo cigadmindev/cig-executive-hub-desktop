@@ -46,7 +46,7 @@ export default function HomeAnnouncementsScreen() {
 
   const handlePost = async () => {
     if (!selectedTargetId || !message.trim()) return;
-    await addAnnouncement(selectedTargetId, message.trim(), user?.name ?? 'Unknown');
+    await addAnnouncement(selectedTargetId, message.trim(), user?.name ?? 'Unknown', selectedLabel);
     navigate('/');
   };
 

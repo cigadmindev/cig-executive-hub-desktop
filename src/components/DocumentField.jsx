@@ -12,6 +12,7 @@ import { storage } from '../firebaseConfig';
 // Replaces rather than accumulates: there's one current version of a permit,
 // and keeping every superseded copy makes finding the live one harder.
 export default function DocumentField({ locationId, itemKey, value, onChange, userName }) {
+  const { dialogNode, confirm } = useDialog();
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -54,8 +55,17 @@ export default function DocumentField({ locationId, itemKey, value, onChange, us
     }
   };
 
-  const remove = async () => {
-    if (!window.confirm(`Remove ${value.name}?`)) return;
+  const remove = () => {
+    confirm({
+      title: `Remove ${value.name}?`,
+      body: 'The file is deleted from storage.',
+      confirmLabel: 'Remove',
+      tone: 'danger',
+      onConfirm: doRemove,
+    });
+  };
+
+  const doRemove = async () => {
     setBusy(true);
     try {
       if (value.path) await deleteObject(ref(storage, value.path));
@@ -96,6 +106,7 @@ export default function DocumentField({ locationId, itemKey, value, onChange, us
       )}
 
       {error ? <p style={styles.error}>{error}</p> : null}
+      {dialogNode}
     </div>
   );
 }

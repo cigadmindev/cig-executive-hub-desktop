@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDialog } from '../hooks/useDialog';
 import { useAuth } from '../context/AuthContext';
 import Icon from './Icon';
 
@@ -12,6 +13,7 @@ function initials(name) {
 }
 
 export default function PostCard({ post, isNewest, onToggleLike, onAddComment, onToggleCommentLike, onDeletePost, onDeleteComment }) {
+  const { dialogNode, confirm } = useDialog();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const canDeletePost = isAdmin || post.authorUid === user?.uid;
@@ -19,10 +21,22 @@ export default function PostCard({ post, isNewest, onToggleLike, onAddComment, o
   const [showComments, setShowComments] = useState(false);
 
   const handleDeletePost = () => {
-    if (window.confirm('Delete this post? This cannot be undone.')) onDeletePost?.(post.id);
+    confirm({
+      title: 'Delete this post?',
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: () => onDeletePost?.(post.id),
+    });
   };
   const handleDeleteComment = (commentId) => {
-    if (window.confirm('Delete this comment? This cannot be undone.')) onDeleteComment?.(post.id, commentId);
+    confirm({
+      title: 'Delete this comment?',
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: () => onDeleteComment?.(post.id, commentId),
+    });
   };
   const handleAddComment = () => {
     if (!commentText.trim()) return;
@@ -115,6 +129,7 @@ export default function PostCard({ post, isNewest, onToggleLike, onAddComment, o
           </div>
         </div>
       ) : null}
+      {dialogNode}
     </div>
   );
 }

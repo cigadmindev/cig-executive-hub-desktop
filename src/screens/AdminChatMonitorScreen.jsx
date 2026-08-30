@@ -51,7 +51,7 @@ export default function AdminChatMonitorScreen() {
             <p style={styles.empty}>No conversations yet.</p>
           ) : (
             allConversations.map((c) => (
-              <div
+              <div data-row=""
                 key={c.id}
                 style={{ ...styles.convoRow, ...(activeId === c.id ? styles.convoRowActive : {}) }}
                 onClick={() => setActiveId(c.id)}
