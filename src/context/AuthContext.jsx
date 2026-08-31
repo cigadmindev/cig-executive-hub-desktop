@@ -208,11 +208,10 @@ export function AuthProvider({ children }) {
   // with admin access, which this client-only app doesn't have) — but
   // without a profile, that credential is functionally useless anyway.
   const setUserActive = async (uid, active) => {
-    if (!active) {
-      await deleteDoc(doc(db, 'users', uid));
-    } else {
-      await updateDoc(doc(db, 'users', uid), { active });
-    }
+    // Flag, don't delete. Both apps already refuse login when active is false,
+    // so the profile can stay: the person keeps their account, their id, and
+    // everything attached to it, and reinstating is one toggle.
+    await updateDoc(doc(db, 'users', uid), { active });
     await refreshUsers();
   };
 
@@ -227,7 +226,8 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         user,
-        users,
+        users, // everyone, including deactivated - for Manage Logins
+        activeUsers: users.filter((u) => u.active), // everyone who can still sign in
         loading,
         login,
         logout,

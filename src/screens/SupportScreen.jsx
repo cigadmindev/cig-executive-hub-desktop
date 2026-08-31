@@ -170,7 +170,7 @@ function RegularSupportView() {
 
 function AdminSupportView() {
   const { requests, setStatus } = useSupportRequests();
-  const { users } = useAuth();
+  const { activeUsers: users } = useAuth();
   const { posts, postUpdate } = useSupportAnnouncements();
   const [tab, setTab] = useState('requests');
   const [now, setNow] = useState(Date.now());

@@ -58,11 +58,6 @@ export default function AvailabilityScreen() {
 
   const [viewingPerson, setViewingPerson] = useState(null);
 
-  const openEditWeekly = (prefillCurrent) => {
-    setWeeklyForm(Object.fromEntries(DAYS.map((d) => [d, prefillCurrent ? myWeekly?.[d] ?? '' : ''])));
-    setEditingWeekly(true);
-  };
-
   const myTimeOff = timeOffRequests.filter((r) => r.uid === user?.uid);
   const myWeekly = weeklyAvailability.find((w) => w.uid === user?.uid);
   const otherWeekly = weeklyAvailability.filter((w) => w.uid !== user?.uid);

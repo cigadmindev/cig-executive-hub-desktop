@@ -44,7 +44,7 @@ export default function MessagesScreen() {
     toggleReaction,
     markAttachmentViewed,
   } = useChat();
-  const { user, users } = useAuth();
+  const { user, activeUsers: users } = useAuth();
   const [activeId, setActiveId] = useState(null);
   const [text, setText] = useState('');
   const [hoveredMsgId, setHoveredMsgId] = useState(null);

@@ -83,10 +83,25 @@ export default function AdminUsersScreen() {
     });
   };
 
+  const handleReactivate = async (uid, targetName) => {
+    confirm({
+      title: `Reactivate ${targetName}?`,
+      body: 'They can sign in again with the same email address, and everything they entered before is still attached to them.',
+      confirmLabel: 'Reactivate',
+      onConfirm: async () => {
+        try {
+          await setUserActive(uid, true);
+        } catch (err) {
+          notify('Could not reactivate', err?.message ?? 'Something went wrong.');
+        }
+      },
+    });
+  };
+
   const handleDeactivate = async (uid, targetName) => {
     confirm({
       title: `Deactivate ${targetName}?`,
-      body: "This removes them from the app completely — Manage Logins, every assignee picker, everywhere. They'd need a brand new login to come back.",
+      body: "They won't be able to sign in, and they'll drop out of every assignee picker and team list. Their account and everything they've entered stays put, and you can switch them back on here at any time.",
       confirmLabel: 'Deactivate',
       tone: 'danger',
       onConfirm: async () => {
@@ -215,9 +230,15 @@ export default function AdminUsersScreen() {
                 <button style={styles.resetButton} onClick={() => setRoleEditUser({ uid: item.uid, name: item.name, role: item.role })}>
                   Change Role
                 </button>
-                <button style={styles.deactivateButton} onClick={() => handleDeactivate(item.uid, item.name)}>
-                  Deactivate Login
-                </button>
+                {item.active ? (
+                  <button style={styles.deactivateButton} onClick={() => handleDeactivate(item.uid, item.name)}>
+                    Deactivate Login
+                  </button>
+                ) : (
+                  <button style={styles.resetButton} onClick={() => handleReactivate(item.uid, item.name)}>
+                    Reactivate Login
+                  </button>
+                )}
               </>
             ) : (
               <span style={styles.selfNote}>This is your own account</span>

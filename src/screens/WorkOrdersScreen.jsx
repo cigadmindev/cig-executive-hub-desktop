@@ -12,7 +12,7 @@ function formatDateTime(ts) {
 
 export default function WorkOrdersScreen() {
   const { dialogNode, confirm } = useDialog();
-  const { user, users } = useAuth();
+  const { user, activeUsers: users } = useAuth();
   const { getMyQueue, getSentByMe, createWorkOrder, signWorkOrder, retryPdfGeneration, deleteStoredFiles } = useWorkOrders();
   const [tab, setTab] = useState('queue');
   const [createOpen, setCreateOpen] = useState(false);

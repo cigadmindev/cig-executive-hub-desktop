@@ -27,7 +27,7 @@ function cleanNeed(n) {
 export default function EventRequestsScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const { brandId, locationId } = useParams();
-  const { user, users } = useAuth();
+  const { user, activeUsers: users } = useAuth();
   const { getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest } = useEventRequests();
   const { getByBrand } = useCustomLocations();
   const { markEventRequestsViewed } = useViewTracking();
