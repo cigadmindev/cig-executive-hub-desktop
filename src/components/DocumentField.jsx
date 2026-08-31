@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../firebaseConfig';
+import { useDialog } from '../hooks/useDialog';
 
 // One document per checklist item or renewal — the permit itself.
 //
