@@ -458,6 +458,8 @@ export default function OpeningChecklistScreen() {
               })()}
               {items.map((item) => {
                 const overdue = !item.done && item.dateTime < now;
+                const isOpen = expandedItemId === item.id;
+                const description = describeItem(item.setupKey);
                 return (
                   <div key={item.id} style={styles.row}>
                     <div
@@ -465,12 +467,16 @@ export default function OpeningChecklistScreen() {
                         ...styles.rowMain,
                         ...(overdue ? styles.rowOverdue : {}),
                         ...(item.done ? styles.rowDone : {}),
-                        cursor: 'default',
                       }}
+                      data-row=""
+                      onClick={() => setExpandedItemId(isOpen ? null : item.id)}
                     >
                       <button
                         style={{ ...styles.check, ...(item.done ? styles.checkDone : {}) }}
-                        onClick={() => requestToggleDone(item)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          requestToggleDone(item);
+                        }}
                       >
                         {item.done ? '✓' : ''}
                       </button>
@@ -482,11 +488,28 @@ export default function OpeningChecklistScreen() {
                       ) : overdue ? (
                         <span style={styles.rowOverdueLabel}>Overdue</span>
                       ) : (
-                        <button style={styles.rowDateButton} onClick={() => startEditItemDate(item)}>
+                        <button
+                          style={styles.rowDateButton}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditItemDate(item);
+                          }}
+                        >
                           {new Date(item.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                         </button>
                       )}
+
+                      <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
                     </div>
+
+                    {isOpen ? (
+                      <div style={styles.rowBody} data-reveal="">
+                        {description ? <p style={styles.itemDescription}>{description}</p> : null}
+                        {item.done && item.doneBy ? (
+                          <p style={styles.neededForNote}>Signed off by {item.doneBy}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {editingDateItemId === item.id ? (
                       <div style={styles.dateEditRow}>
                         <DatePickerField value={itemDateDraft} onChange={setItemDateDraft} />
