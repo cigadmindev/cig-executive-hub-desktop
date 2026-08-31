@@ -122,15 +122,15 @@ export const INITIAL_SETUP_ITEMS = [
   // and Business License (formerly "Privilege/Business License" here) now
   // live in License & Lease Renewals; Food Permit above too, so this
   // section is just the standalone prep steps now.
-  { key: 'fireSafetyInspection', name: 'Fire/Safety Inspection', section: 'Privelege License', dependsOnKeys: [] },
-  { key: 'buildingInspectionCert', name: 'Building Inspection Cert', section: 'Privelege License', dependsOnKeys: [] },
-  { key: 'businessLicenseApplication', name: 'Business License Application', section: 'Privelege License', dependsOnKeys: [] },
-  { key: 'taxId', name: 'Tax ID', section: 'Privelege License', dependsOnKeys: [] },
-  { key: 'ein', name: 'EIN', section: 'Privelege License', dependsOnKeys: [] },
-  { key: 'salesTax', name: 'Sales Tax', section: 'Privelege License', dependsOnKeys: [] },
+  { key: 'fireSafetyInspection', name: 'Fire/Safety Inspection', section: 'Business License', dependsOnKeys: [] },
+  { key: 'buildingInspectionCert', name: 'Building Inspection Cert', section: 'Business License', dependsOnKeys: [] },
+  { key: 'businessLicenseApplication', name: 'Business License Application', section: 'Business License', dependsOnKeys: [] },
+  { key: 'taxId', name: 'Tax ID', section: 'Business License', dependsOnKeys: [] },
+  { key: 'ein', name: 'EIN', section: 'Business License', dependsOnKeys: [] },
+  { key: 'salesTax', name: 'Sales Tax', section: 'Business License', dependsOnKeys: [] },
 
-  // Proveyors
-  { key: 'taxExemption', name: 'Tax Exemption', section: 'Proveyors', dependsOnKeys: [] },
+  // Purveyors
+  { key: 'taxExemption', name: 'Tax Exemption', section: 'Purveyors', dependsOnKeys: [] },
 
   // Final Steps
   { key: 'plumbingInspection', name: 'Plumbing Inspection', section: 'Final Steps', dependsOnKeys: [] },

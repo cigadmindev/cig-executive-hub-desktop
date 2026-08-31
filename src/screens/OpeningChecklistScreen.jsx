@@ -381,6 +381,14 @@ export default function OpeningChecklistScreen() {
 
                       {isOpen ? (
                         <div style={styles.rowBody} data-reveal="">
+                          {/* Looked up from the template rather than stored on
+                              each record: one description per item type, so a
+                              wording change reaches every location at once. */}
+                          {template?.items?.find((t) => t.key === item.setupKey)?.description ? (
+                            <p style={styles.itemDescription}>
+                              {template.items.find((t) => t.key === item.setupKey).description}
+                            </p>
+                          ) : null}
                           {neededFor.length > 0 ? (
                             <p style={styles.neededForNote}>Needed for {neededFor.join(', ')}</p>
                           ) : null}
@@ -711,6 +719,7 @@ const styles = {
   sectionCount: { fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0 },
   sectionBarTrack: { flex: 1, height: 3, background: 'var(--border)', borderRadius: 2, minWidth: 40 },
   sectionBarFill: { height: 3, background: 'var(--neon)', borderRadius: 2 },
+  itemDescription: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55, margin: '4px 0 8px' },
   neededForNote: { fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic', margin: '2px 0 0' },
   urgencyBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap', margin: 0, cursor: 'pointer' },
 

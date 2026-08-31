@@ -88,6 +88,7 @@ function resolveCapstones(items) {
 }
 
 export const ITEM_DEFAULTS = {
+  description: '',       // plain-English what-this-is, shown in the expanded row
   dependsOnKeys: [],
   capstoneOf: null,      // section name — depends on everything else in it
   alsoDependsOn: [],     // cross-section edges, declared explicitly
