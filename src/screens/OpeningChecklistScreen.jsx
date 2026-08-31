@@ -69,6 +69,20 @@ export default function OpeningChecklistScreen() {
   // this rather than one global list, so a Birmingham checklist doesn't get
   // told it's blocked by a Mississippi item that doesn't exist there.
   const template = getTemplateForLocation(locationId);
+
+  // Setup items come from the location's template; timeline items come from
+  // the shared buckets. Both store their id in setupKey, so one lookup
+  // covers the whole checklist.
+  const describeItem = (setupKey) => {
+    if (!setupKey) return null;
+    const fromTemplate = template?.items?.find((t) => t.key === setupKey);
+    if (fromTemplate?.description) return fromTemplate.description;
+    for (const bucket of TIMELINE_BUCKETS) {
+      const hit = bucket.items.find((t) => t.key === setupKey);
+      if (hit?.description) return hit.description;
+    }
+    return null;
+  };
   const info = getInfo(locationId);
   const openingItems = getOpeningItemsByLocation(locationId);
   const setupItems = openingItems.filter((i) => i.openingItemType === 'setup');
@@ -384,10 +398,8 @@ export default function OpeningChecklistScreen() {
                           {/* Looked up from the template rather than stored on
                               each record: one description per item type, so a
                               wording change reaches every location at once. */}
-                          {template?.items?.find((t) => t.key === item.setupKey)?.description ? (
-                            <p style={styles.itemDescription}>
-                              {template.items.find((t) => t.key === item.setupKey).description}
-                            </p>
+                          {describeItem(item.setupKey) ? (
+                            <p style={styles.itemDescription}>{describeItem(item.setupKey)}</p>
                           ) : null}
                           {neededFor.length > 0 ? (
                             <p style={styles.neededForNote}>Needed for {neededFor.join(', ')}</p>

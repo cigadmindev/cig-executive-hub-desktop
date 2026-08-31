@@ -86,7 +86,12 @@ export function OpeningInfoProvider({ children }) {
     const deleteBatch = writeBatch(db);
     existingSnap.docs.forEach((d) => {
       const data = d.data();
-      if (data.openingItemType === 'setup' && data.setupKey) {
+      // Both setup and timeline items are kept and merged by key. Timeline
+      // items used to be deleted here, on the reasoning that they were
+      // generic labels with no state worth keeping - but they carry sign-offs
+      // and adjusted dates like anything else, and a date change was silently
+      // throwing that away.
+      if (data.setupKey) {
         existingSetupByKey[data.setupKey] = { ref: d.ref, data };
       } else {
         deleteBatch.delete(d.ref);
@@ -141,7 +146,8 @@ export function OpeningInfoProvider({ children }) {
     if (!isPastOpening) {
       TIMELINE_BUCKETS.forEach((bucket) => {
         const dates = spreadDatesInWindow(openingDate, bucket.windowStartDaysBefore, bucket.windowEndDaysBefore, bucket.items.length);
-        bucket.items.forEach((label, i) => {
+        bucket.items.forEach((tlItem, i) => {
+          const label = tlItem.name;
           const ref = doc(collection(db, SCHEDULES_COLLECTION));
           createBatch.set(ref, {
             locationId,
@@ -155,7 +161,7 @@ export function OpeningInfoProvider({ children }) {
             openingItemType: 'timeline',
             openingSection: bucket.label,
             openingFields: null,
-            setupKey: null,
+            setupKey: tlItem.key,
             done: false,
             doneBy: null,
             doneAt: null,
