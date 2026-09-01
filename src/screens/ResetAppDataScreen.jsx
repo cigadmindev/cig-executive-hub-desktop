@@ -208,7 +208,7 @@ export default function ResetAppDataScreen() {
 }
 
 const styles = {
-  page: { padding: '28px 36px', maxWidth: 560 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 560 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 6px' },
   subtitle: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 20px', lineHeight: 1.5 },
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 14, padding: 18, marginBottom: 16 },
@@ -233,7 +233,7 @@ const styles = {
   errorText: { fontSize: 12, color: 'var(--danger)', lineHeight: 1.5, marginTop: 10 },
 
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 340, background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)', textAlign: 'center' },
+  modalCard: { width: 'min(340px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)', textAlign: 'center' },
   modalIcon: { fontSize: 30, color: 'var(--success)', margin: '0 0 8px' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   modalBody: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 18px' },

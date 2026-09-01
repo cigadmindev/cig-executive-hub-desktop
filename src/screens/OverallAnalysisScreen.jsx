@@ -63,7 +63,7 @@ export default function OverallAnalysisScreen() {
 }
 
 const styles = {
-  page: { padding: '28px 40px' },
+  page: { padding: '28px max(16px, min(40px, 4vw))' },
   title: { margin: '0 0 6px' },
   subtitle: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 20px', lineHeight: 1.5 },
   connectRow: { marginBottom: 28 },

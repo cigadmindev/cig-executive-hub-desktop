@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { brands } from '../data/mockData';
@@ -13,6 +14,7 @@ import { useHomeSummary } from '../hooks/useHomeSummary';
 import { nike } from '../theme/nike';
 
 export default function HomeScreen() {
+  const isNarrow = useIsNarrow();
   const { dialogNode, notify } = useDialog();
   const { user, hasBrandAccess } = useAuth();
   const navigate = useNavigate();
@@ -81,11 +83,11 @@ export default function HomeScreen() {
       {/* What needs you, before where you want to go. The brand grid alone
           answered navigation but not "what should I be doing", which is the
           actual question someone opens this with. */}
-      <div style={styles.topGrid}>
+      <div style={isNarrow ? styles.topGridNarrow : styles.topGrid}>
       {summary.attention.length > 0 ? (
         <div style={styles.zone}>
           <p style={styles.zoneLabel}>Needs you</p>
-          <div style={{ ...styles.panel, height: 196 }}>
+          <div style={{ ...styles.panel, ...(isNarrow ? {} : { height: 196 }) }}>
             {summary.attention.slice(0, 5).map((a, i) => (
               <button key={i} data-row="" style={styles.attentionRow} onClick={() => navigate(a.to)}>
                 <span
@@ -156,10 +158,10 @@ export default function HomeScreen() {
 
       </div>
 
-      <div style={styles.topGrid}>
+      <div style={isNarrow ? styles.topGridNarrow : styles.topGrid}>
         <div style={styles.zone}>
           <p style={styles.zoneLabel}>This week</p>
-          <div style={{ ...styles.panel, height: 148 }}>
+          <div style={{ ...styles.panel, ...(isNarrow ? {} : { height: 148 }) }}>
             {summary.thisWeek.length === 0 ? (
               <p style={styles.emptyNote}>Nothing scheduled in the next seven days.</p>
             ) : (
@@ -178,7 +180,7 @@ export default function HomeScreen() {
 
         <div style={styles.zone}>
           <p style={styles.zoneLabel}>Recent</p>
-          <div style={{ ...styles.panel, height: 148 }}>
+          <div style={{ ...styles.panel, ...(isNarrow ? {} : { height: 148 }) }}>
             {summary.recent.length === 0 ? (
               <p style={styles.emptyNote}>No recent sign-offs.</p>
             ) : (
@@ -273,6 +275,9 @@ export default function HomeScreen() {
 
 const styles = {
   topGrid: { display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 18, alignItems: 'start' },
+  // Two columns at ~170px each on a phone left every card clipping its own
+  // text mid-word. One column, full width.
+  topGridNarrow: { display: 'grid', gridTemplateColumns: '1fr', gap: 14, alignItems: 'start' },
   zone: { marginBottom: 22, minWidth: 0 },
   zoneLabel: {
     fontSize: 11,
@@ -330,13 +335,16 @@ const styles = {
   countValue: { fontSize: 22, fontWeight: 800, lineHeight: 1.1 },
   countLabel: { fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
 
-  page: { padding: '36px 44px', maxWidth: 1040 },
+  page: { padding: '36px max(16px, min(44px, 4vw))', maxWidth: 1040 },
   header: { marginBottom: 32 },
   eyebrow: { fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.7, margin: '0 0 6px' },
   title: { fontSize: 26, fontWeight: 700, letterSpacing: -0.4, margin: 0 },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+    // min() caps the track minimum at the container width, so a narrow
+    // screen drops to a single column instead of squeezing two 175px
+    // tiles that clip their own names. Desktop is unaffected.
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))',
     gap: 9,
   },
   card: {

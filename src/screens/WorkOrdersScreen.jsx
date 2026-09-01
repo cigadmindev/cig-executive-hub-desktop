@@ -426,7 +426,7 @@ const styles = {
   signerName: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
   signerMeta: { fontSize: 11, color: 'var(--text-tertiary)' },
 
-  page: { padding: '28px 36px', maxWidth: 680 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 680 },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 700, margin: 0 },
   newButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
@@ -466,7 +466,7 @@ const styles = {
   signedNote: { color: 'var(--text-tertiary)', fontWeight: 400 },
 
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 420, maxHeight: '82vh', overflowY: 'auto', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)' },
+  modalCard: { width: 'min(420px, calc(100vw - 32px))', maxHeight: '82vh', overflowY: 'auto', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   confirmBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 12 },
   testNote: { fontSize: 11, color: 'var(--accent)', lineHeight: 1.5, marginBottom: 14, fontStyle: 'italic' },

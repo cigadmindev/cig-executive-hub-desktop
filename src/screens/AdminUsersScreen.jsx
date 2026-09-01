@@ -299,7 +299,7 @@ export default function AdminUsersScreen() {
 }
 
 const styles = {
-  page: { padding: '28px 36px', maxWidth: 640 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 640 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },
   sectionTitle: { fontSize: 15, fontWeight: 700, marginTop: 20, marginBottom: 10 },
   input: {
@@ -347,7 +347,7 @@ const styles = {
   selfNote: { color: 'var(--text-secondary)', fontSize: 11, fontStyle: 'italic', alignSelf: 'center' },
   note: { marginTop: 16, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6 },
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 380, background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  modalCard: { width: 'min(380px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 4px' },
   modalSubtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px' },
   modalNote: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, marginTop: 4 },

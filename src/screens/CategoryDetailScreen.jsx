@@ -186,7 +186,7 @@ export default function CategoryDetailScreen() {
 }
 
 const styles = {
-  page: { padding: '28px 36px', maxWidth: 640 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 640 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 22, fontWeight: 700, margin: 0 },

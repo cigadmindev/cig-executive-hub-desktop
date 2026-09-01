@@ -151,7 +151,7 @@ export default function PendingRequestsScreen() {
 }
 
 const styles = {
-  page: { padding: '28px 36px', maxWidth: 640 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 640 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },
   empty: { color: 'var(--text-secondary)', fontSize: 13 },
   card: { background: 'var(--bg-card)', border: 'none', borderRadius: 14, padding: 16, marginBottom: 12 },
@@ -165,7 +165,7 @@ const styles = {
 
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   modalCard: {
-    width: 460,
+    width: 'min(460px, calc(100vw - 32px))',
     maxHeight: '82vh',
     overflowY: 'auto',
     background: 'var(--bg-elevated)',

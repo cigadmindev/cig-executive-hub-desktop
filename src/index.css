@@ -73,9 +73,17 @@ button {
    changed state instantly and the app felt inert. Hover lifts the surface;
    pressing squeezes it slightly, which is what makes a click feel like it
    landed before the screen has caught up. */
-button:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  border-color: var(--border-strong);
+/* Only where a pointer can actually hover. A touchscreen has no way to
+   "move off" a button, so Safari applies :hover on tap and leaves it stuck
+   until you tap something else - which read as a light panel sitting behind
+   whatever you last pressed. hover:hover asks the device rather than
+   guessing from width, so a touchscreen laptop still gets hover on its
+   trackpad. */
+@media (hover: hover) {
+  button:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: var(--border-strong);
+  }
 }
 
 button:active:not(:disabled) {
@@ -97,18 +105,23 @@ button:disabled {
   position: relative;
 }
 
-[data-row]:hover {
-  background-color: rgba(255, 255, 255, 0.075) !important;
+@media (hover: hover) {
+  [data-row]:hover {
+    background-color: rgba(255, 255, 255, 0.075) !important;
+  }
 }
 
-[data-row]:hover::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--neon);
+
+@media (hover: hover) {
+  [data-row]:hover::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--neon);
+  }
 }
 
 [data-row]:active {
@@ -117,11 +130,14 @@ button:disabled {
 
 /* Cards raise rather than just brightening — the shadow does more work than
    the background at this size. */
-[data-card]:hover:not(:disabled) {
-  transform: translateY(-3px);
-  border-color: rgba(255, 255, 255, 0.28);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+@media (hover: hover) {
+  [data-card]:hover:not(:disabled) {
+    transform: translateY(-3px);
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  }
 }
+
 
 [data-card]:active:not(:disabled) {
   transform: translateY(-1px) scale(0.99);
@@ -231,11 +247,14 @@ button:disabled {
 
 /* The react button sits hidden until you're on the message — one more control
    on every bubble would outweigh the messages themselves. */
-[data-bubble]:hover button[title='React'] {
-  /* Beats the inline opacity:0 that keeps it hidden by default — inline styles
-     win over rules, so this needs the override. */
-  opacity: 1 !important;
+@media (hover: hover) {
+  [data-bubble]:hover button[title='React'] {
+    /* Beats the inline opacity:0 that keeps it hidden by default — inline styles
+       win over rules, so this needs the override. */
+    opacity: 1 !important;
+  }
 }
+
 
 /* Messages settle in rather than snapping. */
 @keyframes messageIn {
@@ -250,10 +269,13 @@ button:disabled {
 
 /* A small lift under the cursor. Rows elsewhere brighten; a bubble is a
    discrete object, so movement reads better than a colour change. */
-[data-bubble]:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.22);
+@media (hover: hover) {
+  [data-bubble]:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.22);
+  }
 }
+
 
 /* Destructive controls stay out of the way until you're on the row. */
 [data-hover-only] {
@@ -261,6 +283,20 @@ button:disabled {
   transition: opacity 0.14s ease;
 }
 
-[data-row]:hover [data-hover-only] {
-  opacity: 1;
+@media (hover: hover) {
+  [data-row]:hover [data-hover-only] {
+    opacity: 1;
+  }
+}
+
+
+/* iOS zooms the whole page in whenever you focus a field smaller than 16px.
+   Bumping to 16px on touch devices is the only fix that doesn't also disable
+   pinch-zoom for everyone. Pointer devices keep the smaller design size. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }

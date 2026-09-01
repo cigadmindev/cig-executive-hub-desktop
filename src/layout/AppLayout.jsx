@@ -10,6 +10,8 @@ import { useWorkOrders } from '../context/WorkOrdersContext';
 import { useEventRequests } from '../context/EventRequestsContext';
 import { brands } from '../data/mockData';
 import Icon from '../components/Icon';
+import BottomBar from './BottomBar';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 
 // Mirrors mobile's bottom-tab structure: Home, Messages, Master Calendar,
 // Directory, Profile — everything else (Availability, Support,
@@ -17,6 +19,7 @@ import Icon from '../components/Icon';
 // the Directory or Profile screens instead of being loose in the
 // sidebar.
 export default function AppLayout({ children }) {
+  const isNarrow = useIsNarrow();
   const { user, hasBrandAccess } = useAuth();
   const { unreadCount } = useChat();
   const { hasUnseenTimeOff, hasUnseenCalendar } = useViewTracking();
@@ -51,6 +54,24 @@ export default function AppLayout({ children }) {
     ...styles.navItem,
     ...(isActive ? styles.navItemActive : {}),
   });
+
+  // Below the breakpoint the sidebar is replaced by the same notched bar
+  // the iPhone uses - a phone browser gets phone navigation. The packaged
+  // Mac app never crosses this, so its layout is untouched.
+  if (isNarrow) {
+    return (
+      <div style={styles.narrowWindow}>
+        <div style={styles.narrowContent}>{children}</div>
+        <BottomBar
+          homeBadge={anyEventNeedsMyJob}
+          messagesBadge={unreadCount > 0}
+          calendarBadge={anyCalendarUnseen}
+          directoryBadge={directoryNeedsAttention}
+          profileBadge={profileNeedsAttention}
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={styles.window}>
@@ -124,6 +145,15 @@ export default function AppLayout({ children }) {
 
 const styles = {
   window: { display: 'flex', height: '100vh' },
+  narrowWindow: { height: '100vh', background: 'var(--bg-window)' },
+  // Bottom padding clears the floating bar: its height, its 24px offset,
+  // and the home button poking out of the top.
+  narrowContent: {
+    height: '100dvh',
+    overflow: 'auto',
+    paddingTop: 'env(safe-area-inset-top, 0px)',
+    paddingBottom: 'calc(130px + env(safe-area-inset-bottom, 0px))',
+  },
   sidebar: {
     width: 232,
     background: 'var(--bg-sidebar)',

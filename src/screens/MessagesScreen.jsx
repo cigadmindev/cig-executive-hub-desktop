@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import MessageReactions, { ReactionPicker } from '../components/MessageReactions';
@@ -30,6 +31,7 @@ function colorForSender(uid) {
 }
 
 export default function MessagesScreen() {
+  const isNarrow = useIsNarrow();
   const {
     conversations,
     getMessagesForConversation,
@@ -180,9 +182,16 @@ export default function MessagesScreen() {
     });
   };
 
+  // On a phone the two panes become one: the list until you pick a
+  // conversation, then the thread. Desktop shows both side by side, and
+  // activeId already decides what the thread pane renders - here it also
+  // decides which pane exists.
+  const showList = !isNarrow || !activeId;
+  const showThread = !isNarrow || !!activeId;
+
   return (
-    <div style={styles.page}>
-      <div style={styles.list}>
+    <div style={isNarrow ? styles.pageNarrow : styles.page}>
+      <div style={{ ...styles.list, ...(isNarrow ? styles.listNarrow : {}), ...(showList ? {} : { display: 'none' }) }}>
         <div style={{ ...styles.listHeader, ...nike.pageTitleSm, fontSize: 20 }}>Messages</div>
 
         <div style={styles.newButtonsRow}>
@@ -253,11 +262,16 @@ export default function MessagesScreen() {
         </div>
       </div>
 
-      <div style={styles.thread}>
+      <div style={{ ...styles.thread, ...(showThread ? {} : { display: 'none' }) }}>
         {!activeConvo ? (
           <div style={styles.threadEmpty}>Select a conversation</div>
         ) : (
           <>
+            {isNarrow ? (
+              <button style={styles.backToList} onClick={() => setActiveId(null)}>
+                ‹ Messages
+              </button>
+            ) : null}
             <div style={styles.threadHeader}>{activeConvo.name}</div>
             <p style={styles.disclaimer}>Messages here aren't private — stored in our database, message with that in mind.</p>
             <div style={styles.threadScroll}>
@@ -301,7 +315,7 @@ export default function MessagesScreen() {
                       </div>
                     ) : null}
                     {isEditing ? (
-                      <div style={{ ...styles.bubble, ...styles.bubbleMe, maxWidth: '100%', width: 380, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ ...styles.bubble, ...styles.bubbleMe, maxWidth: '100%', width: 'min(380px, 100%)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <input
                           style={styles.editInput}
                           value={editText}
@@ -348,7 +362,7 @@ export default function MessagesScreen() {
                 );
               })}
             </div>
-            <div style={styles.inputRow}>
+            <div style={{ ...styles.inputRow, ...(isNarrow ? styles.inputRowNarrow : {}) }}>
               <input
                 ref={fileRef}
                 type="file"
@@ -440,7 +454,19 @@ export default function MessagesScreen() {
 
 const styles = {
   page: { display: 'flex', height: '100%' },
+  pageNarrow: { display: 'flex', flexDirection: 'column', height: '100%' },
   list: { width: 300, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' },
+  listNarrow: { width: '100%', borderRight: 'none', flex: 1, minWidth: 0 },
+  backToList: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--text-secondary)',
+    fontSize: 14,
+    padding: '10px 4px',
+    cursor: 'pointer',
+    alignSelf: 'flex-start',
+    WebkitTapHighlightColor: 'transparent',
+  },
   listHeader: { padding: '16px 16px 10px', fontSize: 16, fontWeight: 700 },
   newButtonsRow: { display: 'flex', gap: 8, padding: '0 12px 10px' },
   newButton: {
@@ -568,7 +594,6 @@ const styles = {
   },
   editSmallButton: { fontSize: 11, color: '#FFFFFF', padding: '2px 8px' },
   attachButton: {
-    width: 36,
     height: 42,
     width: 42,
     flexShrink: 0,
@@ -581,6 +606,12 @@ const styles = {
     padding: 0,
   },
   inputRow: { display: 'flex', gap: 8, padding: 16, borderTop: '1px solid var(--border)', alignItems: 'center' },
+  // The floating bar sits over the bottom of the page, so the composer needs
+  // to clear it: the bar's height, its offset, and the home button that
+  // pokes out above it.
+  // No extra bottom clearance here: AppLayout's narrow content already
+  // reserves room for the floating bar, and adding more stacked two gaps.
+  inputRowNarrow: {},
   input: {
     flex: 1,
     padding: '11px 14px',
@@ -612,7 +643,7 @@ const styles = {
   },
 
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 360, background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, maxHeight: '70vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' },
+  modalCard: { width: 'min(360px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, maxHeight: '70vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   input2: {
     width: '100%',

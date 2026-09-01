@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSchedule } from '../context/ScheduleContext';
@@ -21,6 +22,7 @@ function formatTime(dateTime) {
 }
 
 export default function CalendarScreen() {
+  const isNarrow = useIsNarrow();
   const { dialogNode, confirm, notify } = useDialog();
   const { user, hasBrandAccess } = useAuth();
   const { entries, addEntry, updateEntry, deleteEntry, toggleOpeningItemDone } = useSchedule();
@@ -179,12 +181,16 @@ export default function CalendarScreen() {
         </div>
       </header>
 
-      <div style={styles.body}>
-        <div style={styles.calendarCol}>
+      {/* Side by side on desktop; stacked on a phone. Both panes stay
+          visible - unlike Messages, you need the month and the selected
+          day's items at once. The fixed 420 + 340 minimum was forcing the
+          whole page to pan sideways. */}
+      <div style={{ ...styles.body, ...(isNarrow ? styles.bodyNarrow : {}) }}>
+        <div style={isNarrow ? styles.calendarColNarrow : styles.calendarCol}>
           <MonthCalendar markersByDay={markersByDay} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
         </div>
 
-        <div style={styles.detailCol}>
+        <div style={isNarrow ? styles.detailColNarrow : styles.detailCol}>
           {!selectedDate ? (
             <div style={styles.emptyState}>
               
@@ -428,7 +434,7 @@ const styles = {
   rowNote: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px' },
   rowActions: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
 
-  page: { padding: '32px 40px', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
+  page: { padding: '32px max(16px, min(40px, 4vw))', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
   header: { marginBottom: 24 },
   title: { fontSize: 30, fontWeight: 900, letterSpacing: -0.7, textTransform: 'uppercase', color: '#FFFFFF', margin: '0 0 14px' },
   filterRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },
@@ -450,6 +456,9 @@ const styles = {
   body: { display: 'flex', flexWrap: 'wrap', gap: 32, flex: 1, minHeight: 0 },
   calendarCol: { width: 420, flexShrink: 0 },
   detailCol: { flex: 1, minWidth: 340, overflowY: 'auto', paddingTop: 4 },
+  bodyNarrow: { display: 'block', flex: 'none', minHeight: 0, gap: 0 },
+  calendarColNarrow: { width: '100%', minWidth: 0 },
+  detailColNarrow: { width: '100%', minWidth: 0, paddingTop: 18 },
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 },
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
   detailHeaderRow: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18 },
@@ -479,7 +488,7 @@ const styles = {
     zIndex: 100,
   },
   modalCard: {
-    width: 380,
+    width: 'min(380px, calc(100vw - 32px))',
     background: 'var(--bg-elevated)',
     border: '1px solid var(--border)',
     borderRadius: 14,

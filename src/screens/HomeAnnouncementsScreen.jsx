@@ -124,7 +124,7 @@ export default function HomeAnnouncementsScreen() {
 }
 
 const styles = {
-  page: { padding: '28px 36px', maxWidth: 560 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 560 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   title: { fontSize: 20, fontWeight: 700, margin: '0 0 20px', letterSpacing: -0.2 },
   label: { display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, marginTop: 16 },

@@ -70,7 +70,7 @@ export default function AnnouncementsScreen() {
 }
 
 const styles = {
-  page: { padding: '28px 36px', maxWidth: 560 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 560 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   title: { fontSize: 20, fontWeight: 700, margin: '0 0 4px' },
   note: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 14px' },

@@ -245,7 +245,7 @@ const styles = {
   rowBody: { padding: '4px 14px 16px' },
   actionRow: { display: 'flex', gap: 10, marginBottom: 10 },
 
-  page: { padding: '28px 36px', maxWidth: 640 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 640 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },
   body: {},
@@ -254,7 +254,7 @@ const styles = {
   saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
 
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 360, background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  modalCard: { width: 'min(360px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   modalBody: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 },
   modalNote: { fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.5 },

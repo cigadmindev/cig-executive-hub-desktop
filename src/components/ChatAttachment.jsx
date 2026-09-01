@@ -51,7 +51,11 @@ const styles = {
     alignItems: 'center',
     gap: 12,
     padding: '10px 0 2px',
-    minWidth: 260,
+    // Was minWidth 260, which forced the row wider than a phone bubble and
+    // truncated the filename regardless of available space. Wrapping lets
+    // the download button drop below the name when there isn't room.
+    flexWrap: 'wrap',
+    rowGap: 8,
   },
   badge: {
     width: 34,
@@ -66,8 +70,10 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  meta: { flex: 1, minWidth: 0 },
-  name: { fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  meta: { flex: '1 1 140px', minWidth: 0 },
+  // Break long filenames across lines rather than cutting them off - the
+  // extension is often the useful part and an ellipsis eats it.
+  name: { fontSize: 13, color: 'var(--text-primary)', overflowWrap: 'anywhere' },
   note: { fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 },
   download: {
     padding: '5px 10px',

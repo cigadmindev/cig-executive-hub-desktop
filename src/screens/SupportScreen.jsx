@@ -323,7 +323,7 @@ function AdminSupportView() {
 }
 
 const styles = {
-  page: { padding: '28px 36px', maxWidth: 680 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 680 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 16px' },
   tabRow: { display: 'flex', gap: 8, marginBottom: 20 },
   tab: { padding: '7px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' },
@@ -386,7 +386,7 @@ const styles = {
   chipActive: { background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, borderColor: 'var(--neon)' },
 
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 380, background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)', textAlign: 'center' },
+  modalCard: { width: 'min(380px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)', textAlign: 'center' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   modalBody: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 18, lineHeight: 1.6 },
 };

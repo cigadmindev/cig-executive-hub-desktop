@@ -500,7 +500,7 @@ const styles = {
   offName: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
   offDates: { fontSize: 11, color: 'var(--text-tertiary)' },
 
-  page: { padding: '28px 36px', maxWidth: 700 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 700 },
   header: { marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 14px' },
   tabRow: { display: 'flex', gap: 8 },
@@ -526,6 +526,6 @@ const styles = {
   viewDayLabel: { color: 'var(--accent)', fontWeight: 600 },
 
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 360, background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, maxHeight: '80vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' },
+  modalCard: { width: 'min(360px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, maxHeight: '80vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
 };

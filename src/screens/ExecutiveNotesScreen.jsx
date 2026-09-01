@@ -124,7 +124,7 @@ export default function ExecutiveNotesScreen() {
 }
 
 const styles = {
-  page: { padding: '28px 36px', maxWidth: 560 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 560 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 6px' },
   subtitle: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 20px', lineHeight: 1.5 },
   card: { background: 'var(--bg-card)', border: 'none', borderRadius: 14, padding: 20 },

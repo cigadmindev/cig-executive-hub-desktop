@@ -395,7 +395,7 @@ const styles = {
     padding: 0,
   },
 
-  page: { padding: '28px 36px', maxWidth: 700 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 700 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 700, margin: 0 },
@@ -429,7 +429,7 @@ const styles = {
   linkButtonDanger: { fontSize: 12, color: 'var(--danger)', fontWeight: 600 },
 
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 380, background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, maxHeight: '85vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' },
+  modalCard: { width: 'min(380px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, maxHeight: '85vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   label: { display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4, marginTop: 10 },
   input: {

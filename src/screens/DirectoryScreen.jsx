@@ -113,7 +113,7 @@ export default function DirectoryScreen() {
 }
 
 const styles = {
-  page: { padding: '28px 36px', maxWidth: 720 },
+  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 720 },
   title: { fontSize: 24, fontWeight: 700, margin: '0 0 20px' },
   grid: { display: 'flex', flexDirection: 'column', gap: 12 },
   card: {
