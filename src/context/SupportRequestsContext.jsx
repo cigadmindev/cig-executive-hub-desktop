@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, query, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 
@@ -43,7 +43,16 @@ export function SupportRequestsProvider({ children }) {
       setRequests([]);
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
+    // Admins read the collection; everyone else must filter to their own
+    // submissions, matching the rule exactly. An unfiltered query is
+    // rejected outright for anyone the rule would not allow to read every
+    // document - it is not narrowed down silently.
+    const q =
+      user.role === 'admin'
+        ? collection(db, COLLECTION)
+        : query(collection(db, COLLECTION), where('submitterUid', '==', user.uid));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const list = snapshot.docs.map((d) => {
         const data = d.data();
         return {
