@@ -16,8 +16,45 @@ service cloud.firestore {
     function isOwner(resource) {
       return isSignedIn() && resource.data.authorUid == request.auth.uid;
     }
+    // Finance is a job, not a role - Sam is an executive whose job is
+    // Financials. There is no fourth role.
+    function isFinance() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'Financials';
+    }
     function isBrenner() {
       return isSignedIn() && request.auth.token.email == 'brenner@cigconcepts.com';
+    }
+
+    // Expense receipts. The only collection here where signed-in is not
+    // enough to read - deliberately. Three tiers: you see your own, finance
+    // and admins see everyone's, nobody else sees anything. Do not relax
+    // this to match the collections around it.
+    //
+    // submittedByUid is set on create and can never change, so ownership
+    // cannot be reassigned after the fact.
+    match /expenseReceipts/{receiptId} {
+      allow read: if isAdmin() || isFinance() ||
+        (isSignedIn() && resource.data.submittedByUid == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.submittedByUid == request.auth.uid;
+      // Editable by the person who submitted it until their cutoff passes.
+      // The cutoff is stored on the document at create time, so the rule
+      // does not have to compute a timezone.
+      allow update: if isSignedIn()
+        && resource.data.submittedByUid == request.auth.uid
+        && request.resource.data.submittedByUid == resource.data.submittedByUid
+        && request.time < resource.data.editableUntil;
+      // Admins can void a receipt but not delete it. Voiding stops it
+      // counting toward totals and greys it out; the record survives, so a
+      // daily report that already mentioned it still matches what is in the
+      // app. Restricted to exactly those three fields so a void cannot be
+      // used to quietly rewrite an amount.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['voided', 'voidedBy', 'voidedReason']);
+      // A financial record is never removed from a client.
+      allow delete: if false;
     }
 
     match /users/{userId} {

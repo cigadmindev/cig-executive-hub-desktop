@@ -73,6 +73,27 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Expense receipts. Read is denied to every client, including finance
+    // and admins - the only way to see one is a short-lived signed URL from
+    // getReceiptUrls, which checks Firestore first. Storage rules cannot
+    // read Firestore, so they cannot tell who is finance; rather than fall
+    // back to 'any signed-in user' like workOrders and permitDocs do, this
+    // path denies reads outright and puts the check where it can happen.
+    //
+    // Write is locked by path: the uid is in the path, so you can only ever
+    // upload your own. No update, no delete - a submitted receipt is a
+    // financial record, and the image behind it should not change after the
+    // fact. The 90-day sweep removes images with the Admin SDK, which
+    // ignores these rules.
+    match /receipts/{uid}/{fileName} {
+      allow read: if false;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 12 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow update, delete: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

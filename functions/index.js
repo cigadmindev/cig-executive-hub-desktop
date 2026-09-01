@@ -257,3 +257,5 @@ Object.assign(exports, require('./pushNotifications'));
 
 Object.assign(exports, require('./chatCleanup'));
 Object.assign(exports, require('./chatAndEventPush'));
+
+Object.assign(exports, require('./expenses'));
