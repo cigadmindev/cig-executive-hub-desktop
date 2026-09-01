@@ -542,7 +542,7 @@ export default function OpeningChecklistScreen() {
               This will {info.openingDate ? 'rebuild' : 'generate'} the entire Initial Set-Up and Timeline
               checklist against <strong>{formatDate(new Date(dateDraft).getTime())}</strong>, creating
               calendar entries on this location's calendar and the Master Calendar.
-              {info.openingDate ? ' Any progress already marked done will be lost, since the whole checklist regenerates.' : ''}
+              {info.openingDate ? ' Anything already signed off keeps its sign-off and date - only unfinished items get re-spread.' : ''}
             </p>
             <div style={styles.confirmButtonsRow}>
               <button style={styles.cancelBtnFull} onClick={() => setConfirmingDate(false)}>

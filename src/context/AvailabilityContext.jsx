@@ -65,19 +65,29 @@ export function AvailabilityProvider({ children }) {
     );
 
     const unsubAvailability = onSnapshot(collection(db, 'weeklyAvailability'), (snapshot) => {
+      // A day's value might still be an old free-text string or null from
+      // before this became structured. Defaulting to '' meant handing a string
+      // to code expecting { off, start, end } - which reads as an empty
+      // schedule rather than an error, so nobody would report it. Every record
+      // in the database was one of those shapes until Sep 1; the iPhone app
+      // has always guarded and this one did not.
+      const DEFAULT_DAY = { off: true, start: '09:00', end: '17:00' };
+      const readDay = (v) =>
+        v && typeof v === 'object' && typeof v.off === 'boolean' ? v : DEFAULT_DAY;
+
       const list = snapshot.docs.map((d) => {
         const data = d.data();
         return {
           uid: d.id,
           name: data.name,
           weekStartDate: data.weekStartDate ?? null,
-          monday: data.monday ?? '',
-          tuesday: data.tuesday ?? '',
-          wednesday: data.wednesday ?? '',
-          thursday: data.thursday ?? '',
-          friday: data.friday ?? '',
-          saturday: data.saturday ?? '',
-          sunday: data.sunday ?? '',
+          monday: readDay(data.monday),
+          tuesday: readDay(data.tuesday),
+          wednesday: readDay(data.wednesday),
+          thursday: readDay(data.thursday),
+          friday: readDay(data.friday),
+          saturday: readDay(data.saturday),
+          sunday: readDay(data.sunday),
         };
       });
       setWeeklyAvailability(list);

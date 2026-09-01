@@ -59,7 +59,7 @@ export default function DocumentField({ locationId, itemKey, value, onChange, us
   const remove = () => {
     confirm({
       title: `Remove ${value.name}?`,
-      body: 'The file is deleted from storage.',
+      body: 'The file is deleted from storage. The record of it stays.',
       confirmLabel: 'Remove',
       tone: 'danger',
       onConfirm: doRemove,
