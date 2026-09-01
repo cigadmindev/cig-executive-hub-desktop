@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useAuth } from '../context/AuthContext';
-import { brands, categories, marketAnalysisId, marketAnalysisLabel } from '../data/mockData';
+import { brands, categories } from '../data/mockData';
 import { nike } from '../theme/nike';
 
 function formatDateTime(ts) {
@@ -111,7 +111,7 @@ export default function PendingRequestsScreen() {
 
             <p style={styles.permissionLabel}>Restaurants</p>
             <div style={styles.chipWrap}>
-              {[...brands, { id: marketAnalysisId, name: marketAnalysisLabel }].map((b) => (
+              {brands.map((b) => (
                 <button
                   key={b.id}
                   style={{ ...styles.chip, ...(brandIds.includes(b.id) ? styles.chipActive : {}) }}

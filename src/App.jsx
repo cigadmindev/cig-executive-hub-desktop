@@ -14,6 +14,7 @@ import { ViewTrackingProvider } from './context/ViewTrackingContext';
 import { SupportRequestsProvider } from './context/SupportRequestsContext';
 import { SupportAnnouncementsProvider } from './context/SupportAnnouncementsContext';
 import { CategoryDriveLinksProvider } from './context/CategoryDriveLinksContext';
+import { ExpensesProvider } from './context/ExpensesContext';
 import { OpeningInfoProvider } from './context/OpeningInfoContext';
 import { OpeningOngoingContactsProvider } from './context/OpeningOngoingContactsContext';
 import { ExecutiveNotesProvider } from './context/ExecutiveNotesContext';
@@ -41,9 +42,9 @@ import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
 import IntegrationsScreen from './screens/IntegrationsScreen';
 import ExecutiveNotesScreen from './screens/ExecutiveNotesScreen';
-import OverallAnalysisScreen from './screens/OverallAnalysisScreen';
 import WorkOrdersScreen from './screens/WorkOrdersScreen';
 import ResetAppDataScreen from './screens/ResetAppDataScreen';
+import ExpensesScreen from './screens/ExpensesScreen';
 
 function Gate() {
   const { user, loading } = useAuth();
@@ -91,8 +92,8 @@ function Gate() {
         <Route path="/brand/:brandId/location/:locationId/integrations" element={<IntegrationsScreen />} />
         <Route path="/support" element={<SupportScreen />} />
         <Route path="/executive-notes" element={<ExecutiveNotesScreen />} />
-        <Route path="/overall-analysis" element={<OverallAnalysisScreen />} />
         <Route path="/work-orders" element={<WorkOrdersScreen />} />
+        <Route path="/expenses" element={<ExpensesScreen />} />
         <Route path="/reset-app-data" element={<ResetAppDataScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -112,6 +113,9 @@ function Providers({ children }) {
       <ThemeProvider>
       <WorkOrdersProvider>
       <ExecutiveNotesProvider>
+      {/* Reads role and job to decide whether this account sees everyone's
+          receipts or only its own, so it sits inside AuthProvider. */}
+      <ExpensesProvider>
       <CategoryDriveLinksProvider>
       <SupportRequestsProvider>
         <SupportAnnouncementsProvider>
@@ -144,6 +148,7 @@ function Providers({ children }) {
         </SupportAnnouncementsProvider>
       </SupportRequestsProvider>
       </CategoryDriveLinksProvider>
+      </ExpensesProvider>
       </ExecutiveNotesProvider>
       </WorkOrdersProvider>
       </ThemeProvider>

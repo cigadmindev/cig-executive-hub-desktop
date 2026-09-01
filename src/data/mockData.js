@@ -183,5 +183,3 @@ export const categories = [
 
 // Overall Analysis is a hub-level feature (like a brand), not nested inside
 // a category — used consistently across Home, permissions, and Admin.
-export const marketAnalysisId = 'market-analysis';
-export const marketAnalysisLabel = 'Overall Analysis';

@@ -60,13 +60,11 @@ export default function DirectoryScreen() {
             onClick: () => navigate('/executive-notes'),
           },
           {
-            key: 'overallAnalysis',
+            key: 'expenses',
             icon: 'barChart',
             title: 'Expenses & Receipts',
-            subtitle: 'Coming soon',
-            comingSoon: true,
-            onClick: () =>
-              notify('Expenses & Receipts', "Not built yet — we'll be working on this soon."),
+            subtitle: 'Travel and business expenses',
+            onClick: () => navigate('/expenses'),
           },
           {
             key: 'announcement',

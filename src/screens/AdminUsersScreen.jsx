@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { brands, categories, marketAnalysisId, marketAnalysisLabel } from '../data/mockData';
+import { brands, categories } from '../data/mockData';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
@@ -165,7 +165,7 @@ export default function AdminUsersScreen() {
         <>
           <p style={styles.permissionLabel}>Which restaurants can they see?</p>
           <div style={styles.chipWrap}>
-            {[...brands, { id: marketAnalysisId, name: marketAnalysisLabel }].map((b) => (
+            {brands.map((b) => (
               <button
                 key={b.id}
                 style={{ ...styles.chip, ...(brandIds.includes(b.id) ? styles.chipActive : {}) }}
