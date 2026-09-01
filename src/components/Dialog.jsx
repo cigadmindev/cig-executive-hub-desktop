@@ -72,7 +72,7 @@ const styles = {
     zIndex: 400,
   },
   card: {
-    width: 380,
+    width: 'min(380px, calc(100vw - 32px))',
     maxWidth: '90vw',
     background: 'var(--bg-elevated)',
     border: '1px solid var(--border)',

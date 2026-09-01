@@ -6,6 +6,12 @@ import React, { useRef, useState, useEffect } from 'react';
 // actual document or generate a downloadable signed file. That's the
 // heavier piece for later (needs real document handling, not just canvas
 // drawing).
+// KNOWN LIMITATION: mouse events only - onMouseDown/Move/Up. There are no
+// touch or pointer handlers, so this does not work on a phone or tablet at
+// all. Fixing it properly means switching to pointer events and making the
+// canvas resizable without losing what has been drawn (the element's CSS
+// width and its drawing-surface width have to stay equal or strokes land
+// offset from the finger). Left alone deliberately rather than half-fixed.
 export default function SignaturePad({ onChange }) {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);

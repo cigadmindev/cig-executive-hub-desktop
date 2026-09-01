@@ -87,7 +87,7 @@ export default function HomeScreen() {
       {summary.attention.length > 0 ? (
         <div style={styles.zone}>
           <p style={styles.zoneLabel}>Needs you</p>
-          <div style={{ ...styles.panel, ...(isNarrow ? {} : { height: 196 }) }}>
+          <div style={{ ...styles.panel, minHeight: 196 }}>
             {summary.attention.slice(0, 5).map((a, i) => (
               <button key={i} data-row="" style={styles.attentionRow} onClick={() => navigate(a.to)}>
                 <span
@@ -161,7 +161,7 @@ export default function HomeScreen() {
       <div style={isNarrow ? styles.topGridNarrow : styles.topGrid}>
         <div style={styles.zone}>
           <p style={styles.zoneLabel}>This week</p>
-          <div style={{ ...styles.panel, ...(isNarrow ? {} : { height: 148 }) }}>
+          <div style={{ ...styles.panel, minHeight: 148 }}>
             {summary.thisWeek.length === 0 ? (
               <p style={styles.emptyNote}>Nothing scheduled in the next seven days.</p>
             ) : (
@@ -180,7 +180,7 @@ export default function HomeScreen() {
 
         <div style={styles.zone}>
           <p style={styles.zoneLabel}>Recent</p>
-          <div style={{ ...styles.panel, ...(isNarrow ? {} : { height: 148 }) }}>
+          <div style={{ ...styles.panel, minHeight: 148 }}>
             {summary.recent.length === 0 ? (
               <p style={styles.emptyNote}>No recent sign-offs.</p>
             ) : (

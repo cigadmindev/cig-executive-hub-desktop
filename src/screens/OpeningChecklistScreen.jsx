@@ -763,7 +763,7 @@ const styles = {
   cancelDateButton: { padding: '9px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, flexShrink: 0 },
 
   confirmBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
-  confirmCard: { width: 400, background: 'var(--bg-elevated)', border: 'none', borderRadius: 16, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  confirmCard: { width: 'min(400px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 16, padding: 22, boxShadow: 'var(--shadow-lg)' },
   confirmTitle: { fontSize: 15, fontWeight: 700, marginBottom: 10 },
   confirmBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 },
   confirmButtonsRow: { display: 'flex', gap: 10 },
