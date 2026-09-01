@@ -458,7 +458,10 @@ const styles = {
     padding: 24,
   },
   modalTitle: { fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 14px' },
-  modalScroll: { overflowY: 'auto', flex: 1 },
+  // Right padding so the scrollbar sits beside the fields rather than over
+  // them. On a phone it is an overlay and invisible; in a desktop browser it
+  // takes real width.
+  modalScroll: { overflowY: 'auto', flex: 1, paddingRight: 14, marginRight: -8 },
 
   photoButton: {
     width: '100%',

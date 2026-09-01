@@ -43,6 +43,13 @@ export default function DirectoryScreen() {
       onClick: () => navigate('/work-orders'),
     },
     {
+      key: 'expenses',
+      icon: 'barChart',
+      title: 'Expenses & Receipts',
+      subtitle: 'Travel and business expenses',
+      onClick: () => navigate('/expenses'),
+    },
+    {
       key: 'waresInventory',
       icon: 'box',
       title: 'Wares Inventory',
@@ -58,13 +65,6 @@ export default function DirectoryScreen() {
             title: 'Executive Notes',
             subtitle: 'Meeting notes, connected to your Drive folder',
             onClick: () => navigate('/executive-notes'),
-          },
-          {
-            key: 'expenses',
-            icon: 'barChart',
-            title: 'Expenses & Receipts',
-            subtitle: 'Travel and business expenses',
-            onClick: () => navigate('/expenses'),
           },
           {
             key: 'announcement',

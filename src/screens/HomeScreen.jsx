@@ -62,32 +62,59 @@ export default function HomeScreen() {
           <h1 style={{ ...styles.title, ...nike.pageTitle, fontSize: 32 }}>Welcome back, {user?.name?.split(' ')[0]}</h1>
         </div>
         {/* The shape of the day in three numbers, before reading anything. */}
-        {summary.counts.overdue + summary.counts.soon > 0 ? (
-          <div style={styles.headerCounts}>
-            {summary.counts.overdue > 0 ? (
-              <div>
-                <div style={{ ...styles.countValue, color: 'var(--danger)' }}>{summary.counts.overdue}</div>
+        {/* Always shown, zeros included. A number that disappears when it
+            reaches zero reads as missing rather than as good news, and the
+            header changes shape depending on the day. Zero is grey - it is
+            not a warning. */}
+        <div style={styles.headerCounts}>
+            <div>
+                <div
+                  style={{
+                    ...styles.countValue,
+                    color: summary.counts.overdue > 0 ? 'var(--danger)' : 'var(--text-tertiary)',
+                  }}
+                >
+                  {summary.counts.overdue}
+                </div>
                 <div style={styles.countLabel}>Overdue</div>
-              </div>
-            ) : null}
-            {summary.counts.soon > 0 ? (
-              <div>
-                <div style={{ ...styles.countValue, color: '#C9A227' }}>{summary.counts.soon}</div>
-                <div style={styles.countLabel}>Due soon</div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+            </div>
+            <div>
+                <div
+                  style={{
+                    ...styles.countValue,
+                    color: summary.counts.renewals > 0 ? '#C9A227' : 'var(--text-tertiary)',
+                  }}
+                >
+                  {summary.counts.renewals}
+                </div>
+                <div style={styles.countLabel}>Renewals</div>
+            </div>
+            <div>
+                <div style={{ ...styles.countValue, color: 'var(--text-tertiary)' }}>
+                  {summary.counts.thisWeek}
+                </div>
+                <div style={styles.countLabel}>This week</div>
+            </div>
+        </div>
       </header>
 
       {/* What needs you, before where you want to go. The brand grid alone
           answered navigation but not "what should I be doing", which is the
           actual question someone opens this with. */}
       <div style={isNarrow ? styles.topGridNarrow : styles.topGrid}>
-      {summary.attention.length > 0 ? (
-        <div style={styles.zone}>
+      {/* Opening soon shares this row and hides when empty, which left the
+          right column blank. Needs you spans both when it is alone. */}
+      <div
+        style={{
+          ...styles.zone,
+          ...(summary.openingSoon.length === 0 && !isNarrow ? { gridColumn: '1 / -1' } : {}),
+        }}
+      >
           <p style={styles.zoneLabel}>Needs you</p>
           <div style={{ ...styles.panel, minHeight: 196 }}>
+            {summary.attention.length === 0 ? (
+              <p style={styles.emptyNote}>Nothing needs your attention.</p>
+            ) : null}
             {summary.attention.slice(0, 5).map((a, i) => (
               <button key={i} data-row="" style={styles.attentionRow} onClick={() => navigate(a.to)}>
                 <span
@@ -105,8 +132,10 @@ export default function HomeScreen() {
             <p style={styles.moreNote}>{summary.attention.length - 5} more</p>
           ) : null}
         </div>
-      ) : null}
 
+      {/* Opening soon stays hidden when empty, unlike the panels above. Those
+          are checked daily and an empty one is meaningful - this only matters
+          when something is actually opening. */}
       {summary.openingSoon.length > 0 ? (
         <div style={styles.zone}>
           <p style={styles.zoneLabel}>Opening soon</p>
@@ -331,7 +360,10 @@ const styles = {
   barTrack: { height: 5, width: '100%', background: 'rgba(255,255,255,0.13)', borderRadius: 3, margin: '8px 0 5px' },
   barFill: { height: 5, background: 'var(--neon)', borderRadius: 3 },
 
-  headerCounts: { display: 'flex', gap: 22, textAlign: 'right' },
+  // Aligned to the bottom of the header row rather than stretching to fill
+  // it. With three counts always present the block is taller than it was
+  // when they appeared conditionally, and stretching left a gap above them.
+  headerCounts: { display: 'flex', gap: 22, textAlign: 'right', alignItems: 'flex-end', alignSelf: 'flex-end' },
   countValue: { fontSize: 22, fontWeight: 800, lineHeight: 1.1 },
   countLabel: { fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
 

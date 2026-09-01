@@ -119,8 +119,16 @@ export function useHomeSummary() {
     // Everything landing in the next seven days, across every location. The
     // Master Calendar shows the same entries but a month at a time; this is
     // the near horizon, which is what someone actually plans around.
-    const thisWeek = entries
-      .filter((e) => e.dateTime >= now && e.dateTime <= weekEnd && !e.done)
+    // locById holds only accessible locations, so requiring an entry to be
+    // in it scopes this the same way the tiles are. It was previously used
+    // for labelling alone, which let another brand's items through with a
+    // blank where.
+    const thisWeekAll = entries.filter(
+      (e) => locById[e.locationId] && e.dateTime >= now && e.dateTime <= weekEnd && !e.done
+    );
+    const thisWeekCount = thisWeekAll.length;
+
+    const thisWeek = thisWeekAll
       .sort((a, b2) => a.dateTime - b2.dateTime)
       .slice(0, 6)
       .map((e) => ({
@@ -140,7 +148,7 @@ export function useHomeSummary() {
     // more plumbing than this panel is worth today. Covers the common case:
     // seeing that someone else moved something forward.
     const recent = entries
-      .filter((e) => e.done && e.doneAt)
+      .filter((e) => locById[e.locationId] && e.done && e.doneAt)
       .sort((a, b2) => b2.doneAt - a.doneAt)
       .slice(0, 4)
       .map((e) => ({
@@ -158,7 +166,12 @@ export function useHomeSummary() {
       openingSoon: openingSoon.sort((a, b2) => a.openingDate - b2.openingDate),
       counts: {
         overdue: Object.values(byBrand).reduce((n, b) => n + b.overdue, 0),
-        soon: Object.values(byBrand).reduce((n, b) => n + b.dueSoon, 0),
+        // byBrand.dueSoon is incremented only by renewals inside the window,
+        // so this has always been a renewal count - it just wasn't named one.
+        renewals: Object.values(byBrand).reduce((n, b) => n + b.dueSoon, 0),
+        // Counted before thisWeek is sliced to six for display, or a busy
+        // week would under-report.
+        thisWeek: thisWeekCount,
       },
     };
     // user is a dependency: without it, someone whose permissions change
