@@ -245,7 +245,7 @@ const styles = {
   rowBody: { padding: '4px 14px 16px' },
   actionRow: { display: 'flex', gap: 10, marginBottom: 10 },
 
-  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 640 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 640 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },
   body: {},

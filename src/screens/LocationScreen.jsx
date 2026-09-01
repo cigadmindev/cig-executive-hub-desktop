@@ -145,7 +145,7 @@ export default function LocationScreen() {
 }
 
 const styles = {
-  page: { padding: '32px max(16px, min(40px, 4vw))', maxWidth: 760 },
+  page: { padding: '32px max(22px, min(40px, 4vw))', maxWidth: 760 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 20 },
   title: { margin: '4px 0 32px' },
   sectionHeader: { margin: '32px 0 12px' },

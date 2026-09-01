@@ -500,7 +500,7 @@ const styles = {
   offName: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
   offDates: { fontSize: 11, color: 'var(--text-tertiary)' },
 
-  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 700 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 700 },
   header: { marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 14px' },
   tabRow: { display: 'flex', gap: 8 },

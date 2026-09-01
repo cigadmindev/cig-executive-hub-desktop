@@ -434,7 +434,7 @@ const styles = {
   rowNote: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px' },
   rowActions: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
 
-  page: { padding: '32px max(16px, min(40px, 4vw))', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
+  page: { padding: '32px max(22px, min(40px, 4vw))', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
   header: { marginBottom: 24 },
   title: { fontSize: 30, fontWeight: 900, letterSpacing: -0.7, textTransform: 'uppercase', color: '#FFFFFF', margin: '0 0 14px' },
   filterRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },

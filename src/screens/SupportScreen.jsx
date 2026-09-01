@@ -323,7 +323,7 @@ function AdminSupportView() {
 }
 
 const styles = {
-  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 680 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 680 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 16px' },
   tabRow: { display: 'flex', gap: 8, marginBottom: 20 },
   tab: { padding: '7px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' },

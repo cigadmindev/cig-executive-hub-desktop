@@ -224,7 +224,7 @@ export default function BrandScreen() {
 }
 
 const styles = {
-  page: { padding: '32px max(16px, min(40px, 4vw))', maxWidth: 800 },
+  page: { padding: '32px max(22px, min(40px, 4vw))', maxWidth: 800 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   title: { fontSize: 24, fontWeight: 700, margin: '0 0 16px' },
   addButton: {

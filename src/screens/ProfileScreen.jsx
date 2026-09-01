@@ -239,7 +239,7 @@ export default function ProfileScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 480 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 480 },
   profileCard: {
     display: 'flex',
     flexDirection: 'column',

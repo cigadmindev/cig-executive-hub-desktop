@@ -151,7 +151,7 @@ export default function PendingRequestsScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 640 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 640 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },
   empty: { color: 'var(--text-secondary)', fontSize: 13 },
   card: { background: 'var(--bg-card)', border: 'none', borderRadius: 14, padding: 16, marginBottom: 12 },

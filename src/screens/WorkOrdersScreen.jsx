@@ -426,7 +426,7 @@ const styles = {
   signerName: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
   signerMeta: { fontSize: 11, color: 'var(--text-tertiary)' },
 
-  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 680 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 680 },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 700, margin: 0 },
   newButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },

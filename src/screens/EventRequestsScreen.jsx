@@ -395,7 +395,7 @@ const styles = {
     padding: 0,
   },
 
-  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 700 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 700 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 700, margin: 0 },

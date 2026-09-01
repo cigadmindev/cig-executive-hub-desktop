@@ -335,7 +335,7 @@ const styles = {
   countValue: { fontSize: 22, fontWeight: 800, lineHeight: 1.1 },
   countLabel: { fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
 
-  page: { padding: '36px max(16px, min(44px, 4vw))', maxWidth: 1040 },
+  page: { padding: '36px max(22px, min(44px, 4vw))', maxWidth: 1040 },
   header: { marginBottom: 32 },
   eyebrow: { fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.7, margin: '0 0 6px' },
   title: { fontSize: 26, fontWeight: 700, letterSpacing: -0.4, margin: 0 },

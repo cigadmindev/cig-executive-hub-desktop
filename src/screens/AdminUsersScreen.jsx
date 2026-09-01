@@ -299,7 +299,7 @@ export default function AdminUsersScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 640 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 640 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },
   sectionTitle: { fontSize: 15, fontWeight: 700, marginTop: 20, marginBottom: 10 },
   input: {

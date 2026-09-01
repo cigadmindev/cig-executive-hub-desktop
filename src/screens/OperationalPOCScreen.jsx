@@ -93,7 +93,7 @@ export default function OperationalPOCScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(16px, min(40px, 4vw))' },
+  page: { padding: '28px max(22px, min(40px, 4vw))' },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   title: { fontSize: 22, fontWeight: 700, margin: 0 },
   titleRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
