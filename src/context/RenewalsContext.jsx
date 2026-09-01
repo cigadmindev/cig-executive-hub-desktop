@@ -104,7 +104,7 @@ export function RenewalsProvider({ children }) {
   const hasUpcomingRenewal = (locationId) => getByLocation(locationId).some(isRenewalDueSoon);
 
   return (
-    <RenewalsContext.Provider value={{ getByLocation, ensureSeeded, updateDates, setRenewalDocument, markRenewed, hasUpcomingRenewal }}>
+    <RenewalsContext.Provider value={{ renewals: items, getByLocation, ensureSeeded, updateDates, setRenewalDocument, markRenewed, hasUpcomingRenewal }}>
       {children}
     </RenewalsContext.Provider>
   );

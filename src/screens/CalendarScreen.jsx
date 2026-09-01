@@ -3,6 +3,8 @@ import { useIsNarrow } from '../hooks/useIsNarrow';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSchedule } from '../context/ScheduleContext';
+import { useRenewals } from '../context/RenewalsContext';
+import { useEventRequests } from '../context/EventRequestsContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
 import { brandColors } from '../theme/colors';
@@ -25,6 +27,8 @@ export default function CalendarScreen() {
   const isNarrow = useIsNarrow();
   const { dialogNode, confirm, notify } = useDialog();
   const { user, hasBrandAccess } = useAuth();
+  const { renewals } = useRenewals();
+  const { requests } = useEventRequests();
   const { entries, addEntry, updateEntry, deleteEntry, toggleOpeningItemDone } = useSchedule();
   const { getByBrand } = useCustomLocations();
   const { markCalendarViewed, hasUnseenCalendar } = useViewTracking();
@@ -65,7 +69,34 @@ export default function CalendarScreen() {
   // already scopes everything below to only what this user can see, the
   // same fix mobile got: a filtered view instead of a hard block.
 
-  const filteredEntries = entries.filter((e) => {
+  // Renewals and approved events are read directly rather than generated as
+  // schedule records. One date, one place: a permit's expiry lives on the
+  // renewal record, so nothing can drift out of step. The cost is that these
+  // rows are read-only here - tapping opens the screen that owns them.
+  const virtualEntries = [
+    ...renewals
+      .filter((r) => r.expirationDate)
+      .map((r) => ({
+        id: 'renewal:' + r.id,
+        locationId: r.locationId,
+        dateTime: r.expirationDate,
+        title: r.type + ' expires',
+        source: 'renewal',
+        note: '',
+      })),
+    ...requests
+      .filter((r) => r.status === 'approved' && r.dateTime)
+      .map((r) => ({
+        id: 'event:' + r.id,
+        locationId: r.locationId,
+        dateTime: r.dateTime,
+        title: r.title,
+        source: 'event',
+        note: '',
+      })),
+  ];
+
+  const filteredEntries = [...entries, ...virtualEntries].filter((e) => {
     const info = locationInfo[e.locationId];
     if (!info) return false;
     if (filterBrandId !== 'all' && info.brandId !== filterBrandId) return false;
@@ -216,6 +247,9 @@ export default function CalendarScreen() {
                 selectedEntries.map((e) => {
                   const info = locationInfo[e.locationId];
                   const isChecklist = e.openingItem || e.renewalItem;
+                  // Read straight from the renewal or event request, not a
+                  // schedule record - so there is nothing here to edit.
+                  const isVirtual = e.source === 'renewal' || e.source === 'event';
                   const isOpen = expandedEntryId === e.id;
                   const overdue = isChecklist && !e.done && e.dateTime < Date.now();
                   return (
@@ -249,7 +283,15 @@ export default function CalendarScreen() {
                               the title and every row read the same width. */}
                           <div style={styles.rowWhere}>
                             {info.brandName} · {info.locationName}
-                            {e.renewalItem ? ' · Renewal' : e.openingItemType === 'timeline' ? ' · Opening timeline' : ''}
+                            {e.source === 'renewal'
+                              ? ' · Expires'
+                              : e.source === 'event'
+                                ? ' · Event'
+                                : e.renewalItem
+                                  ? ' · Renewal'
+                                  : e.openingItemType === 'timeline'
+                                    ? ' · Opening timeline'
+                                    : ''}
                           </div>
                         </div>
 
@@ -259,7 +301,9 @@ export default function CalendarScreen() {
                           <span style={styles.rowOverdueLabel}>Overdue</span>
                         ) : (
                           <span style={styles.rowMeta}>
-                            {new Date(e.dateTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                            {e.source === 'renewal'
+                              ? (e.dateTime < Date.now() ? 'Expired' : 'All day')
+                              : new Date(e.dateTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                           </span>
                         )}
                         <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
@@ -299,6 +343,21 @@ export default function CalendarScreen() {
                                   {e.renewalItem ? 'Open renewals →' : 'Open checklist →'}
                                 </Link>
                               </>
+                            ) : isVirtual ? (
+                              /* Read straight from the renewal or event
+                                 request. There is no schedule record to edit
+                                 or delete, and the date lives on the record
+                                 that owns it - so this only points there. */
+                              <Link
+                                to={
+                                  e.source === 'renewal'
+                                    ? '/brand/' + info.brandId + '/location/' + e.locationId + '/renewals'
+                                    : '/brand/' + info.brandId + '/location/' + e.locationId + '/event-requests'
+                                }
+                                style={styles.linkButton}
+                              >
+                                {e.source === 'renewal' ? 'Open renewals →' : 'Open event requests →'}
+                              </Link>
                             ) : isAdmin || isExecutive ? (
                               <>
                                 <button style={styles.linkButton} onClick={() => openEditForm(e)}>
