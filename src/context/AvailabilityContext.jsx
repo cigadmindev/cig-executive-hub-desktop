@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, query, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 
@@ -23,7 +23,15 @@ export function AvailabilityProvider({ children }) {
       return;
     }
 
-    const unsubTimeOff = onSnapshot(collection(db, 'timeOffRequests'), (snapshot) => {
+    // Rules are not filters: an unfiltered query is rejected outright for
+    // anyone the rule would not let read every document. Reviewers read the
+    // collection; everyone else must ask only for their own.
+    const canReviewTimeOff = user.role === 'admin' || user.role === 'executive';
+    const timeOffQuery = canReviewTimeOff
+      ? collection(db, 'timeOffRequests')
+      : query(collection(db, 'timeOffRequests'), where('uid', '==', user.uid));
+
+    const unsubTimeOff = onSnapshot(timeOffQuery, (snapshot) => {
       const list = snapshot.docs.map((d) => {
         const data = d.data();
         return {

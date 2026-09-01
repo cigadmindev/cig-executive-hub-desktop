@@ -119,8 +119,13 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.senderUid || request.auth.uid in resource.data.memberUids || isAdmin());
     }
 
+    // Time off carries reasons - "medical appointment", "funeral" - so it is
+    // not roster information. Admins and executives review requests; everyone
+    // else sees only their own. weeklyAvailability deliberately stays open:
+    // who works which days is what the Team tab is for.
     match /timeOffRequests/{requestId} {
-      allow read, create: if isSignedIn();
+      allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isSignedIn();
       allow update: if isSignedIn();
       allow delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'denied');
     }
