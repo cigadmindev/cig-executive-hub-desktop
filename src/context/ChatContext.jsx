@@ -28,18 +28,22 @@ export function ChatProvider({ children }) {
       return;
     }
 
-    // Same rule-provability requirement as mobile: admins get an unfiltered
-    // listener (allowed for them), everyone else must filter by their own
-    // uid or Firestore rejects the whole read.
-    const isAdmin = user.role === 'admin';
+    // Firestore rules are not filters — an unfiltered query is rejected
+    // outright for anyone the rule wouldn't allow to see every document. Chat
+    // is now private to its members, admins included, so everyone queries the
+    // same way: their own uid in memberUids, matching the rule exactly.
+    //
+    // Admins used to get an unfiltered listener because the rule let them read
+    // anything. That permission is gone, and so is this branch.
+    const convosQuery = query(
+      collection(db, 'conversations'),
+      where('memberUids', 'array-contains', user.uid)
+    );
 
-    const convosQuery = isAdmin
-      ? collection(db, 'conversations')
-      : query(collection(db, 'conversations'), where('memberUids', 'array-contains', user.uid));
-
-    const messagesQuery = isAdmin
-      ? collection(db, 'messages')
-      : query(collection(db, 'messages'), where('memberUids', 'array-contains', user.uid));
+    const messagesQuery = query(
+      collection(db, 'messages'),
+      where('memberUids', 'array-contains', user.uid)
+    );
 
     const unsubConvos = onSnapshot(convosQuery, (snapshot) => {
       const list = snapshot.docs.map((d) => {
@@ -226,14 +230,13 @@ export function ChatProvider({ children }) {
   const unreadCount = user ? conversations.reduce((sum, c) => sum + getUnreadCountForConversation(c.id), 0) : 0;
 
   const deleteConversation = async (conversationId) => {
-    const isAdminUser = user?.role === 'admin';
-    const messagesQuery = isAdminUser
-      ? query(collection(db, 'messages'), where('conversationId', '==', conversationId))
-      : query(
-          collection(db, 'messages'),
-          where('conversationId', '==', conversationId),
-          where('memberUids', 'array-contains', user?.uid ?? '')
-        );
+    // Chat is private to its members now, admins included, so there is no
+    // wider read to branch on - everyone deletes only what they can see.
+    const messagesQuery = query(
+      collection(db, 'messages'),
+      where('conversationId', '==', conversationId),
+      where('memberUids', 'array-contains', user?.uid ?? '')
+    );
     const snap = await getDocs(messagesQuery);
     const batch = writeBatch(db);
     snap.docs.forEach((d) => batch.delete(d.ref));

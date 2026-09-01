@@ -93,15 +93,19 @@ service cloud.firestore {
       allow delete: if isAdminOrExecutive() || isOwner(resource);
     }
 
+    // Chat is private to its members. Admins were able to read every
+    // conversation, which is why the app used to warn people their messages
+    // were not private. Both the oversight screens and that warning are gone,
+    // so the rule matches what people are now told: only members can read.
     match /conversations/{conversationId} {
-      allow read: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.memberUids);
+      allow read: if isSignedIn() && request.auth.uid in resource.data.memberUids;
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.memberUids);
-      allow delete: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.memberUids);
+      allow update: if isSignedIn() && request.auth.uid in resource.data.memberUids;
+      allow delete: if isSignedIn() && request.auth.uid in resource.data.memberUids;
     }
 
     match /messages/{messageId} {
-      allow read: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.memberUids);
+      allow read: if isSignedIn() && request.auth.uid in resource.data.memberUids;
       allow create: if isSignedIn();
       // The sender can edit their own message. Everyone in the conversation can
       // react and mark an attachment viewed — but only those fields, so a

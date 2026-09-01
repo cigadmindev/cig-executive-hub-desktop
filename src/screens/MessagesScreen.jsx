@@ -273,7 +273,6 @@ export default function MessagesScreen() {
               </button>
             ) : null}
             <div style={styles.threadHeader}>{activeConvo.name}</div>
-            <p style={styles.disclaimer}>Messages here aren't private — stored in our database, message with that in mind.</p>
             <div style={styles.threadScroll}>
               {activeMessages.map((m, index) => {
                 const isMe = m.senderUid === user?.uid;

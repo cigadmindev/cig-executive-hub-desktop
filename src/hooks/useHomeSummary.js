@@ -4,6 +4,7 @@ import { useSchedule } from '../context/ScheduleContext';
 import { useRenewals } from '../context/RenewalsContext';
 import { useOpeningInfo } from '../context/OpeningInfoContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
+import { useAuth } from '../context/AuthContext';
 import { RENEWAL_WARNING_WINDOW_DAYS } from '../data/renewalTypes';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -19,11 +20,17 @@ export function useHomeSummary() {
   const { getByLocation: renewalsFor } = useRenewals();
   const { getInfo } = useOpeningInfo();
   const { getByBrand } = useCustomLocations();
+  const { user, hasBrandAccess } = useAuth();
 
   return useMemo(() => {
     const now = Date.now();
 
-    const locations = brands.flatMap((b) => [
+    // Only brands this account can reach. Filtering here rather than at each
+    // display site means restricted data never enters the summary at all -
+    // everything below derives from this list, so one filter covers the
+    // attention items, the per-brand rollup and the opening-soon panel.
+    // Admins and executives see everything; a manager sees their own brands.
+    const locations = brands.filter((b) => hasBrandAccess(user, b.id)).flatMap((b) => [
       ...b.locations.map((l) => ({ ...l, brandId: b.id, brandName: b.name })),
       ...getByBrand(b.id).map((l) => ({ ...l, brandId: b.id, brandName: b.name })),
     ]);
@@ -154,5 +161,7 @@ export function useHomeSummary() {
         soon: Object.values(byBrand).reduce((n, b) => n + b.dueSoon, 0),
       },
     };
-  }, [entries, getByBrand, getInfo, renewalsFor]);
+    // user is a dependency: without it, someone whose permissions change
+    // would keep seeing the old summary until they reloaded the app.
+  }, [entries, getByBrand, getInfo, renewalsFor, user]);
 }
