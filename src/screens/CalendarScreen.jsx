@@ -246,12 +246,22 @@ export default function CalendarScreen() {
               ) : (
                 selectedEntries.map((e) => {
                   const info = locationInfo[e.locationId];
-                  const isChecklist = e.openingItem || e.renewalItem;
+                  const isChecklist = real !== null && (real.openingItem || real.renewalItem);
                   // Read straight from the renewal or event request, not a
                   // schedule record - so there is nothing here to edit.
                   const isVirtual = e.source === 'renewal' || e.source === 'event';
+                  // Everything below reads schedule-entry fields - done,
+                  // doneBy, openingItem. On a virtual row those are simply
+                  // absent, so the checklist branches happen not to run.
+                  // Making that explicit rather than relying on undefined
+                  // being falsy: the mobile version is type-checked and
+                  // states the same thing, and this file has no checker to
+                  // catch a future field read that assumes otherwise.
+                  const real = isVirtual ? null : e;
                   const isOpen = expandedEntryId === e.id;
-                  const overdue = isChecklist && !e.done && e.dateTime < Date.now();
+                  const overdue = isVirtual
+                    ? e.dateTime < Date.now()
+                    : isChecklist && !real.done && e.dateTime < Date.now();
                   return (
                     <div key={e.id} style={styles.row}>
                       <div
@@ -259,7 +269,7 @@ export default function CalendarScreen() {
                         style={{
                           ...styles.rowMain,
                           ...(overdue ? styles.rowOverdue : {}),
-                          ...(isChecklist && e.done ? styles.rowDone : {}),
+                          ...(isChecklist && real.done ? styles.rowDone : {}),
                         }}
                         onClick={() => setExpandedEntryId(isOpen ? null : e.id)}
                       >
@@ -268,15 +278,15 @@ export default function CalendarScreen() {
                             attaching the permit it produced — the checklist is
                             where that context lives, so this points there. */}
                         {isChecklist ? (
-                          <span style={{ ...styles.check, ...(e.done ? styles.checkDone : {}) }}>
-                            {e.done ? '✓' : ''}
+                          <span style={{ ...styles.check, ...(real.done ? styles.checkDone : {}) }}>
+                            {real.done ? '✓' : ''}
                           </span>
                         ) : (
                           <span style={{ ...styles.dot, background: info.color }} />
                         )}
 
                         <div style={styles.rowText}>
-                          <div style={{ ...styles.rowTitle, ...(isChecklist && e.done ? styles.rowTitleDone : {}) }}>
+                          <div style={{ ...styles.rowTitle, ...(isChecklist && real.done ? styles.rowTitleDone : {}) }}>
                             {e.title}
                           </div>
                           {/* Location on its own line — as a suffix it crowded
@@ -295,8 +305,8 @@ export default function CalendarScreen() {
                           </div>
                         </div>
 
-                        {e.done ? (
-                          <span style={styles.rowMeta}>{e.doneBy || 'Done'}</span>
+                        {real && real.done ? (
+                          <span style={styles.rowMeta}>{real.doneBy || 'Done'}</span>
                         ) : overdue ? (
                           <span style={styles.rowOverdueLabel}>Overdue</span>
                         ) : (
