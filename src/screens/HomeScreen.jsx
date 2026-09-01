@@ -198,7 +198,7 @@ export default function HomeScreen() {
       </div>
 
       <p style={styles.zoneLabel}>Restaurants</p>
-      <div style={styles.grid}>
+      <div style={isNarrow ? styles.gridNarrow : styles.grid}>
         {brands.map((item) => {
           const allowed = hasBrandAccess(user, item.id);
           const activeLocations = item.locations.filter((l) => l.status === 'active');
@@ -339,12 +339,13 @@ const styles = {
   header: { marginBottom: 32 },
   eyebrow: { fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.7, margin: '0 0 6px' },
   title: { fontSize: 26, fontWeight: 700, letterSpacing: -0.4, margin: 0 },
+  gridNarrow: { display: 'grid', gridTemplateColumns: '1fr', gap: 9 },
   grid: {
     display: 'grid',
     // min() caps the track minimum at the container width, so a narrow
     // screen drops to a single column instead of squeezing two 175px
     // tiles that clip their own names. Desktop is unaffected.
-    gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
     gap: 9,
   },
   card: {
