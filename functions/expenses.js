@@ -84,15 +84,7 @@ function canSeeEverything(profile) {
 //   2. Every field is validated somewhere the caller cannot skip.
 //   3. submittedByUid is taken from the auth token, not the request body, so a
 //      receipt cannot be filed in someone else's name.
-// invoker: 'private' — Cloud Run requires an authenticated caller at the door,
-// rather than accepting anyone and relying on the request.auth check below.
-//
-// Not optional here: an org policy above this project blocks granting the
-// invoker role to allUsers, so a public callable cannot be deployed at all.
-// It is also the better arrangement — an unauthenticated request never
-// reaches this code, and the auth check becomes a second layer rather than
-// the only one. Removing this will break the deploy, not just the security.
-exports.submitExpenseReceipt = onCall({ invoker: 'private' }, async (request) => {
+exports.submitExpenseReceipt = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
   const uid = request.auth.uid;
   const profile = await callerProfile(uid);
@@ -189,7 +181,7 @@ exports.submitExpenseReceipt = onCall({ invoker: 'private' }, async (request) =>
 // iam.serviceAccountTokenCreator on itself. It is not granted by default on v2
 // functions, and without it getSignedUrl fails at runtime with a message that
 // does not mention the missing role.
-exports.getReceiptUrls = onCall({ invoker: 'private' }, async (request) => {
+exports.getReceiptUrls = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
   const uid = request.auth.uid;
   const profile = await callerProfile(uid);
