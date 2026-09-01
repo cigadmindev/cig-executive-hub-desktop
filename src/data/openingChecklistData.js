@@ -69,78 +69,6 @@ export const TIMELINE_BUCKETS = [
 // []` and behave exactly like before.
 export const INITIAL_SETUP_WINDOW = { windowStartDaysBefore: 120, windowEndDaysBefore: 14 };
 
-export const INITIAL_SETUP_ITEMS = [
-  // Utilities & core building
-  { key: 'electricService', name: 'Electric Service', section: 'Utilities & Building', dependsOnKeys: [] },
-  { key: 'gasService', name: 'Gas Service', section: 'Utilities & Building', dependsOnKeys: [] },
-  { key: 'waterService', name: 'Water Service', section: 'Utilities & Building', dependsOnKeys: [] },
-  { key: 'telephoneWifi', name: 'Telephone/WiFi Service', section: 'Utilities & Building', dependsOnKeys: [] },
-  { key: 'trash', name: 'Trash', section: 'Utilities & Building', dependsOnKeys: [] },
-  { key: 'personalPropertyInsurance', name: 'Personal Property Insurance', section: 'Utilities & Building', dependsOnKeys: [] },
-  { key: 'generalSpecialTaxes', name: 'General and Special Taxes', section: 'Utilities & Building', dependsOnKeys: [] },
-  { key: 'securitySolutions', name: 'Security Solutions', section: 'Utilities & Building', dependsOnKeys: [] },
-  { key: 'generalLiabilityInsurance', name: 'General Liability Insurance', section: 'Utilities & Building', dependsOnKeys: [] },
-  { key: 'hazardInsurance', name: 'Hazard Insurance', section: 'Utilities & Building', dependsOnKeys: [] },
-  { key: 'orderEquipment', name: 'Order Equipment', section: 'Utilities & Building', dependsOnKeys: [] },
-
-  // Bank
-  { key: 'businessDebitCreditCard', name: 'Business Debit/Credit Card', section: 'Bank', dependsOnKeys: [] },
-  { key: 'depositFunds', name: 'Deposit $', section: 'Bank', dependsOnKeys: [] },
-  { key: 'orderChecks', name: 'Order Checks', section: 'Bank', dependsOnKeys: [] },
-  { key: 'openAccount', name: 'Open Account', section: 'Bank', dependsOnKeys: [] },
-  { key: 'orderDebitCard', name: 'Order Debit Card', section: 'Bank', dependsOnKeys: [] },
-
-  // CPA
-  { key: 'mdesSignup', name: 'MDES Signup', section: 'CPA', dependsOnKeys: [] },
-  { key: 'eftpsSignup', name: 'EFTPS Signup', section: 'CPA', dependsOnKeys: [] },
-  { key: 'createTap', name: 'Create TAP', section: 'CPA', dependsOnKeys: [] },
-
-  // Health Dept — these five used to be Food Permit's sub-requirements;
-  // Food Permit itself now lives in License & Lease Renewals.
-  { key: 'foodManagerCert', name: 'Food Manager SERVSAFE Cert', section: 'Health Dept', dependsOnKeys: [] },
-  { key: 'foodPermitApplicationStep', name: 'Application', section: 'Health Dept', dependsOnKeys: [] },
-  { key: 'planReview', name: 'Plan Review', section: 'Health Dept', dependsOnKeys: [] },
-  { key: 'menuHealthDept', name: 'Menu', section: 'Health Dept', dependsOnKeys: [] },
-  { key: 'floorPlanHealthDept', name: 'Floor Plan', section: 'Health Dept', dependsOnKeys: [] },
-
-  // Liquor License sub-requirements — Liquor License itself now lives in
-  // License & Lease Renewals.
-  { key: 'paymentFoodPermitInspection', name: 'Payment for Food Permit Inspection', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'publicNotice', name: 'Public Notice (2 Days in Paper)', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'copyOfLease', name: 'Copy of Lease', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'fingerprintCards', name: 'Fingerprint Cards', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'financialsForm', name: 'Financials Form', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'waiverForm', name: 'Waiver Form', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'residencyForm', name: 'Residency Form', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'taxExtension', name: 'Tax Extension', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'menuLiquorLicense', name: 'Menu', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'floorPlanLiquorLicense', name: 'Floor Plan', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'ttbForm', name: 'TTB Form 5630.5d', section: 'Liquor License', dependsOnKeys: [] },
-  { key: 'investorInfo', name: 'Investor Info', section: 'Liquor License', dependsOnKeys: [] },
-
-  // Remaining Privilege/Business License sub-requirements — Beer Permit
-  // and Business License (formerly "Privilege/Business License" here) now
-  // live in License & Lease Renewals; Food Permit above too, so this
-  // section is just the standalone prep steps now.
-  { key: 'fireSafetyInspection', name: 'Fire/Safety Inspection', section: 'Business License', dependsOnKeys: [] },
-  { key: 'buildingInspectionCert', name: 'Building Inspection Cert', section: 'Business License', dependsOnKeys: [] },
-  { key: 'businessLicenseApplication', name: 'Business License Application', section: 'Business License', dependsOnKeys: [] },
-  { key: 'taxId', name: 'Tax ID', section: 'Business License', dependsOnKeys: [] },
-  { key: 'ein', name: 'EIN', section: 'Business License', dependsOnKeys: [] },
-  { key: 'salesTax', name: 'Sales Tax', section: 'Business License', dependsOnKeys: [] },
-
-  // Purveyors
-  { key: 'taxExemption', name: 'Tax Exemption', section: 'Purveyors', dependsOnKeys: [] },
-
-  // Final Steps
-  { key: 'plumbingInspection', name: 'Plumbing Inspection', section: 'Final Steps', dependsOnKeys: [] },
-  { key: 'electricalInspection', name: 'Electrical Inspection', section: 'Final Steps', dependsOnKeys: [] },
-  { key: 'finalCertOccupancy', name: 'Final Certificate of Occupancy', section: 'Final Steps', dependsOnKeys: [] },
-  { key: 'createInfoBinder', name: 'Create Info Binder', section: 'Final Steps', dependsOnKeys: [] },
-  { key: 'businessId', name: 'Business ID', section: 'Final Steps', dependsOnKeys: [] },
-  { key: 'llc', name: 'LLC', section: 'Final Steps', dependsOnKeys: [] },
-  { key: 'withholdingTax', name: 'Withholding Tax', section: 'Final Steps', dependsOnKeys: [] },
-];
 
 // Opening & Operational Orders/Contracts — the 6 Who/Company/Contact#-style
 // groups from the PDF's middle column, now with an Account # (if
@@ -296,8 +224,19 @@ function computeDepths(items) {
 // dependency order: items are grouped by depth, and each depth group is
 // spread across a slightly later slice of the window than the group
 // before it, so a parent's date is always after every item it depends on.
+// The template is required, on purpose. These three functions used to fall
+// back to a second, older copy of the checklist that lived in this file and
+// had drifted from the registry - so the same function could answer
+// differently on Mac than on iPhone. That copy is gone.
+//
+// This matters more as cities are added: a location with no template mapping
+// silently inheriting Starkville's permits and dependencies would be wrong in
+// a way nobody would notice until someone worked a checklist that never
+// applied to their county. Failing at the point the location is added is the
+// cheaper mistake.
 export function computeInitialSetupDates(openingDate, template) {
-  const items = template?.items ?? INITIAL_SETUP_ITEMS;
+  if (!template) throw new Error('computeInitialSetupDates requires a template');
+  const items = template.items;
   const depths = computeDepths(items);
   const maxDepth = Math.max(0, ...Object.values(depths));
   // Runways differ by city — Birmingham's city-then-state sequence with a
@@ -369,7 +308,8 @@ export function getOpeningItemUrgency(item, now) {
 // on each generated schedule doc (dependsOnKeys refer to the static data
 // definition, not doc ids).
 export function getBlockingDependencies(item, allSetupItemsForLocation, template) {
-  const defs = template?.items ?? INITIAL_SETUP_ITEMS;
+  if (!template) throw new Error('getBlockingDependencies requires a template');
+  const defs = template.items;
   const dataDef = defs.find((i) => i.key === item.setupKey);
   if (!dataDef || dataDef.dependsOnKeys.length === 0) return [];
   const byKey = Object.fromEntries(defs.map((i) => [i.key, i]));
@@ -391,6 +331,7 @@ export function getBlockingDependencies(item, allSetupItemsForLocation, template
 // matters, not just which tasks are blocking a given parent.
 export function getDependentParents(item, template) {
   if (!item.setupKey) return [];
-  const defs = template?.items ?? INITIAL_SETUP_ITEMS;
+  if (!template) throw new Error('getDependentParents requires a template');
+  const defs = template.items;
   return defs.filter((i) => i.dependsOnKeys.includes(item.setupKey)).map((i) => i.name);
 }

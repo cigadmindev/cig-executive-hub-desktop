@@ -45,7 +45,7 @@ export function ScheduleProvider({ children }) {
           openingItemType: data.openingItemType ?? null, // 'timeline' | 'setup'
           openingSection: data.openingSection ?? null,
           openingFields: data.openingFields ?? null, // { company, accountNumber, contact } — setup items only
-          setupKey: data.setupKey ?? null, // links a setup item back to its INITIAL_SETUP_ITEMS entry, for dependency lookups
+          setupKey: data.setupKey ?? null, // links a setup item back to its template entry, for dependency lookups
           templateId: data.templateId ?? null, // which city template produced this item
           // The permit or certificate itself: { url, path, name, uploadedAt,
           // uploadedBy }. Lives on the task that produced it, and gets copied
