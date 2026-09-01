@@ -5,8 +5,10 @@ import { useBrandAnnouncements } from '../context/BrandAnnouncementsContext';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { nike } from '../theme/nike';
+import { useDialog } from '../hooks/useDialog';
 
 export default function HomeAnnouncementsScreen() {
+  const { dialogNode, notify } = useDialog();
   const { addAnnouncement } = useBrandAnnouncements();
   const { user } = useAuth();
   const { getByBrand } = useCustomLocations();
@@ -46,8 +48,12 @@ export default function HomeAnnouncementsScreen() {
 
   const handlePost = async () => {
     if (!selectedTargetId || !message.trim()) return;
-    await addAnnouncement(selectedTargetId, message.trim(), user?.name ?? 'Unknown', selectedLabel);
-    navigate('/');
+    try {
+      await addAnnouncement(selectedTargetId, message.trim(), user?.name ?? 'Unknown', selectedLabel);
+      navigate('/');
+    } catch (err) {
+      notify('Could not post', err?.message ?? 'Your announcement was not posted. Try again.');
+    }
   };
 
   return (
@@ -119,6 +125,7 @@ export default function HomeAnnouncementsScreen() {
         restaurant shows it there regardless of location. "Everywhere" shows it on every restaurant's
         page.
       </p>
+    {dialogNode}
     </div>
   );
 }

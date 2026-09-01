@@ -15,6 +15,7 @@ import ItemDetails from '../components/ItemDetails';
 import DatePickerField from '../components/DatePickerField';
 import SearchBar from '../components/SearchBar';
 import { nike } from '../theme/nike';
+import { useDialog } from '../hooks/useDialog';
 
 function formatDate(ts) {
   if (!ts) return null;
@@ -22,6 +23,7 @@ function formatDate(ts) {
 }
 
 export default function OpeningChecklistScreen() {
+  const { dialogNode, notify } = useDialog();
   const { brandId, locationId } = useParams();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -93,9 +95,16 @@ export default function OpeningChecklistScreen() {
   };
 
   const confirmSetOpeningDate = async () => {
-    await setOpeningDate(locationId, new Date(dateDraft).getTime());
-    setConfirmingDate(false);
-    setDateDraft('');
+    try {
+      await setOpeningDate(locationId, new Date(dateDraft).getTime());
+      setConfirmingDate(false);
+      setDateDraft('');
+    } catch (err) {
+      // This rebuilds the whole checklist, so a failure is worth surfacing
+      // rather than leaving someone wondering why the dates did not move.
+      notify('Could not set the date', err?.message ?? 'The checklist was not rebuilt. Try again.');
+      return;
+    }
   };
 
   // Force-rebuilds this location's checklist and Operational POC from the
@@ -143,13 +152,17 @@ export default function OpeningChecklistScreen() {
     // checkbox was clicked — a document attached moments earlier isn't on
     // that snapshot, and the whole point is that it travels across.
     const current = setupItems.find((i) => i.id === item.id) ?? item;
-    await updateDates(
-      renewalDocId(locationId, type),
-      Date.now(),
-      renewalExpiry ? new Date(renewalExpiry).getTime() : null,
-      current.document ?? null
-    );
-    setRenewalPrompt(null);
+    try {
+      await updateDates(
+        renewalDocId(locationId, type),
+        Date.now(),
+        renewalExpiry ? new Date(renewalExpiry).getTime() : null,
+        current.document ?? null
+      );
+      setRenewalPrompt(null);
+    } catch (err) {
+      notify('Could not save', err?.message ?? 'The renewal dates were not saved. Try again.');
+    }
   };
 
   // Anyone can move an individual item's due date — this is separate from
@@ -648,6 +661,7 @@ export default function OpeningChecklistScreen() {
           </div>
         </div>
       ) : null}
+    {dialogNode}
     </div>
   );
 }

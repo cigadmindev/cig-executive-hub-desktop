@@ -11,7 +11,7 @@ function formatDateTime(ts) {
 }
 
 export default function WorkOrdersScreen() {
-  const { dialogNode, confirm } = useDialog();
+  const { dialogNode, confirm, notify } = useDialog();
   const { user, activeUsers: users } = useAuth();
   const { getMyQueue, getSentByMe, createWorkOrder, signWorkOrder, retryPdfGeneration, deleteStoredFiles } = useWorkOrders();
   const [tab, setTab] = useState('queue');
@@ -62,10 +62,15 @@ export default function WorkOrdersScreen() {
   };
 
   const confirmSign = async () => {
-    await signWorkOrder(signingOrder.id, signatureImage);
-    setSigningOrder(null);
-    setSignatureImage(null);
-    setSuccessPopup('Your signature has been recorded and sent.');
+    try {
+      await signWorkOrder(signingOrder.id, signatureImage);
+      setSigningOrder(null);
+      setSignatureImage(null);
+      setSuccessPopup('Your signature has been recorded and sent.');
+    } catch (err) {
+      // Silence here means someone believes they signed something they did not.
+      notify('Could not sign', err?.message ?? 'Your signature was not recorded. Try again.');
+    }
   };
 
   const handleRetry = async (order) => {

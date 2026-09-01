@@ -5,8 +5,10 @@ import { useAnnouncements } from '../context/AnnouncementsContext';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { nike } from '../theme/nike';
+import { useDialog } from '../hooks/useDialog';
 
 export default function AnnouncementsScreen() {
+  const { dialogNode, notify } = useDialog();
   const { brandId, locationId, categoryId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -32,8 +34,14 @@ export default function AnnouncementsScreen() {
 
   const handlePost = async () => {
     if (!message.trim()) return;
-    await addAnnouncement(categoryId, locationId, message.trim(), user.name);
-    navigate(backPath);
+    try {
+      await addAnnouncement(categoryId, locationId, message.trim(), user.name);
+      // Only navigates on success - leaving the page on failure would look
+      // like it posted.
+      navigate(backPath);
+    } catch (err) {
+      notify('Could not post', err?.message ?? 'Your announcement was not posted. Try again.');
+    }
   };
 
   return (
@@ -65,6 +73,7 @@ export default function AnnouncementsScreen() {
           Post
         </button>
       </div>
+    {dialogNode}
     </div>
   );
 }

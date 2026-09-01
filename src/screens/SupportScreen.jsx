@@ -4,6 +4,7 @@ import { useSupportRequests, SUPPORT_AREAS, SUPPORT_ERROR_TYPES, isSupportAdmin 
 import { useSupportAnnouncements } from '../context/SupportAnnouncementsContext';
 import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
+import { useDialog } from '../hooks/useDialog';
 
 function formatDateTime(ts) {
   const d = new Date(ts);
@@ -30,6 +31,7 @@ export default function SupportScreen() {
 // ---------- Regular users: submit a request, or view Brenner's updates ----------
 
 function RegularSupportView() {
+  const { dialogNode, notify } = useDialog();
   const { submitRequest } = useSupportRequests();
   const { posts, toggleLike, addComment } = useSupportAnnouncements();
   const [tab, setTab] = useState('submit');
@@ -41,9 +43,13 @@ function RegularSupportView() {
 
   const handleSubmit = async () => {
     if (!description.trim()) return;
-    await submitRequest({ area, errorType, description: description.trim() });
-    setDescription('');
-    setConfirmOpen(true);
+    try {
+      await submitRequest({ area, errorType, description: description.trim() });
+      setDescription('');
+      setConfirmOpen(true);
+    } catch (err) {
+      notify('Could not send', err?.message ?? 'Your request was not submitted. Try again.');
+    }
   };
 
   const handleAddComment = (postId) => {
@@ -162,13 +168,16 @@ function RegularSupportView() {
           </div>
         </div>
       ) : null}
+
+      {dialogNode}
     </div>
   );
 }
 
-// ---------- Brenner: review queue + post updates ----------
+// ---------- Admins: review queue + post updates ----------
 
 function AdminSupportView() {
+  const { dialogNode, notify } = useDialog();
   const { requests, setStatus } = useSupportRequests();
   const { activeUsers: users } = useAuth();
   const { posts, postUpdate } = useSupportAnnouncements();
@@ -197,10 +206,14 @@ function AdminSupportView() {
   const handlePost = async () => {
     if (!message.trim()) return;
     if (!visibleToAll && visibleToUids.length === 0) return;
-    await postUpdate({ message: message.trim(), visibleToAll, visibleToUids });
-    setMessage('');
-    setVisibleToAll(true);
-    setVisibleToUids([]);
+    try {
+      await postUpdate({ message: message.trim(), visibleToAll, visibleToUids });
+      setMessage('');
+      setVisibleToAll(true);
+      setVisibleToUids([]);
+    } catch (err) {
+      notify('Could not post', err?.message ?? 'Your update was not posted. Try again.');
+    }
   };
 
   return (
@@ -318,6 +331,8 @@ function AdminSupportView() {
           </div>
         </div>
       )}
+
+      {dialogNode}
     </div>
   );
 }
