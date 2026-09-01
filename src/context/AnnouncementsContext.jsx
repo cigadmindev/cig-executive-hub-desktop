@@ -32,7 +32,9 @@ export function AnnouncementsProvider({ children }) {
         };
       });
       setRaw(list);
-    });
+    },
+      (err) => console.error('[Announcements listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

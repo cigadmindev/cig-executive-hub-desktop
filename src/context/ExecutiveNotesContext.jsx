@@ -17,7 +17,9 @@ export function ExecutiveNotesProvider({ children }) {
     }
     const unsubscribe = onSnapshot(doc(db, DOC_REF), (snap) => {
       setDriveUrl(snap.exists() ? snap.data().driveUrl ?? null : null);
-    });
+    },
+      (err) => console.error('[ExecutiveNotes listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

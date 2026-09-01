@@ -28,7 +28,9 @@ export function CustomLocationsProvider({ children }) {
         };
       });
       setLocations(list);
-    });
+    },
+      (err) => console.error('[CustomLocations listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

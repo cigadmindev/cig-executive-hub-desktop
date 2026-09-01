@@ -54,7 +54,9 @@ export function ThemeProvider({ children }) {
       const data = snap.exists() ? snap.data() : {};
       setHue(typeof data.hue === 'number' ? data.hue : DEFAULT_HUE);
       setIntensity(typeof data.intensity === 'number' ? data.intensity : DEFAULT_INTENSITY);
-    });
+    },
+      (err) => console.error('[Theme listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, []);
 

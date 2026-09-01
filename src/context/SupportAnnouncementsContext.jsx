@@ -31,7 +31,9 @@ export function SupportAnnouncementsProvider({ children }) {
         };
       });
       setRaw(list);
-    });
+    },
+      (err) => console.error('[SupportAnnouncements listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

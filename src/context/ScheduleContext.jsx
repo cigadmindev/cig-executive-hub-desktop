@@ -81,7 +81,9 @@ export function ScheduleProvider({ children }) {
           // will pick up the same overdue set and retry.
         });
       }
-    });
+    },
+      (err) => console.error('[Schedule listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

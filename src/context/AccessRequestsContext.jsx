@@ -40,7 +40,9 @@ export function AccessRequestsProvider({ children }) {
           deleteDoc(doc(db, COLLECTION, r.id)).catch(() => {});
         }
       });
-    });
+    },
+      (err) => console.error('[AccessRequests listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

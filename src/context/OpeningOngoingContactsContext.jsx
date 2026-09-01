@@ -33,7 +33,9 @@ export function OpeningOngoingContactsProvider({ children }) {
         };
       });
       setContacts(list);
-    });
+    },
+      (err) => console.error('[OpeningOngoingContacts listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

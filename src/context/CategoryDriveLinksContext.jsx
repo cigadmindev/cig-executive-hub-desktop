@@ -36,7 +36,9 @@ export function CategoryDriveLinksProvider({ children }) {
         map[keyFor(data.locationId, data.categoryId, data.itemName)] = data.driveUrl;
       });
       setLinksByKey(map);
-    });
+    },
+      (err) => console.error('[CategoryDriveLinks listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

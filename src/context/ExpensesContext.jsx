@@ -76,7 +76,12 @@ export function ExpensesProvider({ children }) {
         );
         setLoading(false);
       },
-      () => setLoading(false)
+      // Clears the spinner and says why. Stopping the spinner without
+      // logging is the silent-failure pattern this pass is removing.
+      (err) => {
+        console.error('[Expenses listener] ' + err.code + ': ' + err.message);
+        setLoading(false);
+      }
     );
 
     return unsubscribe;

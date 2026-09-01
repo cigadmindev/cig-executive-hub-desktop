@@ -44,7 +44,9 @@ export function RenewalsProvider({ children }) {
         };
       });
       setItems(list);
-    });
+    },
+      (err) => console.error('[Renewals listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

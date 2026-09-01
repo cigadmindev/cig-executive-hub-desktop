@@ -31,7 +31,9 @@ export function BrandAnnouncementsProvider({ children }) {
         };
       });
       setRaw(list);
-    });
+    },
+      (err) => console.error('[BrandAnnouncements listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

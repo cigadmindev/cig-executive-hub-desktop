@@ -70,7 +70,9 @@ export function SupportRequestsProvider({ children }) {
         };
       });
       setRequests(list);
-    });
+    },
+      (err) => console.error('[SupportRequests listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

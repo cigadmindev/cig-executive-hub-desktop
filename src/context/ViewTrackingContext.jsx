@@ -36,7 +36,9 @@ export function ViewTrackingProvider({ children }) {
         map[`${data.type}_${data.targetId}`] = data.lastViewedAt;
       });
       setViews(map);
-    });
+    },
+      (err) => console.error('[ViewTracking listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

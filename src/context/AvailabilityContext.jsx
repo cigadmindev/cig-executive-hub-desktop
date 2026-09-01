@@ -60,7 +60,9 @@ export function AvailabilityProvider({ children }) {
           deleteDoc(doc(db, 'timeOffRequests', r.id)).catch(() => {});
         }
       });
-    });
+    },
+      (err) => console.error('[Availability listener] ' + err.code + ': ' + err.message)
+    );
 
     const unsubAvailability = onSnapshot(collection(db, 'weeklyAvailability'), (snapshot) => {
       const list = snapshot.docs.map((d) => {
@@ -79,7 +81,9 @@ export function AvailabilityProvider({ children }) {
         };
       });
       setWeeklyAvailability(list);
-    });
+    },
+      (err) => console.error('[Availability listener] ' + err.code + ': ' + err.message)
+    );
 
     return () => {
       unsubTimeOff();

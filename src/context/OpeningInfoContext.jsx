@@ -44,7 +44,9 @@ export function OpeningInfoProvider({ children }) {
         };
       });
       setInfoByLocation(map);
-    });
+    },
+      (err) => console.error('[OpeningInfo listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

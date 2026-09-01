@@ -45,7 +45,9 @@ export function WorkOrdersProvider({ children }) {
         };
       });
       setOrders(list.sort((a, b) => b.createdAt - a.createdAt));
-    });
+    },
+      (err) => console.error('[WorkOrders listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

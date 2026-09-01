@@ -71,7 +71,9 @@ export function EventRequestsProvider({ children }) {
           deleteDoc(doc(db, COLLECTION, r.id)).catch(() => {});
         }
       });
-    });
+    },
+      (err) => console.error('[EventRequests listener] ' + err.code + ': ' + err.message)
+    );
     return unsubscribe;
   }, [user]);
 

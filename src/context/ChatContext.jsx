@@ -63,7 +63,9 @@ export function ChatProvider({ children }) {
         };
       });
       setAllConversationsRaw(list);
-    });
+    },
+      (err) => console.error('[Chat listener] ' + err.code + ': ' + err.message)
+    );
 
     const unsubMessages = onSnapshot(messagesQuery, (snapshot) => {
       const list = snapshot.docs.map((d) => {
@@ -89,7 +91,9 @@ export function ChatProvider({ children }) {
         };
       });
       setMessages(list);
-    });
+    },
+      (err) => console.error('[Chat listener] ' + err.code + ': ' + err.message)
+    );
 
     return () => {
       unsubConvos();
