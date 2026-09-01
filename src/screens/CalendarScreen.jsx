@@ -246,10 +246,9 @@ export default function CalendarScreen() {
               ) : (
                 selectedEntries.map((e) => {
                   const info = locationInfo[e.locationId];
-                  const isChecklist = real !== null && (real.openingItem || real.renewalItem);
                   // Read straight from the renewal or event request, not a
                   // schedule record - so there is nothing here to edit.
-                  const isVirtual = e.source === 'renewal' || e.source === 'event';
+                  //
                   // Everything below reads schedule-entry fields - done,
                   // doneBy, openingItem. On a virtual row those are simply
                   // absent, so the checklist branches happen not to run.
@@ -257,7 +256,13 @@ export default function CalendarScreen() {
                   // being falsy: the mobile version is type-checked and
                   // states the same thing, and this file has no checker to
                   // catch a future field read that assumes otherwise.
+                  //
+                  // These two come first: everything after depends on them,
+                  // and isChecklist used to sit above real - which parses and
+                  // builds fine, then throws the moment a date is opened.
+                  const isVirtual = e.source === 'renewal' || e.source === 'event';
                   const real = isVirtual ? null : e;
+                  const isChecklist = real !== null && (real.openingItem || real.renewalItem);
                   const isOpen = expandedEntryId === e.id;
                   const overdue = isVirtual
                     ? e.dateTime < Date.now()

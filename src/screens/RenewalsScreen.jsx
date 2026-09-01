@@ -6,6 +6,7 @@ import { brands } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import DatePickerField from '../components/DatePickerField';
 import { useSchedule } from '../context/ScheduleContext';
+import { useDialog } from '../hooks/useDialog';
 import DocumentField from '../components/DocumentField';
 import { RENEWAL_TYPE_BY_KEY } from '../data/checklists';
 import { nike } from '../theme/nike';
@@ -17,6 +18,7 @@ function formatDate(ts) {
 
 export default function RenewalsScreen() {
   const { brandId, locationId } = useParams();
+  const { dialogNode, notify } = useDialog();
   const { user } = useAuth();
   const { getByLocation, ensureSeeded, updateDates, markRenewed } = useRenewals();
 
@@ -72,9 +74,16 @@ export default function RenewalsScreen() {
   const saveEdit = async () => {
     const approvedTs = editApproved ? new Date(editApproved).getTime() : null;
     const expirationTs = editExpiration ? new Date(editExpiration).getTime() : null;
-    await updateDates(editingItem.id, approvedTs, expirationTs);
-    if (approvedTs && expirationTs) completeLinkedCalendarTask(editingItem.type);
-    setEditingItem(null);
+    try {
+      await updateDates(editingItem.id, approvedTs, expirationTs);
+      // Both of these follow the save and must not run if it failed - the
+      // linked checklist item would be ticked off against dates that were
+      // never stored.
+      if (approvedTs && expirationTs) completeLinkedCalendarTask(editingItem.type);
+      setEditingItem(null);
+    } catch (err) {
+      notify('Could not save', err?.message ?? 'The dates were not saved. Try again.');
+    }
   };
 
   const openSignOff = (item) => {
@@ -85,9 +94,15 @@ export default function RenewalsScreen() {
     setSignOffDate(nextYear.toISOString().slice(0, 10));
   };
   const confirmSignOff = async () => {
-    await markRenewed(signOffItem.id, signOffName.trim() || user?.name || 'Unknown', new Date(signOffDate).getTime());
-    completeLinkedCalendarTask(signOffItem.type);
-    setSignOffItem(null);
+    try {
+      await markRenewed(signOffItem.id, signOffName.trim() || user?.name || 'Unknown', new Date(signOffDate).getTime());
+      completeLinkedCalendarTask(signOffItem.type);
+      setSignOffItem(null);
+    } catch (err) {
+      // The worst silent failure in the app: the modal closes and the permit
+      // still expires, but someone believes it is renewed.
+      notify('Could not sign off', err?.message ?? 'The renewal was not recorded. Try again.');
+    }
   };
 
   if (!brand || !location) return null;
@@ -215,6 +230,8 @@ export default function RenewalsScreen() {
           </div>
         </div>
       ) : null}
+
+      {dialogNode}
     </div>
   );
 }

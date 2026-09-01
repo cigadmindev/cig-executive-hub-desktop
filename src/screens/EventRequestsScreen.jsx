@@ -98,39 +98,53 @@ export default function EventRequestsScreen() {
     const dateTime = new Date(formDate);
     dateTime.setHours(hours, minutes, 0, 0);
 
-    if (editingRequest) {
-      await updateEventRequest(editingRequest.id, {
-        title: formTitle.trim(),
-        dateTime: dateTime.getTime(),
-        expectedAttendees: formAttendees.trim(),
-        details: formDetails.trim(),
-        needs: formNeeds,
-        notifyUids: formPeople,
-      });
-    } else {
-      await submitRequest({
-        locationId,
-        locationName: location?.name ?? '',
-        title: formTitle.trim(),
-        dateTime: dateTime.getTime(),
-        expectedAttendees: formAttendees.trim(),
-        details: formDetails.trim(),
-        needs: formNeeds,
-        notifyUids: formPeople,
-        requestedBy: user?.name ?? 'Unknown',
-      });
+    try {
+      if (editingRequest) {
+        await updateEventRequest(editingRequest.id, {
+          title: formTitle.trim(),
+          dateTime: dateTime.getTime(),
+          expectedAttendees: formAttendees.trim(),
+          details: formDetails.trim(),
+          needs: formNeeds,
+          notifyUids: formPeople,
+        });
+      } else {
+        await submitRequest({
+          locationId,
+          locationName: location?.name ?? '',
+          title: formTitle.trim(),
+          dateTime: dateTime.getTime(),
+          expectedAttendees: formAttendees.trim(),
+          details: formDetails.trim(),
+          needs: formNeeds,
+          notifyUids: formPeople,
+          requestedBy: user?.name ?? 'Unknown',
+        });
+      }
+      // Only closes on success, or the form clears while nothing was sent.
+      setFormOpen(false);
+    } catch (err) {
+      notify(
+        editingRequest ? 'Could not save' : 'Could not submit',
+        err?.message ?? 'Nothing was changed. Try again.'
+      );
     }
-    setFormOpen(false);
   };
 
   const handleApprove = async (r) => {
-    const ok = await approveAndSchedule(r.id, {
-      locationId: r.locationId,
-      title: r.title,
-      dateTime: r.dateTime,
-      note: `${r.details}${r.expectedAttendees ? ` — Expected: ${r.expectedAttendees}` : ''}`,
-      authorName: user?.name ?? 'Unknown',
-    });
+    let ok;
+    try {
+      ok = await approveAndSchedule(r.id, {
+        locationId: r.locationId,
+        title: r.title,
+        dateTime: r.dateTime,
+        note: `${r.details}${r.expectedAttendees ? ` — Expected: ${r.expectedAttendees}` : ''}`,
+        authorName: user?.name ?? 'Unknown',
+      });
+    } catch (err) {
+      notify('Could not approve', err?.message ?? 'Nothing was changed. Try again.');
+      return;
+    }
     if (!ok) {
       notify('Already resolved', 'Someone else handled this request — no changes made.');
     }
@@ -141,8 +155,12 @@ export default function EventRequestsScreen() {
     setDenyReason('');
   };
   const confirmDeny = async () => {
-    await resolveRequest(denyingId, 'denied', denyReason.trim());
-    setDenyingId(null);
+    try {
+      await resolveRequest(denyingId, 'denied', denyReason.trim());
+      setDenyingId(null);
+    } catch (err) {
+      notify('Could not deny', err?.message ?? 'Nothing was changed. Try again.');
+    }
   };
   const handleDelete = (r) => {
     confirm({

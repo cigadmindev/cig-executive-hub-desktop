@@ -16,6 +16,20 @@ function formatDate(ts) {
   return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatTimeLabel(hhmm) {
+  if (typeof hhmm !== 'string' || !hhmm.includes(':')) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  const date = new Date();
+  date.setHours(h, m, 0, 0);
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatDaySummary(day) {
+  if (!day || typeof day !== 'object') return 'Not set';
+  if (day.off) return 'Unavailable';
+  return `${formatTimeLabel(day.start)} – ${formatTimeLabel(day.end)}`;
+}
+
 export default function AvailabilityScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const { user } = useAuth();
@@ -100,11 +114,17 @@ export default function AvailabilityScreen() {
 
   const handleSubmit = async () => {
     if (!startDate || !endDate || !reason.trim()) return;
-    await submitTimeOff(new Date(startDate).getTime(), new Date(endDate).getTime(), reason.trim());
-    setFormOpen(false);
-    setStartDate('');
-    setEndDate('');
-    setReason('');
+    try {
+      await submitTimeOff(new Date(startDate).getTime(), new Date(endDate).getTime(), reason.trim());
+      // Only clears on success - otherwise the form empties and closes while
+      // nothing was actually requested.
+      setFormOpen(false);
+      setStartDate('');
+      setEndDate('');
+      setReason('');
+    } catch (err) {
+      notify('Could not submit', err?.message ?? 'Your request was not sent. Try again.');
+    }
   };
 
   const openDeny = (id) => {
@@ -112,8 +132,13 @@ export default function AvailabilityScreen() {
     setDenyReason('');
   };
   const confirmDeny = async () => {
-    await resolveTimeOff(denyingId, 'denied', denyReason.trim());
-    setDenyingId(null);
+    try {
+      await resolveTimeOff(denyingId, 'denied', denyReason.trim());
+      setDenyingId(null);
+    } catch (err) {
+      notify('Could not deny', err?.message ?? 'Nothing was changed. Try again.');
+      return;
+    }
   };
 
   const openEdit = (r) => {
@@ -123,12 +148,16 @@ export default function AvailabilityScreen() {
     setEditReason(r.reason);
   };
   const saveEdit = async () => {
-    await updateTimeOffRequest(editingRequest.id, {
-      startDate: new Date(editStart).getTime(),
-      endDate: new Date(editEnd).getTime(),
-      reason: editReason.trim(),
-    });
-    setEditingRequest(null);
+    try {
+      await updateTimeOffRequest(editingRequest.id, {
+        startDate: new Date(editStart).getTime(),
+        endDate: new Date(editEnd).getTime(),
+        reason: editReason.trim(),
+      });
+      setEditingRequest(null);
+    } catch (err) {
+      notify('Could not save', err?.message ?? 'Your changes were not saved. Try again.');
+    }
   };
   const handleDelete = (r) => {
     confirm({
@@ -442,7 +471,7 @@ export default function AvailabilityScreen() {
             {DAYS.map((day) => (
               <div key={day} style={styles.viewRow}>
                 <span style={styles.viewDayLabel}>{DAY_LABELS[day]}</span>
-                <span>{viewingPerson[day] || 'Not set'}</span>
+                <span>{formatDaySummary(viewingPerson[day])}</span>
               </div>
             ))}
           </div>

@@ -3,6 +3,7 @@ import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useAuth } from '../context/AuthContext';
 import { brands, categories } from '../data/mockData';
 import { nike } from '../theme/nike';
+import { useDialog } from '../hooks/useDialog';
 
 function formatDateTime(ts) {
   const d = new Date(ts);
@@ -15,6 +16,7 @@ function toggleInArray(arr, id) {
 
 export default function PendingRequestsScreen() {
   const { requests, resolveRequest } = useAccessRequests();
+  const { dialogNode, notify } = useDialog();
   const { user, users, updatePermissions } = useAuth();
   const isAdmin = user?.role === 'admin';
   const isExecutive = user?.role === 'executive';
@@ -51,15 +53,28 @@ export default function PendingRequestsScreen() {
 
   const confirmApprove = async () => {
     const targetUser = users.find((u) => u.email === reviewingRequest.userEmail);
-    if (targetUser) {
-      await updatePermissions(targetUser.uid, { brandIds, categoryIds });
+    try {
+      if (targetUser) {
+        await updatePermissions(targetUser.uid, { brandIds, categoryIds });
+      }
+      await resolveRequest(reviewingRequest.id, 'approved');
+      // Only closes on success. A failure here used to end the function
+      // silently: the modal shut, nothing was granted, and the admin had no
+      // way to know the person still had no access.
+      closeReview();
+    } catch (err) {
+      notify('Could not approve', err?.message ?? 'Nothing was changed. Try again.');
     }
-    await resolveRequest(reviewingRequest.id, 'approved');
-    closeReview();
   };
 
-  const handleDeny = (req) => {
-    resolveRequest(req.id, 'denied');
+  // Was fire-and-forget: a rejected promise here was an unhandled
+  // rejection, not even a silent return.
+  const handleDeny = async (req) => {
+    try {
+      await resolveRequest(req.id, 'denied');
+    } catch (err) {
+      notify('Could not deny', err?.message ?? 'Nothing was changed. Try again.');
+    }
   };
 
   return (
@@ -146,6 +161,8 @@ export default function PendingRequestsScreen() {
           </div>
         </div>
       ) : null}
+
+      {dialogNode}
     </div>
   );
 }
