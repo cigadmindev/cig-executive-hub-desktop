@@ -145,7 +145,10 @@ export default function AppLayout({ children }) {
 
 const styles = {
   window: { display: 'flex', height: '100vh' },
-  narrowWindow: { height: '100vh', background: 'var(--bg-window)' },
+  // dvh, not vh: the phone container has to shrink when the keyboard opens,
+  // or the fixed bar strands itself mid-screen. narrowContent already uses it
+  // and this parent was missed.
+  narrowWindow: { height: '100dvh', background: 'var(--bg-window)' },
   // Bottom padding clears the floating bar: its height, its 24px offset,
   // and the home button poking out of the top.
   narrowContent: {

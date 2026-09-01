@@ -57,7 +57,9 @@ export default function LoginScreen() {
 
 const styles = {
   window: {
-    height: '100vh',
+    // Login is the one screen every user types on, on a phone, with the
+    // keyboard open. vh ignores the keyboard; dvh tracks the visible area.
+    height: '100dvh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
