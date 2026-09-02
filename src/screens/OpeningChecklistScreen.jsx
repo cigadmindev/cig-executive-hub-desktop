@@ -7,7 +7,7 @@ import { useSchedule } from '../context/ScheduleContext';
 import { useOpeningInfo } from '../context/OpeningInfoContext';
 import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
 import { TIMELINE_BUCKETS, getOpeningItemUrgency, getBlockingDependencies, getDependentParents } from '../data/openingChecklistData';
-import { getTemplateForLocation, RENEWAL_TYPE_BY_KEY } from '../data/checklists';
+import { getTemplateForLocation, RENEWAL_TYPE_BY_KEY, isProvisionalTemplate } from '../data/checklists';
 import { useRenewals, renewalDocId } from '../context/RenewalsContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmEditField from '../components/ConfirmEditField';
@@ -304,6 +304,17 @@ export default function OpeningChecklistScreen() {
           </p>
         ) : null}
         {!isAdmin && !info.openingDate ? <p style={styles.hint}>Ask an admin to set the opening date to generate the checklist below.</p> : null}
+
+        {/* A location with no template of its own falls back to Starkville's
+            so it has a working checklist on day one. Mississippi permits are
+            not Alabama's or Tennessee's, and a borrowed list that looks
+            authoritative is worse than one that admits what it is. */}
+        {isProvisionalTemplate(locationId) ? (
+          <div style={styles.provisionalNote}>
+            This checklist is based on Starkville and has not been verified for this city. Permits and timelines may
+            differ — check with the local authority before relying on it.
+          </div>
+        ) : null}
       </div>
 
       <div style={styles.section}>
@@ -677,6 +688,16 @@ const styles = {
   sectionHeader: { fontSize: 15, fontWeight: 700, margin: '0 0 14px' },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
   label: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: '14px 0 8px' },
+  provisionalNote: {
+    background: 'rgba(201, 162, 39, 0.12)',
+    border: '1px solid rgba(201, 162, 39, 0.4)',
+    borderRadius: 10,
+    padding: '12px 14px',
+    fontSize: 12,
+    lineHeight: 1.6,
+    color: 'var(--text-secondary)',
+    marginTop: 12,
+  },
   hint: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 },
   openingDateRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 },
   openingDateValue: { fontSize: 16, fontWeight: 700 },

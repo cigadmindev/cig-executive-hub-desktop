@@ -23,10 +23,23 @@ export const LOCATION_TEMPLATES = {
   'blutos-starkville': 'ms-starkville',
   'heritage-starkville': 'ms-starkville',
   // Ridgeland is Mississippi too, but its privilege license is city-issued
-  // and hasn't been researched. Left unmapped deliberately — an empty
-  // checklist makes the gap obvious, where a borrowed one would look
-  // authoritative and be wrong about the city-level pieces.
+  // and hasn't been researched. Left unmapped deliberately: it falls back to
+  // Starkville's list, and the checklist screen marks it provisional so the
+  // gap is visible rather than looking authoritative.
 };
+
+/**
+ * Whether this location has a checklist template written for its city, or is
+ * falling back to Starkville's.
+ *
+ * The fallback exists so a new location has a working checklist on day one
+ * rather than an empty screen. But Mississippi permits are not Alabama's or
+ * Tennessee's, and a borrowed checklist that looks authoritative is worse than
+ * an obviously incomplete one - so the screen says so.
+ */
+export function isProvisionalTemplate(locationId) {
+  return !LOCATION_TEMPLATES[locationId];
+}
 
 export function getTemplateForLocation(locationId) {
   const id = LOCATION_TEMPLATES[locationId] ?? DEFAULT_TEMPLATE_ID;
