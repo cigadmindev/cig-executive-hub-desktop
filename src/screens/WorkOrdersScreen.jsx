@@ -13,7 +13,14 @@ function formatDateTime(ts) {
 export default function WorkOrdersScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const { user, activeUsers: users } = useAuth();
-  const { getMyQueue, getSentByMe, createWorkOrder, signWorkOrder, retryPdfGeneration, deleteStoredFiles } = useWorkOrders();
+  const {
+    getMyQueue,
+    getSentByMe,
+    createWorkOrder,
+    signWorkOrder,
+    retryPdfGeneration,
+    markDownloadedAndCleanUp,
+  } = useWorkOrders();
   const [tab, setTab] = useState('queue');
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -61,6 +68,14 @@ export default function WorkOrdersScreen() {
     }
   };
 
+  const handleDownload = async (order) => {
+    try {
+      await markDownloadedAndCleanUp(order);
+    } catch (err) {
+      notify('Could not download', err?.message ?? 'The document was not downloaded. Try again.');
+    }
+  };
+
   const confirmSign = async () => {
     try {
       await signWorkOrder(signingOrder.id, signatureImage);
@@ -77,18 +92,6 @@ export default function WorkOrdersScreen() {
     await retryPdfGeneration(order);
   };
 
-  const handleDeleteFiles = async (order) => {
-    confirm({
-      title: 'Delete the stored files?',
-      body: 'The signature record — who signed and when — stays. This only removes the PDF files from storage.',
-      confirmLabel: 'Delete files',
-      tone: 'danger',
-      onConfirm: async () => {
-        await deleteStoredFiles(order);
-        setSuccessPopup('Files removed from storage.');
-      },
-    });
-  };
 
   const nameFor = (uid) => users.find((u) => u.uid === uid)?.name ?? 'Unknown';
 
@@ -159,12 +162,14 @@ export default function WorkOrdersScreen() {
                   <p style={styles.hint}>Signed document files were removed from storage after download.</p>
                 ) : o.status === 'completed' && o.signedFileUrl ? (
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
-                    <a href={o.signedFileUrl} target="_blank" rel="noreferrer" style={styles.downloadButton}>
+                    {/* One action rather than two. Downloading is what says you
+                        are done with it, so it clears the notification and
+                        removes the stored files itself - there is nothing to
+                        remember to tidy up afterwards. */}
+                    <button style={styles.downloadButton} onClick={() => handleDownload(o)}>
                       Download Signed Document
-                    </a>
-                    <button style={styles.deleteFilesButton} onClick={() => handleDeleteFiles(o)}>
-                      Delete files from storage
                     </button>
+                    {!o.downloadedAt ? <span style={styles.readyDot} /> : null}
                   </div>
                 ) : o.status === 'completed' && o.signedPdfError ? (
                   <div style={styles.errorBlock}>
@@ -445,6 +450,7 @@ const styles = {
   cardMeta: { fontSize: 11, color: 'var(--text-tertiary)' },
   cardDescription: { fontSize: 13, color: 'var(--text-secondary)', margin: '8px 0', lineHeight: 1.5 },
   docLink: { fontSize: 12, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none', display: 'block', marginBottom: 8 },
+  readyDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--danger)' },
   downloadButton: {
     display: 'inline-block',
     fontSize: 12,
@@ -455,7 +461,6 @@ const styles = {
     borderRadius: 'var(--radius-sm)',
     textDecoration: 'none',
   },
-  deleteFilesButton: { fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 },
   errorBlock: { background: 'rgba(232,82,75,0.1)', border: '1px solid rgba(232,82,75,0.35)', borderRadius: 'var(--radius-sm)', padding: 12, marginBottom: 10 },
   errorText: { fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5, margin: '0 0 8px' },
   retryButton: { padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 600 },

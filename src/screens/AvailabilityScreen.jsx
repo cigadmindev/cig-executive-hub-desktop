@@ -32,7 +32,7 @@ function formatDaySummary(day) {
 
 export default function AvailabilityScreen() {
   const { dialogNode, confirm, notify } = useDialog();
-  const { user } = useAuth();
+  const { user, activeUsers } = useAuth();
   const {
     timeOffRequests,
     weeklyAvailability,
@@ -74,7 +74,13 @@ export default function AvailabilityScreen() {
 
   const myTimeOff = timeOffRequests.filter((r) => r.uid === user?.uid);
   const myWeekly = weeklyAvailability.find((w) => w.uid === user?.uid);
-  const otherWeekly = weeklyAvailability.filter((w) => w.uid !== user?.uid);
+  // Availability records outlive the account they belong to - deactivating
+  // someone sets a flag on their profile and leaves everything else alone. The
+  // team view answers "who is around this week", and someone without an
+  // account is not. They stay visible in Manage Logins, which is where
+  // deactivated people belong.
+  const activeUids = new Set(activeUsers.map((u) => u.uid));
+  const otherWeekly = weeklyAvailability.filter((w) => w.uid !== user?.uid && activeUids.has(w.uid));
   const pendingCount = timeOffRequests.filter((r) => r.status === 'pending').length;
 
   // A new week starting means last week's answers no longer apply — treat
@@ -92,7 +98,13 @@ export default function AvailabilityScreen() {
   // away, and there's no reason a single day's hours needs a transaction.
   const setDayHours = async (day, hours) => {
     const base = myWeeklyIsCurrent ? myWeekly : {};
-    const next = Object.fromEntries(DAYS.map((d) => [d, base?.[d] ?? null]));
+    const DEFAULT_DAY = { off: true, start: '09:00', end: '17:00' };
+    const next = Object.fromEntries(
+      DAYS.map((d) => {
+        const v = base?.[d];
+        return [d, v && typeof v === 'object' && typeof v.off === 'boolean' ? v : { ...DEFAULT_DAY }];
+      })
+    );
     next[day] = hours;
     await setMyWeeklyAvailability(next, currentWeekStart);
   };
@@ -250,7 +262,9 @@ export default function AvailabilityScreen() {
               {DAYS.map((day, i) => {
                 const dayDate = new Date(currentWeekStart + i * 24 * 60 * 60 * 1000);
                 const value = myWeeklyIsCurrent ? myWeekly?.[day] : null;
-                const hours = typeof value === 'object' && value ? value : null;
+                // A working day is an object whose off is explicitly false.
+                // Anything else - off: true, null, or a legacy string - is not.
+                const hours = value && typeof value === 'object' && value.off === false ? value : null;
                 const legacy = typeof value === 'string' && value ? value : null;
                 const off = timeOffOnDay(dayDate.getTime());
 
@@ -268,11 +282,11 @@ export default function AvailabilityScreen() {
                       <span style={styles.legacyValue}>{legacy}</span>
                     ) : hours ? (
                       <>
-                        <TimePickerField value={hours.start} onChange={(v) => setDayHours(day, { ...hours, start: v })} />
+                        <TimePickerField value={hours.start} onChange={(v) => setDayHours(day, { ...hours, off: false, start: v })} />
                         <span style={styles.toLabel}>to</span>
-                        <TimePickerField value={hours.end} onChange={(v) => setDayHours(day, { ...hours, end: v })} />
+                        <TimePickerField value={hours.end} onChange={(v) => setDayHours(day, { ...hours, off: false, end: v })} />
                         <div style={{ flex: 1 }} />
-                        <button style={styles.clearDay} onClick={() => setDayHours(day, null)}>
+                        <button style={styles.clearDay} onClick={() => setDayHours(day, { off: true, start: hours.start, end: hours.end })}>
                           Unavailable
                         </button>
                       </>
@@ -280,7 +294,7 @@ export default function AvailabilityScreen() {
                       <>
                         <span style={styles.unavailable}>Unavailable</span>
                         <div style={{ flex: 1 }} />
-                        <button style={styles.setHours} onClick={() => setDayHours(day, { start: '09:00', end: '17:00' })}>
+                        <button style={styles.setHours} onClick={() => setDayHours(day, { off: false, start: '09:00', end: '17:00' })}>
                           Set hours
                         </button>
                       </>

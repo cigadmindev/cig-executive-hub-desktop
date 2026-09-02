@@ -30,6 +30,22 @@ function colorForSender(uid) {
   return SENDER_COLORS[hash % SENDER_COLORS.length];
 }
 
+// Inside a conversation, colour is assigned by position in the member list
+// rather than by hashing the uid. Hashing seven colours across any number of
+// people collides by chance - two members of the same group landing on the
+// same colour, which is the one thing the colour exists to prevent. Position
+// guarantees uniqueness up to seven members.
+//
+// A person's colour therefore differs between conversations. That is the
+// trade: colour identifies who is speaking within a thread, and it only has
+// to hold inside that thread.
+function colorInConversation(uid, memberUids) {
+  if (!uid) return SENDER_COLORS[0];
+  const i = (memberUids ?? []).indexOf(uid);
+  if (i === -1) return colorForSender(uid);
+  return SENDER_COLORS[i % SENDER_COLORS.length];
+}
+
 export default function MessagesScreen() {
   const isNarrow = useIsNarrow();
   const {
@@ -291,7 +307,7 @@ export default function MessagesScreen() {
                       <div
                         style={{
                           ...styles.groupAvatar,
-                          background: colorForSender(m.senderUid),
+                          background: colorInConversation(m.senderUid, activeConvo.memberUids),
                           visibility: showSenderInfo ? 'visible' : 'hidden',
                         }}
                       >
@@ -334,7 +350,7 @@ export default function MessagesScreen() {
                     ) : (
                       <div data-bubble="" style={{ ...styles.bubble, ...(isMe ? styles.bubbleMe : styles.bubbleOther) }}>
                         {showSenderInfo ? (
-                          <div style={{ ...styles.senderName, color: colorForSender(m.senderUid) }}>{m.senderName}</div>
+                          <div style={{ ...styles.senderName, color: colorInConversation(m.senderUid, activeConvo.memberUids) }}>{m.senderName}</div>
                         ) : null}
 
                         {m.text ? <div>{m.text}</div> : null}

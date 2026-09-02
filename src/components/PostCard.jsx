@@ -68,7 +68,7 @@ export default function PostCard({ post, isNewest, onToggleLike, onAddComment, o
           onClick={() => onToggleLike(post.id)}
         >
           <Icon name="thumbsUp" size={14} filled={post.likedByMe} color={post.likedByMe ? 'var(--neon)' : '#96969C'} />
-          <span>{post.likes > 0 ? post.likes : 'Like'}</span>
+          <span>{post.likes > 0 ? `${post.likes} ${post.likes === 1 ? 'Like' : 'Likes'}` : 'Like'}</span>
         </button>
         <button
           style={{ ...styles.actionPill, ...(showComments ? styles.actionPillOpen : {}) }}

@@ -35,6 +35,9 @@ export function WorkOrdersProvider({ children }) {
           signedFileUrl: data.signedFileUrl ?? null,
           signedPdfError: data.signedPdfError ?? null,
           filesDeleted: data.filesDeleted ?? false,
+          // Null until the sender downloads the finished document. The dot
+          // shows while a completed order has not been downloaded.
+          downloadedAt: data.downloadedAt ?? null,
           uploadedByUid: data.uploadedByUid,
           uploadedByName: data.uploadedByName,
           assignedUids: data.assignedUids ?? [],
@@ -81,6 +84,7 @@ export function WorkOrdersProvider({ children }) {
       signedFileUrl: null,
       signedPdfError: null,
       filesDeleted: false,
+      downloadedAt: null,
       uploadedByUid: auth.currentUser?.uid ?? null,
       uploadedByName: user?.name ?? 'Unknown',
       assignedUids,
@@ -154,6 +158,48 @@ export function WorkOrdersProvider({ children }) {
   // Once the sender's downloaded the signed document, the actual file
   // bytes in Storage can be cleared out — the Firestore record (who
   // signed, when) stays untouched, this only removes the files themselves.
+  // Downloads the finished document, records that it happened, then removes
+  // the stored files. The order matters: if the fetch fails we must not have
+  // deleted anything, and if the deletion fails the record still says
+  // downloaded - which is correct, because the person has their file.
+  //
+  // Replaces a plain <a href> download. A link runs no code, so nothing could
+  // record the download or clean up after it, and the notification dot had no
+  // way to know it was done.
+  const markDownloadedAndCleanUp = async (order) => {
+    if (!order.signedFileUrl) throw new Error('There is no signed document to download.');
+
+    const res = await fetch(order.signedFileUrl);
+    if (!res.ok) throw new Error('The document could not be downloaded.');
+    const blob = await res.blob();
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${order.title || 'signed-document'}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    // Recorded before the cleanup: the download is what clears the dot, and it
+    // has already happened by this point.
+    await updateDoc(doc(db, COLLECTION, order.id), { downloadedAt: Date.now() });
+
+    // Best effort - a failure here leaves files in storage, which the sweep
+    // and the 90-day rules can deal with. It must not undo the download.
+    try {
+      await deleteStoredFiles(order);
+    } catch (err) {
+      console.error('[WorkOrders] files not removed after download: ' + err.message);
+    }
+  };
+
+  // Anything you sent that is finished and not yet downloaded. Drives the
+  // dot on the card, the Directory tile and the nav.
+  const hasUndownloadedComplete = () =>
+    getSentByMe().some((o) => o.status === 'completed' && o.signedFileUrl && !o.downloadedAt);
+
   const deleteStoredFiles = async (order) => {
     const deletions = [];
     if (order.originalFileUrl) deletions.push(deleteObject(ref(storage, decodeStorageUrlToPath(order.originalFileUrl))).catch(() => {}));
@@ -164,7 +210,17 @@ export function WorkOrdersProvider({ children }) {
 
   return (
     <WorkOrdersContext.Provider
-      value={{ orders, getMyQueue, getSentByMe, createWorkOrder, signWorkOrder, retryPdfGeneration, deleteStoredFiles }}
+      value={{
+        orders,
+        getMyQueue,
+        getSentByMe,
+        createWorkOrder,
+        signWorkOrder,
+        retryPdfGeneration,
+        deleteStoredFiles,
+        markDownloadedAndCleanUp,
+        hasUndownloadedComplete,
+      }}
     >
       {children}
     </WorkOrdersContext.Provider>

@@ -19,7 +19,7 @@ export default function DirectoryScreen() {
   const { requests: accessRequests } = useAccessRequests();
   const { hasUnseenTimeOff } = useViewTracking();
   const { weeklyAvailability, getWeekStart } = useAvailability();
-  const { getMyQueue } = useWorkOrders();
+  const { getMyQueue, hasUndownloadedComplete } = useWorkOrders();
   const myWeekly = weeklyAvailability.find((w) => w.uid === user?.uid);
   const myWeeklyIsStale = !myWeekly || myWeekly.weekStartDate !== getWeekStart();
   const canPostAnnouncements = user?.role === 'admin' || user?.role === 'executive';
@@ -39,7 +39,7 @@ export default function DirectoryScreen() {
       icon: 'signature',
       title: 'Signature Directory',
       subtitle: "Sign documents, track who's signed what",
-      badge: getMyQueue().length > 0,
+      badge: getMyQueue().length > 0 || hasUndownloadedComplete(),
       onClick: () => navigate('/work-orders'),
     },
     {

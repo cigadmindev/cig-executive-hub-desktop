@@ -19,7 +19,7 @@ export default function BrandScreen() {
   const { getByBrand, addLocation, deleteLocation } = useCustomLocations();
   const { user } = useAuth();
   const { getByBrand: getPostsByBrand, toggleLike, addComment, toggleCommentLike, deletePost, deleteComment } = useBrandAnnouncements();
-  const { markBrandViewed, hasUnseenForLocation } = useViewTracking();
+  const { markBrandViewed, hasUnseenForLocation, hasUnseenBrandPosts } = useViewTracking();
 
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -27,8 +27,13 @@ export default function BrandScreen() {
   const [newLng, setNewLng] = useState('');
   const [pickedState, setPickedState] = useState(null);
 
+  // Marked on leaving, not on arriving. Marking on open cleared the dot the
+  // instant you tapped the tile - before you had scrolled to the posts it was
+  // telling you about - so the trail died at the brand screen and nothing
+  // inside showed why you had been sent there.
   useEffect(() => {
-    if (brandId) markBrandViewed(brandId);
+    if (!brandId) return undefined;
+    return () => markBrandViewed(brandId);
   }, [brandId]);
 
   if (!brand) return null;
@@ -190,7 +195,10 @@ export default function BrandScreen() {
       {posts.length > 0 ? (
         <div style={styles.postsSection}>
           <div style={styles.divider} />
-          <h2 style={styles.postsHeader}>TEAM POSTS</h2>
+          <div style={styles.postsHeaderRow}>
+            <h2 style={styles.postsHeader}>TEAM POSTS</h2>
+            {hasUnseenBrandPosts(brand.id) ? <span style={styles.postsDot} /> : null}
+          </div>
           {posts.map((post, index) => {
             const targetedLocation =
               post.targetId !== brand.id && post.targetId !== 'all'
@@ -285,6 +293,8 @@ const styles = {
   chevron: { color: 'var(--text-secondary)', fontSize: 18 },
   deleteLink: { position: 'absolute', top: 10, right: 10, fontSize: 12, color: 'var(--danger)', background: 'var(--bg-window)', borderRadius: 4, padding: '2px 6px' },
   postsSection: { marginTop: 32 },
+  postsHeaderRow: { display: 'flex', alignItems: 'center', gap: 10 },
+  postsDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--danger)' },
   divider: { height: 1, background: 'var(--border)', marginBottom: 20 },
   postsHeader: { fontSize: 12, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 14px' },
   postLocationTag: { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 4px' },

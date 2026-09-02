@@ -8,6 +8,7 @@ import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useSupportRequests } from '../context/SupportRequestsContext';
 import { useWorkOrders } from '../context/WorkOrdersContext';
 import { useEventRequests } from '../context/EventRequestsContext';
+import { useAccessRequests } from '../context/AccessRequestsContext';
 import { brands } from '../data/mockData';
 import Icon from '../components/Icon';
 import BottomBar from './BottomBar';
@@ -29,9 +30,10 @@ export default function AppLayout({ children }) {
   const { hasNeedMatchingJob } = useEventRequests();
   const { getByBrand } = useCustomLocations();
   const { requests: supportRequests } = useSupportRequests();
-  const { getMyQueue } = useWorkOrders();
+  const { getMyQueue, hasUndownloadedComplete } = useWorkOrders();
   const isAdmin = user?.role === 'admin';
   const isExecutive = user?.role === 'executive';
+  const { requests: accessRequests } = useAccessRequests();
 
   const anyEventNeedsMyJob =
     !!user?.job &&
@@ -47,7 +49,17 @@ export default function AppLayout({ children }) {
 
   // Same formulas as mobile's BottomBar badge logic — one aggregate dot
   // per tab, not a badge per item inside it.
-  const directoryNeedsAttention = myWeeklyIsStale || hasUnseenTimeOff() || getMyQueue().length > 0;
+  // Pending access requests were missing: the Pending Requests tile inside
+  // Directory carried its own badge, but nothing told you to open Directory
+  // in the first place. A dot has to lead the whole way to the thing.
+  const anyPendingAccess =
+    (isAdmin || isExecutive) && accessRequests.some((r) => r.status === 'pending');
+  const directoryNeedsAttention =
+    myWeeklyIsStale ||
+    hasUnseenTimeOff() ||
+    getMyQueue().length > 0 ||
+    hasUndownloadedComplete() ||
+    anyPendingAccess;
   const profileNeedsAttention = isAdmin && supportRequests.some((r) => r.status !== 'completed');
 
   const navItemStyle = ({ isActive }) => ({
