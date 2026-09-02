@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, setDoc, updateDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { brandIdForLocation } from '../data/mockData';
 import { useAuth } from './AuthContext';
 import { renewalTypes, RENEWAL_WARNING_WINDOW_DAYS } from '../data/renewalTypes';
 
@@ -66,6 +67,7 @@ export function RenewalsProvider({ children }) {
             if (snap.exists()) return;
             tx.set(ref, {
               locationId,
+              // So the renewal-due notification knows who can see this location.
               type,
               approvedDate: null,
               expirationDate: null,

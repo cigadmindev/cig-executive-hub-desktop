@@ -30,6 +30,33 @@ export const brands = [
   },
 ];
 
+/**
+ * The brand a location belongs to, or null if it is not a known location.
+ *
+ * Written onto brand posts and renewal records so the push-notification
+ * functions can tell who should hear about them - the server has no access to
+ * this list, and resolving a brand from an id like 'heritage-starkville' by
+ * splitting on the hyphen would break the first time a location is named
+ * differently.
+ *
+ * customLocations are admin-added and live in Firestore rather than here, so
+ * they carry their own brandId and are passed in.
+ */
+export function brandIdForLocation(locationId, customLocations = []) {
+  if (!locationId) return null;
+  const known = brands.find((b) => (b.locations ?? []).some((l) => l.id === locationId));
+  if (known) return known.id;
+  const custom = customLocations.find((l) => l.id === locationId);
+  return custom?.brandId ?? null;
+}
+
+/** A target id that is either a brand or one of its locations. */
+export function brandIdForTarget(targetId, customLocations = []) {
+  if (!targetId || targetId === 'all') return null;
+  if (brands.some((b) => b.id === targetId)) return targetId;
+  return brandIdForLocation(targetId, customLocations);
+}
+
 export const categories = [
   {
     id: 'operations',

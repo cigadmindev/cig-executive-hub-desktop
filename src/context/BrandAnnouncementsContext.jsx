@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, addDoc, doc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import { brands } from '../data/mockData';
+import { brands, brandIdForTarget } from '../data/mockData';
 import { useAuth } from './AuthContext';
 
 const BrandAnnouncementsContext = createContext(undefined);

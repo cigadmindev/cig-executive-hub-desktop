@@ -88,7 +88,9 @@ exports.onEventRequestCreated = onDocumentCreated('eventRequests/{id}', async (e
   if (!req) return;
 
   const db = admin.firestore();
-  const snap = await db.collection('users').where('role', '==', 'admin').get();
+  // Executives approve event requests too, so notifying admins alone meant
+  // the people who could act on it were never told.
+  const snap = await db.collection('users').where('role', 'in', ['admin', 'executive']).get();
   const tokens = snap.docs
     .filter((d) => d.id !== req.requestedByUid && d.data().active !== false && d.data().pushToken)
     .map((d) => d.data().pushToken);
