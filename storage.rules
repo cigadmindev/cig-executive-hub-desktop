@@ -94,6 +94,17 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    // Daily expense reports. Same posture as the receipts themselves: no
+    // client can read one directly. getExpenseReportUrl issues a short-lived
+    // signed URL after checking the caller is an admin or job Financials -
+    // the check Storage rules cannot make.
+    //
+    // Written and deleted only by the scheduled functions, using the Admin
+    // SDK, which ignores these rules.
+    match /expenseReports/{fileName} {
+      allow read, write: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

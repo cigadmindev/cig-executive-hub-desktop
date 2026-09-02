@@ -62,25 +62,28 @@ export function useHomeSummary() {
       b.done += done;
       if (openingDate && openingDate > now) b.openingDate = openingDate;
 
-      if (overdueItems.length > 0) {
+      // One row per item, not one per location. "7 checklist items overdue"
+      // tells you a number and nothing else - you still have to open the
+      // location to find out which. The iPhone app has always listed them.
+      overdueItems.forEach((item) => {
         attention.push({
           level: 'overdue',
-          text: `${overdueItems.length} checklist item${overdueItems.length === 1 ? '' : 's'} overdue`,
+          text: item.title,
           where: `${loc.brandName} · ${loc.name}`,
           to: `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`,
-          sort: 0,
+          sort: item.dateTime ?? 0,
         });
-      }
+      });
 
-      if (timelineOverdue.length > 0) {
+      timelineOverdue.forEach((item) => {
         attention.push({
           level: 'overdue',
-          text: `${timelineOverdue.length} timeline task${timelineOverdue.length === 1 ? '' : 's'} overdue`,
+          text: item.title,
           where: `${loc.brandName} · ${loc.name}`,
           to: `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`,
-          sort: -1,
+          sort: item.dateTime ?? 0,
         });
-      }
+      });
 
       (renewalsFor(loc.id) ?? []).forEach((r) => {
         if (!r.expirationDate) return;

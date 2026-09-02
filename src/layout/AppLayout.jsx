@@ -9,6 +9,7 @@ import { useSupportRequests } from '../context/SupportRequestsContext';
 import { useWorkOrders } from '../context/WorkOrdersContext';
 import { useEventRequests } from '../context/EventRequestsContext';
 import { useAccessRequests } from '../context/AccessRequestsContext';
+import { useExpenses } from '../context/ExpensesContext';
 import { brands } from '../data/mockData';
 import Icon from '../components/Icon';
 import BottomBar from './BottomBar';
@@ -34,6 +35,7 @@ export default function AppLayout({ children }) {
   const isAdmin = user?.role === 'admin';
   const isExecutive = user?.role === 'executive';
   const { requests: accessRequests } = useAccessRequests();
+  const { hasUncollectedReport } = useExpenses();
 
   const anyEventNeedsMyJob =
     !!user?.job &&
@@ -59,6 +61,7 @@ export default function AppLayout({ children }) {
     hasUnseenTimeOff() ||
     getMyQueue().length > 0 ||
     hasUndownloadedComplete() ||
+    hasUncollectedReport() ||
     anyPendingAccess;
   const profileNeedsAttention = isAdmin && supportRequests.some((r) => r.status !== 'completed');
 

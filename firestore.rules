@@ -30,6 +30,18 @@ service cloud.firestore {
     //
     // submittedByUid is set on create and can never change, so ownership
     // cannot be reassigned after the fact.
+    // Daily expense report metadata - the label, totals, and whether it has
+    // been collected. The file itself lives in Storage and is only reachable
+    // through getExpenseReportUrl.
+    //
+    // Written by the scheduled function with the Admin SDK, so no client
+    // write is permitted. Marking one downloaded also goes through a function,
+    // because that is what deletes the file.
+    match /expenseReports/{dateKey} {
+      allow read: if isAdmin() || isFinance();
+      allow write: if false;
+    }
+
     match /expenseReceipts/{receiptId} {
       allow read: if isAdmin() || isFinance() ||
         (isSignedIn() && resource.data.submittedByUid == request.auth.uid);

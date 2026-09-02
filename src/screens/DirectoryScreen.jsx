@@ -5,6 +5,7 @@ import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import { useAvailability } from '../context/AvailabilityContext';
 import { useWorkOrders } from '../context/WorkOrdersContext';
+import { useExpenses } from '../context/ExpensesContext';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
@@ -20,6 +21,7 @@ export default function DirectoryScreen() {
   const { hasUnseenTimeOff } = useViewTracking();
   const { weeklyAvailability, getWeekStart } = useAvailability();
   const { getMyQueue, hasUndownloadedComplete } = useWorkOrders();
+  const { hasUncollectedReport } = useExpenses();
   const myWeekly = weeklyAvailability.find((w) => w.uid === user?.uid);
   const myWeeklyIsStale = !myWeekly || myWeekly.weekStartDate !== getWeekStart();
   const canPostAnnouncements = user?.role === 'admin' || user?.role === 'executive';
@@ -44,6 +46,7 @@ export default function DirectoryScreen() {
     },
     {
       key: 'expenses',
+      badge: hasUncollectedReport(),
       icon: 'barChart',
       title: 'Expenses & Receipts',
       subtitle: 'Travel and business expenses',

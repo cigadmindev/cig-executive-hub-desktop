@@ -15,7 +15,17 @@ import { useDialog } from '../hooks/useDialog';
 export default function ExpensesScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const { user } = useAuth();
-  const { receipts, seesAll, loading, submitReceipt, getImageUrls, voidReceipt, isEditable } =
+  const {
+    receipts,
+    reports,
+    seesAll,
+    loading,
+    submitReceipt,
+    getImageUrls,
+    voidReceipt,
+    isEditable,
+    downloadReport,
+  } =
     useExpenses();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -113,6 +123,19 @@ export default function ExpensesScreen() {
     }
   };
 
+  // A receipt can be voided only while it is still editable. After the
+  // cutoff it is in a report finance already holds, and voiding it then would
+  // leave the app and that report disagreeing about the day's total.
+  const canVoid = (r) => Date.now() < r.editableUntil;
+
+  const handleDownloadReport = async (dateKey) => {
+    try {
+      await downloadReport(dateKey);
+    } catch (err) {
+      notify('Could not download', err?.message ?? 'The report was not downloaded. Try again.');
+    }
+  };
+
   const handleVoid = (r) => {
     confirm({
       title: `Void this $${formatAmount(r.amountCents)} receipt?`,
@@ -132,8 +155,9 @@ export default function ExpensesScreen() {
   // Grouped by the day the money was spent, not the day it was uploaded — a
   // receipt entered on Wednesday for Monday belongs under Monday.
   const grouped = useMemo(() => {
+    const visible = seesAll ? receipts.filter((r) => r.dateSpent === today) : receipts;
     const byDate = {};
-    for (const r of receipts) {
+    for (const r of visible) {
       (byDate[r.dateSpent] = byDate[r.dateSpent] || []).push(r);
     }
     return Object.keys(byDate)
@@ -144,7 +168,7 @@ export default function ExpensesScreen() {
         // Voided receipts are shown but never counted.
         total: byDate[key].reduce((sum, r) => sum + (r.voided ? 0 : r.amountCents), 0),
       }));
-  }, [receipts]);
+  }, [receipts, seesAll, today]);
 
   const isAdmin = user?.role === 'admin';
   const today = centralDateKey(new Date());
@@ -159,9 +183,38 @@ export default function ExpensesScreen() {
       </div>
       <p style={styles.subtitle}>
         {seesAll
-          ? 'Every submitted receipt, grouped by the day it was spent.'
+          ? "Today's receipts, and any daily report waiting to be collected."
           : 'Your receipts, grouped by the day you spent the money.'}
       </p>
+
+      {/* Reports are generated at 11:59pm Central and stay until downloaded -
+          not until the next one arrives, which would give one day to collect
+          them. Finance and admins only; the rules reject anyone else, so this
+          never renders for them. */}
+      {seesAll && reports.length > 0 ? (
+        <div style={styles.reportsSection}>
+          <p style={styles.zoneLabel}>Daily reports</p>
+          {reports.map((r) => (
+            <div key={r.dateKey} style={styles.reportRow}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={styles.reportLabel}>
+                  {r.label}
+                  {!r.downloadedAt ? <span style={styles.reportDot} /> : null}
+                </div>
+                <div style={styles.reportMeta}>
+                  {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)}
+                  {r.downloadedAt ? ` · collected by ${r.downloadedBy}` : ''}
+                </div>
+              </div>
+              {!r.downloadedAt ? (
+                <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey)}>
+                  Download CSV
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {loading ? (
         <p style={styles.hint}>Loading…</p>
@@ -189,7 +242,7 @@ export default function ExpensesScreen() {
                       <img src={urls[r.id]} alt="" style={styles.thumb} />
                     ) : (
                       <div style={{ ...styles.thumb, ...styles.thumbEmpty }}>
-                        {r.imageDeletedAt ? 'Aged out' : '—'}
+                        {r.imageDeletedAt ? 'No photo' : '—'}
                       </div>
                     )}
                     <div style={styles.cardText}>
@@ -204,7 +257,7 @@ export default function ExpensesScreen() {
                       {seesAll ? <div style={styles.cardWho}>{r.submittedByName}</div> : null}
                       {left ? <div style={styles.cardCountdown}>{left}</div> : null}
                     </div>
-                    {isAdmin && !r.voided ? (
+                    {isAdmin && !r.voided && canVoid(r) ? (
                       <button
                         style={styles.voidButton}
                         onClick={(e) => {
@@ -339,7 +392,7 @@ export default function ExpensesScreen() {
             ) : (
               <p style={styles.hint}>
                 {viewing.imageDeletedAt
-                  ? 'The photo aged out after 90 days. The record is still here.'
+                  ? 'The photo was removed once this day was reported. The record is still here.'
                   : 'Photo unavailable.'}
               </p>
             )}
@@ -384,6 +437,13 @@ const styles = {
   subtitle: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 22px' },
   hint: { fontSize: 13, color: 'var(--text-tertiary)', padding: '12px 0' },
 
+  reportsSection: { marginBottom: 30 },
+  zoneLabel: { fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', margin: '0 0 10px' },
+  reportRow: { display: 'flex', alignItems: 'center', gap: 14, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 8 },
+  reportLabel: { display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' },
+  reportDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--danger)' },
+  reportMeta: { fontSize: 12, color: 'var(--text-tertiary)', marginTop: 3 },
+  reportButton: { background: 'var(--neon)', color: 'var(--neon-text)', border: 'none', borderRadius: 8, padding: '9px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer', flexShrink: 0 },
   group: { marginBottom: 26 },
   groupHeader: {
     display: 'flex',

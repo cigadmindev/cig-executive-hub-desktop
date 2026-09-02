@@ -6,7 +6,6 @@
 // server-side permission check, and nothing is ever deleted — only voided, or
 // aged out image-side after 90 days.
 const { onCall, HttpsError } = require('firebase-functions/https');
-const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 
 const COLLECTION = 'expenseReceipts';
@@ -217,44 +216,8 @@ exports.getReceiptUrls = onCall(async (request) => {
   return { urls };
 });
 
-// ---------------------------------------------------------------------------
-// 90-day image sweep
-// ---------------------------------------------------------------------------
-//
-// The record is permanent; the image is not. Receipt photos are the expensive
-// part and the least useful after the fact — finance has reconciled by then,
-// and the amount, category, reason and date all live in the record.
-//
-// A sweep rather than an inline delete, for the same reason as chat
-// attachments: idempotent, and it catches whatever a failed run missed.
-exports.sweepOldReceiptImages = onSchedule('every 24 hours', async () => {
-  const db = admin.firestore();
-  const bucket = admin.storage().bucket();
-
-  const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
-  const cutoff = Date.now() - NINETY_DAYS;
-
-  const snap = await db
-    .collection(COLLECTION)
-    .where('imageDeletedAt', '==', null)
-    .where('submittedAt', '<', cutoff)
-    .get();
-
-  let deleted = 0;
-  for (const docSnap of snap.docs) {
-    const r = docSnap.data();
-    if (!r.storagePath) continue;
-    try {
-      await bucket.file(r.storagePath).delete({ ignoreNotFound: true });
-      await docSnap.ref.update({ imageDeletedAt: Date.now() });
-      deleted++;
-    } catch (err) {
-      // Leave it for the next run rather than marking it deleted when it isn't.
-      console.error(`Receipt image sweep failed for ${docSnap.id}: ${err.message}`);
-    }
-  }
-
-  console.log(`Receipt image sweep: ${deleted} image(s) removed.`);
-});
+// Receipt photos are deleted nightly by closeExpenseDay, once the day's
+// report exists. A 90-day sweep used to do it and is gone - it could only
+// ever find images the nightly close had already removed.
 
 exports.EXPENSE_CATEGORIES = CATEGORIES;

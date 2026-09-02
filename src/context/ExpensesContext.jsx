@@ -24,10 +24,12 @@ export const EXPENSE_CATEGORIES = [
 
 const ExpensesContext = createContext(undefined);
 const COLLECTION = 'expenseReceipts';
+const REPORTS = 'expenseReports';
 
 export function ExpensesProvider({ children }) {
   const [receipts, setReceipts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reports, setReports] = useState([]);
   const { user } = useAuth();
 
   const seesAll = user?.role === 'admin' || user?.job === 'Financials';
@@ -87,6 +89,62 @@ export function ExpensesProvider({ children }) {
     return unsubscribe;
   }, [user?.uid, seesAll]);
 
+
+  // Daily reports. Only finance and admins can read the collection at all -
+  // the rules reject anyone else - so the listener does not mount for them.
+  useEffect(() => {
+    if (!user || !seesAll) {
+      setReports([]);
+      return undefined;
+    }
+    const q = query(collection(db, REPORTS), orderBy('dateKey', 'desc'));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        setReports(
+          snapshot.docs.map((d) => {
+            const data = d.data();
+            return {
+              dateKey: d.id,
+              label: data.label ?? d.id,
+              receiptCount: data.receiptCount ?? 0,
+              totalCents: data.totalCents ?? 0,
+              downloadedAt: data.downloadedAt ?? null,
+              downloadedBy: data.downloadedBy ?? null,
+            };
+          })
+        );
+      },
+      (err) => console.error('[ExpenseReports listener] ' + err.code + ': ' + err.message)
+    );
+  }, [user?.uid, seesAll]);
+
+  // Two calls rather than one: the URL is issued first, and only once the
+  // browser has the file do we mark it collected and delete it. A failed
+  // download must not lose the report.
+  const downloadReport = async (dateKey) => {
+    const fns = getFunctions(undefined, 'us-central1');
+    const res = await httpsCallable(fns, 'getExpenseReportUrl')({ dateKey });
+    const { url, label } = res.data;
+
+    const file = await fetch(url);
+    if (!file.ok) throw new Error('The report could not be downloaded.');
+    const blob = await file.blob();
+
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = 'expenses-' + dateKey + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+
+    await httpsCallable(fns, 'confirmExpenseReportDownloaded')({ dateKey });
+  };
+
+  const hasUncollectedReport = () => reports.some((r) => !r.downloadedAt);
+
   // Upload first, then record. The Storage rules already restrict a person to
   // their own folder, and the Cloud Function verifies the file exists before
   // writing anything — so a record can never point at a missing image.
@@ -142,8 +200,19 @@ export function ExpensesProvider({ children }) {
     !r.voided && r.submittedByUid === user?.uid && Date.now() < r.editableUntil;
 
   const value = useMemo(
-    () => ({ receipts, seesAll, loading, submitReceipt, getImageUrls, voidReceipt, isEditable }),
-    [receipts, seesAll, loading, user?.uid]
+    () => ({
+      receipts,
+      reports,
+      seesAll,
+      loading,
+      submitReceipt,
+      getImageUrls,
+      voidReceipt,
+      isEditable,
+      downloadReport,
+      hasUncollectedReport,
+    }),
+    [receipts, reports, seesAll, loading, user?.uid]
   );
 
   return <ExpensesContext.Provider value={value}>{children}</ExpensesContext.Provider>;
