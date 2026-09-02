@@ -154,6 +154,7 @@ export default function ExpensesScreen() {
 
   // Grouped by the day the money was spent, not the day it was uploaded — a
   // receipt entered on Wednesday for Monday belongs under Monday.
+  const today = centralDateKey(new Date());
   const grouped = useMemo(() => {
     const visible = seesAll ? receipts.filter((r) => r.dateSpent === today) : receipts;
     const byDate = {};
@@ -171,7 +172,6 @@ export default function ExpensesScreen() {
   }, [receipts, seesAll, today]);
 
   const isAdmin = user?.role === 'admin';
-  const today = centralDateKey(new Date());
 
   return (
     <div style={styles.page}>
