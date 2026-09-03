@@ -1,6 +1,6 @@
 {
   "name": "cig-executive-hub-desktop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "CIG Executive Hub — Mac & Windows desktop app",
   "author": "Culinary Innovations Group",
   "main": "electron/main.js",
