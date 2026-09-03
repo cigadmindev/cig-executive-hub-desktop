@@ -184,7 +184,16 @@ export function WorkOrdersProvider({ children }) {
 
     // Recorded before the cleanup: the download is what clears the dot, and it
     // has already happened by this point.
-    await updateDoc(doc(db, COLLECTION, order.id), { downloadedAt: Date.now() });
+    //
+    // Guarded for the same reason as the cleanup below - the file is already on
+    // disk, so nothing after this point should be able to report a failure the
+    // person can see. A rejected write here used to say the download had not
+    // worked while the PDF sat in their downloads folder.
+    try {
+      await updateDoc(doc(db, COLLECTION, order.id), { downloadedAt: Date.now() });
+    } catch (err) {
+      console.error('[WorkOrders] downloadedAt not recorded: ' + err.message);
+    }
 
     // Best effort - a failure here leaves files in storage, which the sweep
     // and the 90-day rules can deal with. It must not undo the download.

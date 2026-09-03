@@ -60,6 +60,9 @@ function eyebrow(text) {
 }
 
 function welcomeHtml({ name, link }) {
+  // The Mac and iPhone steps stay defined below but are not rendered - the
+  // apps go out separately once the iPhone version is through review. Add
+  // them back to the block at the bottom then.
   const webStep = step(2, false, 'Open it in your browser',
     `<a href="${WEB_URL}" style="color:#22D3EE;text-decoration:none;">hub.cigconcepts.com</a> &mdash; nothing to install, works on any computer or phone.`);
   const macStep = step(4, false, 'Install on Mac',
@@ -102,8 +105,6 @@ function welcomeHtml({ name, link }) {
       ${step(1, true, 'Set your password', 'Use the button above. The link expires in an hour.')}
       ${webStep}
       ${videoStep}
-      ${macStep}
-      ${iosStep}
     </table>
   `)}
 

@@ -172,6 +172,11 @@ export const OPERATIONAL_POC_SECTIONS = [
     ],
   },
   {
+    key: 'hr_staffing',
+    label: 'HR / Staffing',
+    items: ['HR Contact', 'Payroll Provider', 'Background Checks', 'Staffing Agency', 'Workers Comp'],
+  },
+  {
     key: 'other_tasks_numbers',
     label: 'Other Tasks / Numbers',
     items: ['Emergency Ice', 'Glass Replacement', 'Landscape Service', 'Flowers/Fresh/Artificial', 'Floor Chart/Stations', 'Coordinate Kitchen Install'],
