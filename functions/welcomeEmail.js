@@ -10,6 +10,12 @@
 // a public asset host.
 const MAC_DOWNLOAD_URL = 'https://drive.google.com/drive/folders/1W0DfCJQ1lA-iO6thNKtddynxGgzOlJGI';
 const IOS_DOWNLOAD_URL = 'https://apps.apple.com/app/id6790941894';
+// Folder rather than a single file, so one link serves both the manager and
+// the executive walkthrough. The /u/0/ prefix is deliberately absent - it
+// forces whichever Google account signed in first and breaks for anyone with
+// more than one.
+const TRAINING_VIDEO_URL = 'https://drive.google.com/file/d/1PheYqqLZlmMl5f7y8UIKqU7R9mGkj4LG/view';
+const WEB_URL = 'https://hub.cigconcepts.com';
 
 const F = 'Helvetica,Arial,sans-serif';
 
@@ -54,11 +60,15 @@ function eyebrow(text) {
 }
 
 function welcomeHtml({ name, link }) {
-  const macStep = step(2, false, 'Install on Mac',
+  const webStep = step(2, false, 'Open it in your browser',
+    `<a href="${WEB_URL}" style="color:#22D3EE;text-decoration:none;">hub.cigconcepts.com</a> &mdash; nothing to install, works on any computer or phone.`);
+  const macStep = step(4, false, 'Install on Mac',
     `<a href="${MAC_DOWNLOAD_URL}" style="color:#22D3EE;text-decoration:none;">Download the desktop app</a>`);
   const iosStep = IOS_DOWNLOAD_URL
-    ? step(3, false, 'Install on iPhone', `<a href="${IOS_DOWNLOAD_URL}" style="color:#22D3EE;text-decoration:none;">Get it from the App Store</a>`)
-    : step(3, false, 'Install on iPhone', 'Coming soon &mdash; we&rsquo;ll send the link once it&rsquo;s approved.');
+    ? step(5, false, 'Install on iPhone', `<a href="${IOS_DOWNLOAD_URL}" style="color:#22D3EE;text-decoration:none;">Get it from the App Store</a>`)
+    : step(5, false, 'Install on iPhone', 'Coming soon &mdash; we&rsquo;ll send the link once it&rsquo;s approved.');
+  const videoStep = step(3, false, 'Watch the walkthrough',
+    `<a href="${TRAINING_VIDEO_URL}" style="color:#22D3EE;text-decoration:none;">See how it works</a> &mdash; about ten minutes, and worth it before you start.`);
 
   return `<!DOCTYPE html>
 <html><head>
@@ -90,6 +100,8 @@ function welcomeHtml({ name, link }) {
     ${eyebrow('Getting started')}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       ${step(1, true, 'Set your password', 'Use the button above. The link expires in an hour.')}
+      ${webStep}
+      ${videoStep}
       ${macStep}
       ${iosStep}
     </table>
