@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { brands, categories } from '../data/mockData';
+import { brands, categories, hasFeature } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useRenewals, isRenewalDueSoon } from '../context/RenewalsContext';
 import { useAuth } from '../context/AuthContext';
@@ -78,7 +78,15 @@ export default function LocationScreen() {
 
       <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel }}>Operations</h3>
       <div style={styles.grid}>
-        {OPERATIONAL_ITEMS.map((item) => {
+        {OPERATIONAL_ITEMS.filter((item) =>
+          hasFeature(user, {
+            'event-requests': 'eventRequests',
+            renewals: 'renewals',
+            'opening-checklist': 'openingChecklist',
+            'operational-poc': 'operationalPoc',
+            integrations: 'integrations',
+          }[item.key])
+        ).map((item) => {
           const showRenewalBadge = item.key === 'renewals' && hasUpcomingRenewal;
           const showEventBadge = item.key === 'event-requests' && hasUnseenEventRequests(locationId);
           const showBadge = showRenewalBadge || showEventBadge;

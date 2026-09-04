@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { brands } from '../data/mockData';
+import { brands , hasFeature } from '../data/mockData';
 import { useSchedule } from '../context/ScheduleContext';
 import { useRenewals } from '../context/RenewalsContext';
 import { useOpeningInfo } from '../context/OpeningInfoContext';
@@ -43,6 +43,12 @@ export function useHomeSummary() {
       const info = getInfo(loc.id);
       const openingDate = info?.openingDate ?? null;
       const allOpening = entries.filter((e) => e.locationId === loc.id && e.openingItem);
+
+      // Progress bars and counts use every item - whether an opening is on
+      // track is a summary, not a task list. The individual rows below are
+      // gated instead: listing work someone cannot open is the thing to
+      // avoid, not telling them how the restaurant is doing.
+      const canSeeChecklistItems = hasFeature(user, 'openingChecklist');
       // Tracked separately: setup is the permit and account work, timeline is
       // the build-out milestones. They progress at different rates and mixing
       // them into one number hides which half is behind.
@@ -65,7 +71,7 @@ export function useHomeSummary() {
       // One row per item, not one per location. "7 checklist items overdue"
       // tells you a number and nothing else - you still have to open the
       // location to find out which. The iPhone app has always listed them.
-      overdueItems.forEach((item) => {
+      (canSeeChecklistItems ? overdueItems : []).forEach((item) => {
         attention.push({
           level: 'overdue',
           text: item.title,
@@ -81,7 +87,7 @@ export function useHomeSummary() {
       //
       // Overdue items are already pushed above, so this skips them rather
       // than listing the same task twice. Late is the more urgent framing.
-      items
+      (canSeeChecklistItems ? items : [])
         .filter((i) => !i.done && i.assignedToUid === user?.uid && i.dateTime >= now)
         .forEach((item) => {
           attention.push({
@@ -93,7 +99,7 @@ export function useHomeSummary() {
           });
         });
 
-      timelineOverdue.forEach((item) => {
+      (canSeeChecklistItems ? timelineOverdue : []).forEach((item) => {
         attention.push({
           level: 'overdue',
           text: item.title,
@@ -103,7 +109,7 @@ export function useHomeSummary() {
         });
       });
 
-      (renewalsFor(loc.id) ?? []).forEach((r) => {
+      (hasFeature(user, 'renewals') ? renewalsFor(loc.id) ?? [] : []).forEach((r) => {
         if (!r.expirationDate) return;
         const days = Math.round((r.expirationDate - now) / DAY);
         if (days > RENEWAL_WARNING_WINDOW_DAYS) return;
@@ -144,8 +150,17 @@ export function useHomeSummary() {
     // in it scopes this the same way the tiles are. It was previously used
     // for labelling alone, which let another brand's items through with a
     // blank where.
+    // Not "hide This Week from restricted people" - it holds whatever they
+    // can reach. Someone without the opening checklist still sees an event on
+    // Tuesday; they just do not see a permit task they cannot open.
+    const showChecklistItems = hasFeature(user, 'openingChecklist');
     const thisWeekAll = entries.filter(
-      (e) => locById[e.locationId] && e.dateTime >= now && e.dateTime <= weekEnd && !e.done
+      (e) =>
+        locById[e.locationId] &&
+        e.dateTime >= now &&
+        e.dateTime <= weekEnd &&
+        !e.done &&
+        (showChecklistItems || !e.openingItem)
     );
     const thisWeekCount = thisWeekAll.length;
 

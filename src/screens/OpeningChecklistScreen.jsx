@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { brands, canEditChecklists } from '../data/mockData';
+import { brands, canEditChecklists , hasFeature } from '../data/mockData';
 import Icon from '../components/Icon';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useSchedule } from '../context/ScheduleContext';
@@ -33,7 +33,12 @@ export default function OpeningChecklistScreen() {
 
   // Only people who can already open this location. Assigning someone a task
   // they cannot reach would put a row on their home screen that goes nowhere.
-  const assignableUsers = (activeUsers ?? []).filter((u) => hasBrandAccess(u, brandId));
+  // Access to the location is not enough - they also need to be able to open
+  // the checklist. Assigning someone a task they cannot reach would put a row
+  // on their home screen that goes nowhere.
+  const assignableUsers = (activeUsers ?? []).filter(
+    (u) => hasBrandAccess(u, brandId) && hasFeature(u, 'openingChecklist')
+  );
 
   const handleAssign = async (item, uid) => {
     const person = assignableUsers.find((u) => u.uid === uid);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { brands, categories } from '../data/mockData';
+import { brands, categories, FEATURES } from '../data/mockData';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
@@ -16,7 +16,7 @@ function cleanJob(j) {
 
 export default function AdminUsersScreen() {
   const { dialogNode, confirm, notify } = useDialog();
-  const { users, addUser, sendPasswordReset, setUserActive, updateUserRole, user: currentUser } = useAuth();
+  const { users, addUser, sendPasswordReset, setUserActive, updateUserRole, user: currentUser , updatePermissions } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +26,39 @@ export default function AdminUsersScreen() {
   const [categoryIds, setCategoryIds] = useState([]);
   const [creating, setCreating] = useState(false);
   const [roleEditUser, setRoleEditUser] = useState(null);
+  // Drafts for the access modal. Held here rather than written on each click
+  // so ticking eight features is one write, and so someone can change their
+  // mind before committing.
+  const [editRole, setEditRole] = useState('manager');
+  const [editBrands, setEditBrands] = useState([]);
+  const [editCategories, setEditCategories] = useState([]);
+  const [editFeatures, setEditFeatures] = useState([]);
   const [savingRole, setSavingRole] = useState(false);
+
+  const openAccessEditor = (u) => {
+    setEditRole(u.role);
+    setEditBrands(u.permissions?.brandIds ?? []);
+    setEditCategories(u.permissions?.categoryIds ?? []);
+    setEditFeatures(u.permissions?.features ?? FEATURES.map((f) => f.key));
+    setRoleEditUser(u);
+  };
+
+  const handleSaveAccess = async () => {
+    setSavingRole(true);
+    try {
+      if (editRole !== roleEditUser.role) await updateUserRole(roleEditUser.uid, editRole);
+      await updatePermissions(roleEditUser.uid, {
+        brandIds: editBrands,
+        categoryIds: editCategories,
+        features: editFeatures,
+      });
+      setRoleEditUser(null);
+    } catch (err) {
+      notify('Could not save', err?.message ?? 'Nothing was changed. Try again.');
+    } finally {
+      setSavingRole(false);
+    }
+  };
 
   if (currentUser?.role !== 'admin') {
     return (
@@ -227,7 +259,7 @@ export default function AdminUsersScreen() {
             </button>
             {item.uid !== currentUser?.uid ? (
               <>
-                <button style={styles.resetButton} onClick={() => setRoleEditUser({ uid: item.uid, name: item.name, role: item.role })}>
+                <button style={styles.resetButton} onClick={() => openAccessEditor(item)}>
                   Change Role
                 </button>
                 {item.active ? (
@@ -256,37 +288,80 @@ export default function AdminUsersScreen() {
       {roleEditUser ? (
         <div style={styles.modalBackdrop} onClick={() => !savingRole && setRoleEditUser(null)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Change Role</h2>
+            <h2 style={styles.modalTitle}>Edit Access</h2>
             <p style={styles.modalSubtitle}>{roleEditUser.name}</p>
             <div style={styles.roleRow}>
-              <button
-                style={{ ...styles.roleButton, ...(roleEditUser.role === 'manager' ? styles.roleButtonActive : {}) }}
-                onClick={() => handleChangeRole('manager')}
-                disabled={savingRole}
-              >
-                Manager
-              </button>
-              <button
-                style={{ ...styles.roleButton, ...(roleEditUser.role === 'executive' ? styles.roleButtonActive : {}) }}
-                onClick={() => handleChangeRole('executive')}
-                disabled={savingRole}
-              >
-                Executive
-              </button>
-              <button
-                style={{ ...styles.roleButton, ...(roleEditUser.role === 'admin' ? styles.roleButtonActive : {}) }}
-                onClick={() => handleChangeRole('admin')}
-                disabled={savingRole}
-              >
-                Admin
-              </button>
+              {['manager', 'executive', 'admin'].map((r) => (
+                <button
+                  key={r}
+                  style={{ ...styles.roleButton, ...(editRole === r ? styles.roleButtonActive : {}) }}
+                  onClick={() => setEditRole(r)}
+                  disabled={savingRole}
+                >
+                  {r === 'manager' ? 'Manager' : r === 'executive' ? 'Executive' : 'Admin'}
+                </button>
+              ))}
             </div>
-            {roleEditUser.role === 'manager' ? (
+
+            {editRole === 'manager' ? (
+              <>
+                <p style={styles.modalSectionLabel}>Restaurants</p>
+                <div style={styles.chipWrap}>
+                  {brands.map((b) => (
+                    <button
+                      key={b.id}
+                      style={{ ...styles.chip, ...(editBrands.includes(b.id) ? styles.chipActive : {}) }}
+                      onClick={() => setEditBrands(toggleInArray(editBrands, b.id))}
+                    >
+                      {b.name}
+                    </button>
+                  ))}
+                </div>
+
+                <p style={styles.modalSectionLabel}>File directories</p>
+                <div style={styles.chipWrap}>
+                  {categories.map((c) => (
+                    <button
+                      key={c.id}
+                      style={{ ...styles.chip, ...(editCategories.includes(c.id) ? styles.chipActive : {}) }}
+                      onClick={() => setEditCategories(toggleInArray(editCategories, c.id))}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* What they can reach. Everything not ticked is hidden - and
+                    the calendar and home screen follow from this rather than
+                    having rules of their own, so someone without the checklist
+                    does not see its items anywhere. */}
+                <p style={styles.modalSectionLabel}>What they can reach</p>
+                <div style={styles.chipWrap}>
+                  {FEATURES.map((f) => (
+                    <button
+                      key={f.key}
+                      style={{ ...styles.chip, ...(editFeatures.includes(f.key) ? styles.chipActive : {}) }}
+                      onClick={() => setEditFeatures(toggleInArray(editFeatures, f.key))}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <p style={styles.modalNote}>
+                  Messages, the calendar and their profile are always available. Everything else is what you tick
+                  here.
+                </p>
+              </>
+            ) : (
               <p style={styles.modalNote}>
-                Switching to Admin or Executive gives full access immediately — their existing restaurant/category
-                permissions stay saved, so switching back to Manager later restores exactly what they had.
+                Executives and admins see everything. Their manager permissions stay saved, so switching back later
+                restores exactly what they had.
               </p>
-            ) : null}
+            )}
+
+            <button style={styles.confirmButton} onClick={handleSaveAccess} disabled={savingRole}>
+              {savingRole ? 'Saving…' : 'Save'}
+            </button>
             <button style={styles.cancelButton} onClick={() => setRoleEditUser(null)} disabled={savingRole}>
               {savingRole ? 'Saving…' : 'Cancel'}
             </button>
@@ -347,9 +422,34 @@ const styles = {
   selfNote: { color: 'var(--text-secondary)', fontSize: 11, fontStyle: 'italic', alignSelf: 'center' },
   note: { marginTop: 16, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6 },
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 'min(380px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  // Wider and scrollable: the access editor holds role, five restaurants,
+  // eleven directories and nine features, which is well past one screen.
+  modalCard: {
+    width: 'min(460px, calc(100vw - 32px))',
+    maxHeight: '82vh',
+    overflowY: 'auto',
+    background: 'var(--bg-elevated)',
+    border: 'none',
+    borderRadius: 18,
+    padding: 22,
+    boxShadow: 'var(--shadow-lg)',
+  },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 4px' },
   modalSubtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px' },
+  confirmButton: {
+    width: '100%',
+    marginTop: 20,
+    padding: '11px 0',
+    borderRadius: 10,
+    border: 'none',
+    background: 'var(--neon)',
+    color: 'var(--neon-text)',
+    fontSize: 13,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+    cursor: 'pointer',
+  },
+  modalSectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '18px 0 8px' },
   modalNote: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, marginTop: 4 },
   cancelButton: {
     width: '100%',

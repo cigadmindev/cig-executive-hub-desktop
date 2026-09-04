@@ -6,7 +6,7 @@ import { useSchedule } from '../context/ScheduleContext';
 import { useRenewals } from '../context/RenewalsContext';
 import { useEventRequests } from '../context/EventRequestsContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
-import { brands } from '../data/mockData';
+import { brands , hasFeature } from '../data/mockData';
 import { brandColors } from '../theme/colors';
 import MonthCalendar from '../components/MonthCalendar';
 import TimePickerField from '../components/TimePickerField';
@@ -100,6 +100,18 @@ export default function CalendarScreen() {
     const info = locationInfo[e.locationId];
     if (!info) return false;
     if (filterBrandId !== 'all' && info.brandId !== filterBrandId) return false;
+
+    // The calendar shows what you can reach. Someone without the opening
+    // checklist keeps the calendar - it simply holds fewer things, rather
+    // than listing work they cannot open.
+    //
+    // Filtered here, where the markers and the day list both read from, and
+    // not at each display site: the home screen leak survived because it was
+    // filtered on the tiles and missed in the totals.
+    if (e.openingItem && !hasFeature(user, 'openingChecklist')) return false;
+    if (e.source === 'renewal' && !hasFeature(user, 'renewals')) return false;
+    if (e.source === 'event' && !hasFeature(user, 'eventRequests')) return false;
+
     return true;
   });
 

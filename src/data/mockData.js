@@ -227,3 +227,37 @@ export function canEditChecklists(user) {
   if (user.role !== 'executive') return false;
   return user.job === 'COO' || user.job === 'Drink / Beverage Manager';
 }
+
+/**
+ * What a manager can reach. Executives and admins ignore this entirely - they
+ * see everything by role.
+ *
+ * An absent features list means everything, so nobody currently working is
+ * affected and no migration is needed. Only people deliberately restricted
+ * are restricted.
+ *
+ * The calendar and the home screen follow from these rather than having rules
+ * of their own: if you cannot reach the opening checklist, its items are not
+ * on your calendar either. Someone like a videographer keeps the calendar and
+ * messages and sees only what his access actually reaches.
+ */
+export const FEATURES = [
+  { key: 'openingChecklist', label: 'Opening checklist' },
+  { key: 'operationalPoc', label: 'Operational POC' },
+  { key: 'renewals', label: 'License & lease renewals' },
+  { key: 'eventRequests', label: 'Event / promo requests' },
+  { key: 'integrations', label: 'Integrations' },
+  { key: 'availability', label: 'Availability & time off' },
+  { key: 'workOrders', label: 'Signature directory' },
+  { key: 'expenses', label: 'Expenses & receipts' },
+  { key: 'support', label: 'Support' },
+];
+
+export function hasFeature(user, key) {
+  if (!user) return false;
+  if (user.role === 'admin' || user.role === 'executive') return true;
+  const granted = user.permissions?.features;
+  // Absent means everything - see above.
+  if (!Array.isArray(granted)) return true;
+  return granted.includes(key);
+}

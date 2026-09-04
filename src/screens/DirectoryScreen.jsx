@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { hasFeature } from '../data/mockData';
 import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import { useAvailability } from '../context/AvailabilityContext';
@@ -92,7 +93,19 @@ export default function DirectoryScreen() {
     <div style={styles.page}>
       <h1 style={{ ...styles.title, ...nike.pageTitle }}>Directory</h1>
       <div style={styles.grid}>
-        {items.map((item) => (
+        {/* Filtered once here rather than at each tile - the array is built
+            with conditional pushes, so one filter at the render is the only
+            place that catches every route in. */}
+        {items
+          .filter((item) =>
+            hasFeature(user, {
+              availability: 'availability',
+              workOrders: 'workOrders',
+              expenses: 'expenses',
+              support: 'support',
+            }[item.key] ?? item.key)
+          )
+          .map((item) => (
           <button key={item.key} data-card="" style={{ ...styles.card, ...nike.card }} onClick={item.onClick}>
             <div style={styles.iconCircle}>
               <Icon name={item.icon} color="var(--neon)" />

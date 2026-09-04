@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter, BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { hasFeature } from './data/mockData';
 import { ChatProvider } from './context/ChatContext';
 import { ScheduleProvider } from './context/ScheduleContext';
 import { CustomLocationsProvider } from './context/CustomLocationsContext';
@@ -72,8 +73,8 @@ function Gate() {
         <Route path="/" element={<HomeScreen />} />
         <Route path="/brand/:brandId" element={<BrandScreen />} />
         <Route path="/brand/:brandId/location/:locationId" element={<LocationScreen />} />
-        <Route path="/brand/:brandId/location/:locationId/event-requests" element={<EventRequestsScreen />} />
-        <Route path="/brand/:brandId/location/:locationId/renewals" element={<RenewalsScreen />} />
+        <Route path="/brand/:brandId/location/:locationId/event-requests" element={<RequireFeature feature="eventRequests"><EventRequestsScreen /></RequireFeature>} />
+        <Route path="/brand/:brandId/location/:locationId/renewals" element={<RequireFeature feature="renewals"><RenewalsScreen /></RequireFeature>} />
         <Route path="/brand/:brandId/location/:locationId/category/:categoryId" element={<CategoryDetailScreen />} />
         <Route
           path="/brand/:brandId/location/:locationId/category/:categoryId/announcements"
@@ -84,16 +85,16 @@ function Gate() {
         <Route path="/calendar" element={<CalendarScreen />} />
         <Route path="/directory" element={<DirectoryScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
-        <Route path="/availability" element={<AvailabilityScreen />} />
+        <Route path="/availability" element={<RequireFeature feature="availability"><AvailabilityScreen /></RequireFeature>} />
         <Route path="/admin/users" element={<AdminUsersScreen />} />
         <Route path="/admin/pending-requests" element={<PendingRequestsScreen />} />
-        <Route path="/brand/:brandId/location/:locationId/opening-checklist" element={<OpeningChecklistScreen />} />
-        <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<OperationalPOCScreen />} />
-        <Route path="/brand/:brandId/location/:locationId/integrations" element={<IntegrationsScreen />} />
-        <Route path="/support" element={<SupportScreen />} />
+        <Route path="/brand/:brandId/location/:locationId/opening-checklist" element={<RequireFeature feature="openingChecklist"><OpeningChecklistScreen /></RequireFeature>} />
+        <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<RequireFeature feature="operationalPoc"><OperationalPOCScreen /></RequireFeature>} />
+        <Route path="/brand/:brandId/location/:locationId/integrations" element={<RequireFeature feature="integrations"><IntegrationsScreen /></RequireFeature>} />
+        <Route path="/support" element={<RequireFeature feature="support"><SupportScreen /></RequireFeature>} />
         <Route path="/executive-notes" element={<ExecutiveNotesScreen />} />
-        <Route path="/work-orders" element={<WorkOrdersScreen />} />
-        <Route path="/expenses" element={<ExpensesScreen />} />
+        <Route path="/work-orders" element={<RequireFeature feature="workOrders"><WorkOrdersScreen /></RequireFeature>} />
+        <Route path="/expenses" element={<RequireFeature feature="expenses"><ExpensesScreen /></RequireFeature>} />
         <Route path="/reset-app-data" element={<ResetAppDataScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -153,6 +154,13 @@ function Providers({ children }) {
       </WorkOrdersProvider>
       </ThemeProvider>
   );
+}
+
+
+function RequireFeature({ feature, children }) {
+  const { user } = useAuth();
+  if (!hasFeature(user, feature)) return <Navigate to="/" replace />;
+  return children;
 }
 
 export default function App() {
