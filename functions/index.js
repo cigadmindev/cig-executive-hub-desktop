@@ -263,3 +263,5 @@ Object.assign(exports, require('./expenses'));
 Object.assign(exports, require('./expenseReports'));
 
 Object.assign(exports, require('./notifications'));
+
+Object.assign(exports, require('./expenseMonthly'));
