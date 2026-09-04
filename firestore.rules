@@ -16,6 +16,20 @@ service cloud.firestore {
     function isOwner(resource) {
       return isSignedIn() && resource.data.authorUid == request.auth.uid;
     }
+    // Restructuring a checklist - adding an item, deleting one, or putting
+    // someone's name against it - belongs to the people responsible for what
+    // is on the list: admins, the COO, and the beverage manager. Being an
+    // executive is not the same as owning the checklist.
+    //
+    // Mirrors canEditChecklists in the app. If one changes, change both.
+    function canEditChecklists() {
+      return request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'COO' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'Drink / Beverage Manager'
+      );
+    }
+
     // Finance is a job, not a role - Sam is an executive whose job is
     // Financials. There is no fourth role.
     function isFinance() {
@@ -93,13 +107,20 @@ service cloud.firestore {
 
     match /schedules/{entryId} {
       allow read: if isSignedIn();
-      allow create: if isAdminOrExecutive();
-      allow update: if isAdminOrExecutive() || (
+      allow create: if canEditChecklists();
+      // Two branches, deliberately. The first is the three people who own the
+      // list. The second is everyone else doing the actual work: ticking items
+      // off, filling fields, attaching documents, moving a date.
+      //
+      // assignedToUid and assignedToName are absent from that second list on
+      // purpose - otherwise anyone signed in could assign work to anybody by
+      // writing the field directly.
+      allow update: if canEditChecklists() || (
         isSignedIn() &&
         resource.data.openingItem == true &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'openingFields', 'dateTime'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'openingFields', 'dateTime', 'document'])
       );
-      allow delete: if isAdminOrExecutive() || isOwner(resource);
+      allow delete: if canEditChecklists();
     }
 
     // Chat is private to its members. Admins were able to read every

@@ -20,7 +20,17 @@ const FIELDS = [
   { key: 'contact', label: 'Contact' },
 ];
 
-export default function ItemDetails({ item, onSave, locationId, userName }) {
+export default function ItemDetails({
+  item,
+  onSave,
+  locationId,
+  userName,
+  // Assignment and deletion are only offered to admins, the COO and the
+  // beverage manager - the screen decides, this just renders what it is given.
+  assignableUsers = null,
+  onAssign = null,
+  onDeleteItem = null,
+}) {
   const { dialogNode, confirm } = useDialog();
   // Fields added this session but not yet saved — without this they'd vanish
   // the moment the picker closes, since they hold no value to render from.
@@ -70,6 +80,24 @@ export default function ItemDetails({ item, onSave, locationId, userName }) {
         </div>
       ) : null}
 
+      {assignableUsers ? (
+        <div style={styles.assignWrap}>
+          <span style={styles.assignLabel}>Assigned to</span>
+          <select
+            style={styles.assignSelect}
+            value={item.assignedToUid ?? ''}
+            onChange={(e) => onAssign(item, e.target.value)}
+          >
+            <option value="">Nobody yet</option>
+            {assignableUsers.map((u) => (
+              <option key={u.uid} value={u.uid}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
       {/* The permit itself. Kept out of the field picker because it isn't
           one of several optional notes — it's the artifact the task exists
           to produce, and it travels into the renewal record afterwards. */}
@@ -84,6 +112,8 @@ export default function ItemDetails({ item, onSave, locationId, userName }) {
       ) : null}
 
       {available.length > 0 ? (
+        <div style={styles.pickerWrap}>
+        <span style={styles.pickerLabel}>Add a field</span>
         <select
           style={styles.picker}
           value=""
@@ -91,14 +121,23 @@ export default function ItemDetails({ item, onSave, locationId, userName }) {
             if (e.target.value) setAdded((a) => [...a, e.target.value]);
           }}
         >
-          <option value="">+ Add field</option>
+          <option value="">Choose a field</option>
           {available.map((f) => (
             <option key={f.key} value={f.key}>
               {f.label}
             </option>
           ))}
         </select>
+        </div>
       ) : null}
+      {onDeleteItem ? (
+        <div style={styles.removeItemWrap}>
+          <button style={styles.removeItemLink} onClick={() => onDeleteItem(item)}>
+            Remove this item from the checklist
+          </button>
+        </div>
+      ) : null}
+
       {dialogNode}
     </div>
   );
@@ -132,13 +171,61 @@ const styles = {
     padding: 0,
     zIndex: 1,
   },
+  assignWrap: { marginBottom: 12, maxWidth: 420 },
+  assignLabel: {
+    display: 'block',
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: 'var(--text-tertiary)',
+    marginBottom: 5,
+  },
+  assignSelect: {
+    width: '100%',
+    boxSizing: 'border-box',
+    height: 36,
+    padding: '0 11px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid transparent',
+    background: 'var(--bg-inset)',
+    color: 'var(--text-primary)',
+    fontSize: 13,
+  },
+  removeItemWrap: {
+    marginTop: 4,
+    paddingTop: 10,
+    borderTop: '1px solid var(--border)',
+    maxWidth: 420,
+  },
+  removeItemLink: {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    color: 'var(--danger)',
+    opacity: 0.75,
+    fontSize: 11,
+    cursor: 'pointer',
+  },
+  pickerWrap: { marginBottom: 14, maxWidth: 420 },
+  pickerLabel: {
+    display: 'block',
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: 'var(--text-tertiary)',
+    marginBottom: 5,
+  },
   picker: {
-    padding: '5px 10px',
+    width: '100%',
+    boxSizing: 'border-box',
+    height: 36,
+    padding: '0 11px',
     borderRadius: 'var(--radius-sm)',
     border: '1px dashed var(--border-strong)',
     background: 'transparent',
     color: 'var(--text-secondary)',
-    fontSize: 12,
-    fontWeight: 600,
+    fontSize: 13,
   },
 };

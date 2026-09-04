@@ -75,6 +75,24 @@ export function useHomeSummary() {
         });
       });
 
+      // Anything assigned to you, whether or not it is late. Being given a
+      // task is itself the signal - waiting for it to go overdue before
+      // saying so defeats the point of assigning it.
+      //
+      // Overdue items are already pushed above, so this skips them rather
+      // than listing the same task twice. Late is the more urgent framing.
+      items
+        .filter((i) => !i.done && i.assignedToUid === user?.uid && i.dateTime >= now)
+        .forEach((item) => {
+          attention.push({
+            level: 'assigned',
+            text: item.title,
+            where: `${loc.brandName} · ${loc.name}`,
+            to: `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`,
+            sort: item.dateTime ?? 0,
+          });
+        });
+
       timelineOverdue.forEach((item) => {
         attention.push({
           level: 'overdue',

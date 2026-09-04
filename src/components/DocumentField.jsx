@@ -113,7 +113,7 @@ export default function DocumentField({ locationId, itemKey, value, onChange, us
 }
 
 const styles = {
-  wrap: { marginTop: 4 },
+  wrap: { marginTop: 4, marginBottom: 12, maxWidth: 420 },
   label: {
     display: 'block',
     fontSize: 10,
@@ -124,7 +124,12 @@ const styles = {
     marginBottom: 5,
   },
   uploadBtn: {
-    padding: '7px 12px',
+    width: '100%',
+    boxSizing: 'border-box',
+    height: 36,
+    textAlign: 'left',
+    fontSize: 13,
+    padding: '0 11px',
     borderRadius: 'var(--radius-sm)',
     border: '1px dashed var(--border-strong)',
     background: 'transparent',

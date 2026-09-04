@@ -46,6 +46,11 @@ export function ScheduleProvider({ children }) {
           openingSection: data.openingSection ?? null,
           openingFields: data.openingFields ?? null, // { company, accountNumber, contact } — setup items only
           setupKey: data.setupKey ?? null, // links a setup item back to its template entry, for dependency lookups
+          // Written by the three people who can restructure a checklist. Read
+          // back here or the panel shows nothing and the home screen cannot
+          // find work assigned to someone.
+          assignedToUid: data.assignedToUid ?? null,
+          assignedToName: data.assignedToName ?? null,
           templateId: data.templateId ?? null, // which city template produced this item
           // The permit or certificate itself: { url, path, name, uploadedAt,
           // uploadedBy }. Lives on the task that produced it, and gets copied

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { brands } from '../data/mockData';
+import { brands, canEditChecklists } from '../data/mockData';
 import Icon from '../components/Icon';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useSchedule } from '../context/ScheduleContext';
@@ -25,12 +25,47 @@ function formatDate(ts) {
 export default function OpeningChecklistScreen() {
   const { dialogNode, notify } = useDialog();
   const { brandId, locationId } = useParams();
-  const { user } = useAuth();
+  const { user, activeUsers, hasBrandAccess } = useAuth();
   const isAdmin = user?.role === 'admin';
+  // Admins, the COO and the beverage manager can restructure the list itself -
+  // add an item, remove one, or put someone's name against it.
+  const canEdit = canEditChecklists(user);
+
+  // Only people who can already open this location. Assigning someone a task
+  // they cannot reach would put a row on their home screen that goes nowhere.
+  const assignableUsers = (activeUsers ?? []).filter((u) => hasBrandAccess(u, brandId));
+
+  const handleAssign = async (item, uid) => {
+    const person = assignableUsers.find((u) => u.uid === uid);
+    try {
+      await updateEntry(item.id, {
+        assignedToUid: uid || null,
+        assignedToName: person?.name ?? null,
+      });
+    } catch (err) {
+      notify('Could not assign', err?.message ?? 'Nothing was changed. Try again.');
+    }
+  };
+
+  const handleDeleteItem = (item) => {
+    confirm({
+      title: `Delete "${item.title}"?`,
+      body: 'This removes the item from this location\'s checklist for everyone. Any sign-off on it goes too. Other locations are unaffected.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteEntry(item.id);
+        } catch (err) {
+          notify('Could not delete', err?.message ?? 'The item was not removed. Try again.');
+        }
+      },
+    });
+  };
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
   const { updateDates, setRenewalDocument } = useRenewals();
-  const { getOpeningItemsByLocation, toggleOpeningItemDone, updateEntry } = useSchedule();
+  const { getOpeningItemsByLocation, toggleOpeningItemDone, updateEntry, deleteEntry } = useSchedule();
   const { getInfo, updateInfoField, setOpeningDate } = useOpeningInfo();
   const { regenerateForLocation } = useOpeningOngoingContacts();
 
@@ -389,6 +424,9 @@ export default function OpeningChecklistScreen() {
 
                         {/* A dot rather than a count — you only need to know
                             something's there, and the number isn't meaningful. */}
+                        {item.assignedToName && !isOpen ? (
+                          <span style={styles.assignedChip}>{item.assignedToName}</span>
+                        ) : null}
                         {hasDetails && !isOpen ? <span style={styles.detailDot} /> : null}
 
                         {/* Status by exception. A pending item on schedule says
@@ -444,6 +482,9 @@ export default function OpeningChecklistScreen() {
                             onSave={updateSetupField}
                             locationId={locationId}
                             userName={user?.name}
+                            assignableUsers={canEdit ? assignableUsers : null}
+                            onAssign={canEdit ? handleAssign : null}
+                            onDeleteItem={canEdit ? handleDeleteItem : null}
                           />
                         </div>
                       ) : null}
@@ -697,6 +738,14 @@ const styles = {
     lineHeight: 1.6,
     color: 'var(--text-secondary)',
     marginTop: 12,
+  },
+  // Sits below the fields inside an open item. Visible only to admins, the
+  // COO and the beverage manager.
+  assignedChip: {
+    fontSize: 11,
+    color: 'var(--text-tertiary)',
+    marginRight: 10,
+    whiteSpace: 'nowrap',
   },
   hint: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 },
   openingDateRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 },

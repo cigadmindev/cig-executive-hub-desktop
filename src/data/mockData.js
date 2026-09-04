@@ -210,3 +210,20 @@ export const categories = [
 
 // Overall Analysis is a hub-level feature (like a brand), not nested inside
 // a category — used consistently across Home, permissions, and Admin.
+
+/**
+ * Who can restructure a location's checklists, renewals and contacts - add an
+ * item, delete one, or assign one to somebody.
+ *
+ * Admins, plus the two executives whose jobs make them responsible for what is
+ * on these lists: the COO and the beverage manager. Deliberately not every
+ * executive - being senior is not the same as owning the checklist.
+ *
+ * Job strings match JOB_OPTIONS in EventRequestsContext exactly.
+ */
+export function canEditChecklists(user) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (user.role !== 'executive') return false;
+  return user.job === 'COO' || user.job === 'Drink / Beverage Manager';
+}
