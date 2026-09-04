@@ -31,6 +31,58 @@ export default function OpeningChecklistScreen() {
   // add an item, remove one, or put someone's name against it.
   const canEdit = canEditChecklists(user);
 
+  // Adding items in the app is what removes the need for a per-city template.
+  // Birmingham adds its own permits rather than someone writing a checklist
+  // definition first.
+  const [addingToList, setAddingToList] = useState(null);
+  const [newTitle, setNewTitle] = useState('');
+  const [newSection, setNewSection] = useState('');
+  const [newSectionCustom, setNewSectionCustom] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const [savingNew, setSavingNew] = useState(false);
+
+  const openAddForm = (list) => {
+    setAddingToList(list);
+    setNewTitle('');
+    setNewSection('');
+    setNewSectionCustom('');
+    setNewDate('');
+  };
+
+  const handleAddItem = async () => {
+    const section = newSection === '__new__' ? newSectionCustom.trim() : newSection;
+    if (!newTitle.trim() || !section || !newDate) return;
+
+    setSavingNew(true);
+    try {
+      // Same shape as a seeded item, minus setupKey - that links to a template
+      // entry and this has none. Everything else about it behaves identically:
+      // it can be signed off, hold fields and a document, be assigned, and
+      // wait on other items.
+      await addEntry({
+        title: newTitle.trim(),
+        locationId,
+        openingItem: true,
+        openingItemType: addingToList,
+        openingSection: section,
+        dateTime: new Date(newDate).getTime(),
+        setupKey: null,
+        openingFields: null,
+        note: '',
+        done: false,
+        doneBy: null,
+        doneAt: null,
+        attentionFlag: false,
+        authorName: user?.name ?? 'Unknown',
+      });
+      setAddingToList(null);
+    } catch (err) {
+      notify('Could not add', err?.message ?? 'The item was not added. Try again.');
+    } finally {
+      setSavingNew(false);
+    }
+  };
+
   // Only people who can already open this location. Assigning someone a task
   // they cannot reach would put a row on their home screen that goes nowhere.
   // Access to the location is not enough - they also need to be able to open
@@ -81,7 +133,7 @@ export default function OpeningChecklistScreen() {
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
   const { updateDates, setRenewalDocument } = useRenewals();
-  const { getOpeningItemsByLocation, toggleOpeningItemDone, updateEntry, deleteEntry } = useSchedule();
+  const { getOpeningItemsByLocation, toggleOpeningItemDone, updateEntry, deleteEntry, addEntry } = useSchedule();
   const { getInfo, updateInfoField, setOpeningDate } = useOpeningInfo();
   const { regenerateForLocation } = useOpeningOngoingContacts();
 
@@ -369,7 +421,14 @@ export default function OpeningChecklistScreen() {
       </div>
 
       <div style={styles.section}>
-        <h2 style={styles.sectionHeader}>Initial Set-Up POC</h2>
+        <div style={styles.sectionHeaderRow}>
+          <h2 style={styles.sectionHeader}>Initial Set-Up POC</h2>
+          {canEdit && info.openingDate ? (
+            <button style={styles.addItemButton} onClick={() => openAddForm('setup')}>
+              + Add item
+            </button>
+          ) : null}
+        </div>
         {setupItems.length === 0 ? (
           <p style={styles.hint}>Set an opening date above to generate this checklist.</p>
         ) : visibleSetupItems.length === 0 ? (
@@ -518,7 +577,14 @@ export default function OpeningChecklistScreen() {
       </div>
 
       <div style={styles.section}>
-        <h2 style={styles.sectionHeader}>Opening Timeline</h2>
+        <div style={styles.sectionHeaderRow}>
+          <h2 style={styles.sectionHeader}>Opening Timeline</h2>
+          {canEdit && info.openingDate ? (
+            <button style={styles.addItemButton} onClick={() => openAddForm('timeline')}>
+              + Add item
+            </button>
+          ) : null}
+        </div>
         {q && visibleTimelineItems.length === 0 && openingItems.some((i) => i.openingItemType === 'timeline') ? (
           <p style={styles.hint}>No Timeline items match "{searchQuery}".</p>
         ) : null}
@@ -752,6 +818,72 @@ export default function OpeningChecklistScreen() {
           </div>
         </div>
       ) : null}
+      {addingToList ? (
+        <div style={styles.modalBackdrop} onClick={() => !savingNew && setAddingToList(null)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Add a checklist item</h2>
+            <p style={styles.modalSubtitle}>
+              {addingToList === 'setup' ? 'Initial Set-Up POC' : 'Opening Timeline'}
+            </p>
+
+            <p style={styles.modalFieldLabel}>What is it</p>
+            <input
+              style={styles.modalInput}
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Health Department Permit"
+              autoFocus
+            />
+
+            <p style={styles.modalFieldLabel}>Which section</p>
+            <select style={styles.modalInput} value={newSection} onChange={(e) => setNewSection(e.target.value)}>
+              <option value="">Choose a section</option>
+              {[
+                ...new Set(
+                  openingItems
+                    .filter((i) => i.openingItemType === addingToList)
+                    .map((i) => i.openingSection)
+                ),
+              ].map((sec) => (
+                <option key={sec} value={sec}>
+                  {sec}
+                </option>
+              ))}
+              {/* A new city may need a section this checklist has never had -
+                  that is the difference between adding items to a checklist
+                  and building one. */}
+              <option value="__new__">+ New section…</option>
+            </select>
+
+            {newSection === '__new__' ? (
+              <input
+                style={styles.modalInput}
+                value={newSectionCustom}
+                onChange={(e) => setNewSectionCustom(e.target.value)}
+                placeholder="Name the section"
+              />
+            ) : null}
+
+            <p style={styles.modalFieldLabel}>When it is due</p>
+            <input
+              type="date"
+              style={styles.modalInput}
+              value={newDate}
+              onChange={(e) => setNewDate(e.target.value)}
+            />
+
+            <p style={styles.modalNote}>
+              Once added you can assign it, attach a document, add fields, and set what it waits on — the same as
+              any other item.
+            </p>
+
+            <button style={styles.addConfirmButton} onClick={handleAddItem} disabled={savingNew}>
+              {savingNew ? 'Adding…' : 'Add item'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
     {dialogNode}
     </div>
   );
@@ -765,7 +897,26 @@ const styles = {
   regenerateButton: { padding: '8px 14px', borderRadius: 10, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
   searchHint: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' },
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
-  sectionHeader: { fontSize: 15, fontWeight: 700, margin: '0 0 14px' },
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  modalCard: { width: 'min(420px, calc(100vw - 32px))', maxHeight: '82vh', overflowY: 'auto', background: 'var(--bg-elevated)', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 4px' },
+  modalSubtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 18px' },
+  modalFieldLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 5px' },
+  modalInput: { width: '100%', boxSizing: 'border-box', height: 36, padding: '0 11px', marginBottom: 14, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
+  modalNote: { fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.6, margin: '4px 0 0' },
+  addConfirmButton: { width: '100%', marginTop: 18, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer' },
+  sectionHeaderRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 0 14px' },
+  sectionHeader: { fontSize: 15, fontWeight: 700, margin: 0 },
+  addItemButton: {
+    background: 'none',
+    border: '1px solid var(--border-strong)',
+    borderRadius: 8,
+    color: 'var(--text-secondary)',
+    fontSize: 12,
+    fontWeight: 600,
+    padding: '6px 12px',
+    cursor: 'pointer',
+  },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
   label: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: '14px 0 8px' },
   provisionalNote: {
