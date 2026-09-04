@@ -30,11 +30,21 @@ export default function ItemDetails({
   assignableUsers = null,
   onAssign = null,
   onDeleteItem = null,
+  // Every other item at this location, for the dependency picker. Null when
+  // the person cannot restructure the checklist.
+  dependencyOptions = null,
+  onChangeDependencies = null,
+  templateDependencyIds = null,
 }) {
   const { dialogNode, confirm } = useDialog();
   // Fields added this session but not yet saved — without this they'd vanish
   // the moment the picker closes, since they hold no value to render from.
   const [added, setAdded] = useState([]);
+
+  // Whatever this item waits on - its own list if it has been edited here,
+  // otherwise the template's baseline. Touching any chip writes the resolved
+  // list onto the record, and from then on this location owns it.
+  const resolvedDependencies = item.dependsOnIds ?? templateDependencyIds ?? [];
 
   const hasValue = (f) => Boolean(item.openingFields?.[f.key]);
   const visible = FIELDS.filter((f) => hasValue(f) || added.includes(f.key));
@@ -93,6 +103,60 @@ export default function ItemDetails({
               <option key={u.uid} value={u.uid}>
                 {u.name}
               </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      {dependencyOptions ? (
+        <div style={styles.assignWrap}>
+          <span style={styles.assignLabel}>Waits for</span>
+          {resolvedDependencies.length > 0 ? (
+            <div style={styles.chipRow}>
+              {resolvedDependencies.map((id) => {
+                const dep = dependencyOptions.find((o) => o.id === id);
+                return (
+                  <button
+                    key={id}
+                    style={styles.chip}
+                    onClick={() =>
+                      onChangeDependencies(item, resolvedDependencies.filter((x) => x !== id))
+                    }
+                    title="Remove"
+                  >
+                    {dep?.title ?? 'Removed item'} ×
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <select
+            style={styles.assignSelect}
+            value=""
+            onChange={(e) => {
+              if (!e.target.value) return;
+              onChangeDependencies(item, [...resolvedDependencies, e.target.value]);
+            }}
+          >
+            <option value="">{resolvedDependencies.length ? 'Add another…' : 'Nothing — add one'}</option>
+            {/* Grouped the way the checklist itself is grouped. A flat list of
+                seventy-nine items is unusable; the section headings are how
+                people already think about the list. */}
+            {[...new Set(dependencyOptions.map((o) => o.openingSection))].map((section) => (
+              <optgroup key={section} label={section}>
+                {dependencyOptions
+                  .filter(
+                    (o) =>
+                      o.openingSection === section &&
+                      o.id !== item.id &&
+                      !resolvedDependencies.includes(o.id)
+                  )
+                  .map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.title}
+                    </option>
+                  ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -191,6 +255,16 @@ const styles = {
     background: 'var(--bg-inset)',
     color: 'var(--text-primary)',
     fontSize: 13,
+  },
+  chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
+  chip: {
+    background: 'var(--bg-inset)',
+    border: '1px solid var(--border)',
+    borderRadius: 14,
+    color: 'var(--text-secondary)',
+    fontSize: 11,
+    padding: '4px 9px',
+    cursor: 'pointer',
   },
   removeItemWrap: {
     marginTop: 4,

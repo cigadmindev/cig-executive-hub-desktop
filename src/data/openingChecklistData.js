@@ -312,20 +312,38 @@ export function getOpeningItemUrgency(item, now) {
 // setupKey within the same location, since that's what's actually stored
 // on each generated schedule doc (dependsOnKeys refer to the static data
 // definition, not doc ids).
+/**
+ * The ids of everything an item waits on, whichever source they come from.
+ *
+ * dependsOnIds absent means nobody has edited this item at this location, so
+ * the template's baseline applies - which is how a new city opens with
+ * Starkville's dependencies already in place.
+ *
+ * dependsOnIds present replaces the template for this location and this item
+ * only. An empty array is a real answer: this city needs nothing here.
+ * Without that distinction there would be no way to remove a baseline
+ * dependency, which is the whole point of making them editable.
+ *
+ * One city's edits never reach another. Each location holds its own records.
+ */
+export function resolveDependencyIds(item, allSetupItemsForLocation, template) {
+  if (Array.isArray(item.dependsOnIds)) return item.dependsOnIds;
+
+  const dataDef = template.items.find((i) => i.key === item.setupKey);
+  if (!dataDef || dataDef.dependsOnKeys.length === 0) return [];
+
+  return dataDef.dependsOnKeys
+    .map((key) => allSetupItemsForLocation.find((i) => i.setupKey === key)?.id)
+    .filter(Boolean);
+}
+
 export function getBlockingDependencies(item, allSetupItemsForLocation, template) {
   if (!template) throw new Error('getBlockingDependencies requires a template');
-  const defs = template.items;
-  const dataDef = defs.find((i) => i.key === item.setupKey);
-  if (!dataDef || dataDef.dependsOnKeys.length === 0) return [];
-  const byKey = Object.fromEntries(defs.map((i) => [i.key, i]));
-  return dataDef.dependsOnKeys
-    .map((depKey) => {
-      const depDef = byKey[depKey];
-      if (!depDef) return null;
-      const depDoc = allSetupItemsForLocation.find((i) => i.setupKey === depKey);
-      return depDoc && !depDoc.done ? depDef.name : null;
-    })
-    .filter(Boolean);
+
+  return resolveDependencyIds(item, allSetupItemsForLocation, template)
+    .map((id) => allSetupItemsForLocation.find((i) => i.id === id))
+    .filter((dep) => dep && !dep.done)
+    .map((dep) => dep.title);
 }
 
 // The reverse lookup — given one Initial Set-Up schedule item, returns the

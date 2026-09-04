@@ -51,6 +51,11 @@ export function ScheduleProvider({ children }) {
           // find work assigned to someone.
           assignedToUid: data.assignedToUid ?? null,
           assignedToName: data.assignedToName ?? null,
+          // Other items at this location that must be signed off first. Set on
+          // the record rather than in the template, because an item added in
+          // the app has no template entry - and a permit in one city can
+          // depend on something that does not exist in another.
+          dependsOnIds: data.dependsOnIds ?? null,
           templateId: data.templateId ?? null, // which city template produced this item
           // The permit or certificate itself: { url, path, name, uploadedAt,
           // uploadedBy }. Lives on the task that produced it, and gets copied

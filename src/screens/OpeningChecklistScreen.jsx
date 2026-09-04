@@ -6,7 +6,7 @@ import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useSchedule } from '../context/ScheduleContext';
 import { useOpeningInfo } from '../context/OpeningInfoContext';
 import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
-import { TIMELINE_BUCKETS, getOpeningItemUrgency, getBlockingDependencies, getDependentParents } from '../data/openingChecklistData';
+import { TIMELINE_BUCKETS, getOpeningItemUrgency, getBlockingDependencies, getDependentParents, resolveDependencyIds } from '../data/openingChecklistData';
 import { getTemplateForLocation, RENEWAL_TYPE_BY_KEY, isProvisionalTemplate } from '../data/checklists';
 import { useRenewals, renewalDocId } from '../context/RenewalsContext';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +44,17 @@ export default function OpeningChecklistScreen() {
       });
     } catch (err) {
       notify('Could not assign', err?.message ?? 'Nothing was changed. Try again.');
+    }
+  };
+
+  // Stored on the record rather than the template, so an item added here can
+  // wait on something the template has never heard of. Editable at any time
+  // by the same three people who can add and assign.
+  const handleChangeDependencies = async (item, ids) => {
+    try {
+      await updateEntry(item.id, { dependsOnIds: ids });
+    } catch (err) {
+      notify('Could not save', err?.message ?? 'Nothing was changed. Try again.');
     }
   };
 
@@ -485,6 +496,11 @@ export default function OpeningChecklistScreen() {
                             assignableUsers={canEdit ? assignableUsers : null}
                             onAssign={canEdit ? handleAssign : null}
                             onDeleteItem={canEdit ? handleDeleteItem : null}
+                            dependencyOptions={canEdit ? openingItems : null}
+                            onChangeDependencies={canEdit ? handleChangeDependencies : null}
+                            templateDependencyIds={
+                              canEdit ? resolveDependencyIds(item, openingItems, template) : null
+                            }
                           />
                         </div>
                       ) : null}
@@ -573,6 +589,24 @@ export default function OpeningChecklistScreen() {
                         {item.done && item.doneBy ? (
                           <p style={styles.neededForNote}>Signed off by {item.doneBy}</p>
                         ) : null}
+                        {/* Same panel as the setup list. A timeline task is as
+                            likely to need assigning as a setup one, and having
+                            the controls on one list but not the other would
+                            read as a bug. */}
+                        <ItemDetails
+                          item={item}
+                          onSave={updateSetupField}
+                          locationId={locationId}
+                          userName={user?.name}
+                          assignableUsers={canEdit ? assignableUsers : null}
+                          onAssign={canEdit ? handleAssign : null}
+                          onDeleteItem={canEdit ? handleDeleteItem : null}
+                          dependencyOptions={canEdit ? openingItems : null}
+                          onChangeDependencies={canEdit ? handleChangeDependencies : null}
+                          templateDependencyIds={
+                            canEdit ? resolveDependencyIds(item, openingItems, template) : null
+                          }
+                        />
                       </div>
                     ) : null}
                     {editingDateItemId === item.id ? (
