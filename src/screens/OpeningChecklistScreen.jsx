@@ -23,7 +23,7 @@ function formatDate(ts) {
 }
 
 export default function OpeningChecklistScreen() {
-  const { dialogNode, notify } = useDialog();
+  const { dialogNode, notify, confirm } = useDialog();
   const { brandId, locationId } = useParams();
   const { user, activeUsers, hasBrandAccess } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -865,12 +865,9 @@ export default function OpeningChecklistScreen() {
             ) : null}
 
             <p style={styles.modalFieldLabel}>When it is due</p>
-            <input
-              type="date"
-              style={styles.modalInput}
-              value={newDate}
-              onChange={(e) => setNewDate(e.target.value)}
-            />
+            <div style={{ marginBottom: 14 }}>
+              <DatePickerField value={newDate} onChange={setNewDate} placeholder="Pick a date" />
+            </div>
 
             <p style={styles.modalNote}>
               Once added you can assign it, attach a document, add fields, and set what it waits on — the same as
