@@ -109,7 +109,10 @@ export function ExpensesProvider({ children }) {
               label: data.label ?? d.id,
               receiptCount: data.receiptCount ?? 0,
               totalCents: data.totalCents ?? 0,
-              downloadedAt: data.downloadedAt ?? null,
+              // Collection is per person now: the report used to be deleted when
+              // anyone downloaded it, which took it away from everyone else.
+              downloadedByUids: data.downloadedByUids ?? [],
+              downloadedByNames: data.downloadedByNames ?? [],
               downloadedBy: data.downloadedBy ?? null,
             };
           })
@@ -143,7 +146,10 @@ export function ExpensesProvider({ children }) {
     await httpsCallable(fns, 'confirmExpenseReportDownloaded')({ dateKey });
   };
 
-  const hasUncollectedReport = () => reports.some((r) => !r.downloadedAt);
+  // Uncollected by you specifically. Someone else downloading it does not
+  // clear your dot, and yours does not clear theirs.
+  const hasUncollectedReport = () =>
+    reports.some((r) => !(r.downloadedByUids ?? []).includes(user?.uid));
 
   // Upload first, then record. The Storage rules already restrict a person to
   // their own folder, and the Cloud Function verifies the file exists before

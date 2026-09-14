@@ -154,6 +154,10 @@ export default function ExpensesScreen() {
 
   // Grouped by the day the money was spent, not the day it was uploaded — a
   // receipt entered on Wednesday for Monday belongs under Monday.
+  const [pastReportsOpen, setPastReportsOpen] = useState(false);
+  const uncollectedReports = reports.filter((r) => !(r.downloadedByUids ?? []).includes(user?.uid));
+  const collectedReports = reports.filter((r) => (r.downloadedByUids ?? []).includes(user?.uid));
+
   const today = centralDateKey(new Date());
   const grouped = useMemo(() => {
     const visible = seesAll ? receipts.filter((r) => r.dateSpent === today) : receipts;
@@ -193,26 +197,57 @@ export default function ExpensesScreen() {
           never renders for them. */}
       {seesAll && reports.length > 0 ? (
         <div style={styles.reportsSection}>
-          <p style={styles.zoneLabel}>Daily reports</p>
-          {reports.map((r) => (
-            <div key={r.dateKey} style={styles.reportRow}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={styles.reportLabel}>
-                  {r.label}
-                  {!r.downloadedAt ? <span style={styles.reportDot} /> : null}
+          {/* Uncollected at the top, because those need something doing.
+              Everything already collected goes in a folder - ninety days of
+              daily reports on one page would bury today's under three months
+              of history. */}
+          {uncollectedReports.length > 0 ? (
+            <>
+              <p style={styles.zoneLabel}>Waiting for you</p>
+              {uncollectedReports.map((r) => (
+                <div key={r.dateKey} style={styles.reportRow}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={styles.reportLabel}>
+                      {r.label}
+                      <span style={styles.reportDot} />
+                    </div>
+                    <div style={styles.reportMeta}>
+                      {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)}
+                    </div>
+                  </div>
+                  <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey)}>
+                    Download CSV
+                  </button>
                 </div>
-                <div style={styles.reportMeta}>
-                  {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)}
-                  {r.downloadedAt ? ` · collected by ${r.downloadedBy}` : ''}
-                </div>
-              </div>
-              {!r.downloadedAt ? (
-                <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey)}>
-                  Download CSV
-                </button>
-              ) : null}
-            </div>
-          ))}
+              ))}
+            </>
+          ) : null}
+
+          {collectedReports.length > 0 ? (
+            <>
+              <button style={styles.folderRow} onClick={() => setPastReportsOpen((v) => !v)}>
+                <span style={styles.folderChevron}>{pastReportsOpen ? '▾' : '▸'}</span>
+                <span style={styles.folderLabel}>Past reports</span>
+                <span style={styles.folderCount}>{collectedReports.length}</span>
+              </button>
+
+              {pastReportsOpen
+                ? collectedReports.map((r) => (
+                    <div key={r.dateKey} style={{ ...styles.reportRow, ...styles.reportRowNested }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={styles.reportLabel}>{r.label}</div>
+                        <div style={styles.reportMeta}>
+                          {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)}
+                        </div>
+                      </div>
+                      <button style={styles.reportButtonQuiet} onClick={() => handleDownloadReport(r.dateKey)}>
+                        Download again
+                      </button>
+                    </div>
+                  ))
+                : null}
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -437,6 +472,12 @@ const styles = {
   subtitle: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 22px' },
   hint: { fontSize: 13, color: 'var(--text-tertiary)', padding: '12px 0' },
 
+  folderRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'none', border: 'none', padding: '10px 2px', marginTop: 6, cursor: 'pointer', textAlign: 'left' },
+  folderChevron: { color: 'var(--text-tertiary)', fontSize: 11 },
+  folderLabel: { flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' },
+  folderCount: { fontSize: 12, color: 'var(--text-tertiary)' },
+  reportRowNested: { marginLeft: 20 },
+  reportButtonQuiet: { background: 'none', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-secondary)', padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 },
   reportsSection: { marginBottom: 30 },
   zoneLabel: { fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', margin: '0 0 10px' },
   reportRow: { display: 'flex', alignItems: 'center', gap: 14, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 8 },

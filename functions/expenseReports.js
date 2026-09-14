@@ -258,6 +258,15 @@ exports.getExpenseReportUrl = onCall(async (request) => {
 
 // Called once the browser has the file. Separate from issuing the URL so a
 // failed download does not delete the report.
+// Collection is per person, not per report.
+//
+// This used to delete the file once anyone downloaded it, which meant the
+// first person to collect a report took it away from everyone else - if
+// Brenner downloaded it, Sam could not. That was a bad trade: the files are a
+// few kilobytes and availability matters more than the storage.
+//
+// Now the file stays until it ages out, and each person's red dot clears when
+// they personally collect it.
 exports.confirmExpenseReportDownloaded = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
 
@@ -274,17 +283,49 @@ exports.confirmExpenseReportDownloaded = onCall(async (request) => {
   const snap = await ref.get();
   if (!snap.exists) return { ok: true };
 
-  const report = snap.data();
-
-  // Recorded, then the file goes. The document stays so the page can show it
-  // was collected and by whom, without keeping a second copy of the data.
-  await ref.update({ downloadedAt: Date.now(), downloadedBy: p.name ?? 'Unknown' });
-
-  try {
-    await admin.storage().bucket().file(report.storagePath).delete({ ignoreNotFound: true });
-  } catch (err) {
-    console.error(`Report file not removed for ${dateKey}: ${err.message}`);
+  const existing = snap.data().downloadedByUids ?? [];
+  if (!existing.includes(request.auth.uid)) {
+    await ref.update({
+      downloadedByUids: [...existing, request.auth.uid],
+      downloadedByNames: [...(snap.data().downloadedByNames ?? []), p.name ?? 'Unknown'],
+    });
   }
 
   return { ok: true };
 });
+
+// Reports age out after ninety days. They are kept rather than deleted on
+// download - see confirmExpenseReportDownloaded - so without this they would
+// accumulate forever. Ninety days covers a quarter, which is the window
+// anyone is realistically going back over.
+//
+// The receipt records themselves are permanent. This only removes the
+// compiled report.
+exports.sweepOldExpenseReports = onSchedule(
+  { schedule: '30 3 * * *', timeZone: ZONE },
+  async () => {
+    const db = admin.firestore();
+    const bucket = admin.storage().bucket();
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+
+    const snap = await db.collection(REPORTS).where('generatedAt', '<', cutoff).get();
+    if (snap.empty) {
+      console.log('No expense reports older than ninety days.');
+      return;
+    }
+
+    let removed = 0;
+    for (const d of snap.docs) {
+      const r = d.data();
+      try {
+        if (r.storagePath) await bucket.file(r.storagePath).delete({ ignoreNotFound: true });
+        await d.ref.delete();
+        removed++;
+      } catch (err) {
+        console.error('Could not remove report ' + d.id + ': ' + err.message);
+      }
+    }
+
+    console.log('Removed ' + removed + ' expense report(s) older than ninety days.');
+  }
+);
