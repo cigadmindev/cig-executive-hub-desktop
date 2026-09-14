@@ -100,7 +100,7 @@ export function IntegrationRequestsProvider({ children }) {
   const respond = async (id, { response, status }) => {
     if (!user) throw new Error('You must be signed in.');
     const updates = { seenByHandler: true };
-    if (typeof response === 'string') {
+    if (typeof response === 'string' && response.trim()) {
       updates.response = response.trim();
       updates.respondedByName = user.name ?? 'Unknown';
       updates.respondedAt = Date.now();

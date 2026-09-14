@@ -84,6 +84,10 @@ export default function IntegrationRequestsScreen() {
       await respond(r.id, { response: draftResponse, status });
       setOpenId(null);
       setDraftResponse('');
+      notify(
+        status === 'done' ? 'Marked done' : 'Marked in progress',
+        draftResponse.trim() ? 'They will see your reply.' : 'No reply was sent.'
+      );
     } catch (err) {
       notify('Could not save', err?.message ?? 'Try again.');
     }
