@@ -7,6 +7,7 @@ import { useViewTracking } from '../context/ViewTrackingContext';
 import { useAvailability } from '../context/AvailabilityContext';
 import { useWorkOrders } from '../context/WorkOrdersContext';
 import { useExpenses } from '../context/ExpensesContext';
+import { useIntegrationRequests } from '../context/IntegrationRequestsContext';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
@@ -23,6 +24,7 @@ export default function DirectoryScreen() {
   const { weeklyAvailability, getWeekStart } = useAvailability();
   const { getMyQueue, hasUndownloadedComplete } = useWorkOrders();
   const { hasUncollectedReport } = useExpenses();
+  const { hasUnseen: hasUnseenIntegration } = useIntegrationRequests();
   const myWeekly = weeklyAvailability.find((w) => w.uid === user?.uid);
   const myWeeklyIsStale = !myWeekly || myWeekly.weekStartDate !== getWeekStart();
   const canPostAnnouncements = user?.role === 'admin' || user?.role === 'executive';
@@ -44,6 +46,16 @@ export default function DirectoryScreen() {
       subtitle: "Sign documents, track who's signed what",
       badge: getMyQueue().length > 0 || hasUndownloadedComplete(),
       onClick: () => navigate('/work-orders'),
+    },
+    {
+      // Not behind feature access: anyone should be able to say a till is
+      // behaving oddly, and whoever handles them is a manager themselves.
+      key: 'integrationRequests',
+      icon: 'gitNetwork',
+      title: 'Request an Update',
+      subtitle: 'Toast, R365 and OpenTable — changes and help',
+      badge: hasUnseenIntegration(),
+      onClick: () => navigate('/integration-requests'),
     },
     {
       key: 'expenses',
@@ -97,14 +109,21 @@ export default function DirectoryScreen() {
             with conditional pushes, so one filter at the render is the only
             place that catches every route in. */}
         {items
-          .filter((item) =>
-            hasFeature(user, {
+          // Tile keys are camelCase here and the feature list uses its own
+          // names, so they are mapped rather than renamed. A tile absent from
+          // the map is ungated and always shown.
+          .filter((item) => {
+            const feature = {
               availability: 'availability',
               workOrders: 'workOrders',
               expenses: 'expenses',
               support: 'support',
-            }[item.key] ?? item.key)
-          )
+            }[item.key];
+            // Request an Update is deliberately not in that map: anyone should
+            // be able to say a till is behaving oddly.
+            if (!feature) return true;
+            return hasFeature(user, feature);
+          })
           .map((item) => (
           <button key={item.key} data-card="" style={{ ...styles.card, ...nike.card }} onClick={item.onClick}>
             <div style={styles.iconCircle}>

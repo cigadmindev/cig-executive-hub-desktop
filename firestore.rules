@@ -54,6 +54,24 @@ service cloud.firestore {
     // What a receipt can be charged to. Everyone reads it, because the
     // submission form offers it to whoever is filing the receipt. Only admins
     // maintain the list.
+    // Same shape as expense receipts: you see your own, one job sees them all.
+    // Job rather than person, so the routing follows whoever holds IT /
+    // Training rather than a name.
+    function handlesIntegrations() {
+      return request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'IT / Training'
+      );
+    }
+
+    match /integrationRequests/{id} {
+      allow read: if handlesIntegrations() ||
+        (isSignedIn() && resource.data.createdByUid == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if handlesIntegrations();
+      allow delete: if isAdmin();
+    }
+
     match /budgetTargets/{id} {
       allow read: if isSignedIn();
       allow write: if isAdmin();

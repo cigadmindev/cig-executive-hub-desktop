@@ -17,6 +17,7 @@ import { SupportAnnouncementsProvider } from './context/SupportAnnouncementsCont
 import { CategoryDriveLinksProvider } from './context/CategoryDriveLinksContext';
 import { ExpensesProvider } from './context/ExpensesContext';
 import { BudgetTargetsProvider } from './context/BudgetTargetsContext';
+import { IntegrationRequestsProvider } from './context/IntegrationRequestsContext';
 import { OpeningInfoProvider } from './context/OpeningInfoContext';
 import { OpeningOngoingContactsProvider } from './context/OpeningOngoingContactsContext';
 import { ExecutiveNotesProvider } from './context/ExecutiveNotesContext';
@@ -40,6 +41,7 @@ import RenewalsScreen from './screens/RenewalsScreen';
 import AdminUsersScreen from './screens/AdminUsersScreen';
 import PendingRequestsScreen from './screens/PendingRequestsScreen';
 import SupportScreen from './screens/SupportScreen';
+import IntegrationRequestsScreen from './screens/IntegrationRequestsScreen';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
 import IntegrationsScreen from './screens/IntegrationsScreen';
@@ -93,6 +95,7 @@ function Gate() {
         <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<RequireFeature feature="operationalPoc"><OperationalPOCScreen /></RequireFeature>} />
         <Route path="/brand/:brandId/location/:locationId/integrations" element={<RequireFeature feature="integrations"><IntegrationsScreen /></RequireFeature>} />
         <Route path="/support" element={<RequireFeature feature="support"><SupportScreen /></RequireFeature>} />
+        <Route path="/integration-requests" element={<IntegrationRequestsScreen />} />
         <Route path="/executive-notes" element={<ExecutiveNotesScreen />} />
         <Route path="/work-orders" element={<RequireFeature feature="workOrders"><WorkOrdersScreen /></RequireFeature>} />
         <Route path="/expenses" element={<RequireFeature feature="expenses"><ExpensesScreen /></RequireFeature>} />
@@ -117,6 +120,7 @@ function Providers({ children }) {
       <ExecutiveNotesProvider>
       {/* Reads role and job to decide whether this account sees everyone's
           receipts or only its own, so it sits inside AuthProvider. */}
+      <IntegrationRequestsProvider>
       <BudgetTargetsProvider>
       <ExpensesProvider>
       <CategoryDriveLinksProvider>
@@ -153,6 +157,7 @@ function Providers({ children }) {
       </CategoryDriveLinksProvider>
       </ExpensesProvider>
       </BudgetTargetsProvider>
+      </IntegrationRequestsProvider>
       </ExecutiveNotesProvider>
       </WorkOrdersProvider>
       </ThemeProvider>
