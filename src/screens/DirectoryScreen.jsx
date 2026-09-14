@@ -51,8 +51,8 @@ export default function DirectoryScreen() {
       // Not behind feature access: anyone should be able to say a till is
       // behaving oddly, and whoever handles them is a manager themselves.
       key: 'integrationRequests',
-      icon: 'gitNetwork',
-      title: 'Request an Update',
+      icon: 'plug',
+      title: 'Systems Help',
       subtitle: 'Toast, R365 and OpenTable — changes and help',
       badge: hasUnseenIntegration(),
       onClick: () => navigate('/integration-requests'),

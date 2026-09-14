@@ -17,7 +17,7 @@ function when(ts) {
 
 export default function IntegrationRequestsScreen() {
   const { user, hasBrandAccess } = useAuth();
-  const { locations: customLocations } = useCustomLocations();
+  const { getByBrand } = useCustomLocations();
   const { dialogNode, notify } = useDialog();
   const { requests, handlesRequests, submitRequest, respond, markSeen } = useIntegrationRequests();
 
@@ -39,9 +39,11 @@ export default function IntegrationRequestsScreen() {
     if (!hasBrandAccess(user, b.id)) continue;
     for (const l of b.locations ?? []) locationOptions.push({ id: l.id, name: `${b.name} · ${l.name}` });
   }
-  for (const l of customLocations ?? []) {
-    const b = brands.find((x) => x.id === l.brandId);
-    if (b && hasBrandAccess(user, b.id)) locationOptions.push({ id: l.id, name: `${b.name} · ${l.name}` });
+  for (const b of brands) {
+    if (!hasBrandAccess(user, b.id)) continue;
+    for (const l of getByBrand(b.id) ?? []) {
+      locationOptions.push({ id: l.id, name: `${b.name} · ${l.name}` });
+    }
   }
 
   // Opening the queue is what clears the dot for the handler - the same rule
@@ -163,7 +165,7 @@ export default function IntegrationRequestsScreen() {
     <div style={styles.wrap}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Request an Update</h1>
+          <h1 style={styles.title}>Systems Help</h1>
           <p style={styles.subtitle}>
             {handlesRequests
               ? 'Everything anyone has asked about Toast, R365 and OpenTable.'
@@ -239,7 +241,7 @@ export default function IntegrationRequestsScreen() {
               }
             />
 
-            <button style={styles.primaryButton} onClick={handleSubmit} disabled={!canSubmit || saving}>
+            <button style={{ ...styles.primaryButton, flex: 'none', width: '100%' }} onClick={handleSubmit} disabled={!canSubmit || saving}>
               {saving ? 'Sending…' : 'Send'}
             </button>
           </div>
