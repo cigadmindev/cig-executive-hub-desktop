@@ -261,3 +261,16 @@ export function hasFeature(user, key) {
   if (!Array.isArray(granted)) return true;
   return granted.includes(key);
 }
+
+/**
+ * Removes the /u/N/ segment from a Google Drive URL.
+ *
+ * Copying a link out of Drive while signed into more than one account bakes in
+ * which account you were using. Anyone whose accounts are in a different order
+ * then gets an access error instead of the folder. Without the segment, Google
+ * resolves it against whichever account actually has access.
+ */
+export function normaliseDriveUrl(url) {
+  if (typeof url !== 'string') return url;
+  return url.replace(/\/u\/\d+\//, '/');
+}

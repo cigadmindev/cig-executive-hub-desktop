@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { normaliseDriveUrl } from '../data/mockData';
 import { useAuth } from './AuthContext';
 
 const ExecutiveNotesContext = createContext(undefined);
@@ -26,7 +27,11 @@ export function ExecutiveNotesProvider({ children }) {
   // Setting where this points is a structural, "fundamental" action —
   // admin-only, same as connecting any other Drive folder. Executives can
   // open it once set, just not redirect it somewhere else.
-  const setLink = async (driveUrl, updatedByName) => {
+  const setLink = async (rawUrl, updatedByName) => {
+    // Same reason as the category links: a URL copied out of Drive while signed
+    // into more than one account carries /u/N/, which sends everyone else to an
+    // access error rather than the folder.
+    const driveUrl = normaliseDriveUrl(rawUrl);
     await setDoc(doc(db, DOC_REF), { driveUrl, updatedAt: Date.now(), updatedBy: updatedByName });
   };
 

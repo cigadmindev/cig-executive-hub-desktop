@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { normaliseDriveUrl } from '../data/mockData';
 import { useAuth } from './AuthContext';
 
 const CategoryDriveLinksContext = createContext(undefined);
@@ -44,7 +45,8 @@ export function CategoryDriveLinksProvider({ children }) {
 
   const getLink = (locationId, categoryId, itemName) => linksByKey[keyFor(locationId, categoryId, itemName)] ?? null;
 
-  const setLink = async (locationId, categoryId, itemName, driveUrl) => {
+  const setLink = async (locationId, categoryId, itemName, rawUrl) => {
+    const driveUrl = normaliseDriveUrl(rawUrl);
     await setDoc(doc(db, COLLECTION, keyFor(locationId, categoryId, itemName)), {
       locationId,
       categoryId,
