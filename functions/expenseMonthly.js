@@ -64,11 +64,18 @@ exports.closeExpenseMonth = onSchedule(
 
     // Category totals first - the question finance actually asks.
     const byCategory = {};
+    // Spend grouped by which budget it was charged against. Most receipts are
+    // not market-specific and land under "Not specific" - that is expected,
+    // and the point is to see what Birmingham actually cost before Birmingham
+    // exists as a location.
+    const byChargeTo = {};
     let total = 0;
     for (const r of receipts) {
       if (r.voided) continue;
       const label = r.categoryLabel ?? 'Uncategorised';
       byCategory[label] = (byCategory[label] ?? 0) + (r.amountCents ?? 0);
+      const target = r.chargeToName ?? 'Not specific';
+      byChargeTo[target] = (byChargeTo[target] ?? 0) + (r.amountCents ?? 0);
       total += r.amountCents ?? 0;
     }
 
@@ -91,10 +98,19 @@ exports.closeExpenseMonth = onSchedule(
     lines.push('');
     lines.push('');
 
+    lines.push([csvCell('By budget')].join(','));
+    lines.push('');
+    lines.push([csvCell('Charged to'), csvCell('Total')].join(','));
+    Object.keys(byChargeTo)
+      .sort((a, b) => byChargeTo[b] - byChargeTo[a])
+      .forEach((t) => lines.push([csvCell(t), csvCell(money(byChargeTo[t]))].join(',')));
+    lines.push('');
+    lines.push('');
+
     lines.push([csvCell('Every receipt')].join(','));
     lines.push('');
     lines.push(
-      ['Date spent', 'Submitted by', 'Amount', 'Category', 'Where', 'Reason', 'Submitted at', 'Voided']
+      ['Date spent', 'Submitted by', 'Amount', 'Category', 'Charge to', 'Where', 'Reason', 'Submitted at', 'Voided']
         .map(csvCell)
         .join(',')
     );
@@ -108,6 +124,7 @@ exports.closeExpenseMonth = onSchedule(
             r.submittedByName,
             money(r.amountCents ?? 0),
             r.categoryLabel,
+            r.chargeToName ?? '',
             r.where,
             r.reason,
             r.submittedAt ? new Date(r.submittedAt).toLocaleString('en-US', { timeZone: ZONE }) : '',

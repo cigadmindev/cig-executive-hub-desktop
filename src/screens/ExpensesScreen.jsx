@@ -9,6 +9,7 @@ import {
   prettyDate,
   timeLeft,
 } from '../context/ExpensesContext';
+import { useBudgetTargets } from '../context/BudgetTargetsContext';
 import { nike } from '../theme/nike';
 import { useDialog } from '../hooks/useDialog';
 
@@ -27,6 +28,7 @@ export default function ExpensesScreen() {
     downloadReport,
   } =
     useExpenses();
+  const { activeTargets, addTarget, archiveTarget, restoreTarget, targets } = useBudgetTargets();
 
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -39,6 +41,10 @@ export default function ExpensesScreen() {
   const [where, setWhere] = useState('');
   const [reason, setReason] = useState('');
   const [dateSpent, setDateSpent] = useState(() => centralDateKey(new Date()));
+  // Optional. Blank means the spend is not against any one market - a
+  // subscription, office supplies. Not required, because forcing a choice
+  // would put wrong answers in the reports.
+  const [chargeToId, setChargeToId] = useState('');
 
   const [urls, setUrls] = useState({});
   const [viewing, setViewing] = useState(null);
@@ -90,6 +96,7 @@ export default function ExpensesScreen() {
     setWhere('');
     setReason('');
     setDateSpent(centralDateKey(new Date()));
+    setChargeToId('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -112,6 +119,9 @@ export default function ExpensesScreen() {
         where: where.trim(),
         reason: reason.trim(),
         dateSpent,
+        // Both stored: the id so it stays correct if a market is renamed, the
+        // name so the nightly report needs no extra lookup per receipt.
+        chargeToId: chargeToId || null,
       });
       setFormOpen(false);
       resetForm();
@@ -155,6 +165,8 @@ export default function ExpensesScreen() {
   // Grouped by the day the money was spent, not the day it was uploaded — a
   // receipt entered on Wednesday for Monday belongs under Monday.
   const [pastReportsOpen, setPastReportsOpen] = useState(false);
+  const [budgetsOpen, setBudgetsOpen] = useState(false);
+  const [newTargetName, setNewTargetName] = useState('');
   const uncollectedReports = reports.filter((r) => !(r.downloadedByUids ?? []).includes(user?.uid));
   const collectedReports = reports.filter((r) => (r.downloadedByUids ?? []).includes(user?.uid));
 
@@ -195,6 +207,62 @@ export default function ExpensesScreen() {
           not until the next one arrives, which would give one day to collect
           them. Finance and admins only; the rules reject anyone else, so this
           never renders for them. */}
+      {isAdmin ? (
+        <div style={styles.reportsSection}>
+          <button style={styles.folderRow} onClick={() => setBudgetsOpen((v) => !v)}>
+            <span style={styles.folderChevron}>{budgetsOpen ? '▾' : '▸'}</span>
+            <span style={styles.folderLabel}>Budgets to charge against</span>
+            <span style={styles.folderCount}>{activeTargets.length}</span>
+          </button>
+
+          {budgetsOpen ? (
+            <>
+              <div style={styles.budgetAddRow}>
+                <input
+                  style={{ ...styles.input, marginBottom: 0 }}
+                  value={newTargetName}
+                  onChange={(e) => setNewTargetName(e.target.value)}
+                  placeholder="Birmingham"
+                />
+                <button
+                  style={styles.reportButton}
+                  disabled={!newTargetName.trim()}
+                  onClick={async () => {
+                    try {
+                      await addTarget(newTargetName);
+                      setNewTargetName('');
+                    } catch (err) {
+                      notify('Could not add', err?.message ?? 'Try again.');
+                    }
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+
+              {/* Archived rather than deleted - receipts already charged to a
+                  market keep resolving, and an old report stays readable. */}
+              {targets.map((t) => (
+                <div key={t.id} style={{ ...styles.reportRow, ...styles.reportRowNested }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ ...styles.reportLabel, opacity: t.archived ? 0.5 : 1 }}>
+                      {t.name}
+                      {t.archived ? <span style={styles.reportMeta}> · archived</span> : null}
+                    </div>
+                  </div>
+                  <button
+                    style={styles.reportButtonQuiet}
+                    onClick={() => (t.archived ? restoreTarget(t.id) : archiveTarget(t.id))}
+                  >
+                    {t.archived ? 'Restore' : 'Archive'}
+                  </button>
+                </div>
+              ))}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
       {seesAll && reports.length > 0 ? (
         <div style={styles.reportsSection}>
           {/* Uncollected at the top, because those need something doing.
@@ -378,6 +446,18 @@ export default function ExpensesScreen() {
                 placeholder="City, State"
               />
 
+              {/* Optional, and last before the date because most receipts do not
+                  need it. Blank means the spend is not against one market. */}
+              <p style={styles.label}>Charge to (optional)</p>
+              <select style={styles.input} value={chargeToId} onChange={(e) => setChargeToId(e.target.value)}>
+                <option value="">Not specific to one place</option>
+                {activeTargets.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+
               <p style={styles.label}>Date spent</p>
               <input
                 style={styles.input}
@@ -472,6 +552,7 @@ const styles = {
   subtitle: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 22px' },
   hint: { fontSize: 13, color: 'var(--text-tertiary)', padding: '12px 0' },
 
+  budgetAddRow: { display: 'flex', gap: 8, marginLeft: 20, marginBottom: 10, alignItems: 'center' },
   folderRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'none', border: 'none', padding: '10px 2px', marginTop: 6, cursor: 'pointer', textAlign: 'left' },
   folderChevron: { color: 'var(--text-tertiary)', fontSize: 11 },
   folderLabel: { flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' },

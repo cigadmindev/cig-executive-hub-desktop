@@ -51,6 +51,14 @@ service cloud.firestore {
     // Written by the scheduled function with the Admin SDK, so no client
     // write is permitted. Marking one downloaded also goes through a function,
     // because that is what deletes the file.
+    // What a receipt can be charged to. Everyone reads it, because the
+    // submission form offers it to whoever is filing the receipt. Only admins
+    // maintain the list.
+    match /budgetTargets/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /expenseReports/{dateKey} {
       allow read: if isAdmin() || isFinance();
       allow write: if false;

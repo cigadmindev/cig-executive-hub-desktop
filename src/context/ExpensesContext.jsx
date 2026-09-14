@@ -158,7 +158,7 @@ export function ExpensesProvider({ children }) {
   // Takes a File straight from an <input type="file">, which uploadBytes
   // accepts as-is. The mobile version has to fetch its local URI into a blob
   // first; same destination, different starting point.
-  const submitReceipt = async ({ file, amountCents, categoryKey, where: whereText, reason, dateSpent }) => {
+  const submitReceipt = async ({ file, amountCents, categoryKey, where: whereText, reason, dateSpent, chargeToId }) => {
     if (!user) throw new Error('You must be signed in.');
 
     // Named here rather than by the server: the upload has to happen before
@@ -178,6 +178,7 @@ export function ExpensesProvider({ children }) {
       reason,
       dateSpent,
       storagePath: path,
+      chargeToId: chargeToId ?? null,
     });
   };
 

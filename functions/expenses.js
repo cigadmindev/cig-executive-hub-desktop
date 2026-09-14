@@ -88,7 +88,7 @@ exports.submitExpenseReceipt = onCall(async (request) => {
   const uid = request.auth.uid;
   const profile = await callerProfile(uid);
 
-  const { amountCents, categoryKey, where, dateSpent, reason, storagePath } = request.data || {};
+  const { amountCents, categoryKey, where, dateSpent, reason, storagePath, chargeToId } = request.data || {};
 
   // Amount. Held as integer cents so report totals cannot drift by rounding;
   // the client types and sees 214.77 and converts on the way in.
@@ -135,6 +135,22 @@ exports.submitExpenseReceipt = onCall(async (request) => {
     throw new HttpsError('failed-precondition', 'The receipt photo did not finish uploading. Try again.');
   }
 
+  // Which budget this is charged against. Optional - most spend is not
+  // specific to one market, and forcing a choice would put wrong answers in
+  // the reports.
+  //
+  // The name is looked up here rather than trusted from the client, so a
+  // receipt cannot claim one market while pointing at another. One read per
+  // submission, which is fine for something this occasional.
+  let chargeToName = null;
+  if (chargeToId) {
+    const target = await admin.firestore().collection('budgetTargets').doc(String(chargeToId)).get();
+    if (!target.exists) {
+      throw new HttpsError('invalid-argument', 'That budget no longer exists — pick another.');
+    }
+    chargeToName = target.data().name ?? null;
+  }
+
   const now = Date.now();
   // The cutoff belongs to the day it was *submitted*, not the day it was
   // spent — someone entering a two-week-old receipt still gets today to fix a
@@ -152,6 +168,8 @@ exports.submitExpenseReceipt = onCall(async (request) => {
     where: whereTrimmed,
     reason: reasonTrimmed,
     dateSpent,                       // YYYY-MM-DD, Central. The accounting date.
+    chargeToId: chargeToId || null,  // null when the spend is not market-specific
+    chargeToName,                    // resolved above, never taken from the client
     submittedAt: now,
     submittedDateKey: centralDateKey(new Date(now)),
     editableUntil,

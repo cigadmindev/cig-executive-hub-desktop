@@ -16,6 +16,7 @@ import { SupportRequestsProvider } from './context/SupportRequestsContext';
 import { SupportAnnouncementsProvider } from './context/SupportAnnouncementsContext';
 import { CategoryDriveLinksProvider } from './context/CategoryDriveLinksContext';
 import { ExpensesProvider } from './context/ExpensesContext';
+import { BudgetTargetsProvider } from './context/BudgetTargetsContext';
 import { OpeningInfoProvider } from './context/OpeningInfoContext';
 import { OpeningOngoingContactsProvider } from './context/OpeningOngoingContactsContext';
 import { ExecutiveNotesProvider } from './context/ExecutiveNotesContext';
@@ -116,6 +117,7 @@ function Providers({ children }) {
       <ExecutiveNotesProvider>
       {/* Reads role and job to decide whether this account sees everyone's
           receipts or only its own, so it sits inside AuthProvider. */}
+      <BudgetTargetsProvider>
       <ExpensesProvider>
       <CategoryDriveLinksProvider>
       <SupportRequestsProvider>
@@ -150,6 +152,7 @@ function Providers({ children }) {
       </SupportRequestsProvider>
       </CategoryDriveLinksProvider>
       </ExpensesProvider>
+      </BudgetTargetsProvider>
       </ExecutiveNotesProvider>
       </WorkOrdersProvider>
       </ThemeProvider>
