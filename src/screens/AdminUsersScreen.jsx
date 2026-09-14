@@ -16,7 +16,7 @@ function cleanJob(j) {
 
 export default function AdminUsersScreen() {
   const { dialogNode, confirm, notify } = useDialog();
-  const { users, addUser, sendPasswordReset, setUserActive, updateUserRole, user: currentUser , updatePermissions } = useAuth();
+  const { users, addUser, sendPasswordReset, setUserActive, updateUserRole, user: currentUser , updatePermissions, updateUserJob } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,6 +33,10 @@ export default function AdminUsersScreen() {
   const [editBrands, setEditBrands] = useState([]);
   const [editCategories, setEditCategories] = useState([]);
   const [editFeatures, setEditFeatures] = useState([]);
+  // Job is what someone does; role is what they can reach. They are separate
+  // on purpose - a manager can hold IT / Training now and keep it when they
+  // become an executive, without any routing changing.
+  const [editJob, setEditJob] = useState(null);
   const [savingRole, setSavingRole] = useState(false);
 
   const openAccessEditor = (u) => {
@@ -40,6 +44,7 @@ export default function AdminUsersScreen() {
     setEditBrands(u.permissions?.brandIds ?? []);
     setEditCategories(u.permissions?.categoryIds ?? []);
     setEditFeatures(u.permissions?.features ?? FEATURES.map((f) => f.key));
+    setEditJob(u.job ?? null);
     setRoleEditUser(u);
   };
 
@@ -47,6 +52,7 @@ export default function AdminUsersScreen() {
     setSavingRole(true);
     try {
       if (editRole !== roleEditUser.role) await updateUserRole(roleEditUser.uid, editRole);
+      if (editJob !== (roleEditUser.job ?? null)) await updateUserJob(roleEditUser.uid, editJob);
       await updatePermissions(roleEditUser.uid, {
         brandIds: editBrands,
         categoryIds: editCategories,
@@ -299,6 +305,19 @@ export default function AdminUsersScreen() {
                   disabled={savingRole}
                 >
                   {r === 'manager' ? 'Manager' : r === 'executive' ? 'Executive' : 'Admin'}
+                </button>
+              ))}
+            </div>
+
+            <p style={styles.modalSectionLabel}>Job / Department</p>
+            <div style={styles.chipWrap}>
+              {JOB_OPTIONS.map((j) => (
+                <button
+                  key={j}
+                  style={{ ...styles.chip, ...(editJob === j ? styles.chipActive : {}) }}
+                  onClick={() => setEditJob(editJob === j ? null : j)}
+                >
+                  {j}
                 </button>
               ))}
             </div>

@@ -158,6 +158,17 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Job could only be set when an account was created, which meant anyone
+  // whose responsibilities changed had to be deleted and recreated. It drives
+  // real behaviour now - Financials sees expense reports, COO and the beverage
+  // manager restructure checklists, IT / Training handles integration requests
+  // - so it has to be editable.
+  const updateUserJob = async (uid, job) => {
+    await updateDoc(doc(db, 'users', uid), { job: job ?? null });
+    await refreshUsers();
+    setUser((prev) => (prev && prev.uid === uid ? { ...prev, job: job ?? null } : prev));
+  };
+
   const updatePermissions = async (uid, permissions) => {
     await updateDoc(doc(db, 'users', uid), { permissions });
     await refreshUsers();
@@ -233,6 +244,7 @@ export function AuthProvider({ children }) {
         logout,
         addUser,
         updatePermissions,
+        updateUserJob,
         updateUserRole,
         updateMyProfile,
         setUserActive,
