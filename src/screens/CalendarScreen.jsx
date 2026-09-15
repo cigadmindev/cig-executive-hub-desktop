@@ -78,7 +78,7 @@ export default function CalendarScreen() {
   // rows are read-only here - tapping opens the screen that owns them.
   const virtualEntries = [
     ...renewals
-      .filter((r) => r.expirationDate)
+      .filter((r) => r.expirationDate && !r.hidden)
       .map((r) => ({
         id: 'renewal:' + r.id,
         locationId: r.locationId,

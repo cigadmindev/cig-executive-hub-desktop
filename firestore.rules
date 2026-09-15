@@ -207,7 +207,25 @@ service cloud.firestore {
     }
 
     match /licenseRenewals/{itemId} {
-      allow read, create, update: if isSignedIn();
+      allow read: if isSignedIn();
+      // Seeding runs as whoever opens the screen, so anyone must be able to
+      // create the standard list - otherwise a manager opening a location
+      // nobody senior has visited sees nothing.
+      //
+      // Adding a permit that is not in the template is restructuring, and
+      // that is the three. The difference is the custom flag: seeding writes
+      // false, the add form writes true.
+      allow create: if isSignedIn() && (
+        request.resource.data.custom != true || canEditChecklists()
+      );
+      // Two branches. The three can change anything. Everyone else can do the
+      // work - set dates, attach the permit, sign it off - but not add
+      // 'hidden' or 'custom', which are what take a permit off the list.
+      allow update: if canEditChecklists() || (
+        isSignedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['approvedDate', 'expirationDate', 'document', 'signedOffBy', 'signedOffAt'])
+      );
       allow delete: if isAdmin();
     }
 

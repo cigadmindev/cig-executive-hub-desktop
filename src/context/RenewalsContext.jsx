@@ -42,6 +42,12 @@ export function RenewalsProvider({ children }) {
           document: data.document ?? null,
           signedOffBy: data.signedOffBy ?? null,
           signedOffAt: data.signedOffAt ?? null,
+          // Hidden rather than deleted: ensureSeeded runs on every visit and
+          // would recreate anything removed. The record survives and stays
+          // out of the list, so a location can drop a permit it does not
+          // need without the template fighting it.
+          hidden: data.hidden === true,
+          custom: data.custom === true,
         };
       });
       setItems(list);
@@ -51,7 +57,30 @@ export function RenewalsProvider({ children }) {
     return unsubscribe;
   }, [user]);
 
-  const getByLocation = (locationId) => items.filter((i) => i.locationId === locationId);
+  // Hidden ones are excluded by default; the screen asks for them when
+  // someone wants to put one back.
+  const getByLocation = (locationId, includeHidden = false) =>
+    items.filter((i) => i.locationId === locationId && (includeHidden || !i.hidden));
+
+  // Scoped to one location. Adding a permit at Chelsea puts it on Chelsea's
+  // list and nowhere else.
+  const addRenewal = async (locationId, type) => {
+    await setDoc(doc(db, COLLECTION, renewalDocId(locationId, type)), {
+      locationId,
+      type,
+      approvedDate: null,
+      expirationDate: null,
+      document: null,
+      signedOffBy: null,
+      signedOffAt: null,
+      hidden: false,
+      custom: true,
+    });
+  };
+
+  const setRenewalHidden = async (id, hidden) => {
+    await updateDoc(doc(db, COLLECTION, id), { hidden });
+  };
 
   // Transaction-guarded so calling this twice in a row (or from two
   // devices at once) can never double-create or clobber real approved
@@ -73,6 +102,11 @@ export function RenewalsProvider({ children }) {
               expirationDate: null,
               signedOffBy: null,
               signedOffAt: null,
+              // Written explicitly: the rule lets anyone create a seeded
+              // record and only the three create a custom one, and an absent
+              // field would read as neither.
+              hidden: false,
+              custom: false,
             });
           });
         } catch (err) {
@@ -108,7 +142,7 @@ export function RenewalsProvider({ children }) {
   const hasUpcomingRenewal = (locationId) => getByLocation(locationId).some(isRenewalDueSoon);
 
   return (
-    <RenewalsContext.Provider value={{ renewals: items, getByLocation, ensureSeeded, updateDates, setRenewalDocument, markRenewed, hasUpcomingRenewal }}>
+    <RenewalsContext.Provider value={{ renewals: items, getByLocation, ensureSeeded, updateDates, setRenewalDocument, markRenewed, hasUpcomingRenewal, addRenewal, setRenewalHidden }}>
       {children}
     </RenewalsContext.Provider>
   );

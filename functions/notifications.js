@@ -268,6 +268,10 @@ exports.onRenewalDueSoon = onDocumentUpdated('licenseRenewals/{id}', async (even
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after || !after.expirationDate) return;
+  // A permit taken off a location's list keeps its dates - it is hidden, not
+  // deleted, because seeding would recreate a deleted one. So it has to be
+  // skipped here too, or someone gets told to renew something they removed.
+  if (after.hidden === true) return;
 
   const WARNING_DAYS = 60;
   const DAY = 24 * 60 * 60 * 1000;

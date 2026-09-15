@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRenewals, isRenewalDueSoon } from '../context/RenewalsContext';
-import { brands } from '../data/mockData';
+import { brands , canEditChecklists } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import DatePickerField from '../components/DatePickerField';
 import { useSchedule } from '../context/ScheduleContext';
@@ -18,9 +18,14 @@ function formatDate(ts) {
 
 export default function RenewalsScreen() {
   const { brandId, locationId } = useParams();
-  const { dialogNode, notify } = useDialog();
+  const { dialogNode, notify, confirm } = useDialog();
   const { user } = useAuth();
-  const { getByLocation, ensureSeeded, updateDates, markRenewed } = useRenewals();
+  const { getByLocation, ensureSeeded, updateDates, markRenewed, addRenewal, setRenewalHidden } = useRenewals();
+  // Same three as the checklist: admins, the COO and the beverage manager.
+  const canEdit = canEditChecklists(user);
+  const [showHidden, setShowHidden] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newType, setNewType] = useState('');
 
   // Maps a renewal type back to the checklist item that produced it, so a
   // document removed here also clears there.
@@ -64,7 +69,7 @@ export default function RenewalsScreen() {
     if (locationId) ensureSeeded(locationId);
   }, [locationId]);
 
-  const items = getByLocation(locationId);
+  const items = getByLocation(locationId, canEdit && showHidden);
 
   const openEdit = (item) => {
     setEditingItem(item);
@@ -114,6 +119,50 @@ export default function RenewalsScreen() {
       </Link>
       <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>License & Lease Renewals</h1>
 
+      {/* Per location: a permit added here is on this location's list and
+          nowhere else, and one removed here is still on everyone else's. */}
+      {canEdit ? (
+        <div style={styles.addRow}>
+          {addOpen ? (
+            <>
+              <input
+                style={styles.addInput}
+                value={newType}
+                onChange={(e) => setNewType(e.target.value)}
+                placeholder="Health Department Permit"
+                autoFocus
+              />
+              <button
+                style={styles.addConfirm}
+                disabled={!newType.trim()}
+                onClick={async () => {
+                  try {
+                    await addRenewal(locationId, newType.trim());
+                    setNewType('');
+                    setAddOpen(false);
+                  } catch (err) {
+                    notify('Could not add', err?.message ?? 'Try again.');
+                  }
+                }}
+              >
+                Add
+              </button>
+              <button style={styles.addCancel} onClick={() => { setAddOpen(false); setNewType(''); }}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button style={styles.addCancel} onClick={() => setAddOpen(true)}>
+              + Add permit
+            </button>
+          )}
+          <div style={{ flex: 1 }} />
+          <button style={styles.addCancel} onClick={() => setShowHidden((v) => !v)}>
+            {showHidden ? 'Hide removed' : 'Show removed'}
+          </button>
+        </div>
+      ) : null}
+
       <div style={styles.body}>
         <div style={styles.headRow}>
           <span style={styles.headName}>Permit</span>
@@ -138,7 +187,11 @@ export default function RenewalsScreen() {
               <div key={item.id} style={styles.row}>
                 <div
                   data-row=""
-                  style={{ ...styles.rowMain, ...(dueSoon ? styles.rowDue : {}) }}
+                  style={{
+                    ...styles.rowMain,
+                    ...(dueSoon ? styles.rowDue : {}),
+                    ...(item.hidden ? styles.rowHidden : {}),
+                  }}
                   onClick={() => setExpandedId(isOpen ? null : item.id)}
                 >
                   <span style={styles.rowName}>{item.type}</span>
@@ -165,6 +218,26 @@ export default function RenewalsScreen() {
                     </div>
                     {item.signedOffBy ? (
                       <p style={styles.signOffNote}>Last renewed by {item.signedOffBy}</p>
+                    ) : null}
+                    {canEdit ? (
+                      <div style={styles.removeWrap}>
+                        <button
+                          style={styles.removeLink}
+                          onClick={() =>
+                            item.hidden
+                              ? setRenewalHidden(item.id, false)
+                              : confirm({
+                                  title: `Remove "${item.type}"?`,
+                                  body: "It comes off this location's list. Other locations are unaffected, and you can put it back with Show removed.",
+                                  confirmLabel: 'Remove',
+                                  tone: 'danger',
+                                  onConfirm: () => setRenewalHidden(item.id, true),
+                                })
+                          }
+                        >
+                          {item.hidden ? 'Put this permit back' : 'Remove this permit from the list'}
+                        </button>
+                      </div>
                     ) : null}
                     <DocumentField
                       locationId={locationId}
@@ -266,6 +339,15 @@ const styles = {
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
   title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },
   body: {},
+  // Only visible with Show removed on, and it needs to read as removed
+  // rather than as another permit in the list.
+  rowHidden: { opacity: 0.45 },
+  removeWrap: { marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' },
+  removeLink: { background: 'none', border: 'none', padding: 0, color: 'var(--danger)', opacity: 0.75, fontSize: 11, cursor: 'pointer' },
+  addRow: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 },
+  addInput: { flex: 1, maxWidth: 280, height: 34, boxSizing: 'border-box', padding: '0 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
+  addConfirm: { height: 34, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
+  addCancel: { height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   signOffNote: { fontSize: 11, color: 'var(--text-secondary)', margin: '6px 0 0' },
   cancelButton: { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
   saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
