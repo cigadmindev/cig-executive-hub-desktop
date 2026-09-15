@@ -41,6 +41,9 @@ export default function CalendarScreen() {
   const [editingOpeningDateId, setEditingOpeningDateId] = useState(null);
   // One row open at a time, same as the checklist and renewals.
   const [expandedEntryId, setExpandedEntryId] = useState(null);
+  // One location's overdue list open at a time - opening every group at once
+  // puts back the wall of red this folds away.
+  const [expandedOverdueLocation, setExpandedOverdueLocation] = useState(null);
   const [openingDateDraft, setOpeningDateDraft] = useState('');
   const [confirmingOpeningDate, setConfirmingOpeningDate] = useState(null); // { entry, newDate }
   const [formOpen, setFormOpen] = useState(false);
@@ -125,6 +128,29 @@ export default function CalendarScreen() {
   const selectedEntries = selectedDate
     ? filteredEntries.filter((e) => dayKey(new Date(e.dateTime)) === dayKey(selectedDate)).sort((a, b) => a.dateTime - b.dateTime)
     : [];
+
+  // What is actually due on the selected day, and what is overdue from
+  // earlier and carried forward. Split so a real event is not buried under
+  // twenty-six red rows: the overdue checklist work folds into a count per
+  // location instead.
+  //
+  // An overdue renewal or event does not fold - that is exactly the sort of
+  // thing someone opened this date to find.
+  const dueToday = [];
+  const overdueByLocation = {};
+
+  for (const e of selectedEntries) {
+    const isVirtual = e.source === 'renewal' || e.source === 'event';
+    const isChecklist = !isVirtual && (e.openingItem || e.renewalItem);
+    const isOverdue = isChecklist && !e.done && e.dateTime < Date.now();
+
+    if (isOverdue) {
+      const key = e.locationId ?? 'unknown';
+      (overdueByLocation[key] ??= []).push(e);
+    } else {
+      dueToday.push(e);
+    }
+  }
 
   const allLocationOptions = Object.entries(locationInfo).map(([id, info]) => ({ id, ...info }));
 
@@ -256,7 +282,7 @@ export default function CalendarScreen() {
               {selectedEntries.length === 0 ? (
                 <p style={styles.hint}>Nothing scheduled this day.</p>
               ) : (
-                selectedEntries.map((e) => {
+                dueToday.map((e) => {
                   const info = locationInfo[e.locationId];
                   // Read straight from the renewal or event request, not a
                   // schedule record - so there is nothing here to edit.
@@ -405,6 +431,54 @@ export default function CalendarScreen() {
                   );
                 })
               )}
+
+              {/* Overdue checklist work, folded by location. Nothing is
+                  hidden - it is all still here, just behind a count so a real
+                  event on this date is not buried under twenty-six red rows. */}
+              {Object.keys(overdueByLocation).length > 0 ? (
+                <>
+                  <p style={styles.overdueGroupLabel}>Overdue, carried forward</p>
+                  {Object.entries(overdueByLocation).map(([locId, items]) => {
+                    const groupInfo = locationInfo[locId];
+                    const groupOpen = expandedOverdueLocation === locId;
+                    return (
+                      <div key={locId} style={styles.overdueGroup}>
+                        <button
+                          style={styles.overdueGroupHead}
+                          onClick={() => setExpandedOverdueLocation(groupOpen ? null : locId)}
+                        >
+                          <span style={styles.overdueChevron}>{groupOpen ? '▾' : '▸'}</span>
+                          <span style={styles.overdueGroupName}>
+                            {groupInfo ? groupInfo.brandName + ' · ' + groupInfo.locationName : 'Unknown location'}
+                          </span>
+                          <span style={styles.overdueGroupCount}>{items.length} overdue</span>
+                        </button>
+                        {groupOpen ? (
+                          <div style={styles.overdueGroupBody}>
+                            {items.map((item) => (
+                              <Link
+                                key={item.id}
+                                data-row=""
+                                style={styles.overdueItem}
+                                to={
+                                  '/brand/' +
+                                  groupInfo.brandId +
+                                  '/location/' +
+                                  locId +
+                                  (item.renewalItem ? '/renewals' : '/opening-checklist')
+                                }
+                              >
+                                <span style={styles.overdueItemTitle}>{item.title}</span>
+                                <span style={styles.overdueItemLabel}>Overdue</span>
+                              </Link>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : null}
             </>
           )}
         </div>
@@ -546,6 +620,16 @@ const styles = {
   calendarColNarrow: { width: '100%', minWidth: 0 },
   detailColNarrow: { width: '100%', minWidth: 0, paddingTop: 18 },
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 },
+  overdueGroupLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '22px 0 8px' },
+  overdueGroup: { background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 7, overflow: 'hidden' },
+  overdueGroupHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'none', border: 'none', padding: '12px 15px', cursor: 'pointer', textAlign: 'left' },
+  overdueChevron: { color: 'var(--text-tertiary)', fontSize: 11 },
+  overdueGroupName: { flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' },
+  overdueGroupCount: { fontSize: 12, color: 'var(--danger)' },
+  overdueGroupBody: { padding: '0 10px 8px' },
+  overdueItem: { textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'none', border: 'none', borderTop: '1px solid var(--border)', padding: '10px 8px', cursor: 'pointer', textAlign: 'left' },
+  overdueItemTitle: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
+  overdueItemLabel: { fontSize: 11, color: 'var(--danger)' },
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
   detailHeaderRow: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18 },
   detailEyebrow: { fontSize: 11, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 2px' },
