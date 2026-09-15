@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useIsNarrow } from '../hooks/useIsNarrow';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate , Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { brands } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
@@ -146,9 +146,16 @@ export default function HomeScreen() {
           when something is actually opening. */}
       {summary.openingSoon.length > 0 ? (
         <div style={styles.zone}>
-          <p style={styles.zoneLabel}>Opening soon</p>
+          <div style={styles.openingHead}>
+            <p style={styles.zoneLabel}>Opening soon</p>
+            {summary.openingSoon.length > 2 ? (
+              <Link to="/opening-soon" style={styles.seeAll}>
+                See all {summary.openingSoon.length} →
+              </Link>
+            ) : null}
+          </div>
           <div style={styles.openingGrid}>
-            {summary.openingSoon.map((loc) => (
+            {summary.openingSoon.slice(0, 2).map((loc) => (
               <button
                 key={loc.id}
                 data-card=""
@@ -358,6 +365,8 @@ const styles = {
   attentionWhere: { fontSize: 11, color: 'var(--text-tertiary)', flexShrink: 0 },
   moreNote: { fontSize: 12, color: 'var(--text-tertiary)', margin: '9px 2px 0' },
 
+  openingHead: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
+  seeAll: { fontSize: 10, fontWeight: 700, color: 'var(--neon)', textDecoration: 'none', whiteSpace: 'nowrap' },
   openingGrid: { display: 'flex', flexDirection: 'column', gap: 8 },
   openingCard: {
     display: 'flex',

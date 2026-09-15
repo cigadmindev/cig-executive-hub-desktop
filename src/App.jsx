@@ -42,6 +42,7 @@ import AdminUsersScreen from './screens/AdminUsersScreen';
 import PendingRequestsScreen from './screens/PendingRequestsScreen';
 import SupportScreen from './screens/SupportScreen';
 import IntegrationRequestsScreen from './screens/IntegrationRequestsScreen';
+import OpeningSoonScreen from './screens/OpeningSoonScreen';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
 import IntegrationsScreen from './screens/IntegrationsScreen';
@@ -96,6 +97,7 @@ function Gate() {
         <Route path="/brand/:brandId/location/:locationId/integrations" element={<RequireFeature feature="integrations"><IntegrationsScreen /></RequireFeature>} />
         <Route path="/support" element={<RequireFeature feature="support"><SupportScreen /></RequireFeature>} />
         <Route path="/integration-requests" element={<IntegrationRequestsScreen />} />
+        <Route path="/opening-soon" element={<OpeningSoonScreen />} />
         <Route path="/executive-notes" element={<ExecutiveNotesScreen />} />
         <Route path="/work-orders" element={<RequireFeature feature="workOrders"><WorkOrdersScreen /></RequireFeature>} />
         <Route path="/expenses" element={<RequireFeature feature="expenses"><ExpensesScreen /></RequireFeature>} />
