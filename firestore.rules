@@ -60,7 +60,7 @@ service cloud.firestore {
     function handlesIntegrations() {
       return request.auth != null && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'IT / Training'
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'IT'
       );
     }
 

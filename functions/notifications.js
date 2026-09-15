@@ -290,3 +290,48 @@ exports.onRenewalDueSoon = onDocumentUpdated('licenseRenewals/{id}', async (even
     { kind: 'renewal', locationId: after.locationId }
   );
 });
+
+// Systems Help. Built after the other triggers, which is why it had none - a
+// request went into a queue nobody was told about.
+exports.onIntegrationRequestCreated = onDocumentCreated('integrationRequests/{id}', async (event) => {
+  const req = event.data?.data();
+  if (!req) return;
+
+  // Whoever holds IT, plus admins. Job rather than person, so it follows the
+  // role rather than a name.
+  const users = await activeUsers();
+  const tokens = users
+    .filter((u) => (u.role === 'admin' || u.job === 'IT') && u.uid !== req.createdByUid)
+    .map((u) => u.pushToken);
+
+  await push(
+    tokens,
+    req.kind === 'help' ? 'Help needed' : 'Change requested',
+    `${req.createdByName ?? 'Someone'} · ${req.system ?? 'a system'}`,
+    { kind: 'integrationRequest' }
+  );
+});
+
+// And back the other way when it is answered - otherwise the person who asked
+// has to keep checking.
+exports.onIntegrationRequestResolved = onDocumentUpdated('integrationRequests/{id}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return;
+
+  // Only when it is newly answered. Marking something in progress twice, or
+  // editing a reply, should not notify again.
+  const newlyAnswered = !before.respondedAt && after.respondedAt;
+  const newlyDone = before.status !== 'done' && after.status === 'done';
+  if (!newlyAnswered && !newlyDone) return;
+
+  const users = await activeUsers();
+  const tokens = users.filter((u) => u.uid === after.createdByUid).map((u) => u.pushToken);
+
+  await push(
+    tokens,
+    after.status === 'done' ? 'Sorted' : 'Update on your request',
+    after.response ? after.response.slice(0, 120) : `${after.system ?? 'Your request'} — ${after.status === 'done' ? 'done' : 'in progress'}`,
+    { kind: 'integrationRequest' }
+  );
+});

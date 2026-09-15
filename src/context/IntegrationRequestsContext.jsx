@@ -33,7 +33,7 @@ export function IntegrationRequestsProvider({ children }) {
   // Whoever holds the job sees everything. Everyone else sees what they sent.
   // Job rather than person, because Cameron is moving into this role and the
   // routing should follow the job rather than her name.
-  const handlesRequests = user?.role === 'admin' || user?.job === 'IT / Training';
+  const handlesRequests = user?.role === 'admin' || user?.job === 'IT';
 
   useEffect(() => {
     if (!user) {
