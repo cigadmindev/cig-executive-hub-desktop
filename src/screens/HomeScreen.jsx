@@ -107,15 +107,22 @@ export default function HomeScreen() {
       <div
         style={{
           ...styles.zone,
+          ...styles.zoneFill,
           ...(summary.openingSoon.length === 0 && !isNarrow ? { gridColumn: '1 / -1' } : {}),
         }}
       >
           <p style={styles.zoneLabel}>Needs you</p>
-          <div style={{ ...styles.panel, minHeight: 196 }}>
+          {/* The panel is absolutely positioned inside a flexible wrapper, so
+              a long list cannot stretch the grid row. The row is sized by
+              Opening soon and everything scrolls inside whatever that gives -
+              rather than the list growing and pushing the gap to the other
+              column. */}
+          <div style={isNarrow ? styles.attentionPlain : styles.attentionScroll}>
+            <div style={isNarrow ? styles.panel : { ...styles.panel, ...styles.attentionInner }}>
             {summary.attention.length === 0 ? (
               <p style={styles.emptyNote}>Nothing needs your attention.</p>
             ) : null}
-            {summary.attention.slice(0, 5).map((a, i) => (
+            {(isNarrow ? summary.attention.slice(0, 8) : summary.attention).map((a, i) => (
               <button key={i} data-row="" style={styles.attentionRow} onClick={() => navigate(a.to)}>
                 <span
                   style={{
@@ -127,9 +134,10 @@ export default function HomeScreen() {
                 <span style={styles.attentionWhere}>{a.where}</span>
               </button>
             ))}
+            </div>
           </div>
-          {summary.attention.length > 5 ? (
-            <p style={styles.moreNote}>{summary.attention.length - 5} more</p>
+          {isNarrow && summary.attention.length > 8 ? (
+            <p style={styles.moreNote}>{summary.attention.length - 8} more</p>
           ) : null}
         </div>
 
@@ -303,7 +311,14 @@ export default function HomeScreen() {
 }
 
 const styles = {
-  topGrid: { display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 18, alignItems: 'start' },
+  topGrid: { display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 18, alignItems: 'stretch' },
+  // The zone is a column so its panel can grow into whatever height the grid
+  // hands it - otherwise Needs you ends short of Opening soon and leaves a
+  // hole that gets worse with every restaurant added.
+  zoneFill: { display: 'flex', flexDirection: 'column' },
+  attentionScroll: { position: 'relative', flex: 1, minHeight: 196 },
+  attentionPlain: { flex: 1 },
+  attentionInner: { position: 'absolute', inset: 0, overflowY: 'auto' },
   // Two columns at ~170px each on a phone left every card clipping its own
   // text mid-word. One column, full width.
   topGridNarrow: { display: 'grid', gridTemplateColumns: '1fr', gap: 14, alignItems: 'start' },
