@@ -146,14 +146,12 @@ export default function HomeScreen() {
           when something is actually opening. */}
       {summary.openingSoon.length > 0 ? (
         <div style={styles.zone}>
-          <div style={styles.openingHead}>
+          <Link to="/opening-soon" style={styles.openingHead}>
             <p style={styles.zoneLabel}>Opening soon</p>
-            {summary.openingSoon.length > 2 ? (
-              <Link to="/opening-soon" style={styles.seeAll}>
-                See all {summary.openingSoon.length} →
-              </Link>
-            ) : null}
-          </div>
+            <span style={styles.seeAll}>
+              {summary.openingSoon.length > 2 ? `See all ${summary.openingSoon.length}` : 'See all'} →
+            </span>
+          </Link>
           <div style={styles.openingGrid}>
             {summary.openingSoon.slice(0, 2).map((loc) => (
               <button
@@ -365,7 +363,7 @@ const styles = {
   attentionWhere: { fontSize: 11, color: 'var(--text-tertiary)', flexShrink: 0 },
   moreNote: { fontSize: 12, color: 'var(--text-tertiary)', margin: '9px 2px 0' },
 
-  openingHead: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
+  openingHead: { textDecoration: 'none', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
   seeAll: { fontSize: 10, fontWeight: 700, color: 'var(--neon)', textDecoration: 'none', whiteSpace: 'nowrap' },
   openingGrid: { display: 'flex', flexDirection: 'column', gap: 8 },
   openingCard: {

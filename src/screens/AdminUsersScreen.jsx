@@ -26,6 +26,7 @@ export default function AdminUsersScreen() {
   const [categoryIds, setCategoryIds] = useState([]);
   const [creating, setCreating] = useState(false);
   const [roleEditUser, setRoleEditUser] = useState(null);
+  const [expandedUserId, setExpandedUserId] = useState(null);
   // Drafts for the access modal. Held here rather than written on each click
   // so ticking eight features is one write, and so someone can change their
   // mind before committing.
@@ -252,13 +253,68 @@ export default function AdminUsersScreen() {
             {item.email} · {item.role}
             {item.job ? ` · ${cleanJob(item.job)}` : ''}
           </p>
-          {item.role === 'manager' ? (
-            <p style={styles.userPermissions}>
-              {item.permissions.brandIds.length > 0 ? `Restaurants: ${item.permissions.brandIds.length}` : 'No restaurants granted yet'}
-              {' · '}
-              {item.permissions.categoryIds.length > 0 ? `Categories: ${item.permissions.categoryIds.length}` : 'No categories granted yet'}
-            </p>
+
+          <button
+            style={styles.expandToggle}
+            onClick={() => setExpandedUserId(expandedUserId === item.uid ? null : item.uid)}
+          >
+            {expandedUserId === item.uid ? '▾ Hide access' : '▸ Show access'}
+          </button>
+
+          {expandedUserId === item.uid ? (
+            <div style={styles.accessDetail}>
+              {item.role === 'manager' ? (
+                <>
+                  <p style={styles.accessLabel}>Restaurants</p>
+                  <p style={styles.accessValue}>
+                    {item.permissions.brandIds.length > 0
+                      ? brands
+                          .filter((b) => item.permissions.brandIds.includes(b.id))
+                          .map((b) => b.name)
+                          .join(', ')
+                      : 'None granted yet'}
+                  </p>
+
+                  <p style={styles.accessLabel}>File directories</p>
+                  <p style={styles.accessValue}>
+                    {item.permissions.categoryIds.length > 0
+                      ? categories
+                          .filter((c) => item.permissions.categoryIds.includes(c.id))
+                          .map((c) => c.label)
+                          .join(', ')
+                      : 'None granted yet'}
+                  </p>
+
+                  {/* An absent features list means everything, which is why
+                      this says so rather than showing a blank. */}
+                  <p style={styles.accessLabel}>Can reach</p>
+                  <p style={styles.accessValue}>
+                    {Array.isArray(item.permissions.features)
+                      ? FEATURES.filter((f) => item.permissions.features.includes(f.key))
+                          .map((f) => f.label)
+                          .join(', ') || 'Nothing'
+                      : 'Everything'}
+                  </p>
+                  {Array.isArray(item.permissions.features) &&
+                  FEATURES.some((f) => !item.permissions.features.includes(f.key)) ? (
+                    <p style={styles.accessMuted}>
+                      Not:{' '}
+                      {FEATURES.filter((f) => !item.permissions.features.includes(f.key))
+                        .map((f) => f.label)
+                        .join(', ')}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                /* Their manager permissions stay saved for if they move back,
+                   but showing them would suggest they are in effect. */
+                <p style={styles.accessValue}>
+                  Everything — all restaurants, all directories, every part of the app.
+                </p>
+              )}
+            </div>
           ) : null}
+
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <button style={styles.resetButton} onClick={() => handleSendReset(item.email, item.name)}>
               Send Password Reset
@@ -266,7 +322,7 @@ export default function AdminUsersScreen() {
             {item.uid !== currentUser?.uid ? (
               <>
                 <button style={styles.resetButton} onClick={() => openAccessEditor(item)}>
-                  Change Role
+                  Edit Access
                 </button>
                 {item.active ? (
                   <button style={styles.deactivateButton} onClick={() => handleDeactivate(item.uid, item.name)}>
@@ -435,6 +491,11 @@ const styles = {
   inactiveBadge: { fontSize: 10, fontWeight: 700, color: 'var(--danger)', letterSpacing: 0.5 },
   userName: { fontSize: 14, fontWeight: 600 },
   userDetail: { fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' },
+  expandToggle: { background: 'none', border: 'none', padding: '6px 0 0', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer', textAlign: 'left' },
+  accessDetail: { marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' },
+  accessLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 4px' },
+  accessValue: { fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 12px' },
+  accessMuted: { fontSize: 11, lineHeight: 1.6, color: 'var(--text-tertiary)', margin: '-6px 0 12px' },
   userPermissions: { fontSize: 11, color: 'var(--text-secondary)', margin: '4px 0 0' },
   resetButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 },
   deactivateButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'rgba(232,82,75,0.12)', color: 'var(--danger)', fontSize: 12, fontWeight: 700 },
