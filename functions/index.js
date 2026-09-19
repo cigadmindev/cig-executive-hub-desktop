@@ -267,3 +267,7 @@ Object.assign(exports, require('./notifications'));
 Object.assign(exports, require('./expenseMonthly'));
 
 Object.assign(exports, require('./sweepIntegrationRequests'));
+
+Object.assign(exports, require('./documentUrls'));
+
+Object.assign(exports, require('./assembleSignedDocument'));

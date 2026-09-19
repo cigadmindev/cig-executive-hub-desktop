@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, setDoc, runTransaction, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db, auth, storage } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
-import { embedSignatures } from '../utils/pdfSigning';
 
 const WorkOrdersContext = createContext(undefined);
 const COLLECTION = 'workOrders';
@@ -33,6 +33,10 @@ export function WorkOrdersProvider({ children }) {
           originalFileUrl: data.originalFileUrl ?? null,
           originalFileName: data.originalFileName ?? null,
           signedFileUrl: data.signedFileUrl ?? null,
+          // The path, written by the function. signedFileUrl above is the old
+          // tokenised URL, kept until the migration has run everywhere.
+          signedPath: data.signedPath ?? null,
+          originalPath: data.originalPath ?? null,
           signedPdfError: data.signedPdfError ?? null,
           filesDeleted: data.filesDeleted ?? false,
           // Null until the sender downloads the finished document. The dot
@@ -97,27 +101,16 @@ export function WorkOrdersProvider({ children }) {
 
   // Pulled out so both the automatic run (right after the last signature)
   // and a manual retry can share the same logic.
-  const generateSignedPdf = async (id, title, originalFileUrl, signatures) => {
-    const ref_ = doc(db, COLLECTION, id);
-    try {
-      const originalRef = ref(storage, decodeStorageUrlToPath(originalFileUrl));
-      const originalBytes = await getBytes(originalRef);
-      const signedBytes = await embedSignatures(originalBytes, title, signatures);
-      const signedRef = ref(storage, `workOrders/${id}/signed.pdf`);
-      await uploadBytes(signedRef, signedBytes, { contentType: 'application/pdf' });
-      const signedFileUrl = await getDownloadURL(signedRef);
-      await updateDoc(ref_, { signedFileUrl, signedPdfError: null });
-    } catch (err) {
-      // Writes the real reason onto the work order itself, so "Sent by
-      // Me" can show exactly what went wrong instead of a permanent
-      // "putting it together" loading state with no explanation.
-      await updateDoc(ref_, { signedPdfError: err.message || 'Something went wrong generating the signed document.' });
-    }
+  // The heavy lifting happens in a Cloud Function now - see
+  // assembleSignedDocument. The record updates when it finishes, and the
+  // listener picks that up, so nothing here waits on the result.
+  const assemble = async (id) => {
+    const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'assembleSignedDocument');
+    await fn({ orderId: id });
   };
 
   const retryPdfGeneration = async (order) => {
-    if (!order.originalFileUrl) return;
-    await generateSignedPdf(order.id, order.title, order.originalFileUrl, order.signatures);
+    await assemble(order.id);
   };
 
   const signWorkOrder = async (id, signatureImageDataUrl) => {
@@ -151,7 +144,7 @@ export function WorkOrdersProvider({ children }) {
     // fine for this to happen a moment after the signature itself is
     // recorded, since the queue/status already updated live either way.
     if (justCompleted && justCompleted.originalFileUrl) {
-      await generateSignedPdf(id, justCompleted.title, justCompleted.originalFileUrl, justCompleted.signatures);
+      await assemble(id);
     }
   };
 
