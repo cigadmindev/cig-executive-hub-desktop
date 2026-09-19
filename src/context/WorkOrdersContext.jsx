@@ -37,6 +37,7 @@ export function WorkOrdersProvider({ children }) {
           // tokenised URL, kept until the migration has run everywhere.
           signedPath: data.signedPath ?? null,
           originalPath: data.originalPath ?? null,
+          downloadedByUids: data.downloadedByUids ?? [],
           signedPdfError: data.signedPdfError ?? null,
           filesDeleted: data.filesDeleted ?? false,
           // Null until the sender downloads the finished document. The dot
@@ -160,54 +161,66 @@ export function WorkOrdersProvider({ children }) {
   // record the download or clean up after it, and the notification dot had no
   // way to know it was done.
   const markDownloadedAndCleanUp = async (order) => {
-    if (!order.signedFileUrl) throw new Error('There is no signed document to download.');
+    // The URL is asked for rather than stored. A Firebase download URL carries
+    // a token and works for anyone holding it whatever the rules say; a signed
+    // one lasts ten minutes and is only issued to a signer, the sender, or an
+    // admin.
+    let url;
+    if (order.signedPath) {
+      const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'getWorkOrderFileUrl');
+      const res = await fn({ orderId: order.id });
+      url = res.data.url;
+    } else if (order.signedFileUrl) {
+      // Older record, from before the change.
+      url = order.signedFileUrl;
+    } else {
+      throw new Error('There is no signed document to download.');
+    }
 
-    const res = await fetch(order.signedFileUrl);
+    const res = await fetch(url);
     if (!res.ok) throw new Error('The document could not be downloaded.');
     const blob = await res.blob();
 
-    const url = URL.createObjectURL(blob);
+    const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = objectUrl;
     a.download = `${order.title || 'signed-document'}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(objectUrl);
 
-    // Recorded before the cleanup: the download is what clears the dot, and it
-    // has already happened by this point.
+    // Collection is per person, and the file stays.
     //
-    // Guarded for the same reason as the cleanup below - the file is already on
-    // disk, so nothing after this point should be able to report a failure the
-    // person can see. A rejected write here used to say the download had not
-    // worked while the PDF sat in their downloads folder.
+    // It used to delete the moment anyone downloaded it, so the first person
+    // to collect a document took it away from everyone else who signed it.
+    // The same mistake expense reports had. A sweep ages these out instead.
+    //
+    // Guarded because the file is already on disk by this point - nothing
+    // after the download should be able to report a failure the person can
+    // see.
     try {
-      await updateDoc(doc(db, COLLECTION, order.id), { downloadedAt: Date.now() });
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        await updateDoc(doc(db, COLLECTION, order.id), {
+          downloadedByUids: [...(order.downloadedByUids ?? []), uid],
+        });
+      }
     } catch (err) {
-      console.error('[WorkOrders] downloadedAt not recorded: ' + err.message);
-    }
-
-    // Best effort - a failure here leaves files in storage, which the sweep
-    // and the 90-day rules can deal with. It must not undo the download.
-    try {
-      await deleteStoredFiles(order);
-    } catch (err) {
-      console.error('[WorkOrders] files not removed after download: ' + err.message);
+      console.error('[WorkOrders] collection not recorded: ' + err.message);
     }
   };
 
-  // Anything you sent that is finished and not yet downloaded. Drives the
-  // dot on the card, the Directory tile and the nav.
-  const hasUndownloadedComplete = () =>
-    getSentByMe().some((o) => o.status === 'completed' && o.signedFileUrl && !o.downloadedAt);
-
-  const deleteStoredFiles = async (order) => {
-    const deletions = [];
-    if (order.originalFileUrl) deletions.push(deleteObject(ref(storage, decodeStorageUrlToPath(order.originalFileUrl))).catch(() => {}));
-    if (order.signedFileUrl) deletions.push(deleteObject(ref(storage, decodeStorageUrlToPath(order.signedFileUrl))).catch(() => {}));
-    await Promise.all(deletions);
-    await updateDoc(doc(db, COLLECTION, order.id), { filesDeleted: true });
+  // Anything you sent that is finished and you have not collected. Yours
+  // clearing does not clear anyone else's.
+  const hasUndownloadedComplete = () => {
+    const uid = auth.currentUser?.uid;
+    return getSentByMe().some(
+      (o) =>
+        o.status === 'completed' &&
+        (o.signedPath || o.signedFileUrl) &&
+        !(o.downloadedByUids ?? []).includes(uid)
+    );
   };
 
   return (
@@ -219,7 +232,6 @@ export function WorkOrdersProvider({ children }) {
         createWorkOrder,
         signWorkOrder,
         retryPdfGeneration,
-        deleteStoredFiles,
         markDownloadedAndCleanUp,
         hasUndownloadedComplete,
       }}

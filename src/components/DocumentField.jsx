@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, deleteObject } from 'firebase/storage';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { storage } from '../firebaseConfig';
 import { useDialog } from '../hooks/useDialog';
 
@@ -36,7 +37,6 @@ export default function DocumentField({ locationId, itemKey, value, onChange, us
       const path = `permitDocs/${locationId}/${itemKey}/${Date.now()}-${file.name}`;
       const storageRef = ref(storage, path);
       await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
 
       // Remove the previous file rather than orphaning it in Storage, where
       // it would keep costing money and never be reachable again.
@@ -48,9 +48,30 @@ export default function DocumentField({ locationId, itemKey, value, onChange, us
         }
       }
 
-      onChange({ url, path, name: file.name, uploadedAt: Date.now(), uploadedBy: userName ?? null });
+      onChange({ path, name: file.name, uploadedAt: Date.now(), uploadedBy: userName ?? null });
     } catch (err) {
       setError(err?.message ?? 'Upload failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openDocument = async () => {
+    // Older records carry a stored URL and open directly. Newer ones store
+    // only the path, and the function checks access before issuing a
+    // short-lived URL.
+    if (value?.url) {
+      window.open(value.url, '_blank', 'noreferrer');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'getPermitDocUrl');
+      const res = await fn({ storagePath: value.path });
+      window.open(res.data.url, '_blank', 'noreferrer');
+    } catch (err) {
+      setError(err?.message ?? 'Could not open that document.');
     } finally {
       setBusy(false);
     }
@@ -90,9 +111,9 @@ export default function DocumentField({ locationId, itemKey, value, onChange, us
 
       {value ? (
         <div style={styles.fileRow}>
-          <a href={value.url} target="_blank" rel="noreferrer" style={styles.fileLink}>
+          <button style={styles.fileLink} onClick={openDocument} disabled={busy}>
             {value.name}
-          </a>
+          </button>
           <button style={styles.smallBtn} onClick={pick} disabled={busy}>
             Replace
           </button>

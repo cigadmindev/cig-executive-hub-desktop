@@ -14,8 +14,11 @@ service firebase.storage {
     // Per-order access is coming via signed URLs issued by a Cloud Function
     // that checks the work order document first. Until then, the limits below
     // at least stop arbitrary uploads and after-the-fact tampering.
+    // Read only through getWorkOrderFileUrl, which checks whether the caller
+    // signed this document, sent it, or is an admin. Storage rules cannot read
+    // Firestore, so the check goes where it can happen.
     match /workOrders/{orderId}/{fileName} {
-      allow read: if request.auth != null;
+      allow read: if false;
       allow create: if request.auth != null
         && request.resource.size < 20 * 1024 * 1024
         && (request.resource.contentType.matches('image/.*')
@@ -24,7 +27,7 @@ service firebase.storage {
         && request.resource.size < 20 * 1024 * 1024
         && (request.resource.contentType.matches('image/.*')
             || request.resource.contentType == 'application/pdf');
-      allow delete: if request.auth != null;
+      allow delete: if false;
     }
     // Permit and license documents, keyed by location and item so the
     // opening checklist and the renewal record can point at the same file —
@@ -33,13 +36,15 @@ service firebase.storage {
     // Read is open to signed-in users for the same reason as work orders:
     // Storage rules can't query Firestore, so they can't tell who has access
     // to a given location. The Phase 7b signed-URL work covers both.
+    // Read only through getPermitDocUrl, which checks the caller has the
+    // brand this location belongs to.
     match /permitDocs/{locationId}/{itemKey}/{fileName} {
-      allow read: if request.auth != null;
+      allow read: if false;
       allow create, update: if request.auth != null
         && request.resource.size < 20 * 1024 * 1024
         && (request.resource.contentType.matches('image/.*')
             || request.resource.contentType == 'application/pdf');
-      allow delete: if request.auth != null;
+      allow delete: if false;
     }
 
     // Chat attachments. Deleted by a scheduled function once every member of
