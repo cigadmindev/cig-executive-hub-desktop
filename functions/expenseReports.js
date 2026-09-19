@@ -130,22 +130,12 @@ exports.closeExpenseDay = onSchedule(
       downloadedBy: null,
     });
 
-    // The photos go now the report exists. Anything already swept, or that
-    // never had an image, is skipped rather than treated as a failure.
-    let removed = 0;
-    for (const r of receipts) {
-      if (!r.storagePath || r.imageDeletedAt) continue;
-      try {
-        await bucket.file(r.storagePath).delete({ ignoreNotFound: true });
-        await db.collection(RECEIPTS).doc(r.id).update({ imageDeletedAt: Date.now() });
-        removed++;
-      } catch (err) {
-        console.error(`Photo not removed for receipt ${r.id}: ${err.message}`);
-      }
-    }
-
+    // Photos are not touched here. They age out at ninety days in
+    // sweepReceiptPhotos, and finance receives each month's as a zip with the
+    // monthly report - so the archive goes out sixty days before anything is
+    // removed.
     console.log(
-      `Expense day ${dateKey}: ${receipts.length} receipt(s), $${money(total)}, ${removed} photo(s) removed.`
+      `Expense day ${dateKey}: ${receipts.length} receipt(s), ${money(total)}.`
     );
   }
 );
@@ -249,10 +239,23 @@ exports.getExpenseReportUrl = onCall(async (request) => {
   if (!snap.exists) throw new HttpsError('not-found', 'That report no longer exists.');
 
   const report = snap.data();
+
+  // A monthly report carries the month's receipt photos as a zip alongside
+  // the CSV. Photos age out at ninety days; this goes out on the first, so
+  // finance has them sixty days before anything is removed.
+  const { which } = request.data || {};
+  const path = which === 'photos' ? report.archivePath : report.storagePath;
+  if (!path) {
+    throw new HttpsError(
+      'not-found',
+      which === 'photos' ? 'That month had no receipt photos.' : 'That report file is no longer stored.'
+    );
+  }
+
   const [url] = await admin
     .storage()
     .bucket()
-    .file(report.storagePath)
+    .file(path)
     .getSignedUrl({ action: 'read', expires: Date.now() + 15 * 60 * 1000 });
 
   return { url, label: report.label };

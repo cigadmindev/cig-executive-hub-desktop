@@ -138,9 +138,9 @@ export default function ExpensesScreen() {
   // leave the app and that report disagreeing about the day's total.
   const canVoid = (r) => Date.now() < r.editableUntil;
 
-  const handleDownloadReport = async (dateKey) => {
+  const handleDownloadReport = async (dateKey, which = 'csv') => {
     try {
-      await downloadReport(dateKey);
+      await downloadReport(dateKey, which);
     } catch (err) {
       notify('Could not download', err?.message ?? 'The report was not downloaded. Try again.');
     }
@@ -283,9 +283,19 @@ export default function ExpensesScreen() {
                       {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)}
                     </div>
                   </div>
-                  <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey)}>
-                    Download CSV
-                  </button>
+                  <div style={styles.reportActions}>
+                    <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey)}>
+                      Download CSV
+                    </button>
+                    {r.archivePath ? (
+                      <button
+                        style={styles.reportButtonQuiet}
+                        onClick={() => handleDownloadReport(r.dateKey, 'photos')}
+                      >
+                        Photos
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </>
@@ -308,6 +318,14 @@ export default function ExpensesScreen() {
                           {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)}
                         </div>
                       </div>
+                      {r.archivePath ? (
+                        <button
+                          style={styles.reportButtonQuiet}
+                          onClick={() => handleDownloadReport(r.dateKey, 'photos')}
+                        >
+                          Photos
+                        </button>
+                      ) : null}
                       <button style={styles.reportButtonQuiet} onClick={() => handleDownloadReport(r.dateKey)}>
                         Download again
                       </button>
@@ -558,6 +576,7 @@ const styles = {
   folderLabel: { flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' },
   folderCount: { fontSize: 12, color: 'var(--text-tertiary)' },
   reportRowNested: { marginLeft: 20 },
+  reportActions: { display: 'flex', gap: 8, alignItems: 'center' },
   reportButtonQuiet: { background: 'none', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-secondary)', padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 },
   reportsSection: { marginBottom: 30 },
   zoneLabel: { fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', margin: '0 0 10px' },

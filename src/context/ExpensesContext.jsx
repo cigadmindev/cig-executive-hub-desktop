@@ -69,6 +69,9 @@ export function ExpensesProvider({ children }) {
               submittedDateKey: data.submittedDateKey ?? '',
               editableUntil: data.editableUntil ?? 0,
               storagePath: data.storagePath ?? '',
+              // A monthly report carries that month's receipt photos as a zip.
+              // Null on dailies, and on months that had none.
+              archivePath: data.archivePath ?? null,
               imageDeletedAt: data.imageDeletedAt ?? null,
               voided: data.voided === true,
               voidedBy: data.voidedBy ?? null,
@@ -125,9 +128,10 @@ export function ExpensesProvider({ children }) {
   // Two calls rather than one: the URL is issued first, and only once the
   // browser has the file do we mark it collected and delete it. A failed
   // download must not lose the report.
-  const downloadReport = async (dateKey) => {
+  // which: 'csv' by default, or 'photos' for the monthly receipt archive.
+  const downloadReport = async (dateKey, which = 'csv') => {
     const fns = getFunctions(undefined, 'us-central1');
-    const res = await httpsCallable(fns, 'getExpenseReportUrl')({ dateKey });
+    const res = await httpsCallable(fns, 'getExpenseReportUrl')({ dateKey, which });
     const { url, label } = res.data;
 
     const file = await fetch(url);
@@ -137,13 +141,15 @@ export function ExpensesProvider({ children }) {
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = objectUrl;
-    a.download = 'expenses-' + dateKey + '.csv';
+    a.download = which === 'photos' ? 'receipts-' + dateKey + '.zip' : 'expenses-' + dateKey + '.csv';
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(objectUrl);
 
-    await httpsCallable(fns, 'confirmExpenseReportDownloaded')({ dateKey });
+    if (which !== 'photos') {
+      await httpsCallable(fns, 'confirmExpenseReportDownloaded')({ dateKey });
+    }
   };
 
   // Uncollected by you specifically. Someone else downloading it does not

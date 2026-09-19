@@ -273,3 +273,5 @@ Object.assign(exports, require('./documentUrls'));
 Object.assign(exports, require('./assembleSignedDocument'));
 
 Object.assign(exports, require('./sweepSignedDocuments'));
+
+Object.assign(exports, require('./sweepReceiptPhotos'));

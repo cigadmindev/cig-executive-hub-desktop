@@ -67,24 +67,8 @@ exports.onAnnouncementCreated = onDocumentCreated('categoryPosts/{id}', async (e
 });
 
 // Brand announcements. targetId 'all' means everyone.
-exports.onBrandPostCreated = onDocumentCreated('brandPosts/{id}', async (event) => {
-  const post = event.data?.data();
-  if (!post) return;
+// onBrandPostCreated lived here too, and never ran: index.js loads this file
+// before notifications.js, so that copy replaced this one. The surviving
+// version handles custom locations properly. Removed rather than left as
+// something that looks deployed and does nothing.
 
-  const users = await activeUsers();
-  const recipients = users.filter(
-    (u) =>
-      u.uid !== post.authorUid &&
-      (u.role === 'admin' ||
-        post.targetId === 'all' ||
-        (u.permissions?.brandIds ?? []).includes(post.targetId))
-  );
-
-  const where = post.targetName ? ` for ${post.targetName}` : '';
-  await sendExpoPush(
-    buildMessages(recipients, `${post.authorName}${where}`, post.message ?? 'Posted an announcement', {
-      screen: 'Brand',
-      brandId: post.targetId,
-    })
-  );
-});

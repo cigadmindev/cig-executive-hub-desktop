@@ -10,6 +10,7 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 const { Resend } = require('resend');
+const { buildReceiptArchive } = require('./receiptArchive');
 
 const RECEIPTS = 'expenseReceipts';
 const REPORTS = 'expenseReports';
@@ -38,7 +39,7 @@ function csvCell(v) {
 }
 
 exports.closeExpenseMonth = onSchedule(
-  { schedule: '5 0 1 * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'] },
+  { schedule: '5 0 1 * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], memory: '1GiB', timeoutSeconds: 540 },
   async () => {
     const db = admin.firestore();
     const bucket = admin.storage().bucket();
@@ -140,6 +141,13 @@ exports.closeExpenseMonth = onSchedule(
 
     // Same collection as the dailies, with kind marking which is which - the
     // screen shows both without needing anything new.
+    let archivePath = null;
+    try {
+      archivePath = await buildReceiptArchive(receipts, monthKey);
+    } catch (err) {
+      console.error('Receipt archive failed for ' + monthKey + ': ' + err.message);
+    }
+
     await db.collection(REPORTS).doc(`${monthKey}-monthly`).set({
       dateKey: `${monthKey}-monthly`,
       kind: 'monthly',
@@ -147,6 +155,8 @@ exports.closeExpenseMonth = onSchedule(
       receiptCount: receipts.length,
       totalCents: total,
       storagePath: path,
+      // The month's photos, zipped. Null when the month had none.
+      archivePath,
       generatedAt: Date.now(),
       downloadedAt: null,
       downloadedBy: null,
