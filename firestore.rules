@@ -261,8 +261,18 @@ service cloud.firestore {
     }
 
     match /openingOngoingContacts/{id} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isAdmin();
+      allow read: if isSignedIn();
+      // Seeding writes the whole standard list as whoever opens the screen,
+      // and it is marker-guarded so it happens once per location. Leaving
+      // create open means a manager opening a location nobody senior has
+      // visited still gets the list; adding one contact by hand is
+      // indistinguishable from seeding at the rule level, which is the trade.
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      // Removing a contact is restructuring - the same three as the checklist
+      // and renewals. This was admin-only, so the COO and the beverage
+      // manager would have seen the button and had the write rejected.
+      allow delete: if canEditChecklists();
     }
 
     match /openingOngoingContactsSeedMarker/{locationId} {

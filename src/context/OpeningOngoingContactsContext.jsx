@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, setDoc, runTransaction, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, runTransaction, query, where, getDocs, writeBatch , addDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 import { ALL_CONTACT_SECTIONS } from '../data/openingChecklistData';
@@ -136,9 +136,35 @@ export function OpeningOngoingContactsProvider({ children }) {
     await addBatch.commit();
   };
 
+  const addContact = async (locationId, section, item) => {
+    // Ordered after everything that exists, so it lands at the bottom of its
+    // section rather than renumbering anything.
+    const existing = await getDocs(query(collection(db, COLLECTION), where('locationId', '==', locationId)));
+    let maxOrder = 0;
+    existing.forEach((d) => {
+      const o = d.data().order;
+      if (typeof o === 'number' && o > maxOrder) maxOrder = o;
+    });
+
+    await addDoc(collection(db, COLLECTION), {
+      locationId,
+      section,
+      item,
+      who: '',
+      vendor: '',
+      contactNameNumber: '',
+      accountNumber: '',
+      order: maxOrder + 1,
+    });
+  };
+
+  const deleteContact = async (id) => {
+    await deleteDoc(doc(db, COLLECTION, id));
+  };
+
   return (
     <OpeningOngoingContactsContext.Provider
-      value={{ getByLocation, ensureSeeded, updateContactField, regenerateForLocation }}
+      value={{ getByLocation, ensureSeeded, updateContactField, regenerateForLocation, addContact, deleteContact }}
     >
       {children}
     </OpeningOngoingContactsContext.Provider>

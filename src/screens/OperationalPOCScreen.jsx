@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
+import { useDialog } from '../hooks/useDialog';
 import { useParams, Link } from 'react-router-dom';
-import { brands } from '../data/mockData';
+import { brands , canEditChecklists } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +16,15 @@ export default function OperationalPOCScreen() {
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
   const [expandedId, setExpandedId] = useState(null);
-  const { getByLocation: getContacts, ensureSeeded, updateContactField } = useOpeningOngoingContacts();
+  const { getByLocation: getContacts, ensureSeeded, updateContactField, addContact, deleteContact } =
+    useOpeningOngoingContacts();
+  const { user } = useAuth();
+  const { dialogNode, notify, confirm } = useDialog();
+  // Same three as the checklist and renewals.
+  const canEdit = canEditChecklists(user);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newSection, setNewSection] = useState('');
+  const [newItem, setNewItem] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -48,6 +57,59 @@ export default function OperationalPOCScreen() {
 
       {q ? <p style={styles.searchHint}>Showing results for "{searchQuery}".</p> : null}
 
+      {canEdit ? (
+        <div style={styles.addRow}>
+          {addOpen ? (
+            <>
+              <select style={styles.addInput} value={newSection} onChange={(e) => setNewSection(e.target.value)}>
+                <option value="">Which section</option>
+                {ALL_CONTACT_SECTIONS.map((sec) => (
+                  <option key={sec.key} value={sec.label}>
+                    {sec.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                style={styles.addInput}
+                value={newItem}
+                onChange={(e) => setNewItem(e.target.value)}
+                placeholder="Knife Sharpening"
+              />
+              <button
+                style={styles.addConfirm}
+                disabled={!newSection || !newItem.trim()}
+                onClick={async () => {
+                  try {
+                    await addContact(locationId, newSection, newItem.trim());
+                    setNewItem('');
+                    setNewSection('');
+                    setAddOpen(false);
+                  } catch (err) {
+                    notify('Could not add', err?.message ?? 'Try again.');
+                  }
+                }}
+              >
+                Add
+              </button>
+              <button
+                style={styles.addCancel}
+                onClick={() => {
+                  setAddOpen(false);
+                  setNewItem('');
+                  setNewSection('');
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button style={styles.addCancel} onClick={() => setAddOpen(true)}>
+              + Add contact
+            </button>
+          )}
+        </div>
+      ) : null}
+
       {ALL_CONTACT_SECTIONS.map((section) => {
         const items = visibleContacts.filter((c) => c.section === section.label);
         if (items.length === 0) return null;
@@ -78,6 +140,30 @@ export default function OperationalPOCScreen() {
                         value={c.contactNameNumber}
                         onSave={(v) => updateContactField(c.id, 'contactNameNumber', v)}
                       />
+                      {canEdit ? (
+                        <div style={styles.removeWrap}>
+                          <button
+                            style={styles.removeLink}
+                            onClick={() =>
+                              confirm({
+                                title: `Remove "${c.item}"?`,
+                                body: "It comes off this location's list along with anything filled in. Other locations are unaffected.",
+                                confirmLabel: 'Remove',
+                                tone: 'danger',
+                                onConfirm: async () => {
+                                  try {
+                                    await deleteContact(c.id);
+                                  } catch (err) {
+                                    notify('Could not remove', err?.message ?? 'Try again.');
+                                  }
+                                },
+                              })
+                            }
+                          >
+                            Remove this contact from the list
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -88,6 +174,7 @@ export default function OperationalPOCScreen() {
       })}
 
       {contacts.length === 0 ? <p style={styles.hint}>Loading…</p> : null}
+      {dialogNode}
     </div>
   );
 }
@@ -122,5 +209,11 @@ const styles = {
   chevron: { fontSize: 10, color: 'var(--text-tertiary)' },
   rowBody: { padding: '4px 14px 14px 14px', maxWidth: 420 },
 
+  removeWrap: { marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' },
+  removeLink: { background: 'none', border: 'none', padding: 0, color: 'var(--danger)', opacity: 0.75, fontSize: 11, cursor: 'pointer' },
+  addRow: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' },
+  addInput: { flex: 1, minWidth: 180, maxWidth: 260, height: 34, boxSizing: 'border-box', padding: '0 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
+  addConfirm: { height: 34, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
+  addCancel: { height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   hint: { fontSize: 13, color: 'var(--text-secondary)' },
 };

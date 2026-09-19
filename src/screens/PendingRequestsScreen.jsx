@@ -55,7 +55,11 @@ export default function PendingRequestsScreen() {
     const targetUser = users.find((u) => u.email === reviewingRequest.userEmail);
     try {
       if (targetUser) {
-        await updatePermissions(targetUser.uid, { brandIds, categoryIds });
+        await updatePermissions(targetUser.uid, {
+          ...(targetUser.permissions ?? {}),
+          brandIds,
+          categoryIds,
+        });
       }
       await resolveRequest(reviewingRequest.id, 'approved');
       // Only closes on success. A failure here used to end the function
