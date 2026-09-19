@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, BrowserRouter, Routes, Route, Navigate , useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { hasFeature } from './data/mockData';
 import { ChatProvider } from './context/ChatContext';
@@ -75,11 +75,11 @@ function Gate() {
     <AppLayout>
       <Routes>
         <Route path="/" element={<HomeScreen />} />
-        <Route path="/brand/:brandId" element={<BrandScreen />} />
-        <Route path="/brand/:brandId/location/:locationId" element={<LocationScreen />} />
-        <Route path="/brand/:brandId/location/:locationId/event-requests" element={<RequireFeature feature="eventRequests"><EventRequestsScreen /></RequireFeature>} />
-        <Route path="/brand/:brandId/location/:locationId/renewals" element={<RequireFeature feature="renewals"><RenewalsScreen /></RequireFeature>} />
-        <Route path="/brand/:brandId/location/:locationId/category/:categoryId" element={<CategoryDetailScreen />} />
+        <Route path="/brand/:brandId" element={<RequireBrand><BrandScreen /></RequireBrand>} />
+        <Route path="/brand/:brandId/location/:locationId" element={<RequireBrand><LocationScreen /></RequireBrand>} />
+        <Route path="/brand/:brandId/location/:locationId/event-requests" element={<RequireBrand><RequireFeature feature="eventRequests"><EventRequestsScreen /></RequireFeature></RequireBrand>} />
+        <Route path="/brand/:brandId/location/:locationId/renewals" element={<RequireBrand><RequireFeature feature="renewals"><RenewalsScreen /></RequireFeature></RequireBrand>} />
+        <Route path="/brand/:brandId/location/:locationId/category/:categoryId" element={<RequireCategory><CategoryDetailScreen /></RequireCategory>} />
         <Route
           path="/brand/:brandId/location/:locationId/category/:categoryId/announcements"
           element={<AnnouncementsScreen />}
@@ -92,9 +92,9 @@ function Gate() {
         <Route path="/availability" element={<RequireFeature feature="availability"><AvailabilityScreen /></RequireFeature>} />
         <Route path="/admin/users" element={<AdminUsersScreen />} />
         <Route path="/admin/pending-requests" element={<PendingRequestsScreen />} />
-        <Route path="/brand/:brandId/location/:locationId/opening-checklist" element={<RequireFeature feature="openingChecklist"><OpeningChecklistScreen /></RequireFeature>} />
-        <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<RequireFeature feature="operationalPoc"><OperationalPOCScreen /></RequireFeature>} />
-        <Route path="/brand/:brandId/location/:locationId/integrations" element={<RequireFeature feature="integrations"><IntegrationsScreen /></RequireFeature>} />
+        <Route path="/brand/:brandId/location/:locationId/opening-checklist" element={<RequireBrand><RequireFeature feature="openingChecklist"><OpeningChecklistScreen /></RequireFeature></RequireBrand>} />
+        <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<RequireBrand><RequireFeature feature="operationalPoc"><OperationalPOCScreen /></RequireFeature></RequireBrand>} />
+        <Route path="/brand/:brandId/location/:locationId/integrations" element={<RequireBrand><RequireFeature feature="integrations"><IntegrationsScreen /></RequireFeature></RequireBrand>} />
         <Route path="/support" element={<RequireFeature feature="support"><SupportScreen /></RequireFeature>} />
         <Route path="/integration-requests" element={<IntegrationRequestsScreen />} />
         <Route path="/opening-soon" element={<OpeningSoonScreen />} />
@@ -166,6 +166,22 @@ function Providers({ children }) {
   );
 }
 
+
+
+function RequireBrand({ children }) {
+  const { user, hasBrandAccess } = useAuth();
+  const { brandId } = useParams();
+  if (!hasBrandAccess(user, brandId)) return <Navigate to="/" replace />;
+  return children;
+}
+
+function RequireCategory({ children }) {
+  const { user, hasBrandAccess, hasCategoryAccess } = useAuth();
+  const { brandId, categoryId } = useParams();
+  if (!hasBrandAccess(user, brandId)) return <Navigate to="/" replace />;
+  if (!hasCategoryAccess(user, categoryId)) return <Navigate to="/" replace />;
+  return children;
+}
 
 function RequireFeature({ feature, children }) {
   const { user } = useAuth();
