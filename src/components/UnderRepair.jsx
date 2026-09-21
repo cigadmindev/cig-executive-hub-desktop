@@ -11,19 +11,28 @@ import { useAuth } from '../context/AuthContext';
 // Matched by what the address contains rather than exactly, so a
 // location-scoped page is covered at every location at once.
 export const REPAIRABLE_PAGES = [
-  { key: 'workOrders', label: 'Signature Directory', match: '/work-orders' },
-  { key: 'expenses', label: 'Expenses & Receipts', match: '/expenses' },
-  { key: 'systemsHelp', label: 'Systems Help', match: '/integration-requests' },
-  { key: 'availability', label: 'Availability', match: '/availability' },
-  { key: 'support', label: 'Support', match: '/support' },
-  { key: 'calendar', label: 'Calendar', match: '/calendar' },
-  { key: 'messages', label: 'Messages', match: '/messages' },
-  { key: 'openingSoon', label: 'Opening Soon', match: '/opening-soon' },
-  { key: 'openingChecklist', label: 'Opening Checklist', match: '/opening-checklist' },
-  { key: 'renewals', label: 'License & Lease Renewals', match: '/renewals' },
-  { key: 'operationalPoc', label: 'Operational POC', match: '/operational-poc' },
-  { key: 'eventRequests', label: 'Event Requests', match: '/event-requests' },
-  { key: 'fileFolders', label: 'File Directory folders', match: '/category/' },
+  { key: 'restaurant', label: 'Restaurant pages', test: /^\/brand\/[^/]+$/ },
+  { key: 'location', label: 'Location pages', test: /^\/brand\/[^/]+\/location\/[^/]+$/ },
+  { key: 'openingChecklist', label: 'Opening Checklist', test: /\/opening-checklist$/ },
+  { key: 'renewals', label: 'License & Lease Renewals', test: /\/renewals$/ },
+  { key: 'operationalPoc', label: 'Operational POC', test: /\/operational-poc$/ },
+  { key: 'eventRequests', label: 'Event Requests', test: /\/event-requests$/ },
+  { key: 'integrations', label: 'Integrations', test: /\/integrations$/ },
+  { key: 'fileFolders', label: 'File Directory folders', test: /\/category\// },
+  { key: 'calendar', label: 'Calendar', test: /^\/calendar/ },
+  { key: 'messages', label: 'Messages', test: /^\/messages/ },
+  { key: 'directory', label: 'Directory', test: /^\/directory/ },
+  { key: 'availability', label: 'Availability', test: /^\/availability/ },
+  { key: 'workOrders', label: 'Signature Directory', test: /^\/work-orders/ },
+  { key: 'expenses', label: 'Expenses & Receipts', test: /^\/expenses/ },
+  { key: 'systemsHelp', label: 'Systems Help', test: /^\/integration-requests/ },
+  { key: 'support', label: 'Support', test: /^\/support/ },
+  { key: 'openingSoon', label: 'Opening Soon', test: /^\/opening-soon/ },
+  { key: 'wares', label: 'Wares Inventory', test: /^\/wares-inventory/ },
+  { key: 'executiveNotes', label: 'Executive Notes', test: /^\/executive-notes/ },
+  { key: 'announcements', label: 'New Announcement', test: /^\/announcements/ },
+  { key: 'pendingRequests', label: 'Pending Requests', test: /^\/admin\/pending-requests/ },
+  { key: 'profile', label: 'Profile', test: /^\/profile/ },
 ];
 
 // Stored in appSettings, which everyone signed in can read and only admins
@@ -56,7 +65,7 @@ export function UnderRepairGate({ children }) {
 
   if (!user || user.role === 'admin') return children;
 
-  const closed = REPAIRABLE_PAGES.find((p) => keys.includes(p.key) && pathname.includes(p.match));
+  const closed = REPAIRABLE_PAGES.find((p) => keys.includes(p.key) && p.test.test(pathname));
   if (!closed) return children;
 
   return (

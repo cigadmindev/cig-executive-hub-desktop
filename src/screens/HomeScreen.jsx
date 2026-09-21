@@ -68,6 +68,7 @@ export default function HomeScreen() {
             not a warning. */}
         <div style={styles.headerCounts}>
             <div>
+                {summary.counts.overdue !== null ? (
                 <div
                   style={{
                     ...styles.countValue,
@@ -76,6 +77,7 @@ export default function HomeScreen() {
                 >
                   {summary.counts.overdue}
                 </div>
+                ) : null}
                 <div style={styles.countLabel}>Overdue</div>
             </div>
             <div>

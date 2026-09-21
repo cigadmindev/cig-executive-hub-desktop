@@ -43,6 +43,7 @@ import PendingRequestsScreen from './screens/PendingRequestsScreen';
 import SupportScreen from './screens/SupportScreen';
 import IntegrationRequestsScreen from './screens/IntegrationRequestsScreen';
 import OpeningSoonScreen from './screens/OpeningSoonScreen';
+import WaresInventoryScreen from './screens/WaresInventoryScreen';
 import { UnderRepairGate } from './components/UnderRepair';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
@@ -100,6 +101,7 @@ function Gate() {
         <Route path="/support" element={<RequireFeature feature="support"><SupportScreen /></RequireFeature>} />
         <Route path="/integration-requests" element={<IntegrationRequestsScreen />} />
         <Route path="/opening-soon" element={<OpeningSoonScreen />} />
+        <Route path="/wares-inventory" element={<WaresInventoryScreen />} />
         <Route path="/executive-notes" element={<ExecutiveNotesScreen />} />
         <Route path="/work-orders" element={<RequireFeature feature="workOrders"><WorkOrdersScreen /></RequireFeature>} />
         <Route path="/expenses" element={<RequireFeature feature="expenses"><ExpensesScreen /></RequireFeature>} />

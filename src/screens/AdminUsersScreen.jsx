@@ -25,6 +25,7 @@ export default function AdminUsersScreen() {
   const [job, setJob] = useState(null);
   const [brandIds, setBrandIds] = useState([]);
   const [categoryIds, setCategoryIds] = useState([]);
+  const [features, setFeatures] = useState(() => FEATURES.map((f) => f.key));
   const [creating, setCreating] = useState(false);
   const [roleEditUser, setRoleEditUser] = useState(null);
   const [expandedUserId, setExpandedUserId] = useState(null);
@@ -87,12 +88,13 @@ export default function AdminUsersScreen() {
     }
     setCreating(true);
     try {
-      const created = await addUser({ name: name.trim(), email: email.trim(), password, role, permissions: { brandIds, categoryIds }, job });
+      const created = await addUser({ name: name.trim(), email: email.trim(), password, role, permissions: { brandIds, categoryIds, features }, job });
       setName('');
       setEmail('');
       setPassword('');
       setBrandIds([]);
       setCategoryIds([]);
+      setFeatures(FEATURES.map((f) => f.key));
       setJob(null);
       notify(
         'Login created',
@@ -225,6 +227,21 @@ export default function AdminUsersScreen() {
                 onClick={() => setCategoryIds(toggleInArray(categoryIds, c.id))}
               >
                 {c.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Everything on by default, matching how a login behaved before
+              features existed. Untick what this person should not reach. */}
+          <p style={styles.permissionLabel}>What can they reach?</p>
+          <div style={styles.chipWrap}>
+            {FEATURES.map((f) => (
+              <button
+                key={f.key}
+                style={{ ...styles.chip, ...(features.includes(f.key) ? styles.chipActive : {}) }}
+                onClick={() => setFeatures(toggleInArray(features, f.key))}
+              >
+                {f.label}
               </button>
             ))}
           </div>

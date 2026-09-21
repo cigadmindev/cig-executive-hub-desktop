@@ -69,9 +69,8 @@ export default function DirectoryScreen() {
       key: 'waresInventory',
       icon: 'box',
       title: 'Wares Inventory',
-      subtitle: 'Coming soon',
-      comingSoon: true,
-      onClick: () => notify('Wares Inventory', "Not built yet — we'll be working on this soon."),
+      subtitle: 'Tracking wares across locations',
+      onClick: () => navigate('/wares-inventory'),
     },
     ...(canPostAnnouncements
       ? [

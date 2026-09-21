@@ -201,7 +201,12 @@ export function useHomeSummary() {
       byBrand,
       openingSoon: openingSoon.sort((a, b2) => a.openingDate - b2.openingDate),
       counts: {
-        overdue: Object.values(byBrand).reduce((n, b) => n + b.overdue, 0),
+        // Only for people who can open the checklist. Everything counted here
+        // is checklist work, so for anyone else it was a number they could do
+        // nothing about - "26 overdue" above a Needs You panel with nothing in it.
+        overdue: hasFeature(user, 'openingChecklist')
+          ? Object.values(byBrand).reduce((n, b) => n + b.overdue, 0)
+          : null,
         // byBrand.dueSoon is incremented only by renewals inside the window,
         // so this has always been a renewal count - it just wasn't named one.
         renewals: Object.values(byBrand).reduce((n, b) => n + b.dueSoon, 0),
