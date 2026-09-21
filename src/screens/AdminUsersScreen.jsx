@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UnderRepairControls } from '../components/UnderRepair';
 import { useAuth } from '../context/AuthContext';
+import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands, categories, FEATURES } from '../data/mockData';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
 import { useDialog } from '../hooks/useDialog';
@@ -10,63 +11,65 @@ function toggleInArray(arr, id) {
   return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 }
 
-
 function cleanJob(j) {
   return (j || '').replace(/^[^\u0000-\u007F]+\s*/, '');
 }
 
+// Nobody ever types this: the setup email and Forgot password both let people
+// choose their own. It only exists because an account needs one to be created.
+function throwawayPassword() {
+  const bytes = new Uint8Array(18);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('') + 'Aa9!';
+}
+
+const ALL_CATEGORY_IDS = categories.map((c) => c.id);
+const ALL_FEATURE_KEYS = FEATURES.map((f) => f.key);
+
+const blankDraft = () => ({
+  name: '',
+  email: '',
+  role: 'manager',
+  job: null,
+  brandIds: [],
+  // brandId -> the locations they may see there. No entry, or an empty one,
+  // means every location in that restaurant.
+  locationsByBrand: {},
+  // Everything on by default. Untick what this person should not reach.
+  categoryIds: ALL_CATEGORY_IDS,
+  features: ALL_FEATURE_KEYS,
+});
+
 export default function AdminUsersScreen() {
   const { dialogNode, confirm, notify } = useDialog();
-  const { users, addUser, sendPasswordReset, setUserActive, updateUserRole, user: currentUser , updatePermissions, updateUserJob } = useAuth();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState('manager');
-  const [job, setJob] = useState(null);
-  const [brandIds, setBrandIds] = useState([]);
-  const [categoryIds, setCategoryIds] = useState([]);
-  const [features, setFeatures] = useState(() => FEATURES.map((f) => f.key));
-  const [creating, setCreating] = useState(false);
-  const [roleEditUser, setRoleEditUser] = useState(null);
+  const {
+    users,
+    addUser,
+    sendPasswordReset,
+    setUserActive,
+    updateUserRole,
+    updateUserJob,
+    updatePermissions,
+    user: currentUser,
+  } = useAuth();
+  const { getByBrand } = useCustomLocations();
+
+  // One panel for creating and editing, so the two never drift apart.
+  // mode is 'create', or the uid being edited.
+  const [panelMode, setPanelMode] = useState(null);
+  const [draft, setDraft] = useState(blankDraft);
+  const [saving, setSaving] = useState(false);
   const [expandedUserId, setExpandedUserId] = useState(null);
-  // Drafts for the access modal. Held here rather than written on each click
-  // so ticking eight features is one write, and so someone can change their
-  // mind before committing.
-  const [editRole, setEditRole] = useState('manager');
-  const [editBrands, setEditBrands] = useState([]);
-  const [editCategories, setEditCategories] = useState([]);
-  const [editFeatures, setEditFeatures] = useState([]);
-  // Job is what someone does; role is what they can reach. They are separate
-  // on purpose - a manager can hold IT / Training now and keep it when they
-  // become an executive, without any routing changing.
-  const [editJob, setEditJob] = useState(null);
-  const [savingRole, setSavingRole] = useState(false);
+  const [repairOpen, setRepairOpen] = useState(false);
 
-  const openAccessEditor = (u) => {
-    setEditRole(u.role);
-    setEditBrands(u.permissions?.brandIds ?? []);
-    setEditCategories(u.permissions?.categoryIds ?? []);
-    setEditFeatures(u.permissions?.features ?? FEATURES.map((f) => f.key));
-    setEditJob(u.job ?? null);
-    setRoleEditUser(u);
-  };
-
-  const handleSaveAccess = async () => {
-    setSavingRole(true);
-    try {
-      if (editRole !== roleEditUser.role) await updateUserRole(roleEditUser.uid, editRole);
-      if (editJob !== (roleEditUser.job ?? null)) await updateUserJob(roleEditUser.uid, editJob);
-      await updatePermissions(roleEditUser.uid, {
-        brandIds: editBrands,
-        categoryIds: editCategories,
-        features: editFeatures,
-      });
-      setRoleEditUser(null);
-    } catch (err) {
-      notify('Could not save', err?.message ?? 'Nothing was changed. Try again.');
-    } finally {
-      setSavingRole(false);
-    }
+  // Every location in a restaurant, built-in and added later - Chelsea is one
+  // of the added ones.
+  const locationsFor = (brandId) => {
+    const brand = brands.find((b) => b.id === brandId);
+    return [
+      ...(brand?.locations ?? []).map((l) => ({ id: l.id, name: l.name })),
+      ...getByBrand(brandId).map((l) => ({ id: l.id, name: l.name })),
+    ];
   };
 
   if (currentUser?.role !== 'admin') {
@@ -77,39 +80,92 @@ export default function AdminUsersScreen() {
     );
   }
 
-  const handleCreate = async () => {
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      notify('Missing details', 'Fill in name, email, and password.');
+  const openCreate = () => {
+    setDraft(blankDraft());
+    setPanelMode('create');
+  };
+
+  const openEdit = (u) => {
+    setDraft({
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      job: u.job ?? null,
+      brandIds: u.permissions?.brandIds ?? [],
+      locationsByBrand: u.permissions?.locationsByBrand ?? {},
+      categoryIds: u.permissions?.categoryIds ?? [],
+      features: u.permissions?.features ?? ALL_FEATURE_KEYS,
+    });
+    setPanelMode(u.uid);
+  };
+
+  const closePanel = () => {
+    if (!saving) setPanelMode(null);
+  };
+
+  // All four written together. Writing only some of them replaces the rest -
+  // the old editor saved three and would have wiped location narrowing.
+  const permissionsFromDraft = () => {
+    const locationsByBrand = {};
+    for (const b of draft.brandIds) {
+      const only = draft.locationsByBrand[b];
+      if (Array.isArray(only) && only.length > 0) locationsByBrand[b] = only;
+    }
+    return {
+      brandIds: draft.brandIds,
+      locationsByBrand,
+      categoryIds: draft.categoryIds,
+      features: draft.features,
+    };
+  };
+
+  const handleSave = async () => {
+    if (panelMode === 'create') {
+      if (!draft.name.trim() || !draft.email.trim()) {
+        notify('Missing details', 'Enter a name and an email address.');
+        return;
+      }
+      setSaving(true);
+      try {
+        const created = await addUser({
+          name: draft.name.trim(),
+          email: draft.email.trim(),
+          password: throwawayPassword(),
+          role: draft.role,
+          permissions: permissionsFromDraft(),
+          job: draft.job,
+        });
+        setPanelMode(null);
+        notify(
+          'Login created',
+          created?.invited
+            ? `${draft.name.trim()} has been emailed a link to set their password. If it expires, they can use Forgot password on the sign-in page.`
+            : `${draft.name.trim()} was created, but the setup email didn't send. They can use Forgot password on the sign-in page.`
+        );
+      } catch (err) {
+        notify('Could not create login', err?.message ?? 'Something went wrong.');
+      } finally {
+        setSaving(false);
+      }
       return;
     }
-    if (password.length < 6) {
-      notify('Password too short', 'Passwords need at least 6 characters.');
-      return;
-    }
-    setCreating(true);
+
+    const target = users.find((u) => u.uid === panelMode);
+    if (!target) return;
+    setSaving(true);
     try {
-      const created = await addUser({ name: name.trim(), email: email.trim(), password, role, permissions: { brandIds, categoryIds, features }, job });
-      setName('');
-      setEmail('');
-      setPassword('');
-      setBrandIds([]);
-      setCategoryIds([]);
-      setFeatures(FEATURES.map((f) => f.key));
-      setJob(null);
-      notify(
-        'Login created',
-        created?.invited
-          ? `${name} can sign in as ${role}. They've been emailed a link to set their own password.`
-          : `${name} can sign in as ${role}, but the invite email didn't send. Use "Send reset" to try again.`
-      );
+      if (draft.role !== target.role) await updateUserRole(target.uid, draft.role);
+      if (draft.job !== (target.job ?? null)) await updateUserJob(target.uid, draft.job);
+      await updatePermissions(target.uid, { ...(target.permissions ?? {}), ...permissionsFromDraft() });
+      setPanelMode(null);
     } catch (err) {
-      notify('Could not create login', err?.message ?? 'Something went wrong.');
+      notify('Could not save', err?.message ?? 'Nothing was changed. Try again.');
     } finally {
-      setCreating(false);
+      setSaving(false);
     }
   };
 
-  const handleSendReset = async (targetEmail, targetName) => {
+  const handleSendReset = (targetEmail, targetName) => {
     confirm({
       title: 'Send a password reset?',
       body: `${targetName} will get an email to set a new password.`,
@@ -125,7 +181,7 @@ export default function AdminUsersScreen() {
     });
   };
 
-  const handleReactivate = async (uid, targetName) => {
+  const handleReactivate = (uid, targetName) => {
     confirm({
       title: `Reactivate ${targetName}?`,
       body: 'They can sign in again with the same email address, and everything they entered before is still attached to them.',
@@ -140,7 +196,7 @@ export default function AdminUsersScreen() {
     });
   };
 
-  const handleDeactivate = async (uid, targetName) => {
+  const handleDeactivate = (uid, targetName) => {
     confirm({
       title: `Deactivate ${targetName}?`,
       body: "They won't be able to sign in, and they'll drop out of every assignee picker and team list. Their account and everything they've entered stays put, and you can switch them back on here at any time.",
@@ -156,410 +212,396 @@ export default function AdminUsersScreen() {
     });
   };
 
-  const handleChangeRole = async (newRole) => {
-    if (!roleEditUser) return;
-    setSavingRole(true);
-    try {
-      await updateUserRole(roleEditUser.uid, newRole);
-      setRoleEditUser(null);
-    } catch (err) {
-      notify('Could not change role', err?.message ?? 'Something went wrong.');
-    } finally {
-      setSavingRole(false);
-    }
+  // "Taste Italian Kitchen (Ridgeland), Blutos Greek Tavern"
+  const whereText = (perms) => {
+    const ids = perms?.brandIds ?? [];
+    if (ids.length === 0) return 'No restaurants yet';
+    return brands
+      .filter((b) => ids.includes(b.id))
+      .map((b) => {
+        const only = perms?.locationsByBrand?.[b.id];
+        if (!Array.isArray(only) || only.length === 0) return b.name;
+        const names = locationsFor(b.id)
+          .filter((l) => only.includes(l.id))
+          .map((l) => l.name);
+        return `${b.name} (${names.join(', ')})`;
+      })
+      .join(', ');
   };
+
+  const summaryLine = (u) => {
+    const role = u.role === 'admin' ? 'Admin' : u.role === 'executive' ? 'Executive' : 'Manager';
+    const parts = [role];
+    if (u.job) parts.push(cleanJob(u.job));
+    if (u.role === 'manager') parts.push(whereText(u.permissions));
+    return parts.join(' · ');
+  };
+
+  const exceptions = (all, have, labelOf) => all.filter((x) => !have.includes(x)).map(labelOf);
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Manage Logins</h1>
-
-      <h3 style={styles.sectionTitle}>Create a Login</h3>
-      <input style={styles.input} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-      <input style={styles.input} placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <input style={styles.input} type="password" placeholder="Temporary password" value={password} onChange={(e) => setPassword(e.target.value)} />
-
-      <div style={styles.roleRow}>
-        <button style={{ ...styles.roleButton, ...(role === 'manager' ? styles.roleButtonActive : {}) }} onClick={() => setRole('manager')}>
-          Manager
-        </button>
-        <button style={{ ...styles.roleButton, ...(role === 'executive' ? styles.roleButtonActive : {}) }} onClick={() => setRole('executive')}>
-          Executive
-        </button>
-        <button style={{ ...styles.roleButton, ...(role === 'admin' ? styles.roleButtonActive : {}) }} onClick={() => setRole('admin')}>
-          Admin
+      <div style={styles.headerRow}>
+        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Manage Logins</h1>
+        <button style={styles.newButton} onClick={openCreate}>
+          + New login
         </button>
       </div>
 
-      <p style={styles.permissionLabel}>Job / Department (optional)</p>
-      <div style={styles.chipWrap}>
-        {JOB_OPTIONS.map((j) => (
-          <button
-            key={j}
-            style={{ ...styles.chip, ...(job === j ? styles.chipActive : {}) }}
-            onClick={() => setJob(job === j ? null : j)}
-          >
-            {j}
-          </button>
-        ))}
+      <div style={styles.list}>
+        {users.map((item) => {
+          const open = expandedUserId === item.uid;
+          return (
+            <div key={item.uid} style={{ ...styles.row, ...(!item.active ? styles.rowInactive : {}) }}>
+              <button style={styles.rowHead} onClick={() => setExpandedUserId(open ? null : item.uid)}>
+                <span style={styles.rowName}>{item.name}</span>
+                {!item.active ? <span style={styles.inactiveBadge}>DEACTIVATED</span> : null}
+                <span style={styles.rowSummary}>{summaryLine(item)}</span>
+                <span style={styles.chevron}>{open ? '▾' : '▸'}</span>
+              </button>
+
+              {open ? (
+                <div style={styles.rowBody}>
+                  <p style={styles.email}>{item.email}</p>
+
+                  {item.role === 'manager' ? (
+                    <>
+                      <p style={styles.accessLabel}>Where</p>
+                      <p style={styles.accessValue}>{whereText(item.permissions)}</p>
+
+                      <p style={styles.accessLabel}>Folders</p>
+                      <p style={styles.accessValue}>
+                        {(() => {
+                          const have = item.permissions?.categoryIds ?? [];
+                          if (have.length === 0) return 'None';
+                          const not = exceptions(ALL_CATEGORY_IDS, have, (id) => categories.find((c) => c.id === id)?.label);
+                          return not.length === 0 ? 'All folders' : `All except ${not.join(', ')}`;
+                        })()}
+                      </p>
+
+                      {/* An absent features list means everything. */}
+                      <p style={styles.accessLabel}>Can reach</p>
+                      <p style={styles.accessValue}>
+                        {(() => {
+                          const have = item.permissions?.features;
+                          if (!Array.isArray(have)) return 'Everything';
+                          if (have.length === 0) return 'Nothing beyond messages, calendar and profile';
+                          const not = exceptions(ALL_FEATURE_KEYS, have, (k) => FEATURES.find((f) => f.key === k)?.label);
+                          return not.length === 0 ? 'Everything' : `Everything except ${not.join(', ')}`;
+                        })()}
+                      </p>
+                    </>
+                  ) : (
+                    /* Their manager permissions stay saved for if they move
+                       back, but showing them would suggest they apply now. */
+                    <p style={styles.accessValue}>Everything — all restaurants, all locations, every part of the app.</p>
+                  )}
+
+                  <div style={styles.actions}>
+                    {item.uid !== currentUser?.uid ? (
+                      <>
+                        <button style={styles.actionButton} onClick={() => openEdit(item)}>
+                          Edit access
+                        </button>
+                        <button style={styles.actionButton} onClick={() => handleSendReset(item.email, item.name)}>
+                          Send password reset
+                        </button>
+                        {item.active ? (
+                          <button style={styles.dangerButton} onClick={() => handleDeactivate(item.uid, item.name)}>
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button style={styles.actionButton} onClick={() => handleReactivate(item.uid, item.name)}>
+                            Reactivate
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <button style={styles.actionButton} onClick={() => handleSendReset(item.email, item.name)}>
+                          Send password reset
+                        </button>
+                        <span style={styles.selfNote}>This is your own account</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
 
-      {role === 'manager' ? (
-        <>
-          <p style={styles.permissionLabel}>Which restaurants can they see?</p>
-          <div style={styles.chipWrap}>
-            {brands.map((b) => (
-              <button
-                key={b.id}
-                style={{ ...styles.chip, ...(brandIds.includes(b.id) ? styles.chipActive : {}) }}
-                onClick={() => setBrandIds(toggleInArray(brandIds, b.id))}
-              >
-                {b.name}
-              </button>
-            ))}
-          </div>
-
-          <p style={styles.permissionLabel}>Which categories can they see?</p>
-          <div style={styles.chipWrap}>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                style={{ ...styles.chip, ...(categoryIds.includes(c.id) ? styles.chipActive : {}) }}
-                onClick={() => setCategoryIds(toggleInArray(categoryIds, c.id))}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Everything on by default, matching how a login behaved before
-              features existed. Untick what this person should not reach. */}
-          <p style={styles.permissionLabel}>What can they reach?</p>
-          <div style={styles.chipWrap}>
-            {FEATURES.map((f) => (
-              <button
-                key={f.key}
-                style={{ ...styles.chip, ...(features.includes(f.key) ? styles.chipActive : {}) }}
-                onClick={() => setFeatures(toggleInArray(features, f.key))}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : role === 'executive' ? (
-        <p style={styles.adminNote}>
-          Executives automatically see everything, and can approve requests, post announcements, and
-          manage the calendar — but can't manage logins, connect Drive folders, set an opening date, or
-          approve their own requests.
-        </p>
-      ) : (
-        <p style={styles.adminNote}>Admins automatically see everything — no need to set permissions.</p>
-      )}
-
-      <button style={styles.button} disabled={creating} onClick={handleCreate}>
-        {creating ? 'Creating…' : 'Create Login'}
+      <button style={styles.repairRow} onClick={() => setRepairOpen((v) => !v)}>
+        <span>🚧 Pages under repair</span>
+        <span style={styles.chevron}>{repairOpen ? '▾' : '▸'}</span>
       </button>
+      {repairOpen ? <UnderRepairControls /> : null}
 
-      <UnderRepairControls />
-
-      <h3 style={styles.sectionTitle}>Existing Logins</h3>
-      {users.map((item) => (
-        <div key={item.uid} style={{ ...styles.userRow, ...(!item.active ? styles.userRowInactive : {}) }}>
-          <div style={styles.userHeaderRow}>
-            <span style={styles.userName}>{item.name}</span>
-            {!item.active ? <span style={styles.inactiveBadge}>DEACTIVATED</span> : null}
-          </div>
-          <p style={styles.userDetail}>
-            {item.email} · {item.role}
-            {item.job ? ` · ${cleanJob(item.job)}` : ''}
-          </p>
-
-          <button
-            style={styles.expandToggle}
-            onClick={() => setExpandedUserId(expandedUserId === item.uid ? null : item.uid)}
-          >
-            {expandedUserId === item.uid ? '▾ Hide access' : '▸ Show access'}
-          </button>
-
-          {expandedUserId === item.uid ? (
-            <div style={styles.accessDetail}>
-              {item.role === 'manager' ? (
-                <>
-                  <p style={styles.accessLabel}>Restaurants</p>
-                  <p style={styles.accessValue}>
-                    {item.permissions.brandIds.length > 0
-                      ? brands
-                          .filter((b) => item.permissions.brandIds.includes(b.id))
-                          .map((b) => b.name)
-                          .join(', ')
-                      : 'None granted yet'}
-                  </p>
-
-                  <p style={styles.accessLabel}>File directories</p>
-                  <p style={styles.accessValue}>
-                    {item.permissions.categoryIds.length > 0
-                      ? categories
-                          .filter((c) => item.permissions.categoryIds.includes(c.id))
-                          .map((c) => c.label)
-                          .join(', ')
-                      : 'None granted yet'}
-                  </p>
-
-                  {/* An absent features list means everything, which is why
-                      this says so rather than showing a blank. */}
-                  <p style={styles.accessLabel}>Can reach</p>
-                  <p style={styles.accessValue}>
-                    {Array.isArray(item.permissions.features)
-                      ? FEATURES.filter((f) => item.permissions.features.includes(f.key))
-                          .map((f) => f.label)
-                          .join(', ') || 'Nothing'
-                      : 'Everything'}
-                  </p>
-                  {Array.isArray(item.permissions.features) &&
-                  FEATURES.some((f) => !item.permissions.features.includes(f.key)) ? (
-                    <p style={styles.accessMuted}>
-                      Not:{' '}
-                      {FEATURES.filter((f) => !item.permissions.features.includes(f.key))
-                        .map((f) => f.label)
-                        .join(', ')}
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                /* Their manager permissions stay saved for if they move back,
-                   but showing them would suggest they are in effect. */
-                <p style={styles.accessValue}>
-                  Everything — all restaurants, all directories, every part of the app.
-                </p>
-              )}
-            </div>
-          ) : null}
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button style={styles.resetButton} onClick={() => handleSendReset(item.email, item.name)}>
-              Send Password Reset
-            </button>
-            {item.uid !== currentUser?.uid ? (
-              <>
-                <button style={styles.resetButton} onClick={() => openAccessEditor(item)}>
-                  Edit Access
-                </button>
-                {item.active ? (
-                  <button style={styles.deactivateButton} onClick={() => handleDeactivate(item.uid, item.name)}>
-                    Deactivate Login
-                  </button>
-                ) : (
-                  <button style={styles.resetButton} onClick={() => handleReactivate(item.uid, item.name)}>
-                    Reactivate Login
-                  </button>
-                )}
-              </>
-            ) : (
-              <span style={styles.selfNote}>This is your own account</span>
-            )}
-          </div>
-        </div>
-      ))}
-
-      <p style={styles.note}>
-        These are real Firebase accounts — logins persist across restarts, for everyone on their own
-        device. New logins get an email to set their own password automatically. If anyone forgets
-        theirs later, use "Send Password Reset" above.
-      </p>
-
-      {roleEditUser ? (
-        <div style={styles.modalBackdrop} onClick={() => !savingRole && setRoleEditUser(null)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Edit Access</h2>
-            <p style={styles.modalSubtitle}>{roleEditUser.name}</p>
-            <div style={styles.roleRow}>
-              {['manager', 'executive', 'admin'].map((r) => (
-                <button
-                  key={r}
-                  style={{ ...styles.roleButton, ...(editRole === r ? styles.roleButtonActive : {}) }}
-                  onClick={() => setEditRole(r)}
-                  disabled={savingRole}
-                >
-                  {r === 'manager' ? 'Manager' : r === 'executive' ? 'Executive' : 'Admin'}
-                </button>
-              ))}
-            </div>
-
-            <p style={styles.modalSectionLabel}>Job / Department</p>
-            <div style={styles.chipWrap}>
-              {JOB_OPTIONS.map((j) => (
-                <button
-                  key={j}
-                  style={{ ...styles.chip, ...(editJob === j ? styles.chipActive : {}) }}
-                  onClick={() => setEditJob(editJob === j ? null : j)}
-                >
-                  {j}
-                </button>
-              ))}
-            </div>
-
-            {editRole === 'manager' ? (
-              <>
-                <p style={styles.modalSectionLabel}>Restaurants</p>
-                <div style={styles.chipWrap}>
-                  {brands.map((b) => (
-                    <button
-                      key={b.id}
-                      style={{ ...styles.chip, ...(editBrands.includes(b.id) ? styles.chipActive : {}) }}
-                      onClick={() => setEditBrands(toggleInArray(editBrands, b.id))}
-                    >
-                      {b.name}
-                    </button>
-                  ))}
-                </div>
-
-                <p style={styles.modalSectionLabel}>File directories</p>
-                <div style={styles.chipWrap}>
-                  {categories.map((c) => (
-                    <button
-                      key={c.id}
-                      style={{ ...styles.chip, ...(editCategories.includes(c.id) ? styles.chipActive : {}) }}
-                      onClick={() => setEditCategories(toggleInArray(editCategories, c.id))}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* What they can reach. Everything not ticked is hidden - and
-                    the calendar and home screen follow from this rather than
-                    having rules of their own, so someone without the checklist
-                    does not see its items anywhere. */}
-                <p style={styles.modalSectionLabel}>What they can reach</p>
-                <div style={styles.chipWrap}>
-                  {FEATURES.map((f) => (
-                    <button
-                      key={f.key}
-                      style={{ ...styles.chip, ...(editFeatures.includes(f.key) ? styles.chipActive : {}) }}
-                      onClick={() => setEditFeatures(toggleInArray(editFeatures, f.key))}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-                <p style={styles.modalNote}>
-                  Messages, the calendar and their profile are always available. Everything else is what you tick
-                  here.
-                </p>
-              </>
-            ) : (
-              <p style={styles.modalNote}>
-                Executives and admins see everything. Their manager permissions stay saved, so switching back later
-                restores exactly what they had.
-              </p>
-            )}
-
-            <button style={styles.confirmButton} onClick={handleSaveAccess} disabled={savingRole}>
-              {savingRole ? 'Saving…' : 'Save'}
-            </button>
-            <button style={styles.cancelButton} onClick={() => setRoleEditUser(null)} disabled={savingRole}>
-              {savingRole ? 'Saving…' : 'Cancel'}
-            </button>
-          </div>
-        </div>
+      {panelMode ? (
+        <AccessPanel
+          mode={panelMode === 'create' ? 'create' : 'edit'}
+          draft={draft}
+          setDraft={setDraft}
+          locationsFor={locationsFor}
+          saving={saving}
+          onSave={handleSave}
+          onClose={closePanel}
+        />
       ) : null}
+
       {dialogNode}
     </div>
   );
 }
 
+// The create and edit form. Grouped into who, where, folders and reach, with
+// folders and reach defaulting to everything and opening only when something
+// needs unticking - rather than twenty chips on screen every time.
+function AccessPanel({ mode, draft, setDraft, locationsFor, saving, onSave, onClose }) {
+  const [foldersOpen, setFoldersOpen] = useState(false);
+  const [reachOpen, setReachOpen] = useState(false);
+  const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
+
+  const toggleBrand = (brandId) => {
+    const on = draft.brandIds.includes(brandId);
+    const brandIds = toggleInArray(draft.brandIds, brandId);
+    const locationsByBrand = { ...draft.locationsByBrand };
+    if (on) delete locationsByBrand[brandId];
+    set({ brandIds, locationsByBrand });
+  };
+
+  const setAllLocations = (brandId) => {
+    const locationsByBrand = { ...draft.locationsByBrand };
+    delete locationsByBrand[brandId];
+    set({ locationsByBrand });
+  };
+
+  const setOnlyLocations = (brandId) => {
+    // Starts with the first location ticked, so "only" is never empty - an
+    // empty list means every location.
+    const first = locationsFor(brandId)[0]?.id;
+    set({ locationsByBrand: { ...draft.locationsByBrand, [brandId]: first ? [first] : [] } });
+  };
+
+  const toggleLocation = (brandId, locId) => {
+    const current = draft.locationsByBrand[brandId] ?? [];
+    const next = toggleInArray(current, locId);
+    // Unticking the last one would silently mean "all" - keep at least one.
+    if (next.length === 0) return;
+    set({ locationsByBrand: { ...draft.locationsByBrand, [brandId]: next } });
+  };
+
+  const folderNot = categories.filter((c) => !draft.categoryIds.includes(c.id)).map((c) => c.label);
+  const reachNot = FEATURES.filter((f) => !draft.features.includes(f.key)).map((f) => f.label);
+
+  const folderSummary =
+    draft.categoryIds.length === 0 ? 'None' : folderNot.length === 0 ? 'All folders' : `All except ${folderNot.join(', ')}`;
+  const reachSummary =
+    draft.features.length === 0 ? 'Nothing extra' : reachNot.length === 0 ? 'Everything' : `Everything except ${reachNot.join(', ')}`;
+
+  return (
+    <div style={styles.backdrop} onClick={onClose}>
+      <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
+        <h2 style={styles.panelTitle}>{mode === 'create' ? 'New login' : `Edit access — ${draft.name}`}</h2>
+
+        <p style={styles.sectionLabel}>Who</p>
+        {mode === 'create' ? (
+          <div style={styles.twoCol}>
+            <input style={styles.input} placeholder="Full name" value={draft.name} onChange={(e) => set({ name: e.target.value })} />
+            <input style={styles.input} placeholder="name@company.com" value={draft.email} onChange={(e) => set({ email: e.target.value })} />
+          </div>
+        ) : (
+          <p style={styles.readOnly}>{draft.email}</p>
+        )}
+        <div style={styles.twoCol}>
+          <select style={styles.input} value={draft.role} onChange={(e) => set({ role: e.target.value })}>
+            <option value="manager">Manager</option>
+            <option value="executive">Executive</option>
+            <option value="admin">Admin</option>
+          </select>
+          <select style={styles.input} value={draft.job ?? ''} onChange={(e) => set({ job: e.target.value || null })}>
+            <option value="">No job / department</option>
+            {JOB_OPTIONS.map((j) => (
+              <option key={j} value={j}>
+                {j}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {draft.role === 'manager' ? (
+          <>
+            <p style={styles.sectionLabel}>Where</p>
+            <div style={styles.box}>
+              {brands.map((b) => {
+                const on = draft.brandIds.includes(b.id);
+                const only = draft.locationsByBrand[b.id];
+                const narrowed = Array.isArray(only) && only.length > 0;
+                const locs = locationsFor(b.id);
+                return (
+                  <div key={b.id} style={styles.brandBlock}>
+                    <label style={styles.checkRow}>
+                      <input type="checkbox" checked={on} onChange={() => toggleBrand(b.id)} />
+                      <span>{b.name}</span>
+                    </label>
+                    {on && locs.length > 1 ? (
+                      <div style={styles.nested}>
+                        <label style={styles.checkRow}>
+                          <input type="radio" checked={!narrowed} onChange={() => setAllLocations(b.id)} />
+                          <span>All locations</span>
+                        </label>
+                        <label style={styles.checkRow}>
+                          <input type="radio" checked={narrowed} onChange={() => setOnlyLocations(b.id)} />
+                          <span>Only these:</span>
+                        </label>
+                        {narrowed ? (
+                          <div style={styles.locGrid}>
+                            {locs.map((l) => (
+                              <label key={l.id} style={styles.checkRow}>
+                                <input type="checkbox" checked={only.includes(l.id)} onChange={() => toggleLocation(b.id, l.id)} />
+                                <span>{l.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={styles.twoCol}>
+              <div>
+                <p style={styles.sectionLabel}>Folders</p>
+                <button style={styles.summaryBox} onClick={() => setFoldersOpen((v) => !v)}>
+                  <span>{folderSummary}</span>
+                  <span style={styles.chevron}>{foldersOpen ? '▾' : '▸'}</span>
+                </button>
+              </div>
+              <div>
+                <p style={styles.sectionLabel}>Can reach</p>
+                <button style={styles.summaryBox} onClick={() => setReachOpen((v) => !v)}>
+                  <span>{reachSummary}</span>
+                  <span style={styles.chevron}>{reachOpen ? '▾' : '▸'}</span>
+                </button>
+              </div>
+            </div>
+
+            {foldersOpen ? (
+              <div style={styles.box}>
+                <div style={styles.boxHead}>
+                  <span style={styles.sectionLabelInline}>Folders</span>
+                  <button style={styles.linkButton} onClick={() => set({ categoryIds: ALL_CATEGORY_IDS })}>All</button>
+                  <button style={styles.linkButton} onClick={() => set({ categoryIds: [] })}>None</button>
+                </div>
+                <div style={styles.locGrid}>
+                  {categories.map((c) => (
+                    <label key={c.id} style={styles.checkRow}>
+                      <input
+                        type="checkbox"
+                        checked={draft.categoryIds.includes(c.id)}
+                        onChange={() => set({ categoryIds: toggleInArray(draft.categoryIds, c.id) })}
+                      />
+                      <span>{c.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {reachOpen ? (
+              <div style={styles.box}>
+                <div style={styles.boxHead}>
+                  <span style={styles.sectionLabelInline}>Can reach</span>
+                  <button style={styles.linkButton} onClick={() => set({ features: ALL_FEATURE_KEYS })}>All</button>
+                  <button style={styles.linkButton} onClick={() => set({ features: [] })}>None</button>
+                </div>
+                <div style={styles.locGrid}>
+                  {FEATURES.map((f) => (
+                    <label key={f.key} style={styles.checkRow}>
+                      <input
+                        type="checkbox"
+                        checked={draft.features.includes(f.key)}
+                        onChange={() => set({ features: toggleInArray(draft.features, f.key) })}
+                      />
+                      <span>{f.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p style={styles.note}>Messages, the calendar and their profile are always available.</p>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p style={styles.note}>
+            {draft.role === 'executive'
+              ? "Executives see everything, and can approve requests, post announcements and manage the calendar — but can't manage logins, connect Drive folders, set an opening date, or approve their own requests."
+              : 'Admins see everything.'}
+            {mode === 'edit' ? ' Their manager access stays saved, so switching back restores exactly what they had.' : ''}
+          </p>
+        )}
+
+        <div style={styles.panelFooter}>
+          <span style={styles.note}>{mode === 'create' ? 'A setup email sends when you create the login.' : ''}</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={styles.cancelButton} onClick={onClose} disabled={saving}>
+              Cancel
+            </button>
+            <button style={styles.saveButton} onClick={onSave} disabled={saving}>
+              {saving ? 'Saving…' : mode === 'create' ? 'Create login' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 640 },
-  title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },
-  sectionTitle: { fontSize: 15, fontWeight: 700, marginTop: 20, marginBottom: 10 },
-  input: {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--bg-card)',
-    color: 'var(--text-primary)',
-    fontSize: 13,
-    outline: 'none',
-    boxSizing: 'border-box',
-    marginBottom: 10,
-  },
-  roleRow: { display: 'flex', gap: 10, marginBottom: 12 },
-  roleButton: { flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 },
-  roleButtonActive: { background: 'var(--neon)', color: 'var(--neon-text)', borderColor: 'var(--neon)' },
-  permissionLabel: { fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginTop: 10, marginBottom: 6 },
-  chipWrap: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  chip: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    textAlign: 'left',
-    padding: '10px 12px',
-    borderRadius: 12,
-    border: '1px solid var(--border)',
-    background: 'rgba(255,255,255,0.04)',
-    color: 'var(--text-primary)',
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  chipActive: { background: 'rgba(223,255,79,0.10)', color: 'var(--neon)', fontWeight: 900, borderColor: 'var(--neon)' },
-  adminNote: { color: 'var(--text-secondary)', fontSize: 12, fontStyle: 'italic', marginTop: 4, marginBottom: 8 },
-  button: { width: '100%', padding: '12px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 14, marginTop: 8, textTransform: 'uppercase' },
-  userRow: { background: 'var(--bg-card)', borderRadius: 12, padding: 14, marginBottom: 8, border: 'none' },
-  userRowInactive: { opacity: 0.55, borderColor: 'rgba(232,82,75,0.4)' },
-  userHeaderRow: { display: 'flex', alignItems: 'center', gap: 8 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 760 },
+  headerRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18 },
+  title: { fontSize: 22, fontWeight: 700, margin: 0 },
+  newButton: { padding: '9px 14px', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer' },
+
+  list: { background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 },
+  row: { borderBottom: '1px solid var(--border)' },
+  rowInactive: { opacity: 0.55 },
+  rowHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)' },
+  rowName: { fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap' },
+  rowSummary: { flex: 1, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   inactiveBadge: { fontSize: 10, fontWeight: 700, color: 'var(--danger)', letterSpacing: 0.5 },
-  userName: { fontSize: 14, fontWeight: 600 },
-  userDetail: { fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' },
-  expandToggle: { background: 'none', border: 'none', padding: '6px 0 0', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer', textAlign: 'left' },
-  accessDetail: { marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' },
-  accessLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 4px' },
-  accessValue: { fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 12px' },
-  accessMuted: { fontSize: 11, lineHeight: 1.6, color: 'var(--text-tertiary)', margin: '-6px 0 12px' },
-  userPermissions: { fontSize: 11, color: 'var(--text-secondary)', margin: '4px 0 0' },
-  resetButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 },
-  deactivateButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'rgba(232,82,75,0.12)', color: 'var(--danger)', fontSize: 12, fontWeight: 700 },
-  selfNote: { color: 'var(--text-secondary)', fontSize: 11, fontStyle: 'italic', alignSelf: 'center' },
-  note: { marginTop: 16, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6 },
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  // Wider and scrollable: the access editor holds role, five restaurants,
-  // eleven directories and nine features, which is well past one screen.
-  modalCard: {
-    width: 'min(460px, calc(100vw - 32px))',
-    maxHeight: '82vh',
-    overflowY: 'auto',
-    background: 'var(--bg-elevated)',
-    border: 'none',
-    borderRadius: 18,
-    padding: 22,
-    boxShadow: 'var(--shadow-lg)',
-  },
-  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 4px' },
-  modalSubtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px' },
-  confirmButton: {
-    width: '100%',
-    marginTop: 20,
-    padding: '11px 0',
-    borderRadius: 10,
-    border: 'none',
-    background: 'var(--neon)',
-    color: 'var(--neon-text)',
-    fontSize: 13,
-    fontWeight: 900,
-    textTransform: 'uppercase',
-    cursor: 'pointer',
-  },
-  modalSectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '18px 0 8px' },
-  modalNote: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, marginTop: 4 },
-  cancelButton: {
-    width: '100%',
-    marginTop: 16,
-    padding: '11px 0',
-    borderRadius: 10,
-    border: '1px solid var(--border)',
-    background: 'none',
-    color: 'var(--text-secondary)',
-    fontWeight: 600,
-    fontSize: 13,
-  },
+  chevron: { fontSize: 11, color: 'var(--text-tertiary)' },
+  rowBody: { padding: '0 14px 14px' },
+  email: { fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 10px' },
+  accessLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 3px' },
+  accessValue: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 10px' },
+  actions: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4, alignItems: 'center' },
+  actionButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  dangerButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'rgba(232,82,75,0.12)', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  selfNote: { color: 'var(--text-secondary)', fontSize: 11, fontStyle: 'italic' },
+
+  repairRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 14px', borderRadius: 12, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 12 },
+
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  panel: { width: 'min(560px, calc(100vw - 32px))', maxHeight: '86vh', overflowY: 'auto', background: 'var(--bg-elevated)', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  panelTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: 'var(--text-primary)', margin: '0 0 6px' },
+  sectionLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '16px 0 6px' },
+  sectionLabelInline: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', flex: 1 },
+  twoCol: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8, marginBottom: 8 },
+  input: { width: '100%', boxSizing: 'border-box', height: 38, padding: '0 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13 },
+  readOnly: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 8px' },
+  box: { border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 8 },
+  boxHead: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 },
+  brandBlock: { padding: '2px 0' },
+  checkRow: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', padding: '4px 0', cursor: 'pointer' },
+  nested: { paddingLeft: 26, marginBottom: 4 },
+  locGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', columnGap: 12 },
+  summaryBox: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', minHeight: 38, padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 12, textAlign: 'left', cursor: 'pointer' },
+  linkButton: { background: 'none', border: 'none', padding: 0, color: 'var(--neon)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  note: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, margin: '6px 0 0' },
+  panelFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 20, flexWrap: 'wrap' },
+  cancelButton: { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  saveButton: { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer' },
 };
