@@ -109,7 +109,13 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isAdmin();
-      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pushToken']));
+      allow update: if isAdmin()
+        || (isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pushToken']))
+        // Approving a request grants access, which is a permissions write.
+        // Executives approve requests, so they may change a manager's
+        // permissions - nothing else on the profile, and nobody else's.
+        || (isAdminOrExecutive() && resource.data.role == 'manager'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['permissions']));
       allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
     }
 
@@ -126,8 +132,13 @@ service cloud.firestore {
     }
 
     match /accessRequests/{requestId} {
-      allow read, create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.userEmail.lower() == request.auth.token.email.lower()
+        && request.resource.data.status == 'pending';
+      // Only reviewers change these at all - a requester never edits one.
+      allow update: if isAdmin()
+        || (isAdminOrExecutive() && resource.data.userEmail.lower() != request.auth.token.email.lower());
       allow delete: if isAdmin();
     }
 
@@ -182,10 +193,29 @@ service cloud.firestore {
     // not roster information. Admins and executives review requests; everyone
     // else sees only their own. weeklyAvailability deliberately stays open:
     // who works which days is what the Team tab is for.
+    // The fields that record a decision. Requesters can edit their own request
+    // but never touch these - otherwise anyone could approve their own time
+    // off, event, or request for a restaurant.
+    function touchesReview() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['resolvedAt', 'resolvedByUid', 'denialReason']);
+    }
+
     match /timeOffRequests/{requestId} {
       allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      // Filed as yourself, and pending. It could be created already approved.
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending';
+      // Decided by an admin, or an executive who is not the one asking.
+      // The requester can edit their own, but the status can only ever be
+      // pending in their hands and the decision fields stay untouched.
+      allow update: if isAdmin()
+        || (isAdminOrExecutive() && resource.data.uid != request.auth.uid)
+        || (isSignedIn() && resource.data.uid == request.auth.uid
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.status == 'pending'
+            && !touchesReview());
       allow delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'denied');
     }
 
@@ -201,8 +231,16 @@ service cloud.firestore {
     }
 
     match /eventRequests/{requestId} {
-      allow read, create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.requestedByUid == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update: if isAdmin()
+        || (isAdminOrExecutive() && resource.data.requestedByUid != request.auth.uid)
+        || (isSignedIn() && resource.data.requestedByUid == request.auth.uid
+            && request.resource.data.requestedByUid == request.auth.uid
+            && request.resource.data.status == 'pending'
+            && !touchesReview());
       allow delete: if isAdmin();
     }
 
