@@ -54,7 +54,7 @@ export default function ProfileScreen() {
   const saveProfileEdit = async () => {
     setSavingProfile(true);
     try {
-      await updateMyProfile({ name: profileNameDraft, photoFile: profilePhotoFile });
+      await updateMyProfile({ name: profileNameDraft });
       setEditOpen(false);
     } finally {
       setSavingProfile(false);
@@ -98,11 +98,7 @@ export default function ProfileScreen() {
     <div style={styles.page}>
       <div style={styles.profileCard}>
         <button style={styles.avatarWrap} onClick={openProfileEdit}>
-          {user?.photoUrl ? (
-            <img src={user.photoUrl} alt="" style={styles.avatarImage} />
-          ) : (
-            <div style={styles.avatarPlaceholder}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
-          )}
+          <div style={styles.avatarPlaceholder}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
           <div style={styles.editBadge}>✎</div>
         </button>
         <div style={styles.name}>{user?.name}</div>
@@ -137,18 +133,6 @@ export default function ProfileScreen() {
         <div style={styles.modalBackdrop} onClick={() => !savingProfile && setEditOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Edit Profile</h2>
-
-            <div style={styles.profilePhotoRow}>
-              {profilePhotoPreview || user?.photoUrl ? (
-                <img src={profilePhotoPreview || user.photoUrl} alt="" style={styles.profilePhotoPreviewImg} />
-              ) : (
-                <div style={styles.profilePhotoPlaceholder}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
-              )}
-              <label style={styles.photoPickButton}>
-                Change Photo
-                <input type="file" accept="image/*" onChange={handlePhotoPick} style={{ display: 'none' }} />
-              </label>
-            </div>
 
             <label style={styles.fieldLabel}>Name</label>
             <input

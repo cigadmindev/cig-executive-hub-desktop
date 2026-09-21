@@ -139,11 +139,7 @@ export default function AppLayout({ children }) {
 
         <div style={styles.sidebarFooter}>
           <NavLink to="/profile" style={styles.userRow}>
-            {user?.photoUrl ? (
-              <img src={user.photoUrl} alt="" style={styles.avatarImage} />
-            ) : (
-              <div style={styles.avatar}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
-            )}
+            <div style={styles.avatar}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
             <div style={{ overflow: 'hidden', flex: 1 }}>
               <div style={styles.userName}>{user?.name}</div>
               <div style={styles.userRole}>{isAdmin ? 'Admin' : isExecutive ? 'Executive' : 'Manager'}</div>

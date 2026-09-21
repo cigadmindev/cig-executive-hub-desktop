@@ -189,17 +189,13 @@ export function AuthProvider({ children }) {
   // sidebar. photoFile is an actual File from a picker; passing null for
   // it leaves the existing photo untouched (so name-only edits don't wipe
   // the picture).
-  const updateMyProfile = async ({ name, photoFile }) => {
+  // Name only. Profile photos were removed: they had no retention, served
+  // little purpose, and stored a download link anyone holding could open.
+  const updateMyProfile = async ({ name }) => {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     const updates = {};
     if (name && name.trim()) updates.name = name.trim();
-
-    if (photoFile) {
-      const fileRef = ref(storage, `profilePhotos/${uid}`);
-      await uploadBytes(fileRef, photoFile);
-      updates.photoUrl = await getDownloadURL(fileRef);
-    }
 
     if (Object.keys(updates).length === 0) return;
     await updateDoc(doc(db, 'users', uid), updates);
