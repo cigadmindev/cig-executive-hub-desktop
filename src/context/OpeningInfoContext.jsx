@@ -75,6 +75,19 @@ export function OpeningInfoProvider({ children }) {
   // them from scratch against the new date — so changing the date later
   // just re-spreads everything instead of leaving stale duplicates behind.
   const setOpeningDate = async (locationId, openingDate) => {
+    // Claimed in one step, so a second save arriving within ten seconds - a
+    // double click, or two tabs - finds the claim and stops rather than
+    // rebuilding alongside the first.
+    const claimRef = doc(db, COLLECTION, locationId);
+    const claimed = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(claimRef);
+      const at = snap.exists() ? snap.data().rebuildingAt ?? 0 : 0;
+      if (Date.now() - at < 10000) return false;
+      tx.set(claimRef, { rebuildingAt: Date.now() }, { merge: true });
+      return true;
+    });
+    if (!claimed) return;
+
     const current = getInfo(locationId);
     await setDoc(doc(db, COLLECTION, locationId), { ...current, openingDate }, { merge: true });
 
@@ -94,7 +107,7 @@ export function OpeningInfoProvider({ children }) {
       // and adjusted dates like anything else, and a date change was silently
       // throwing that away.
       if (data.setupKey) {
-        existingSetupByKey[data.setupKey] = { ref: d.ref, data };
+        existingSetupByKey[(data.openingItemType ?? 'setup') + ':' + data.setupKey] = { ref: d.ref, data };
       } else {
         deleteBatch.delete(d.ref);
       }
@@ -150,6 +163,12 @@ export function OpeningInfoProvider({ children }) {
         const dates = spreadDatesInWindow(openingDate, bucket.windowStartDaysBefore, bucket.windowEndDaysBefore, bucket.items.length);
         bucket.items.forEach((tlItem, i) => {
           const label = tlItem.name;
+          const existing = existingSetupByKey['timeline:' + tlItem.key];
+          if (existing) {
+            if (existing.data.done) return;
+            createBatch.update(existing.ref, { dateTime: dates[i], openingSection: bucket.label });
+            return;
+          }
           const ref = doc(collection(db, SCHEDULES_COLLECTION));
           createBatch.set(ref, {
             locationId,
@@ -185,7 +204,7 @@ export function OpeningInfoProvider({ children }) {
       const seenKeys = new Set();
       template.items.forEach((item) => {
         seenKeys.add(item.key);
-        const existing = existingSetupByKey[item.key];
+        const existing = existingSetupByKey['setup:' + item.key];
 
         if (existing) {
           // Already done: leave it entirely alone. Its date records when the
