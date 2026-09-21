@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, setDoc, runTransaction, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, runTransaction, updateDoc , query, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db, auth, storage } from '../firebaseConfig';
@@ -22,8 +22,11 @@ export function WorkOrdersProvider({ children }) {
       setOrders([]);
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
-      const list = snapshot.docs.map((d) => {
+    // Only work orders this person signs or sent - everyone else's stayed in
+    // every browser before, signature images included, and the screen simply
+    // hid them. Admins still load them all. Two queries because Firestore
+    // cannot ask "signer OR sender" in one; merged by id.
+    const toOrder = (d) => {
         const data = d.data();
         return {
           id: d.id,
@@ -51,12 +54,33 @@ export function WorkOrdersProvider({ children }) {
           createdAt: data.createdAt,
           completedAt: data.completedAt ?? null,
         };
-      });
-      setOrders(list.sort((a, b) => b.createdAt - a.createdAt));
-    },
-      (err) => console.error('[WorkOrders listener] ' + err.code + ': ' + err.message)
+};
+
+    const base = collection(db, COLLECTION);
+    const sources =
+      user.role === 'admin'
+        ? [base]
+        : [
+            query(base, where('assignedUids', 'array-contains', user.uid)),
+            query(base, where('uploadedByUid', '==', user.uid)),
+          ];
+    const buckets = sources.map(() => new Map());
+    const publish = () => {
+      const merged = new Map();
+      buckets.forEach((b) => b.forEach((v, k) => merged.set(k, v)));
+      setOrders([...merged.values()].sort((a, b) => b.createdAt - a.createdAt));
+    };
+    const unsubs = sources.map((q, i) =>
+      onSnapshot(
+        q,
+        (snap) => {
+          buckets[i] = new Map(snap.docs.map((d) => [d.id, toOrder(d)]));
+          publish();
+        },
+        (err) => console.error('[WorkOrders listener] ' + err.code + ': ' + err.message)
+      )
     );
-    return unsubscribe;
+    return () => unsubs.forEach((u) => u());
   }, [user]);
 
   const getMyQueue = () =>

@@ -87,7 +87,7 @@ function Gate() {
           path="/brand/:brandId/location/:locationId/category/:categoryId/announcements"
           element={<AnnouncementsScreen />}
         />
-        <Route path="/announcements/new" element={<HomeAnnouncementsScreen />} />
+        <Route path="/announcements/new" element={<RequireReviewer><HomeAnnouncementsScreen /></RequireReviewer>} />
         <Route path="/messages" element={<MessagesScreen />} />
         <Route path="/calendar" element={<CalendarScreen />} />
         <Route path="/directory" element={<DirectoryScreen />} />
@@ -172,6 +172,14 @@ function Providers({ children }) {
 }
 
 
+
+// Executives and admins only - posting announcements. The Directory tile was
+// hidden from everyone else, but the address itself was not.
+function RequireReviewer({ children }) {
+  const { user } = useAuth();
+  if (user?.role !== 'admin' && user?.role !== 'executive') return <Navigate to="/" replace />;
+  return children;
+}
 
 // A restaurant's own page checks the brand. Anything under a location checks
 // that location as well, so a Ridgeland-only manager cannot reach Starkville

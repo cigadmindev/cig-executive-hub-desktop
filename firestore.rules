@@ -329,12 +329,17 @@ service cloud.firestore {
     }
 
     match /workOrders/{id} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      // downloadedAt was missing, so collecting a finished document downloaded
-      // the file and then failed the write - the person got their PDF and a
-      // message saying it had not worked.
-      allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signatures', 'status', 'completedAt', 'signedFileUrl', 'signedPdfError', 'filesDeleted', 'downloadedAt', 'downloadedBy']);
+      // Signers, the sender, and admins. Everything else about a signed
+      // document is between the people on it.
+      allow read: if isAdmin()
+        || (isSignedIn() && (request.auth.uid in resource.data.assignedUids
+            || resource.data.uploadedByUid == request.auth.uid));
+      allow create: if isSignedIn() && request.resource.data.uploadedByUid == request.auth.uid;
+      // Signing, completing, and collecting your copy. downloadedByUids was
+      // missing from this list, so recording a collection silently failed.
+      allow update: if isSignedIn()
+        && (request.auth.uid in resource.data.assignedUids || resource.data.uploadedByUid == request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signatures', 'status', 'completedAt', 'signedFileUrl', 'signedPdfError', 'filesDeleted', 'downloadedAt', 'downloadedBy', 'downloadedByUids']);
       allow delete: if isAdmin();
     }
   }
