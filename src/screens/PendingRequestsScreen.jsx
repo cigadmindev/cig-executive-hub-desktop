@@ -55,10 +55,18 @@ export default function PendingRequestsScreen() {
     const targetUser = users.find((u) => u.email === reviewingRequest.userEmail);
     try {
       if (targetUser) {
+        // A feature request adds that one feature. An absent list already
+        // means everything, so it is left absent rather than narrowed.
+        const existingPerms = targetUser.permissions ?? {};
+        const features =
+          reviewingRequest.type === 'feature' && Array.isArray(existingPerms.features)
+            ? [...new Set([...existingPerms.features, reviewingRequest.targetId])]
+            : existingPerms.features;
         await updatePermissions(targetUser.uid, {
-          ...(targetUser.permissions ?? {}),
+          ...existingPerms,
           brandIds,
           categoryIds,
+          ...(features !== undefined ? { features } : {}),
         });
       }
       await resolveRequest(reviewingRequest.id, 'approved');

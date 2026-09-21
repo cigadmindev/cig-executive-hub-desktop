@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useNavigate , Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { brands } from '../data/mockData';
+import { brands , hasFeature } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
 import { brandColors } from '../theme/colors';
 import { useCustomLocations } from '../context/CustomLocationsContext';
@@ -39,11 +39,28 @@ export default function HomeScreen() {
     setRequestTarget({ id: item.id, label: item.name });
   };
 
+  const handleOpeningClick = (loc) => {
+    if (hasFeature(user, 'openingChecklist')) {
+      navigate(`/brand/${loc.brandId}/location/${loc.id}/opening-checklist`);
+      return;
+    }
+    if (!user) return;
+    if (hasPendingRequest(user.email, 'feature', 'openingChecklist')) {
+      notify('Already requested', 'Your request for the opening checklist is still waiting on approval.');
+      return;
+    }
+    setRequestTarget({
+      type: 'feature',
+      id: 'openingChecklist',
+      label: `the opening checklist (${loc.brandName} · ${loc.name})`,
+    });
+  };
+
   const submitRequest = async (reason) => {
     await addRequest({
       userEmail: user.email,
       userName: user.name,
-      type: 'brand',
+      type: requestTarget.type ?? 'brand',
       targetId: requestTarget.id,
       targetLabel: requestTarget.label,
       reason,
@@ -160,7 +177,7 @@ export default function HomeScreen() {
                 key={loc.id}
                 data-card=""
                 style={styles.openingCard}
-                onClick={() => navigate(`/brand/${loc.brandId}/location/${loc.id}/opening-checklist`)}
+                onClick={() => handleOpeningClick(loc)}
               >
                 <span style={styles.openingName}>{loc.brandName}</span>
                 <span style={styles.openingMeta}>
