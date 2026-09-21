@@ -141,12 +141,17 @@ export default function HomeScreen() {
             {summary.attention.length === 0 ? (
               <p style={styles.emptyNote}>Nothing needs your attention.</p>
             ) : null}
-            {(isNarrow ? summary.attention.slice(0, 8) : summary.attention).map((a, i) => (
+            {(isNarrow ? summary.attention.slice(0, 8) : summary.attention).map((a, i) =>
+              a.level === 'header' ? (
+                <p key={i} style={styles.attentionHeader}>{a.text}</p>
+              ) : (
               <button key={i} data-row="" style={styles.attentionRow} onClick={() => navigate(a.to)}>
                 <span
                   style={{
                     ...styles.dot,
-                    background: a.level === 'overdue' ? 'var(--danger)' : '#C9A227',
+                    ...(a.level === 'todo'
+                      ? { background: 'transparent', border: '1.5px solid var(--text-tertiary)', boxSizing: 'border-box' }
+                      : { background: a.level === 'overdue' ? 'var(--danger)' : '#C9A227' }),
                   }}
                 />
                 <span style={styles.attentionText}>{a.text}</span>
@@ -365,6 +370,7 @@ const styles = {
   recentText: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
   openingStatRow: { display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' },
   openingOverdue: { fontSize: 11, color: 'var(--danger)' },
+  attentionHeader: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: 0, padding: '12px 16px 6px' },
   attentionRow: {
     display: 'flex',
     alignItems: 'center',

@@ -5,6 +5,7 @@ import { useRenewals } from '../context/RenewalsContext';
 import { useOpeningInfo } from '../context/OpeningInfoContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useAuth } from '../context/AuthContext';
+import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
 import { RENEWAL_WARNING_WINDOW_DAYS } from '../data/renewalTypes';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -21,6 +22,7 @@ export function useHomeSummary() {
   const { getInfo } = useOpeningInfo();
   const { getByBrand } = useCustomLocations();
   const { user, hasBrandAccess, hasLocationAccess } = useAuth();
+  const { getByLocation: contactsFor } = useOpeningOngoingContacts();
 
   return useMemo(() => {
     const now = Date.now();
@@ -144,6 +146,34 @@ export function useHomeSummary() {
 
     attention.sort((a, b2) => a.sort - b2.sort);
 
+    // For managers without the opening checklist, the Operational POC contacts
+    // at their locations that nobody has filled in yet. It gives them work
+    // they can actually do rather than an empty panel. Appended after the
+    // sort, so a contact can never sit above a real deadline, and given its
+    // own level so the overdue count ignores it.
+    //
+    // "Unfilled" is no company and no contact name or number - a row with
+    // only Who filled in still needs doing.
+    if (!hasFeature(user, 'openingChecklist') && hasFeature(user, 'operationalPoc')) {
+      const todo = [];
+      for (const loc of visibleLocations) {
+        for (const c of contactsFor(loc.id) ?? []) {
+          if ((c.vendor ?? '').trim() || (c.contactNameNumber ?? '').trim()) continue;
+          todo.push({
+            level: 'todo',
+            text: c.item,
+            where: `${c.section} · ${loc.name}`,
+            to: `/brand/${loc.brandId}/location/${loc.id}/operational-poc`,
+            sort: Infinity,
+          });
+        }
+      }
+      if (todo.length > 0) {
+        attention.push({ level: 'header', text: 'Contacts to fill in', sort: Infinity });
+        attention.push(...todo);
+      }
+    }
+
     const locById = Object.fromEntries(visibleLocations.map((l) => [l.id, l]));
     const weekEnd = now + 7 * DAY;
 
@@ -219,5 +249,5 @@ export function useHomeSummary() {
     };
     // user is a dependency: without it, someone whose permissions change
     // would keep seeing the old summary until they reloaded the app.
-  }, [entries, getByBrand, getInfo, renewalsFor, user]);
+  }, [entries, getByBrand, getInfo, renewalsFor, contactsFor, user]);
 }
