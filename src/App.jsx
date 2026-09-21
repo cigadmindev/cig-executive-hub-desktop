@@ -173,17 +173,22 @@ function Providers({ children }) {
 
 
 
+// A restaurant's own page checks the brand. Anything under a location checks
+// that location as well, so a Ridgeland-only manager cannot reach Starkville
+// by typing the address.
 function RequireBrand({ children }) {
-  const { user, hasBrandAccess } = useAuth();
-  const { brandId } = useParams();
+  const { user, hasBrandAccess, hasLocationAccess } = useAuth();
+  const { brandId, locationId } = useParams();
   if (!hasBrandAccess(user, brandId)) return <Navigate to="/" replace />;
+  if (locationId && !hasLocationAccess(user, brandId, locationId)) return <Navigate to={'/brand/' + brandId} replace />;
   return children;
 }
 
 function RequireCategory({ children }) {
-  const { user, hasBrandAccess, hasCategoryAccess } = useAuth();
-  const { brandId, categoryId } = useParams();
+  const { user, hasBrandAccess, hasLocationAccess, hasCategoryAccess } = useAuth();
+  const { brandId, locationId, categoryId } = useParams();
   if (!hasBrandAccess(user, brandId)) return <Navigate to="/" replace />;
+  if (!hasLocationAccess(user, brandId, locationId)) return <Navigate to={'/brand/' + brandId} replace />;
   if (!hasCategoryAccess(user, categoryId)) return <Navigate to="/" replace />;
   return children;
 }

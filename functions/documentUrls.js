@@ -100,6 +100,12 @@ exports.getPermitDocUrl = onCall(async (request) => {
     if (!brandId || !granted.includes(brandId)) {
       throw new HttpsError('permission-denied', 'You do not have access to that location.');
     }
+
+    // Narrowed to specific locations within the brand, if they have been.
+    const only = profile.permissions?.locationsByBrand?.[brandId];
+    if (Array.isArray(only) && only.length > 0 && !only.includes(locationId)) {
+      throw new HttpsError('permission-denied', 'You do not have access to that location.');
+    }
   }
 
   const [exists] = await admin.storage().bucket().file(storagePath).exists();

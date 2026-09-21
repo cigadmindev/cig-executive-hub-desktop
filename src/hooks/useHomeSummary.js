@@ -20,7 +20,7 @@ export function useHomeSummary() {
   const { getByLocation: renewalsFor } = useRenewals();
   const { getInfo } = useOpeningInfo();
   const { getByBrand } = useCustomLocations();
-  const { user, hasBrandAccess } = useAuth();
+  const { user, hasBrandAccess, hasLocationAccess } = useAuth();
 
   return useMemo(() => {
     const now = Date.now();
@@ -39,7 +39,11 @@ export function useHomeSummary() {
     const byBrand = {};
     const openingSoon = [];
 
-    locations.forEach((loc) => {
+    // Brand access picks the restaurants; this narrows to the locations
+    // someone actually has within them.
+    const visibleLocations = locations.filter((l) => hasLocationAccess(user, l.brandId, l.id));
+
+    visibleLocations.forEach((loc) => {
       const info = getInfo(loc.id);
       const openingDate = info?.openingDate ?? null;
       const allOpening = entries.filter((e) => e.locationId === loc.id && e.openingItem);
@@ -140,7 +144,7 @@ export function useHomeSummary() {
 
     attention.sort((a, b2) => a.sort - b2.sort);
 
-    const locById = Object.fromEntries(locations.map((l) => [l.id, l]));
+    const locById = Object.fromEntries(visibleLocations.map((l) => [l.id, l]));
     const weekEnd = now + 7 * DAY;
 
     // Everything landing in the next seven days, across every location. The

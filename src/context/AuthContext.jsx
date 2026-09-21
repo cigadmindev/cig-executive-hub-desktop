@@ -233,6 +233,18 @@ export function AuthProvider({ children }) {
   const hasCategoryAccess = (u, categoryId) =>
     !!u && (u.role === 'admin' || u.role === 'executive' || u.permissions.categoryIds.includes(categoryId));
 
+  // Per-location access, layered on the brand check. locationsByBrand maps a
+  // brand to the locations someone may see there; a brand with no entry - or
+  // an empty one - means every location in it. So nobody's access changed when
+  // this arrived, someone can hold all of one restaurant and part of another,
+  // and a person on "all locations" picks up new ones as they open.
+  const hasLocationAccess = (u, brandId, locationId) => {
+    if (!hasBrandAccess(u, brandId)) return false;
+    if (u.role === 'admin' || u.role === 'executive') return true;
+    const only = u.permissions?.locationsByBrand?.[brandId];
+    return !Array.isArray(only) || only.length === 0 || only.includes(locationId);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -252,6 +264,7 @@ export function AuthProvider({ children }) {
         deleteMyAccount,
         hasBrandAccess,
         hasCategoryAccess,
+        hasLocationAccess,
         refreshUsers,
       }}
     >

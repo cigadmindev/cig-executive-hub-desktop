@@ -8,6 +8,8 @@ import { useBrandAnnouncements } from '../context/BrandAnnouncementsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import PostCard from '../components/PostCard';
 import { useDialog } from '../hooks/useDialog';
+import { useAccessRequests } from '../context/AccessRequestsContext';
+import RequestAccessModal from '../components/RequestAccessModal';
 import { nike } from '../theme/nike';
 import { SEC_CITIES, SEC_STATE_NAMES } from '../data/secCities';
 
@@ -17,7 +19,9 @@ export default function BrandScreen() {
   const navigate = useNavigate();
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand, addLocation, deleteLocation } = useCustomLocations();
-  const { user } = useAuth();
+  const { user, hasLocationAccess } = useAuth();
+  const { addRequest, hasPendingRequest } = useAccessRequests();
+  const [requestTarget, setRequestTarget] = useState(null);
   const { getByBrand: getPostsByBrand, toggleLike, addComment, toggleCommentLike, deletePost, deleteComment } = useBrandAnnouncements();
   const { markBrandViewed, hasUnseenForLocation, hasUnseenBrandPosts } = useViewTracking();
 
@@ -43,7 +47,37 @@ export default function BrandScreen() {
     ...brand.locations.map((l) => ({ ...l, isCustom: false })),
     ...customLocations.map((l) => ({ id: l.id, name: l.name, isCustom: true })),
   ];
-  const posts = [...getPostsByBrand(brand.id, allLocations.map((l) => l.id))].sort((a, b) => b.timestamp - a.timestamp);
+  const canOpen = (loc) => hasLocationAccess(user, brand.id, loc.id);
+  const posts = [...getPostsByBrand(brand.id, allLocations.filter(canOpen).map((l) => l.id))].sort(
+    (a, b) => b.timestamp - a.timestamp
+  );
+
+  const openLocation = (loc) => {
+    if (canOpen(loc)) {
+      navigate(`/brand/${brand.id}/location/${loc.id}`);
+      return;
+    }
+    if (hasPendingRequest(user.email, 'location', loc.id)) {
+      notify('Already requested', `Your request for ${loc.name} is still waiting on approval.`);
+      return;
+    }
+    setRequestTarget({ id: loc.id, label: `${brand.name} · ${loc.name}` });
+  };
+
+  const submitRequest = async (reason) => {
+    await addRequest({
+      userEmail: user.email,
+      userName: user.name,
+      type: 'location',
+      brandId: brand.id,
+      targetId: requestTarget.id,
+      targetLabel: requestTarget.label,
+      reason,
+    });
+    const label = requestTarget.label;
+    setRequestTarget(null);
+    notify('Request sent', `An admin will review your request for access to ${label}.`);
+  };
 
   const handleAddLocation = async () => {
     if (!newName.trim()) return;
@@ -177,11 +211,18 @@ export default function BrandScreen() {
         <div style={styles.grid}>
           {allLocations.map((loc) => (
             <div key={loc.id} style={styles.cardWrap}>
-              <button style={{ ...styles.card, ...nike.card }} onClick={() => navigate(`/brand/${brand.id}/location/${loc.id}`)}>
+              <button
+                style={{ ...styles.card, ...nike.card, ...(canOpen(loc) ? {} : styles.cardLocked) }}
+                onClick={() => openLocation(loc)}
+              >
                 <span style={nike.cardName}>{loc.name}</span>
-                <span style={nike.chevron}>›</span>
+                {canOpen(loc) ? (
+                  <span style={nike.chevron}>›</span>
+                ) : (
+                  <span style={styles.lockedNote}>🔒 Request access</span>
+                )}
               </button>
-              {hasUnseenForLocation(loc.id) ? <span style={styles.unseenDot} /> : null}
+              {canOpen(loc) && hasUnseenForLocation(loc.id) ? <span style={styles.unseenDot} /> : null}
               {loc.isCustom && user?.role === 'admin' ? (
                 <button style={styles.deleteLink} onClick={() => handleDeleteLocation(loc)} title="Delete location">
                   ✕
@@ -191,6 +232,10 @@ export default function BrandScreen() {
           ))}
         </div>
       )}
+
+      {requestTarget ? (
+        <RequestAccessModal target={requestTarget} onSubmit={submitRequest} onClose={() => setRequestTarget(null)} />
+      ) : null}
 
       {posts.length > 0 ? (
         <div style={styles.postsSection}>
@@ -277,6 +322,8 @@ const styles = {
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 },
   cardWrap: { position: 'relative' },
+  cardLocked: { opacity: 0.55 },
+  lockedNote: { fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)' },
   unseenDot: { position: 'absolute', top: 10, left: 10, width: 10, height: 10, borderRadius: 5, background: 'var(--danger)' },
   card: {
     width: '100%',

@@ -26,7 +26,7 @@ function formatTime(dateTime) {
 export default function CalendarScreen() {
   const isNarrow = useIsNarrow();
   const { dialogNode, confirm, notify } = useDialog();
-  const { user, hasBrandAccess } = useAuth();
+  const { user, hasBrandAccess, hasLocationAccess } = useAuth();
   const { renewals } = useRenewals();
   const { requests } = useEventRequests();
   const { entries, addEntry, updateEntry, deleteEntry, toggleOpeningItemDone } = useSchedule();
@@ -100,6 +100,10 @@ export default function CalendarScreen() {
   ];
 
   const filteredEntries = [...entries, ...virtualEntries].filter((e) => {
+    // Entries tied to a location someone does not have stay off their
+    // calendar. Company-wide entries carry no location and pass through.
+    const locInfo = e.locationId ? locationInfo[e.locationId] : null;
+    if (locInfo && !hasLocationAccess(user, locInfo.brandId, e.locationId)) return false;
     const info = locationInfo[e.locationId];
     if (!info) return false;
     if (filterBrandId !== 'all' && info.brandId !== filterBrandId) return false;

@@ -62,11 +62,23 @@ export default function PendingRequestsScreen() {
           reviewingRequest.type === 'feature' && Array.isArray(existingPerms.features)
             ? [...new Set([...existingPerms.features, reviewingRequest.targetId])]
             : existingPerms.features;
+        // A location request adds that location to the brand's list. The
+        // brand already has an entry, or they would not have needed to ask -
+        // no entry means every location there.
+        let locationsByBrand = existingPerms.locationsByBrand;
+        if (reviewingRequest.type === 'location' && reviewingRequest.brandId) {
+          const current = existingPerms.locationsByBrand?.[reviewingRequest.brandId] ?? [];
+          locationsByBrand = {
+            ...(existingPerms.locationsByBrand ?? {}),
+            [reviewingRequest.brandId]: [...new Set([...current, reviewingRequest.targetId])],
+          };
+        }
         await updatePermissions(targetUser.uid, {
           ...existingPerms,
           brandIds,
           categoryIds,
           ...(features !== undefined ? { features } : {}),
+          ...(locationsByBrand !== undefined ? { locationsByBrand } : {}),
         });
       }
       await resolveRequest(reviewingRequest.id, 'approved');
