@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHomeSummary } from '../hooks/useHomeSummary';
+import { useAuth } from '../context/AuthContext';
+import { useAccessRequests } from '../context/AccessRequestsContext';
+import { useDialog } from '../hooks/useDialog';
+import { hasFeature } from '../data/mockData';
+import RequestAccessModal from '../components/RequestAccessModal';
 
 // Every restaurant with an opening date set, soonest first.
 //
@@ -14,6 +19,41 @@ import { useHomeSummary } from '../hooks/useHomeSummary';
 export default function OpeningSoonScreen() {
   const navigate = useNavigate();
   const summary = useHomeSummary();
+  const { user } = useAuth();
+  const { addRequest, hasPendingRequest } = useAccessRequests();
+  const { dialogNode, notify } = useDialog();
+  const [requestTarget, setRequestTarget] = useState(null);
+
+  const handleClick = (loc) => {
+    if (hasFeature(user, 'openingChecklist')) {
+      navigate(`/brand/${loc.brandId}/location/${loc.id}/opening-checklist`);
+      return;
+    }
+    if (!user) return;
+    if (hasPendingRequest(user.email, 'feature', 'openingChecklist')) {
+      notify('Already requested', 'Your request for the opening checklist is still waiting on approval.');
+      return;
+    }
+    setRequestTarget({
+      type: 'feature',
+      id: 'openingChecklist',
+      label: `the opening checklist (${loc.brandName} · ${loc.name})`,
+    });
+  };
+
+  const submitRequest = async (reason) => {
+    await addRequest({
+      userEmail: user.email,
+      userName: user.name,
+      type: requestTarget.type,
+      targetId: requestTarget.id,
+      targetLabel: requestTarget.label,
+      reason,
+    });
+    const label = requestTarget.label;
+    setRequestTarget(null);
+    notify('Request sent', `An admin will review your request for access to ${label}.`);
+  };
 
   const openings = summary.openingSoon;
 
@@ -32,7 +72,7 @@ export default function OpeningSoonScreen() {
             key={loc.id}
             data-card=""
             style={styles.card}
-            onClick={() => navigate(`/brand/${loc.brandId}/location/${loc.id}/opening-checklist`)}
+            onClick={() => handleClick(loc)}
           >
             <span style={styles.name}>{loc.brandName}</span>
             <span style={styles.meta}>
@@ -75,6 +115,10 @@ export default function OpeningSoonScreen() {
           </button>
         ))}
       </div>
+      {requestTarget ? (
+        <RequestAccessModal target={requestTarget} onSubmit={submitRequest} onClose={() => setRequestTarget(null)} />
+      ) : null}
+      {dialogNode}
     </div>
   );
 }
