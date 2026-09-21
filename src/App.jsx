@@ -43,6 +43,7 @@ import PendingRequestsScreen from './screens/PendingRequestsScreen';
 import SupportScreen from './screens/SupportScreen';
 import IntegrationRequestsScreen from './screens/IntegrationRequestsScreen';
 import OpeningSoonScreen from './screens/OpeningSoonScreen';
+import { UnderRepairGate } from './components/UnderRepair';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
 import IntegrationsScreen from './screens/IntegrationsScreen';
@@ -73,6 +74,7 @@ function Gate() {
   return (
     <Providers>
     <AppLayout>
+      <UnderRepairGate>
       <Routes>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/brand/:brandId" element={<RequireBrand><BrandScreen /></RequireBrand>} />
@@ -104,6 +106,7 @@ function Gate() {
         <Route path="/reset-app-data" element={<ResetAppDataScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </UnderRepairGate>
     </AppLayout>
     </Providers>
   );

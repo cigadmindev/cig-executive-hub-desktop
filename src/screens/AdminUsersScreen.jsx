@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { UnderRepairControls } from '../components/UnderRepair';
 import { useAuth } from '../context/AuthContext';
 import { brands, categories, FEATURES } from '../data/mockData';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
@@ -241,6 +242,8 @@ export default function AdminUsersScreen() {
       <button style={styles.button} disabled={creating} onClick={handleCreate}>
         {creating ? 'Creating…' : 'Create Login'}
       </button>
+
+      <UnderRepairControls />
 
       <h3 style={styles.sectionTitle}>Existing Logins</h3>
       {users.map((item) => (

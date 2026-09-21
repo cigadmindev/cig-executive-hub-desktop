@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
@@ -7,6 +8,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetNote, setResetNote] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,9 +50,31 @@ export default function LoginScreen() {
             {submitting ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
-        <p style={styles.helpNote}>
-          Forgot your password? Contact your administrator to be sent a reset link.
-        </p>
+        {/* Self-serve rather than "ask an administrator": links expire after an
+            hour, so anyone who missed one was stuck until someone noticed. */}
+        <button
+          type="button"
+          style={styles.forgotButton}
+          disabled={resetBusy}
+          onClick={async () => {
+            if (!email.trim()) {
+              setResetNote('Type your email above first, then tap this again.');
+              return;
+            }
+            setResetBusy(true);
+            try {
+              const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'requestPasswordReset');
+              await fn({ email: email.trim() });
+            } catch {
+              // Same message either way - it never says whether an account exists.
+            }
+            setResetNote('If that address has an account, a reset link is on its way. It lasts one hour.');
+            setResetBusy(false);
+          }}
+        >
+          {resetBusy ? 'Sending…' : 'Forgot your password?'}
+        </button>
+        {resetNote ? <p style={styles.helpNote}>{resetNote}</p> : null}
       </div>
     </div>
   );
@@ -107,6 +132,7 @@ const styles = {
   // There's deliberately no self-service reset link. An unauthenticated
   // reset endpoint would let anyone probe which addresses have accounts,
   // so resets run through an admin who already has a session.
+  forgotButton: { background: 'none', border: 'none', padding: '10px 0 0', color: 'var(--neon)', fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'center', width: '100%' },
   helpNote: { color: 'var(--text-secondary)', fontSize: 12, lineHeight: '17px', textAlign: 'center', marginTop: 18, marginBottom: 0, opacity: 0.75 },
   button: {
     width: '100%',

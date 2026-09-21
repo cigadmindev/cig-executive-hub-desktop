@@ -275,3 +275,56 @@ Object.assign(exports, require('./assembleSignedDocument'));
 Object.assign(exports, require('./sweepSignedDocuments'));
 
 Object.assign(exports, require('./sweepReceiptPhotos'));
+
+
+// Self-serve password reset, from the sign-in page.
+//
+// The only function anyone can call without being signed in, so it is
+// careful in three ways. It never says whether an address has an account -
+// the answer is the same either way - so it cannot be used to find out who
+// works here. It refuses a second request for the same address within a
+// minute, so it cannot be used to flood someone's inbox. And deactivated
+// accounts get nothing.
+//
+// Needed because setup and reset links expire after an hour, a Firebase limit
+// that cannot be extended, and the sign-in page used to tell people to ask an
+// administrator. Anyone who missed the window was stuck until someone noticed.
+exports.requestPasswordReset = onCall({ secrets: ['RESEND_API_KEY'] }, async (request) => {
+  const email = String(request.data?.email ?? '').trim().toLowerCase();
+  const ok = { sent: true };
+
+  if (!email || !email.includes('@') || email.length > 200) return ok;
+
+  const db = admin.firestore();
+
+  const throttleRef = db.collection('passwordResetRequests').doc(email);
+  const last = await throttleRef.get();
+  if (last.exists && Date.now() - (last.data().at ?? 0) < 60 * 1000) return ok;
+  await throttleRef.set({ at: Date.now() });
+
+  const profiles = await db.collection('users').where('email', '==', email).limit(1).get();
+  if (profiles.empty) return ok;
+  const profile = profiles.docs[0].data();
+  if (profile.active === false) return ok;
+
+  let link;
+  try {
+    link = await admin.auth().generatePasswordResetLink(email);
+  } catch {
+    return ok;
+  }
+
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: 'CIG Executive Hub <no-reply@cigconcepts.com>',
+      to: [email],
+      subject: 'Reset your CIG Executive Hub password',
+      html: inviteHtml({ name: profile.name, link, isReset: true }),
+    });
+  } catch (err) {
+    console.error('Self-serve reset email failed: ' + err.message);
+  }
+
+  return ok;
+});
