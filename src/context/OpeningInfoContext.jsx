@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, setDoc, query, where, getDocs, writeBatch, runTransaction } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { brandOfLocation } from '../data/brandOfLocation';
 import { useAuth } from './AuthContext';
 import {
   TIMELINE_BUCKETS,
@@ -146,6 +147,7 @@ export function OpeningInfoProvider({ children }) {
       })
     );
 
+    const entryBrandId = await brandOfLocation(locationId);
     const createBatch = writeBatch(db);
     const authorUid = auth.currentUser?.uid ?? null;
     const authorName = user?.name ?? 'Unknown';
@@ -172,6 +174,7 @@ export function OpeningInfoProvider({ children }) {
           const ref = doc(collection(db, SCHEDULES_COLLECTION));
           createBatch.set(ref, {
             locationId,
+            brandId: entryBrandId,
             title: label,
             dateTime: dates[i],
             note: '',
@@ -224,6 +227,7 @@ export function OpeningInfoProvider({ children }) {
         const ref = doc(collection(db, SCHEDULES_COLLECTION));
         createBatch.set(ref, {
           locationId,
+          brandId: entryBrandId,
           title: item.name,
           dateTime: setupDatesByKey[item.key],
           note: '',
@@ -269,6 +273,7 @@ export function OpeningInfoProvider({ children }) {
       const ref = doc(collection(db, SCHEDULES_COLLECTION));
       renewalTaskBatch.set(ref, {
         locationId,
+        brandId: entryBrandId,
         title: type,
         dateTime: renewalTaskDates[type],
         note: '',

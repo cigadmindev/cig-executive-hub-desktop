@@ -143,7 +143,11 @@ service cloud.firestore {
     }
 
     match /schedules/{entryId} {
-      allow read: if isSignedIn();
+      // Every entry carries its restaurant, so reads are limited to the
+      // restaurants someone has. Narrowing within a restaurant stays in the
+      // app - a rule cannot check a location against the permissions map
+      // without making every query unprovable.
+      allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
       allow create: if canEditChecklists();
       // Two branches, deliberately. The first is the three people who own the
       // list. The second is everyone else doing the actual work: ticking items
@@ -298,18 +302,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Every contact carries the restaurant it belongs to, so reads can be
+    // limited to the restaurants someone actually has. Before this, every
+    // location's contacts sat in every browser.
+    function myBrands() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.brandIds;
+    }
+
     match /openingOngoingContacts/{id} {
-      allow read: if isSignedIn();
-      // Seeding writes the whole standard list as whoever opens the screen,
-      // and it is marker-guarded so it happens once per location. Leaving
-      // create open means a manager opening a location nobody senior has
-      // visited still gets the list; adding one contact by hand is
-      // indistinguishable from seeding at the rule level, which is the trade.
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      // Removing a contact is restructuring - the same three as the checklist
-      // and renewals. This was admin-only, so the COO and the beverage
-      // manager would have seen the button and had the write rejected.
+      allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
+      // Seeding writes the standard list as whoever opens the screen, so
+      // create stays open to anyone with that restaurant.
+      allow create: if isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands());
+      allow update: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
       allow delete: if canEditChecklists();
     }
 

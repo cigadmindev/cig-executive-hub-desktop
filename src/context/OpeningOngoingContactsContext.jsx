@@ -32,7 +32,19 @@ export function OpeningOngoingContactsProvider({ children }) {
       setContacts([]);
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
+    // Only the restaurants this person has. Admins and executives take the
+    // lot; a manager with none takes nothing rather than everything.
+    const seesAll = user.role === 'admin' || user.role === 'executive';
+    const mine = user.permissions?.brandIds ?? [];
+    if (!seesAll && mine.length === 0) {
+      setContacts([]);
+      return;
+    }
+    const source = seesAll
+      ? collection(db, COLLECTION)
+      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)));
+
+    const unsubscribe = onSnapshot(source, (snapshot) => {
       const list = snapshot.docs.map((d) => {
         const data = d.data();
         return {

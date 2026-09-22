@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, writeBatch , query, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { brandOfLocation } from '../data/brandOfLocation';
 import { useAuth } from './AuthContext';
 
 const ScheduleContext = createContext(undefined);
@@ -23,7 +24,20 @@ export function ScheduleProvider({ children }) {
       setEntries([]);
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
+    // Checklist items, renewal tasks and calendar entries all live here, and
+    // every one carries a location. Only the restaurants this person has -
+    // before, every location's sat in every browser.
+    const seesAll = user.role === 'admin' || user.role === 'executive';
+    const mine = user.permissions?.brandIds ?? [];
+    if (!seesAll && mine.length === 0) {
+      setEntries([]);
+      return;
+    }
+    const source = seesAll
+      ? collection(db, COLLECTION)
+      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)));
+
+    const unsubscribe = onSnapshot(source, (snapshot) => {
       const list = snapshot.docs.map((d) => {
         const data = d.data();
         return {
@@ -100,6 +114,8 @@ export function ScheduleProvider({ children }) {
   const addEntry = async (params) => {
     await addDoc(collection(db, COLLECTION), {
       ...params,
+      // Stamped so this entry can be found by restaurant.
+      brandId: await brandOfLocation(params.locationId),
       authorUid: auth.currentUser?.uid ?? null,
       timestamp: Date.now(),
     });
