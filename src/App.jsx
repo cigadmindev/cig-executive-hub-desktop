@@ -138,8 +138,8 @@ function Providers({ children }) {
               <ChatProvider>
                 <ScheduleProvider>
                   <OpeningInfoProvider>
-                    <OpeningOngoingContactsProvider>
-                      <CustomLocationsProvider>
+                    <CustomLocationsProvider>
+                      <OpeningOngoingContactsProvider>
                         <AvailabilityProvider>
                           <EventRequestsProvider>
                             <RenewalsProvider>
@@ -152,8 +152,8 @@ function Providers({ children }) {
                             </RenewalsProvider>
                           </EventRequestsProvider>
                         </AvailabilityProvider>
-                      </CustomLocationsProvider>
-                    </OpeningOngoingContactsProvider>
+                      </OpeningOngoingContactsProvider>
+                    </CustomLocationsProvider>
                   </OpeningInfoProvider>
                 </ScheduleProvider>
               </ChatProvider>

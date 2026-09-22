@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, setDoc, runTransaction, query, where, getDocs, writeBatch , addDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
+import { useCustomLocations } from './CustomLocationsContext';
+import { brands } from '../data/mockData';
 import { ALL_CONTACT_SECTIONS } from '../data/openingChecklistData';
 
 const OpeningOngoingContactsContext = createContext(undefined);
@@ -10,7 +12,20 @@ const SEED_MARKER_COLLECTION = 'openingOngoingContactsSeedMarker';
 
 export function OpeningOngoingContactsProvider({ children }) {
   const { user } = useAuth();
+  const { getByBrand } = useCustomLocations();
   const [contacts, setContacts] = useState([]);
+
+  // The rules cannot work out a contact's restaurant on their own - Chelsea's
+  // id is a random string - so every contact carries brandId.
+  const brandOfLocation = (locationId) => {
+    for (const b of brands) {
+      if ((b.locations ?? []).some((l) => l.id === locationId)) return b.id;
+    }
+    for (const b of brands) {
+      if (getByBrand(b.id).some((l) => l.id === locationId)) return b.id;
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (!user) {
@@ -62,8 +77,10 @@ export function OpeningOngoingContactsProvider({ children }) {
         ALL_CONTACT_SECTIONS.forEach((section) => {
           section.items.forEach((item) => {
             const ref = doc(collection(db, COLLECTION));
+            const seedBrandId = brandOfLocation(locationId);
             tx.set(ref, {
               locationId,
+              brandId: seedBrandId,
               section: section.label,
               item,
               who: '',
@@ -148,6 +165,7 @@ export function OpeningOngoingContactsProvider({ children }) {
 
     await addDoc(collection(db, COLLECTION), {
       locationId,
+      brandId: brandOfLocation(locationId),
       section,
       item,
       who: '',

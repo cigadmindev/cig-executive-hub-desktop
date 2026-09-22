@@ -63,9 +63,22 @@ export function UnderRepairGate({ children }) {
   const navigate = useNavigate();
   const keys = useUnderRepair();
 
-  if (!user || user.role === 'admin') return children;
-
   const closed = REPAIRABLE_PAGES.find((p) => keys.includes(p.key) && p.test.test(pathname));
+
+  if (!user) return children;
+
+  if (user.role === 'admin') {
+    if (!closed) return children;
+    return (
+      <>
+        <div style={styles.adminBanner}>
+          🚧 {closed.label} is under repair — everyone but admins sees a notice here.
+        </div>
+        {children}
+      </>
+    );
+  }
+
   if (!closed) return children;
 
   return (
@@ -129,6 +142,7 @@ export function UnderRepairControls() {
 }
 
 const styles = {
+  adminBanner: { background: 'rgba(201,162,39,0.16)', color: '#C9A227', fontSize: 12, fontWeight: 600, padding: '8px 16px', textAlign: 'center' },
   wrap: { minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
   card: { maxWidth: 420, textAlign: 'center', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: '32px 28px' },
   icon: { fontSize: 40, marginBottom: 8 },
