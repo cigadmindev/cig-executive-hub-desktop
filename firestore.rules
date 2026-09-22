@@ -249,7 +249,7 @@ service cloud.firestore {
     }
 
     match /licenseRenewals/{itemId} {
-      allow read: if isSignedIn();
+      allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
       // Seeding runs as whoever opens the screen, so anyone must be able to
       // create the standard list - otherwise a manager opening a location
       // nobody senior has visited sees nothing.

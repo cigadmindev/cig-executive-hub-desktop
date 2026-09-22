@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, setDoc, updateDoc, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, runTransaction , query, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { brandOfLocation } from '../data/brandOfLocation';
 import { brandIdForLocation } from '../data/mockData';
 import { useAuth } from './AuthContext';
 import { renewalTypes, RENEWAL_WARNING_WINDOW_DAYS } from '../data/renewalTypes';
@@ -30,12 +31,23 @@ export function RenewalsProvider({ children }) {
       setItems([]);
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
+    const seesAll = user.role === 'admin' || user.role === 'executive';
+    const mine = user.permissions?.brandIds ?? [];
+    if (!seesAll && mine.length === 0) {
+      setItems([]);
+      return;
+    }
+    const source = seesAll
+      ? collection(db, COLLECTION)
+      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)));
+
+    const unsubscribe = onSnapshot(source, (snapshot) => {
       const list = snapshot.docs.map((d) => {
         const data = d.data();
         return {
           id: d.id,
           locationId: data.locationId,
+          brandId: data.brandId ?? null,
           type: data.type,
           approvedDate: data.approvedDate ?? null,
           expirationDate: data.expirationDate ?? null,
@@ -67,6 +79,7 @@ export function RenewalsProvider({ children }) {
   const addRenewal = async (locationId, type) => {
     await setDoc(doc(db, COLLECTION, renewalDocId(locationId, type)), {
       locationId,
+      brandId: await brandOfLocation(locationId),
       type,
       approvedDate: null,
       expirationDate: null,
@@ -87,6 +100,7 @@ export function RenewalsProvider({ children }) {
   // dates — each type's doc is only ever created once, with a deterministic
   // id, and existing docs are left completely untouched.
   const ensureSeeded = async (locationId) => {
+    const seedBrandId = await brandOfLocation(locationId);
     await Promise.all(
       renewalTypes.map(async (type) => {
         const ref = doc(db, COLLECTION, renewalDocId(locationId, type));
@@ -96,6 +110,7 @@ export function RenewalsProvider({ children }) {
             if (snap.exists()) return;
             tx.set(ref, {
               locationId,
+              brandId: seedBrandId,
               // So the renewal-due notification knows who can see this location.
               type,
               approvedDate: null,

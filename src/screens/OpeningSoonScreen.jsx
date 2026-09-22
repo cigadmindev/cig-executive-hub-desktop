@@ -63,7 +63,7 @@ export default function OpeningSoonScreen() {
       <p style={styles.subtitle}>
         {openings.length === 0
           ? 'Nothing with an opening date set.'
-          : `${openings.length} restaurant${openings.length === 1 ? '' : 's'} in progress, soonest first.`}
+          : `${openings.length} restaurant${openings.length === 1 ? '' : 's'} opening.`}
       </p>
 
       <div style={styles.grid}>
