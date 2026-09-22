@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, deleteDoc, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, deleteDoc, runTransaction , query, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { brands, brandIdForTarget } from '../data/mockData';
 import { useAuth } from './AuthContext';
@@ -16,7 +16,15 @@ export function BrandAnnouncementsProvider({ children }) {
       setRaw([]);
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
+    // targetId is the restaurant, or 'all' for a company-wide post - which
+    // everyone keeps seeing.
+    const seesAll = user.role === 'admin' || user.role === 'executive';
+    const mine = user.permissions?.brandIds ?? [];
+    const source = seesAll
+      ? collection(db, COLLECTION)
+      : query(collection(db, COLLECTION), where('targetId', 'in', ['all', ...mine.slice(0, 29)]));
+
+    const unsubscribe = onSnapshot(source, (snapshot) => {
       const list = snapshot.docs.map((d) => {
         const data = d.data();
         return {

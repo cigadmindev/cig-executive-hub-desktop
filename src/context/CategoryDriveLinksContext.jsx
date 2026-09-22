@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc , query, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { brandOfLocation } from '../data/brandOfLocation';
 import { normaliseDriveUrl } from '../data/mockData';
 import { useAuth } from './AuthContext';
 
@@ -30,7 +31,19 @@ export function CategoryDriveLinksProvider({ children }) {
       setLinksByKey({});
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
+    // Only the restaurants this person has. 385 links, and every browser
+    // held all of them.
+    const seesAll = user.role === 'admin' || user.role === 'executive';
+    const mine = user.permissions?.brandIds ?? [];
+    if (!seesAll && mine.length === 0) {
+      setLinksByKey({});
+      return;
+    }
+    const source = seesAll
+      ? collection(db, COLLECTION)
+      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)));
+
+    const unsubscribe = onSnapshot(source, (snapshot) => {
       const map = {};
       snapshot.docs.forEach((d) => {
         const data = d.data();
@@ -48,6 +61,7 @@ export function CategoryDriveLinksProvider({ children }) {
   const setLink = async (locationId, categoryId, itemName, rawUrl) => {
     const driveUrl = normaliseDriveUrl(rawUrl);
     await setDoc(doc(db, COLLECTION, keyFor(locationId, categoryId, itemName)), {
+      brandId: await brandOfLocation(locationId),
       locationId,
       categoryId,
       itemName,

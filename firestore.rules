@@ -126,7 +126,9 @@ service cloud.firestore {
     }
 
     match /brandPosts/{postId} {
-      allow read, update: if isSignedIn();
+      // 'all' is a company-wide post; anything else is a restaurant.
+      allow read, update: if isAdminOrExecutive()
+        || (isSignedIn() && (resource.data.targetId == 'all' || resource.data.targetId in myBrands()));
       allow create: if isSignedIn();
       allow delete: if isAdmin() || isOwner(resource);
     }
@@ -324,7 +326,7 @@ service cloud.firestore {
     }
 
     match /categoryDriveLinks/{id} {
-      allow read: if isSignedIn();
+      allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
       allow create, update: if isAdmin();
     }
 
