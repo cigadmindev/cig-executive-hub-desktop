@@ -195,9 +195,11 @@ export default function AvailabilityScreen() {
           <button style={{ ...styles.tab, ...(tab === 'weekly' ? styles.tabActive : {}) }} onClick={() => setTab('weekly')}>
             Weekly Availability
           </button>
-          <button style={{ ...styles.tab, ...(tab === 'team' ? styles.tabActive : {}) }} onClick={() => setTab('team')}>
-            Team
-          </button>
+          {isAdmin || isExecutive ? (
+            <button style={{ ...styles.tab, ...(tab === 'team' ? styles.tabActive : {}) }} onClick={() => setTab('team')}>
+              Team
+            </button>
+          ) : null}
           {isAdmin || isExecutive ? (
             <button style={{ ...styles.tab, ...(tab === 'admin' ? styles.tabActive : {}) }} onClick={() => setTab('admin')}>
               All Requests {pendingCount > 0 ? `(${pendingCount})` : ''}

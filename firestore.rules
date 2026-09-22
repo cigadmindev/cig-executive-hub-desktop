@@ -72,6 +72,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Saved starting points for a new login - role, job, folders and what
+    // they can reach. Not restaurants or locations: those belong to the
+    // person, not the role. Only admins create logins, so only admins need
+    // these at all.
+    match /accessPresets/{id} {
+      allow read, write: if isAdmin();
+    }
+
     match /budgetTargets/{id} {
       allow read: if isSignedIn();
       allow write: if isAdmin();

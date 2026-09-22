@@ -45,6 +45,7 @@ import IntegrationRequestsScreen from './screens/IntegrationRequestsScreen';
 import OpeningSoonScreen from './screens/OpeningSoonScreen';
 import WaresInventoryScreen from './screens/WaresInventoryScreen';
 import { UnderRepairGate } from './components/UnderRepair';
+import { AccessPresetsProvider } from './context/AccessPresetsContext';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
 import IntegrationsScreen from './screens/IntegrationsScreen';
@@ -128,6 +129,7 @@ function Providers({ children }) {
       {/* Reads role and job to decide whether this account sees everyone's
           receipts or only its own, so it sits inside AuthProvider. */}
       <IntegrationRequestsProvider>
+      <AccessPresetsProvider>
       <BudgetTargetsProvider>
       <ExpensesProvider>
       <CategoryDriveLinksProvider>
@@ -164,6 +166,7 @@ function Providers({ children }) {
       </CategoryDriveLinksProvider>
       </ExpensesProvider>
       </BudgetTargetsProvider>
+      </AccessPresetsProvider>
       </IntegrationRequestsProvider>
       </ExecutiveNotesProvider>
       </WorkOrdersProvider>

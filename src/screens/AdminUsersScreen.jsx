@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UnderRepairControls } from '../components/UnderRepair';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
+import { useAccessPresets } from '../context/AccessPresetsContext';
 import { brands, categories, FEATURES } from '../data/mockData';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
 import { useDialog } from '../hooks/useDialog';
@@ -53,6 +54,7 @@ export default function AdminUsersScreen() {
     user: currentUser,
   } = useAuth();
   const { getByBrand } = useCustomLocations();
+  const { presets, savePreset, deletePreset } = useAccessPresets();
 
   // One panel for creating and editing, so the two never drift apart.
   // mode is 'create', or the uid being edited.
@@ -332,6 +334,36 @@ export default function AdminUsersScreen() {
         })}
       </div>
 
+      {presets.length > 0 ? (
+        <div style={styles.list}>
+          <p style={{ ...styles.accessLabel, padding: '12px 14px 0', margin: 0 }}>Presets</p>
+          {presets.map((x) => (
+            <div key={x.id} style={styles.row}>
+              <div style={styles.rowHead}>
+                <span style={styles.rowName}>{x.name}</span>
+                <span style={styles.rowSummary}>
+                  {x.role === 'manager' ? 'Manager' : x.role} · {x.categoryIds.length} folders · {x.features.length} features
+                </span>
+                <button
+                  style={styles.linkButton}
+                  onClick={() =>
+                    confirm({
+                      title: `Delete the ${x.name} preset?`,
+                      body: 'Nobody already set up from it is affected.',
+                      confirmLabel: 'Delete',
+                      tone: 'danger',
+                      onConfirm: () => deletePreset(x.id),
+                    })
+                  }
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <button style={styles.repairRow} onClick={() => setRepairOpen((v) => !v)}>
         <span>🚧 Pages under repair</span>
         <span style={styles.chevron}>{repairOpen ? '▾' : '▸'}</span>
@@ -344,6 +376,8 @@ export default function AdminUsersScreen() {
           draft={draft}
           setDraft={setDraft}
           locationsFor={locationsFor}
+          presets={presets}
+          savePreset={savePreset}
           saving={saving}
           onSave={handleSave}
           onClose={closePanel}
@@ -358,7 +392,7 @@ export default function AdminUsersScreen() {
 // The create and edit form. Grouped into who, where, folders and reach, with
 // folders and reach defaulting to everything and opening only when something
 // needs unticking - rather than twenty chips on screen every time.
-function AccessPanel({ mode, draft, setDraft, locationsFor, saving, onSave, onClose }) {
+function AccessPanel({ mode, draft, setDraft, locationsFor, presets, savePreset, saving, onSave, onClose }) {
   const [foldersOpen, setFoldersOpen] = useState(false);
   const [reachOpen, setReachOpen] = useState(false);
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
@@ -404,6 +438,40 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, saving, onSave, onCl
     <div style={styles.backdrop} onClick={onClose}>
       <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
         <h2 style={styles.panelTitle}>{mode === 'create' ? 'New login' : `Edit access — ${draft.name}`}</h2>
+
+        {mode === 'create' && presets.length > 0 ? (
+          <>
+            <p style={styles.sectionLabel}>Start from</p>
+            <div style={styles.twoCol}>
+              <select
+                style={styles.input}
+                value=""
+                onChange={(e) => {
+                  const preset = presets.find((x) => x.id === e.target.value);
+                  if (preset) {
+                    // Everything except where they work - that belongs to the
+                    // person, not the role.
+                    setDraft((d) => ({
+                      ...d,
+                      role: preset.role,
+                      job: preset.job,
+                      categoryIds: preset.categoryIds,
+                      features: preset.features,
+                    }));
+                  }
+                }}
+              >
+                <option value="">Start blank</option>
+                {presets.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.name}
+                  </option>
+                ))}
+              </select>
+              <span style={styles.note}>Fills in everything but where they work.</span>
+            </div>
+          </>
+        ) : null}
 
         <p style={styles.sectionLabel}>Who</p>
         {mode === 'create' ? (
@@ -542,6 +610,29 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, saving, onSave, onCl
             {mode === 'edit' ? ' Their manager access stays saved, so switching back restores exactly what they had.' : ''}
           </p>
         )}
+
+        {draft.role === 'manager' ? (
+          <button
+            style={styles.linkButton}
+            onClick={async () => {
+              const name = window.prompt('Name this preset — for example, Assistant Manager');
+              if (!name || !name.trim()) return;
+              try {
+                await savePreset({
+                  name,
+                  role: draft.role,
+                  job: draft.job,
+                  categoryIds: draft.categoryIds,
+                  features: draft.features,
+                });
+              } catch (err) {
+                console.error('[Presets] ' + err.message);
+              }
+            }}
+          >
+            Save these settings as a preset
+          </button>
+        ) : null}
 
         <div style={styles.panelFooter}>
           <span style={styles.note}>{mode === 'create' ? 'A setup email sends when you create the login.' : ''}</span>
