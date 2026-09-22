@@ -134,7 +134,10 @@ service cloud.firestore {
     }
 
     match /accessRequests/{requestId} {
-      allow read: if isSignedIn();
+      // Yours, and the people who review them. A request carries the reason
+      // someone gave for wanting access.
+      allow read: if isAdminOrExecutive()
+        || (isSignedIn() && resource.data.userEmail.lower() == request.auth.token.email.lower());
       allow create: if isSignedIn()
         && request.resource.data.userEmail.lower() == request.auth.token.email.lower()
         && request.resource.data.status == 'pending';
@@ -226,7 +229,9 @@ service cloud.firestore {
     }
 
     match /weeklyAvailability/{uid} {
-      allow read: if isSignedIn();
+      // Your own hours, and whoever builds the schedule. Everyone could read
+      // everyone's before.
+      allow read: if isAdminOrExecutive() || (isSignedIn() && request.auth.uid == uid);
       allow write: if isSignedIn() && (request.auth.uid == uid || isAdmin());
     }
 
@@ -300,7 +305,11 @@ service cloud.firestore {
     }
 
     match /openingLocationInfo/{locationId} {
-      allow read, create, update: if isSignedIn();
+      // Contractor, landlord and property manager details for a location.
+      // Anyone with that restaurant; brandId is written with every change.
+      allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
+      allow create: if isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands());
+      allow update: if isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands());
       allow delete: if isAdmin();
     }
 

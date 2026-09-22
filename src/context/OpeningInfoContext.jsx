@@ -27,7 +27,17 @@ export function OpeningInfoProvider({ children }) {
       setInfoByLocation({});
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
+    const seesAll = user.role === 'admin' || user.role === 'executive';
+    const mine = user.permissions?.brandIds ?? [];
+    if (!seesAll && mine.length === 0) {
+      setInfoByLocation({});
+      return;
+    }
+    const source = seesAll
+      ? collection(db, COLLECTION)
+      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)));
+
+    const unsubscribe = onSnapshot(source, (snapshot) => {
       const map = {};
       snapshot.docs.forEach((d) => {
         const data = d.data();
@@ -68,7 +78,11 @@ export function OpeningInfoProvider({ children }) {
   // Plain field edits — no auto-population involved.
   const updateInfoField = async (locationId, field, value) => {
     const current = getInfo(locationId);
-    await setDoc(doc(db, COLLECTION, locationId), { ...current, [field]: value }, { merge: true });
+    await setDoc(
+      doc(db, COLLECTION, locationId),
+      { ...current, [field]: value, brandId: await brandOfLocation(locationId) },
+      { merge: true }
+    );
   };
 
   // The trigger: setting/changing the opening date wipes any previously
@@ -90,7 +104,11 @@ export function OpeningInfoProvider({ children }) {
     if (!claimed) return;
 
     const current = getInfo(locationId);
-    await setDoc(doc(db, COLLECTION, locationId), { ...current, openingDate }, { merge: true });
+    await setDoc(
+      doc(db, COLLECTION, locationId),
+      { ...current, openingDate, brandId: await brandOfLocation(locationId) },
+      { merge: true }
+    );
 
     const existingQuery = query(
       collection(db, SCHEDULES_COLLECTION),

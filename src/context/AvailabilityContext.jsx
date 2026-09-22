@@ -64,7 +64,16 @@ export function AvailabilityProvider({ children }) {
       (err) => console.error('[Availability listener] ' + err.code + ': ' + err.message)
     );
 
-    const unsubAvailability = onSnapshot(collection(db, 'weeklyAvailability'), (snapshot) => {
+    // Everyone could read everyone's hours. The team tab belongs to
+    // executives and admins, so they keep the whole collection; a manager
+    // reads their own record only - by document, since the id is the person
+    // and there is no uid field to query on.
+    const seesEveryone = user.role === 'admin' || user.role === 'executive';
+    const availabilitySource = seesEveryone
+      ? collection(db, 'weeklyAvailability')
+      : doc(db, 'weeklyAvailability', user.uid);
+
+    const unsubAvailability = onSnapshot(availabilitySource, (snapshot) => {
       // A day's value might still be an old free-text string or null from
       // before this became structured. Defaulting to '' meant handing a string
       // to code expecting { off, start, end } - which reads as an empty
@@ -75,7 +84,9 @@ export function AvailabilityProvider({ children }) {
       const readDay = (v) =>
         v && typeof v === 'object' && typeof v.off === 'boolean' ? v : DEFAULT_DAY;
 
-      const list = snapshot.docs.map((d) => {
+      // A single document arrives on its own rather than in a list.
+      const docs = snapshot.docs ?? (snapshot.exists() ? [snapshot] : []);
+      const list = docs.map((d) => {
         const data = d.data();
         return {
           uid: d.id,
