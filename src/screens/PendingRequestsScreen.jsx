@@ -52,9 +52,17 @@ export default function PendingRequestsScreen() {
   const closeReview = () => setReviewingRequest(null);
 
   const confirmApprove = async () => {
-    const targetUser = users.find((u) => u.email === reviewingRequest.userEmail);
+    const wanted = (reviewingRequest.userEmail ?? '').trim().toLowerCase();
+    const targetUser = users.find((u) => (u.email ?? '').trim().toLowerCase() === wanted);
+    if (!targetUser) {
+      notify(
+        'Nothing was granted',
+        `${reviewingRequest.userName ?? 'That person'} could not be matched to a login for ${reviewingRequest.userEmail}. The request has been left pending - check the address in Manage Logins.`
+      );
+      return;
+    }
     try {
-      if (targetUser) {
+      {
         // A feature request adds that one feature. An absent list already
         // means everything, so it is left absent rather than narrowed.
         const existingPerms = targetUser.permissions ?? {};

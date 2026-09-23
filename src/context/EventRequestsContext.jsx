@@ -12,22 +12,30 @@ const DENIED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 // needs to be aware.
 // Shared by Event Requests' "who needs to be looped in" picker and Manage
 // Logins' job/department picker — same exact list both places.
-export const EVENT_NEEDS_OPTIONS = [
-  'Branding / Marketing Team',
-  'Management',
-  'Drink / Beverage Manager',
-  'Kitchen / Chef',
-  'Serving Staff',
-  'Photography / Videography',
+export const JOB_OPTIONS = [
+  'Owner',
   'CEO',
   'COO',
+  'Culinary Director',
+  'Culinary Manager',
+  'General Manager',
+  'Assistant Manager',
+  'Kitchen Manager',
+  'Catering & Events',
+  'Beverage Manager',
   'Financials',
+  'IT & Training',
+  'Marketing',
   'Communications',
-  'IT',
-  'Other',
+  'Videographer',
+  'HR',
+  'Real Estate',
 ];
 
-export const JOB_OPTIONS = EVENT_NEEDS_OPTIONS;
+// The same list, under the name the event request form uses: ticking a title
+// there loops in whoever holds it.
+export const EVENT_NEEDS_OPTIONS = JOB_OPTIONS;
+
 
 export function EventRequestsProvider({ children }) {
   const { user } = useAuth();

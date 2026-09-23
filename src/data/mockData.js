@@ -232,7 +232,7 @@ export function canEditChecklists(user) {
   if (!user) return false;
   if (user.role === 'admin') return true;
   if (user.role !== 'executive') return false;
-  return user.job === 'COO' || user.job === 'Drink / Beverage Manager';
+  return user.job === 'COO' || user.job === 'Beverage Manager';
 }
 
 /**

@@ -27,6 +27,9 @@ export default function CalendarScreen() {
   const isNarrow = useIsNarrow();
   const { dialogNode, confirm, notify } = useDialog();
   const { user, hasBrandAccess, hasLocationAccess } = useAuth();
+
+  const isMyOwnEntry = (e) =>
+    !!user && e.authorUid === user.uid && !e.openingItem && !e.renewalItem && !e.source;
   const { renewals } = useRenewals();
   const { requests } = useEventRequests();
   const { entries, addEntry, updateEntry, deleteEntry, toggleOpeningItemDone } = useSchedule();
@@ -276,7 +279,7 @@ export default function CalendarScreen() {
                   <p style={styles.detailEyebrow}>{selectedDate.toLocaleDateString([], { weekday: 'long' })}</p>
                   <h2 style={styles.detailTitle}>{selectedDate.toLocaleDateString([], { month: 'long', day: 'numeric' })}</h2>
                 </div>
-                {isAdmin || isExecutive ? (
+                {true ? (
                   <button style={styles.addButton} onClick={openNewForm}>
                     + Add Event
                   </button>
@@ -415,7 +418,7 @@ export default function CalendarScreen() {
                               >
                                 {e.source === 'renewal' ? 'Open renewals →' : 'Open event requests →'}
                               </Link>
-                            ) : isAdmin || isExecutive ? (
+                            ) : isAdmin || isExecutive || isMyOwnEntry(e) ? (
                               <>
                                 <button style={styles.linkButton} onClick={() => openEditForm(e)}>
                                   Edit

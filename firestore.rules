@@ -26,7 +26,7 @@ service cloud.firestore {
       return request.auth != null && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'COO' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'Drink / Beverage Manager'
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'Beverage Manager'
       );
     }
 
@@ -60,7 +60,7 @@ service cloud.firestore {
     function handlesIntegrations() {
       return request.auth != null && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'IT'
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'IT & Training'
       );
     }
 
@@ -161,7 +161,13 @@ service cloud.firestore {
       // app - a rule cannot check a location against the permissions map
       // without making every query unprovable.
       allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
-      allow create: if canEditChecklists();
+      // Checklist items are restructuring - the three roles. A plain calendar
+      // entry at a restaurant someone has is ordinary work.
+      allow create: if canEditChecklists() || (
+        isSignedIn() &&
+        request.resource.data.openingItem != true &&
+        request.resource.data.brandId in myBrands()
+      );
       // Two branches, deliberately. The first is the three people who own the
       // list. The second is everyone else doing the actual work: ticking items
       // off, filling fields, attaching documents, moving a date.
@@ -169,12 +175,24 @@ service cloud.firestore {
       // assignedToUid and assignedToName are absent from that second list on
       // purpose - otherwise anyone signed in could assign work to anybody by
       // writing the field directly.
+      // Your own calendar entry, as long as it stays yours and stays at a
+      // restaurant you have.
       allow update: if canEditChecklists() || (
+        isSignedIn() &&
+        resource.data.openingItem != true &&
+        resource.data.authorUid == request.auth.uid &&
+        request.resource.data.authorUid == request.auth.uid &&
+        request.resource.data.brandId in myBrands()
+      ) || (
         isSignedIn() &&
         resource.data.openingItem == true &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'openingFields', 'dateTime', 'document'])
       );
-      allow delete: if canEditChecklists();
+      allow delete: if canEditChecklists() || (
+        isSignedIn() &&
+        resource.data.openingItem != true &&
+        resource.data.authorUid == request.auth.uid
+      );
     }
 
     // Chat is private to its members. Admins were able to read every
