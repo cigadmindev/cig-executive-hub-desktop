@@ -159,7 +159,12 @@ export default function CalendarScreen() {
     }
   }
 
-  const allLocationOptions = Object.entries(locationInfo).map(([id, info]) => ({ id, ...info }));
+  // Only locations they can actually open. locationInfo covers every location
+  // in their restaurants because it labels entries too, which is wider than
+  // where they may put one.
+  const allLocationOptions = Object.entries(locationInfo)
+    .filter(([id, info]) => hasLocationAccess(user, info.brandId, id))
+    .map(([id, info]) => ({ id, ...info }));
 
   const openNewForm = () => {
     setEditingEntry(null);
