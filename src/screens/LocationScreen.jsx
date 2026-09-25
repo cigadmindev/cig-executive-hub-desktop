@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { brands, categories, hasFeature } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
@@ -23,13 +24,47 @@ const OPERATIONAL_ITEMS = [
 ];
 
 export default function LocationScreen() {
-  const { dialogNode, notify } = useDialog();
+  const { dialogNode, notify, confirm } = useDialog();
   const { brandId, locationId } = useParams();
   const navigate = useNavigate();
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
   const { getByLocation } = useRenewals();
   const { user, hasCategoryAccess } = useAuth();
+  const [settingUp, setSettingUp] = useState(false);
+
+  // Creates whatever is missing in Drive for this location and connects every
+  // folder to the Hub. About 105 links, which used to be pasted by hand.
+  // Existing folders and existing links are left alone.
+  const runDriveSetup = () => {
+    confirm({
+      title: `Set up Drive folders for ${location?.name}?`,
+      body: 'Any folder that is missing in Drive will be created, and every folder in this list will be connected. Folders and links that already exist are left alone.',
+      confirmLabel: 'Set up',
+      onConfirm: async () => {
+        setSettingUp(true);
+        try {
+          const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'setUpLocationDrive');
+          const res = await fn({
+            locationId,
+            brandId: brand?.id ?? null,
+            brandName: brand?.name,
+            locationName: location?.name,
+            categories: categories.map((c) => ({ id: c.id, label: c.label, items: c.items })),
+          });
+          const { linked, skipped, created } = res.data;
+          notify(
+            'Drive set up',
+            `${created} folder${created === 1 ? '' : 's'} created, ${linked} connected, ${skipped} already connected and left alone.`
+          );
+        } catch (err) {
+          notify('Could not set up Drive', err?.message ?? 'Something went wrong.');
+        } finally {
+          setSettingUp(false);
+        }
+      },
+    });
+  };
   const { addRequest, hasPendingRequest } = useAccessRequests();
   const { hasUnseenEventRequests, hasUnseenCategoryPosts } = useViewTracking();
   const [requestTarget, setRequestTarget] = useState(null);
@@ -113,7 +148,14 @@ export default function LocationScreen() {
         })}
       </div>
 
-      <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel }}>File Directories</h3>
+      <div style={styles.directoryHead}>
+        <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel, margin: 0 }}>File Directories</h3>
+        {user?.role === 'admin' ? (
+          <button style={styles.setupButton} disabled={settingUp} onClick={runDriveSetup}>
+            {settingUp ? 'Setting up…' : 'Set up Drive folders'}
+          </button>
+        ) : null}
+      </div>
       <div style={styles.grid}>
         {categories.map((cat) => {
           const allowed = hasCategoryAccess(user, cat.id);
@@ -156,6 +198,8 @@ const styles = {
   page: { padding: '32px max(22px, min(40px, 4vw))', maxWidth: 760 },
   backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 20 },
   title: { margin: '4px 0 32px' },
+  directoryHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 22, marginBottom: 10 },
+  setupButton: { padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   sectionHeader: { margin: '32px 0 12px' },
   grid: { display: 'flex', flexDirection: 'column', gap: 10 },
   card: {

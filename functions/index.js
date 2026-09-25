@@ -330,3 +330,5 @@ exports.requestPasswordReset = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
 });
 
 Object.assign(exports, require('./sweepOrphanDocs'));
+
+Object.assign(exports, require('./driveSetup'));
