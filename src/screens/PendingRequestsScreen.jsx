@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useAuth } from '../context/AuthContext';
+import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands, categories } from '../data/mockData';
 import { nike } from '../theme/nike';
 import { useDialog } from '../hooks/useDialog';
@@ -24,6 +25,17 @@ export default function PendingRequestsScreen() {
   const [reviewingRequest, setReviewingRequest] = useState(null);
   const [brandIds, setBrandIds] = useState([]);
   const [categoryIds, setCategoryIds] = useState([]);
+  // brandId -> the locations they may see there. No entry means all of them.
+  const [locationsByBrand, setLocationsByBrand] = useState({});
+  const { getByBrand } = useCustomLocations();
+
+  const locationsFor = (brandId) => {
+    const brand = brands.find((b) => b.id === brandId);
+    return [
+      ...(brand?.locations ?? []).map((l) => ({ id: l.id, name: l.name })),
+      ...getByBrand(brandId).map((l) => ({ id: l.id, name: l.name })),
+    ];
+  };
 
   if (!isAdmin && !isExecutive) {
     return (
@@ -46,6 +58,20 @@ export default function PendingRequestsScreen() {
     setCategoryIds(
       req.type === 'category' ? [...new Set([...existing.categoryIds, req.targetId])] : [...existing.categoryIds]
     );
+    const existingLocs = existing.locationsByBrand ?? {};
+    if (req.type === 'location' && req.brandId) {
+      const current = existingLocs[req.brandId] ?? [];
+      // They already had this restaurant narrowed, or they would not have
+      // needed to ask - so the request adds to that list rather than
+      // replacing it.
+      setLocationsByBrand({ ...existingLocs, [req.brandId]: [...new Set([...current, req.targetId])] });
+    } else if (req.type === 'brand') {
+      // Asking for a whole restaurant: every location in it unless narrowed.
+      const { [req.targetId]: _dropped, ...rest } = existingLocs;
+      setLocationsByBrand(rest);
+    } else {
+      setLocationsByBrand(existingLocs);
+    }
     setReviewingRequest(req);
   };
 
@@ -70,23 +96,12 @@ export default function PendingRequestsScreen() {
           reviewingRequest.type === 'feature' && Array.isArray(existingPerms.features)
             ? [...new Set([...existingPerms.features, reviewingRequest.targetId])]
             : existingPerms.features;
-        // A location request adds that location to the brand's list. The
-        // brand already has an entry, or they would not have needed to ask -
-        // no entry means every location there.
-        let locationsByBrand = existingPerms.locationsByBrand;
-        if (reviewingRequest.type === 'location' && reviewingRequest.brandId) {
-          const current = existingPerms.locationsByBrand?.[reviewingRequest.brandId] ?? [];
-          locationsByBrand = {
-            ...(existingPerms.locationsByBrand ?? {}),
-            [reviewingRequest.brandId]: [...new Set([...current, reviewingRequest.targetId])],
-          };
-        }
         await updatePermissions(targetUser.uid, {
           ...existingPerms,
           brandIds,
           categoryIds,
           ...(features !== undefined ? { features } : {}),
-          ...(locationsByBrand !== undefined ? { locationsByBrand } : {}),
+          locationsByBrand,
         });
       }
       await resolveRequest(reviewingRequest.id, 'approved');
@@ -169,6 +184,47 @@ export default function PendingRequestsScreen() {
               ))}
             </div>
 
+            {brandIds.map((bId) => {
+              const locs = locationsFor(bId);
+              if (locs.length < 2) return null;
+              const only = locationsByBrand[bId];
+              const narrowed = Array.isArray(only) && only.length > 0;
+              return (
+                <div key={bId} style={styles.locBlock}>
+                  <p style={styles.permissionLabel}>
+                    {brands.find((b) => b.id === bId)?.name} — which locations?
+                  </p>
+                  <div style={styles.chipWrap}>
+                    <button
+                      style={{ ...styles.chip, ...(!narrowed ? styles.chipActive : {}) }}
+                      onClick={() => {
+                        const { [bId]: _drop, ...rest } = locationsByBrand;
+                        setLocationsByBrand(rest);
+                      }}
+                    >
+                      All locations
+                    </button>
+                    {locs.map((l) => (
+                      <button
+                        key={l.id}
+                        style={{ ...styles.chip, ...(narrowed && only.includes(l.id) ? styles.chipActive : {}) }}
+                        onClick={() => {
+                          const current = narrowed ? only : [];
+                          const next = toggleInArray(current, l.id);
+                          // An empty list means every location, which would
+                          // widen them by accident - so the last one stays.
+                          if (next.length === 0) return;
+                          setLocationsByBrand({ ...locationsByBrand, [bId]: next });
+                        }}
+                      >
+                        {l.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
             <p style={styles.permissionLabel}>Categories</p>
             <div style={styles.chipWrap}>
               {categories.map((c) => (
@@ -227,6 +283,7 @@ const styles = {
   modalBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 8px' },
   modalReason: { fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic', margin: '0 0 14px', lineHeight: 1.5 },
   permissionLabel: { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', margin: '14px 0 8px' },
+  locBlock: { marginTop: 4 },
   chipWrap: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   chip: { padding: '6px 12px', borderRadius: 20, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 12 },
   chipActive: { background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, borderColor: 'var(--neon)' },
