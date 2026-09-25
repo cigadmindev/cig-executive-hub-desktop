@@ -120,32 +120,40 @@ exports.setUpLocationDrive = onCall({ timeoutSeconds: 540, memory: '512MiB' }, a
   for (const category of categories) {
     const categoryFolderId = await ensureChild(drive, locationFolderId, category.label, created);
 
-    for (const itemName of category.items ?? []) {
-      const key = category.id + '|' + itemName;
-      if (!overwrite && already.has(key)) {
-        skipped++;
-        continue;
-      }
+    // A few at a time. Drive is happy with this and it turns a minute of
+    // waiting into a few seconds.
+    const CONCURRENCY = 8;
+    const wanted = (category.items ?? []).filter(
+      (itemName) => overwrite || !already.has(category.id + '|' + itemName)
+    );
+    skipped += (category.items ?? []).length - wanted.length;
 
-      const itemFolderId = await ensureChild(drive, categoryFolderId, itemName, created);
-
-      // Same id the app builds, so this writes the record the app reads.
-      const docId = `${locationId}_${category.id}_${encodeURIComponent(itemName)}`;
-      batch.set(
-        db.collection('categoryDriveLinks').doc(docId),
-        {
-          locationId,
-          brandId: brandId ?? null,
-          categoryId: category.id,
-          itemName,
-          driveUrl: 'https://drive.google.com/drive/folders/' + itemFolderId,
-          updatedAt: Date.now(),
-          updatedBy: 'Set up automatically',
-        },
-        { merge: true }
+    for (let i = 0; i < wanted.length; i += CONCURRENCY) {
+      const slice = wanted.slice(i, i + CONCURRENCY);
+      const ids = await Promise.all(
+        slice.map((itemName) => ensureChild(drive, categoryFolderId, itemName, created))
       );
-      linked++;
-      if (++pending >= batchSize) {
+
+      slice.forEach((itemName, n) => {
+        const docId = `${locationId}_${category.id}_${encodeURIComponent(itemName)}`;
+        batch.set(
+          db.collection('categoryDriveLinks').doc(docId),
+          {
+            locationId,
+            brandId: brandId ?? null,
+            categoryId: category.id,
+            itemName,
+            driveUrl: 'https://drive.google.com/drive/folders/' + ids[n],
+            updatedAt: Date.now(),
+            updatedBy: 'Set up automatically',
+          },
+          { merge: true }
+        );
+        linked++;
+        pending++;
+      });
+
+      if (pending >= batchSize) {
         await batch.commit();
         batch = db.batch();
         pending = 0;

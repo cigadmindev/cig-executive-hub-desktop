@@ -58,7 +58,13 @@ export default function LocationScreen() {
             `${created} folder${created === 1 ? '' : 's'} created, ${linked} connected, ${skipped} already connected and left alone.`
           );
         } catch (err) {
-          notify('Could not set up Drive', err?.message ?? 'Something went wrong.');
+          // A long run can outlast what the browser waits for while still
+          // finishing. Saying so stops a successful run reading as a failure.
+          notify(
+            'Still working, or something went wrong',
+            'If this took a while, the folders were probably still created - open the File Directories below to check. Otherwise: ' +
+              (err?.message ?? 'something went wrong.')
+          );
         } finally {
           setSettingUp(false);
         }
