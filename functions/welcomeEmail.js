@@ -8,7 +8,6 @@
 // left accent bars are table cells rather than images because email clients
 // block remote images by default — real icons can layer in later once there's
 // a public asset host.
-const MAC_DOWNLOAD_URL = 'https://drive.google.com/drive/folders/1W0DfCJQ1lA-iO6thNKtddynxGgzOlJGI';
 const IOS_DOWNLOAD_URL = 'https://apps.apple.com/app/id6790941894';
 // Folder rather than a single file, so one link serves both the manager and
 // the executive walkthrough. The /u/0/ prefix is deliberately absent - it
@@ -60,19 +59,16 @@ function eyebrow(text) {
 }
 
 function welcomeHtml({ name, link }) {
-  // The Mac and iPhone steps stay defined below but are not rendered - the
-  // apps go out separately once the iPhone version is through review. Add
-  // them back to the block at the bottom then.
+  // The iPhone step is defined but not rendered until the app is through
+  // review. There is no Mac step: the desktop apps were dropped in September,
+  // and the Hub is the web and the iPhone app.
   const webStep = step(2, false, 'Open it in your browser',
     `<a href="${WEB_URL}" style="color:#22D3EE;text-decoration:none;">hub.cigconcepts.com</a> &mdash; nothing to install, works on any computer or phone.`);
-  const macStep = step(4, false, 'Install on Mac',
-    `<a href="${MAC_DOWNLOAD_URL}" style="color:#22D3EE;text-decoration:none;">Download the desktop app</a>`);
-  const iosStep = IOS_DOWNLOAD_URL
-    ? step(5, false, 'Install on iPhone', `<a href="${IOS_DOWNLOAD_URL}" style="color:#22D3EE;text-decoration:none;">Get it from the App Store</a>`)
-    : step(5, false, 'Install on iPhone', 'Coming soon &mdash; we&rsquo;ll send the link once it&rsquo;s approved.');
   const videoStep = step(3, false, 'Watch the walkthrough',
     `<a href="${TRAINING_VIDEO_URL}" style="color:#22D3EE;text-decoration:none;">See how it works</a> &mdash; about ten minutes, and worth it before you start.`);
-
+  const iosStep = IOS_DOWNLOAD_URL
+    ? step(4, false, 'Install on iPhone', `<a href="${IOS_DOWNLOAD_URL}" style="color:#22D3EE;text-decoration:none;">Get it from the App Store</a>`)
+    : step(4, false, 'Install on iPhone', 'Coming soon &mdash; we&rsquo;ll send the link once it&rsquo;s approved.');
   return `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
@@ -102,7 +98,7 @@ function welcomeHtml({ name, link }) {
   ${card(`
     ${eyebrow('Getting started')}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-      ${step(1, true, 'Set your password', 'Use the button above. The link expires in an hour.')}
+      ${step(1, true, 'Set your password', 'Use the button above. It stays valid until you use it.')}
       ${webStep}
       ${videoStep}
     </table>

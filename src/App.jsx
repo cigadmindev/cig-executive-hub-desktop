@@ -24,6 +24,7 @@ import { ExecutiveNotesProvider } from './context/ExecutiveNotesContext';
 import { WorkOrdersProvider } from './context/WorkOrdersContext';
 import { ThemeProvider } from './context/ThemeContext';
 import LoginScreen from './screens/LoginScreen';
+import WelcomeScreen from './screens/WelcomeScreen';
 import DirectoryScreen from './screens/DirectoryScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import AppLayout from './layout/AppLayout';
@@ -68,6 +69,7 @@ function Gate() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/welcome" element={<WelcomeScreen />} />
         <Route path="*" element={<LoginScreen />} />
       </Routes>
     );

@@ -4,6 +4,7 @@ const admin = require('firebase-admin');
 const { google } = require('googleapis');
 const { Resend } = require('resend');
 const { welcomeHtml } = require('./welcomeEmail');
+const { issueSetupToken } = require('./accountSetup');
 
 admin.initializeApp();
 
@@ -229,7 +230,15 @@ exports.sendInviteEmail = onCall({ secrets: ['RESEND_API_KEY'] }, async (request
 
   let link;
   try {
-    link = await admin.auth().generatePasswordResetLink(email.trim());
+    if (!isReset) {
+      // The welcome link carries a one-time token rather than a Firebase
+      // link, which expires after an hour. This one works until it is used.
+      const userRecord = await admin.auth().getUserByEmail(email.trim());
+      const token = await issueSetupToken(userRecord.uid, email.trim());
+      link = 'https://hub.cigconcepts.com/welcome?token=' + token;
+    } else {
+      link = await admin.auth().generatePasswordResetLink(email.trim());
+    }
   } catch (err) {
     if (err.code === 'auth/user-not-found') {
       throw new HttpsError('not-found', 'No account exists for that email.');
@@ -332,3 +341,5 @@ exports.requestPasswordReset = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
 Object.assign(exports, require('./sweepOrphanDocs'));
 
 Object.assign(exports, require('./driveSetup'));
+
+Object.assign(exports, require('./accountSetup'));
