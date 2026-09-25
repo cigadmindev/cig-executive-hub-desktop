@@ -312,6 +312,7 @@ export default function EventRequestsScreen() {
               >
                 <option value="">Add a person…</option>
                 {users
+                  .filter((u) => !u.isGhost)
                   .filter((u) => u.active !== false && !formPeople.includes(u.uid))
                   .map((u) => (
                     <option key={u.uid} value={u.uid}>
@@ -328,7 +329,7 @@ export default function EventRequestsScreen() {
                   <div key={need} data-row="" style={styles.notifyItem}>
                     <span style={styles.notifyName}>Everyone in {need}</span>
                     <span style={styles.notifyMeta}>
-                      {users.filter((u) => u.job === need && u.active !== false).length} people
+                      {users.filter((u) => u.job === need && u.active !== false && !u.isGhost).length} people
                     </span>
                     <button data-hover-only="" style={styles.notifyRemove} onClick={() => toggleNeed(need)}>
                       ×

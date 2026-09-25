@@ -280,6 +280,7 @@ export default function WorkOrdersScreen() {
             >
               <option value="">Add a signer…</option>
               {users
+                .filter((u) => !u.isGhost)
                 .filter((u) => u.uid !== user?.uid && u.active !== false && !assignedUids.includes(u.uid))
                 .map((u) => (
                   <option key={u.uid} value={u.uid}>

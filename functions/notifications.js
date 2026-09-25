@@ -51,7 +51,9 @@ async function activeUsers() {
   const snap = await admin.firestore().collection('users').get();
   return snap.docs
     .map((d) => ({ uid: d.id, ...d.data() }))
-    .filter((u) => u.active !== false && u.pushToken);
+    // Test logins are left out of everyone else's notifications. They
+    // still get their own - that is how notifications get tested.
+    .filter((u) => u.active !== false && u.isGhost !== true && u.pushToken);
 }
 
 // Resolves any location to its brand: the static four from the map above, and

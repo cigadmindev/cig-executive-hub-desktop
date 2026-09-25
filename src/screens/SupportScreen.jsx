@@ -281,7 +281,7 @@ function AdminSupportView() {
               Everyone
             </button>
             <div style={styles.chipWrap}>
-              {users.map((u) => (
+              {users.filter((u) => !u.isGhost).map((u) => (
                 <button
                   key={u.uid}
                   style={{
