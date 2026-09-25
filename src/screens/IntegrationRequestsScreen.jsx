@@ -93,7 +93,8 @@ export default function IntegrationRequestsScreen() {
     }
   };
 
-  const open = requests.filter((r) => r.status !== 'done');
+  const open = requests.filter((r) => r.status === 'open');
+  const working = requests.filter((r) => r.status === 'in_progress');
   const done = requests.filter((r) => r.status === 'done');
 
   const renderRequest = (r) => {
@@ -112,14 +113,15 @@ export default function IntegrationRequestsScreen() {
               <span style={r.kind === 'help' ? styles.pillHelp : styles.pillChange}>
                 {r.kind === 'help' ? 'Help' : 'Change'}
               </span>
+              {r.status === 'in_progress' ? <span style={styles.pillWorking}>Being worked on</span> : null}
+              {r.status === 'done' ? <span style={styles.pillDone}>Done</span> : null}
               {r.system}
               {r.locationName ? <span style={styles.cardWhere}> · {r.locationName}</span> : null}
             </div>
             <div style={styles.cardMeta}>
               {handlesRequests ? `${r.createdByName} · ` : ''}
               {when(r.createdAt)}
-              {r.status === 'in_progress' ? ' · in progress' : ''}
-              {r.status === 'done' ? ' · done' : ''}
+              {r.respondedByName ? ` · answered by ${r.respondedByName}` : ''}
             </div>
           </div>
           <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
@@ -140,6 +142,11 @@ export default function IntegrationRequestsScreen() {
 
             {handlesRequests ? (
               <>
+                {r.createdByUid === user?.uid ? (
+                  <p style={styles.ownNote}>
+                    You raised this one. You can answer it because you also handle these.
+                  </p>
+                ) : null}
                 <p style={styles.label}>Reply</p>
                 <textarea
                   style={styles.textarea}
@@ -150,11 +157,11 @@ export default function IntegrationRequestsScreen() {
                 <div style={styles.actionRow}>
                   {r.status !== 'in_progress' ? (
                     <button style={styles.secondaryButton} onClick={() => handleRespond(r, 'in_progress')}>
-                      Working on it
+                      Mark as being worked on
                     </button>
                   ) : null}
                   <button style={styles.primaryButton} onClick={() => handleRespond(r, 'done')}>
-                    Done
+                    Mark as done
                   </button>
                 </div>
               </>
@@ -181,11 +188,14 @@ export default function IntegrationRequestsScreen() {
         </button>
       </div>
 
-      {open.length === 0 && done.length === 0 ? (
+      {open.length === 0 && working.length === 0 && done.length === 0 ? (
         <p style={styles.empty}>Nothing yet.</p>
       ) : (
         <>
+          {open.length > 0 ? <p style={styles.sectionLabel}>Waiting</p> : null}
           {open.map(renderRequest)}
+          {working.length > 0 ? <p style={styles.sectionLabel}>Being worked on</p> : null}
+          {working.map(renderRequest)}
           {done.length > 0 ? (
             <>
               <p style={styles.sectionLabel}>Done</p>
@@ -276,11 +286,14 @@ const styles = {
   detail: { fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 12px', whiteSpace: 'pre-wrap' },
 
   pillChange: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(34,211,238,0.14)', color: 'var(--neon)' },
+  pillWorking: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(201,162,39,0.16)', color: '#C9A227' },
+  pillDone: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(120,200,140,0.16)', color: '#5FBF7F' },
   pillHelp: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(201,162,39,0.16)', color: '#C9A227' },
 
   responseBlock: { borderLeft: '2px solid var(--border-strong)', paddingLeft: 12, margin: '0 0 12px' },
   responseLabel: { fontSize: 11, color: 'var(--text-tertiary)', margin: '0 0 4px' },
 
+  ownNote: { fontSize: 12, color: 'var(--text-tertiary)', fontStyle: 'italic', margin: '10px 0 0' },
   label: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '14px 0 5px' },
   input: { width: '100%', boxSizing: 'border-box', height: 36, padding: '0 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
   textarea: { width: '100%', boxSizing: 'border-box', minHeight: 90, padding: 11, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', resize: 'vertical' },
