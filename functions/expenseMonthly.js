@@ -56,12 +56,16 @@ exports.closeExpenseMonth = onSchedule(
       .where('dateSpent', '<=', `${monthKey}-31`)
       .get();
 
+    // Receipts from test logins never reach a real report, or the photo zip.
+    const ghostSnap = await db.collection('users').where('isGhost', '==', true).get();
+    const ghostUids = new Set(ghostSnap.docs.map((d) => d.id));
+
     if (snap.empty) {
       console.log(`Expense month ${monthKey}: nothing submitted, no report.`);
       return;
     }
 
-    const receipts = snap.docs.map((d) => d.data());
+    const receipts = snap.docs.filter((d) => !ghostUids.has(d.data().submittedByUid)).map((d) => d.data());
 
     // Category totals first - the question finance actually asks.
     const byCategory = {};

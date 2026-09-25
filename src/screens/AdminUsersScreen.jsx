@@ -51,6 +51,7 @@ export default function AdminUsersScreen() {
     updateUserRole,
     updateUserJob,
     updatePermissions,
+    setUserGhost,
     user: currentUser,
   } = useAuth();
   const { getByBrand } = useCustomLocations();
@@ -257,6 +258,7 @@ export default function AdminUsersScreen() {
             <div key={item.uid} style={{ ...styles.row, ...(!item.active ? styles.rowInactive : {}) }}>
               <button style={styles.rowHead} onClick={() => setExpandedUserId(open ? null : item.uid)}>
                 <span style={styles.rowName}>{item.name}</span>
+                {item.isGhost ? <span style={styles.ghostBadge}>TEST</span> : null}
                 {!item.active ? <span style={styles.inactiveBadge}>DEACTIVATED</span> : null}
                 <span style={styles.rowSummary}>{summaryLine(item)}</span>
                 <span style={styles.chevron}>{open ? '▾' : '▸'}</span>
@@ -302,6 +304,21 @@ export default function AdminUsersScreen() {
                   <div style={styles.actions}>
                     {item.uid !== currentUser?.uid ? (
                       <>
+                        <button
+                          style={styles.actionButton}
+                          onClick={() =>
+                            confirm({
+                              title: item.isGhost ? `Make ${item.name} a real login?` : `Make ${item.name} a test login?`,
+                              body: item.isGhost
+                                ? 'They will appear in team lists, pickers and reports like anyone else.'
+                                : "They disappear from every list, picker, report and activity feed - everywhere but here. Use it to try things out without cluttering anyone else's Hub.",
+                              confirmLabel: item.isGhost ? 'Make real' : 'Make test',
+                              onConfirm: () => setUserGhost(item.uid, !item.isGhost),
+                            })
+                          }
+                        >
+                          {item.isGhost ? 'Make real login' : 'Make test login'}
+                        </button>
                         <button style={styles.actionButton} onClick={() => openEdit(item)}>
                           Edit access
                         </button>
@@ -662,6 +679,7 @@ const styles = {
   rowHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)' },
   rowName: { fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap' },
   rowSummary: { flex: 1, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  ghostBadge: { fontSize: 10, fontWeight: 700, color: '#C9A227', letterSpacing: 0.5 },
   inactiveBadge: { fontSize: 10, fontWeight: 700, color: 'var(--danger)', letterSpacing: 0.5 },
   chevron: { fontSize: 11, color: 'var(--text-tertiary)' },
   rowBody: { padding: '0 14px 14px' },

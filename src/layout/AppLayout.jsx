@@ -1,4 +1,5 @@
 import React from 'react';
+import UpdateBanner from '../components/UpdateBanner';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
@@ -76,7 +77,12 @@ export default function AppLayout({ children }) {
   if (isNarrow) {
     return (
       <div style={styles.narrowWindow}>
-        <div style={styles.narrowContent}>{children}</div>
+        <div style={styles.narrowContent}>
+          <div style={styles.narrowBanner}>
+            <UpdateBanner />
+          </div>
+          {children}
+        </div>
         <BottomBar
           homeBadge={anyEventNeedsMyJob}
           messagesBadge={unreadCount > 0}
@@ -138,6 +144,7 @@ export default function AppLayout({ children }) {
         </nav>
 
         <div style={styles.sidebarFooter}>
+          <UpdateBanner />
           <NavLink to="/profile" style={styles.userRow}>
             <div style={styles.avatar}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
             <div style={{ overflow: 'hidden', flex: 1 }}>
@@ -208,6 +215,7 @@ const styles = {
   navItemRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   navItemLabel: { display: 'flex', alignItems: 'center', gap: 10 },
   navDot: { width: 7, height: 7, borderRadius: 4, background: 'var(--danger)', flexShrink: 0 },
+  narrowBanner: { padding: '10px 14px 0' },
   sidebarFooter: { padding: 14, borderTop: '1px solid var(--border)' },
   userRow: {
     display: 'flex',

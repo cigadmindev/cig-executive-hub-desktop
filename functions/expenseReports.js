@@ -107,12 +107,16 @@ exports.closeExpenseDay = onSchedule(
     const dateKey = centralDateKey(new Date());
 
     const snap = await db.collection(RECEIPTS).where('dateSpent', '==', dateKey).get();
+
+    // Receipts from test logins never reach a real report.
+    const ghostSnap = await db.collection('users').where('isGhost', '==', true).get();
+    const ghostUids = new Set(ghostSnap.docs.map((d) => d.id));
     if (snap.empty) {
       console.log(`Expense day ${dateKey}: nothing submitted, no report.`);
       return;
     }
 
-    const receipts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const receipts = snap.docs.filter((d) => !ghostUids.has(d.data().submittedByUid)).map((d) => ({ id: d.id, ...d.data() }));
     const { csv, total } = buildCsv(receipts, dateKey);
 
     const path = `expenseReports/${dateKey}.csv`;
@@ -164,6 +168,8 @@ exports.notifyExpenseReport = onSchedule(
 
     // Admins and anyone whose job is Financials.
     const usersSnap = await db.collection('users').where('active', '==', true).get();
+    // Test logins still receive their own notifications, so they are not
+    // filtered here - only their receipts are, above.
     const recipients = usersSnap.docs
       .map((d) => d.data())
       .filter((u) => u.role === 'admin' || u.job === 'Financials')

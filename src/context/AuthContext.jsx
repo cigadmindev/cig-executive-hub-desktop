@@ -33,6 +33,9 @@ async function fetchProfile(uid, email) {
     active: data.active ?? true,
     pushToken: data.pushToken ?? null,
     job: data.job ?? null,
+    // A test login. Hidden from every list, picker and feed, and from
+    // reports and activity - so testing does not clutter anyone else's Hub.
+    isGhost: data.isGhost === true,
     photoUrl: data.photoUrl ?? null,
   };
 }
@@ -56,6 +59,10 @@ export function AuthProvider({ children }) {
           active: data.active ?? true,
           pushToken: data.pushToken ?? null,
           job: data.job ?? null,
+          isGhost: data.isGhost === true,
+    // A test login. Hidden from every list, picker and feed, and from
+    // reports and activity - so testing does not clutter anyone else's Hub.
+    isGhost: data.isGhost === true,
           photoUrl: data.photoUrl ?? null,
         };
       })
@@ -163,6 +170,11 @@ export function AuthProvider({ children }) {
   // real behaviour now - Financials sees expense reports, COO and the beverage
   // manager restructure checklists, IT / Training handles integration requests
   // - so it has to be editable.
+  const setUserGhost = async (uid, isGhost) => {
+    await updateDoc(doc(db, 'users', uid), { isGhost });
+    await refreshUsers();
+  };
+
   const updateUserJob = async (uid, job) => {
     await updateDoc(doc(db, 'users', uid), { job: job ?? null });
     await refreshUsers();
@@ -246,13 +258,17 @@ export function AuthProvider({ children }) {
       value={{
         user,
         users, // everyone, including deactivated - for Manage Logins
-        activeUsers: users.filter((u) => u.active), // everyone who can still sign in
+        // Everyone who can still sign in, minus test logins. This is what
+        // the assignee pickers, message recipients, team lists and
+        // "who needs to know" pickers all read, so filtering here covers them.
+        activeUsers: users.filter((u) => u.active && !u.isGhost),
         loading,
         login,
         logout,
         addUser,
         updatePermissions,
         updateUserJob,
+        setUserGhost,
         updateUserRole,
         updateMyProfile,
         setUserActive,

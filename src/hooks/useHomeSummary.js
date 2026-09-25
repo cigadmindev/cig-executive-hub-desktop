@@ -21,7 +21,7 @@ export function useHomeSummary() {
   const { getByLocation: renewalsFor } = useRenewals();
   const { getInfo } = useOpeningInfo();
   const { getByBrand } = useCustomLocations();
-  const { user, hasBrandAccess, hasLocationAccess } = useAuth();
+  const { user, users, hasBrandAccess, hasLocationAccess } = useAuth();
   const { getByLocation: contactsFor } = useOpeningOngoingContacts();
 
   return useMemo(() => {
@@ -217,7 +217,9 @@ export function useHomeSummary() {
     // there isn't one yet, and writing activity records on every change is
     // more plumbing than this panel is worth today. Covers the common case:
     // seeing that someone else moved something forward.
-    const recent = entries
+    // A test login's sign-offs stay out of everyone's activity feed.
+    const ghostUids = new Set((users ?? []).filter((u) => u.isGhost).map((u) => u.uid));
+    const recent = entries.filter((e) => !ghostUids.has(e.doneBy) && !ghostUids.has(e.authorUid))
       .filter((e) => locById[e.locationId] && e.done && e.doneAt)
       .sort((a, b2) => b2.doneAt - a.doneAt)
       .slice(0, 4)
@@ -249,5 +251,5 @@ export function useHomeSummary() {
     };
     // user is a dependency: without it, someone whose permissions change
     // would keep seeing the old summary until they reloaded the app.
-  }, [entries, getByBrand, getInfo, renewalsFor, contactsFor, user]);
+  }, [entries, getByBrand, getInfo, renewalsFor, contactsFor, users, user]);
 }

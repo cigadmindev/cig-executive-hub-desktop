@@ -50,7 +50,7 @@ export default function UpdateBanner() {
 
   return (
     <div style={styles.bar}>
-      <span style={styles.text}>The Hub has been updated.</span>
+      <span style={styles.text}>Updated — reload when you can.</span>
       <button style={styles.reload} onClick={() => window.location.reload()}>
         Reload
       </button>
@@ -67,25 +67,21 @@ export default function UpdateBanner() {
 }
 
 const styles = {
+  // Placed in the layout rather than floating over the page - inline in the
+  // sidebar above the profile, and in the header on a phone.
   bar: {
-    position: 'fixed',
-    bottom: 18,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    zIndex: 200,
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
-    padding: '10px 14px',
-    borderRadius: 12,
-    background: 'var(--bg-elevated)',
-    border: '1px solid var(--border-strong)',
-    boxShadow: 'var(--shadow-lg)',
-    maxWidth: 'calc(100vw - 32px)',
+    gap: 8,
+    padding: '8px 10px',
+    marginBottom: 10,
+    borderRadius: 10,
+    background: 'rgba(201,162,39,0.12)',
+    border: '1px solid rgba(201,162,39,0.35)',
   },
-  text: { fontSize: 13, color: 'var(--text-primary)' },
+  text: { flex: 1, fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.3 },
   reload: {
-    padding: '6px 12px',
+    padding: '5px 10px',
     borderRadius: 8,
     border: 'none',
     background: 'var(--neon)',
