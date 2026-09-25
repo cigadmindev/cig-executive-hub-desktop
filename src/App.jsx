@@ -45,6 +45,7 @@ import IntegrationRequestsScreen from './screens/IntegrationRequestsScreen';
 import OpeningSoonScreen from './screens/OpeningSoonScreen';
 import WaresInventoryScreen from './screens/WaresInventoryScreen';
 import { UnderRepairGate } from './components/UnderRepair';
+import UpdateBanner from './components/UpdateBanner';
 import { AccessPresetsProvider } from './context/AccessPresetsContext';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
@@ -76,6 +77,7 @@ function Gate() {
   return (
     <Providers>
     <AppLayout>
+      <UpdateBanner />
       <UnderRepairGate>
       <Routes>
         <Route path="/" element={<HomeScreen />} />

@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "concurrently -k \"vite\" \"npm:electron:dev\"",
     "electron:dev": "wait-on tcp:5173 && cross-env NODE_ENV=development electron .",
-    "build": "vite build",
+    "build": "vite build && node scripts-version.cjs",
     "build:electron": "ELECTRON=1 vite build",
     "dist:mac": "npm run build:electron && dotenv -e .env -- electron-builder --mac",
     "dist:win": "npm run build:electron && dotenv -e .env.windows -- electron-builder --win",
