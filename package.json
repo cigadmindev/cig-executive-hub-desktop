@@ -9,11 +9,12 @@
     "dev": "concurrently -k \"vite\" \"npm:electron:dev\"",
     "electron:dev": "wait-on tcp:5173 && cross-env NODE_ENV=development electron .",
     "build": "vite build",
-    "dist:mac": "npm run build && dotenv -e .env -- electron-builder --mac",
-    "dist:win": "npm run build && dotenv -e .env.windows -- electron-builder --win",
-    "dist:all": "npm run build && dotenv -e .env -e .env.windows -- electron-builder --mac --win",
-    "publish:mac": "npm run build && dotenv -e .env -- electron-builder --mac --publish always",
-    "publish:win": "npm run build && dotenv -e .env.windows -- electron-builder --win --publish always"
+    "build:electron": "ELECTRON=1 vite build",
+    "dist:mac": "npm run build:electron && dotenv -e .env -- electron-builder --mac",
+    "dist:win": "npm run build:electron && dotenv -e .env.windows -- electron-builder --win",
+    "dist:all": "npm run build:electron && dotenv -e .env -e .env.windows -- electron-builder --mac --win",
+    "publish:mac": "npm run build:electron && dotenv -e .env -- electron-builder --mac --publish always",
+    "publish:win": "npm run build:electron && dotenv -e .env.windows -- electron-builder --win --publish always"
   },
   "dependencies": {
     "@sentry/react": "^10.71.0",
