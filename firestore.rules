@@ -78,6 +78,15 @@ service cloud.firestore {
     // these at all.
     // What to revoke when someone leaves, and what was removed so it can be
     // put back. Admins only - nobody else needs to know who is on their way out.
+    // Written by the functions, read by the person they are for. Marking one
+    // read is the only change anyone makes from the app.
+    match /notifications/{id} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']);
+      allow create, delete: if false;
+    }
+
     match /offboarding/{uid} {
       allow read, write: if isAdmin();
     }

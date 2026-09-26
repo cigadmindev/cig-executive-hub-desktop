@@ -10,6 +10,7 @@
 // Opening checklist items are deliberately excluded: people working a
 // checklist are in it daily, and a notification per item would be noise.
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { notifyPeople, ACTION, AMBIENT } = require('./notify');
 const admin = require('firebase-admin');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
@@ -92,15 +93,14 @@ exports.onBrandPostCreated = onDocumentCreated('brandPosts/{id}', async (event) 
 
   const brandId = await brandForTarget(post.targetId);
   const users = await activeUsers();
-  const tokens = users
-    .filter((u) => u.uid !== post.authorUid && canSee(u, brandId))
-    .map((u) => u.pushToken);
+  const recipients = users
+    .filter((u) => u.uid !== post.authorUid && canSee(u, brandId));
 
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     post.targetName ? `New post — ${post.targetName}` : 'New post',
     `${post.authorName ?? 'Someone'}: ${(post.message ?? '').slice(0, 90)}`,
-    { kind: 'brandPost', brandId }
+    { speed: AMBIENT, path: `/brand/${brandId}`, kind: 'brandPost', brandId }
   );
 });
 
@@ -110,15 +110,14 @@ exports.onCategoryPostCreated = onDocumentCreated('categoryPosts/{id}', async (e
 
   const brandId = await brandForLocation(post.locationId);
   const users = await activeUsers();
-  const tokens = users
-    .filter((u) => u.uid !== post.authorUid && canSee(u, brandId))
-    .map((u) => u.pushToken);
+  const recipients = users
+    .filter((u) => u.uid !== post.authorUid && canSee(u, brandId));
 
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     post.categoryLabel ? `New post — ${post.categoryLabel}` : 'New post',
     `${post.authorName ?? 'Someone'}: ${(post.message ?? '').slice(0, 90)}`,
-    { kind: 'categoryPost', locationId: post.locationId, categoryId: post.categoryId }
+    { speed: AMBIENT, path: `/brand/${brandId}/location/${post.locationId}/category/${post.categoryId}`, kind: 'categoryPost', locationId: post.locationId, categoryId: post.categoryId }
   );
 });
 
@@ -133,13 +132,13 @@ exports.onWorkOrderCreated = onDocumentCreated('workOrders/{id}', async (event) 
   if (assignees.length === 0) return;
 
   const users = await activeUsers();
-  const tokens = users.filter((u) => assignees.includes(u.uid)).map((u) => u.pushToken);
+  const recipients = users.filter((u) => assignees.includes(u.uid));
 
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     'Signature needed',
     `${order.uploadedByName ?? 'Someone'} sent "${order.title}" for your signature`,
-    { kind: 'workOrder', orderId: event.params.id }
+    { speed: ACTION, path: '/work-orders', kind: 'workOrder', orderId: event.params.id }
   );
 });
 
@@ -153,13 +152,13 @@ exports.onWorkOrderCompleted = onDocumentUpdated('workOrders/{id}', async (event
   if (!after.signedFileUrl || before.signedFileUrl) return;
 
   const users = await activeUsers();
-  const tokens = users.filter((u) => u.uid === after.uploadedByUid).map((u) => u.pushToken);
+  const recipients = users.filter((u) => u.uid === after.uploadedByUid);
 
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     'Document ready',
     `Everyone has signed "${after.title}" — it's ready to download`,
-    { kind: 'workOrder', orderId: event.params.id }
+    { speed: ACTION, path: '/work-orders', kind: 'workOrder', orderId: event.params.id }
   );
 });
 
@@ -171,16 +170,15 @@ exports.onExpenseReceiptCreated = onDocumentCreated('expenseReceipts/{id}', asyn
   if (!receipt) return;
 
   const users = await activeUsers();
-  const tokens = users
-    .filter((u) => isFinance(u) && u.uid !== receipt.submittedByUid)
-    .map((u) => u.pushToken);
+  const recipients = users
+    .filter((u) => isFinance(u) && u.uid !== receipt.submittedByUid);
 
   const amount = ((receipt.amountCents ?? 0) / 100).toFixed(2);
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     'New receipt',
     `${receipt.submittedByName ?? 'Someone'} submitted $${amount} — ${receipt.categoryLabel}`,
-    { kind: 'expense' }
+    { speed: AMBIENT, path: '/expenses', kind: 'expense' }
   );
 });
 
@@ -192,10 +190,11 @@ exports.onTimeOffCreated = onDocumentCreated('timeOffRequests/{id}', async (even
   if (!req) return;
 
   const users = await activeUsers();
-  const tokens = users.filter((u) => isReviewer(u) && u.uid !== req.uid).map((u) => u.pushToken);
+  const recipients = users.filter((u) => isReviewer(u) && u.uid !== req.uid);
 
-  await push(tokens, 'Time off request', `${req.name ?? 'Someone'} requested time off`, {
-    kind: 'timeOff',
+  await notifyPeople(
+    recipients, 'Time off request', `${req.name ?? 'Someone'} requested time off`, {
+    speed: ACTION, path: '/availability', kind: 'timeOff',
   });
 });
 
@@ -206,15 +205,15 @@ exports.onTimeOffResolved = onDocumentUpdated('timeOffRequests/{id}', async (eve
   if (before.status !== 'pending' || after.status === 'pending') return;
 
   const users = await activeUsers();
-  const tokens = users.filter((u) => u.uid === after.uid).map((u) => u.pushToken);
+  const recipients = users.filter((u) => u.uid === after.uid);
 
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     after.status === 'approved' ? 'Time off approved' : 'Time off denied',
     after.status === 'denied' && after.denialReason
       ? `Your request was denied — ${after.denialReason}`
       : 'Your time off request has been resolved',
-    { kind: 'timeOff' }
+    { speed: ACTION, path: '/availability', kind: 'timeOff' }
   );
 });
 
@@ -226,15 +225,14 @@ exports.onAccessRequestCreated = onDocumentCreated('accessRequests/{id}', async 
   if (!req) return;
 
   const users = await activeUsers();
-  const tokens = users
-    .filter((u) => isReviewer(u) && u.email !== req.userEmail)
-    .map((u) => u.pushToken);
+  const recipients = users
+    .filter((u) => isReviewer(u) && u.email !== req.userEmail);
 
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     'Access request',
     `${req.userName ?? 'Someone'} asked for access to ${req.targetLabel ?? 'something'}`,
-    { kind: 'accessRequest' }
+    { speed: ACTION, path: '/admin/pending-requests', kind: 'accessRequest' }
   );
 });
 
@@ -245,18 +243,17 @@ exports.onAccessRequestResolved = onDocumentUpdated('accessRequests/{id}', async
   if (before.status !== 'pending' || after.status === 'pending') return;
 
   const snap = await admin.firestore().collection('users').where('email', '==', after.userEmail).get();
-  const tokens = snap.docs
+  const recipients = snap.docs
     .map((d) => d.data())
-    .filter((u) => u.active !== false && u.pushToken)
-    .map((u) => u.pushToken);
+    .filter((u) => u.active !== false && u.pushToken);
 
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     after.status === 'approved' ? 'Access granted' : 'Access request denied',
     after.status === 'approved'
       ? `You now have access to ${after.targetLabel ?? 'a new area'}`
       : `Your request for ${after.targetLabel ?? 'access'} was denied`,
-    { kind: 'accessRequest' }
+    { speed: ACTION, path: '/', kind: 'accessRequest' }
   );
 });
 
@@ -287,13 +284,20 @@ exports.onRenewalDueSoon = onDocumentUpdated('licenseRenewals/{id}', async (even
 
   const brandId = await brandForLocation(after.locationId);
   const users = await activeUsers();
-  const tokens = users.filter((u) => canSee(u, brandId)).map((u) => u.pushToken);
+  // Narrowed to the location, not the restaurant: a Starkville manager does
+  // not need telling about a Ridgeland permit. Executives and admins see all.
+  const recipients = users.filter((u) => {
+    if (!canSee(u, brandId)) return false;
+    if (u.role === 'admin' || u.role === 'executive') return true;
+    const only = u.permissions?.locationsByBrand?.[brandId];
+    return !Array.isArray(only) || only.length === 0 || only.includes(after.locationId);
+  });
 
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     'Renewal due soon',
     daysOut < 0 ? `${after.type} has expired` : `${after.type} expires in ${daysOut} day${daysOut === 1 ? '' : 's'}`,
-    { kind: 'renewal', locationId: after.locationId }
+    { speed: ACTION, path: `/brand/${brandId}/location/${after.locationId}/renewals`, kind: 'renewal', locationId: after.locationId }
   );
 });
 
@@ -306,15 +310,14 @@ exports.onIntegrationRequestCreated = onDocumentCreated('integrationRequests/{id
   // Whoever holds IT, plus admins. Job rather than person, so it follows the
   // role rather than a name.
   const users = await activeUsers();
-  const tokens = users
-    .filter((u) => (u.role === 'admin' || u.job === 'IT') && u.uid !== req.createdByUid)
-    .map((u) => u.pushToken);
+  const recipients = users
+    .filter((u) => (u.role === 'admin' || u.job === 'IT & Training') && u.uid !== req.createdByUid);
 
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     req.kind === 'help' ? 'Help needed' : 'Change requested',
     `${req.createdByName ?? 'Someone'} · ${req.system ?? 'a system'}`,
-    { kind: 'integrationRequest' }
+    { speed: ACTION, path: '/integration-requests', kind: 'integrationRequest' }
   );
 });
 
@@ -332,12 +335,12 @@ exports.onIntegrationRequestResolved = onDocumentUpdated('integrationRequests/{i
   if (!newlyAnswered && !newlyDone) return;
 
   const users = await activeUsers();
-  const tokens = users.filter((u) => u.uid === after.createdByUid).map((u) => u.pushToken);
+  const recipients = users.filter((u) => u.uid === after.createdByUid);
 
-  await push(
-    tokens,
+  await notifyPeople(
+    recipients,
     after.status === 'done' ? 'Sorted' : 'Update on your request',
     after.response ? after.response.slice(0, 120) : `${after.system ?? 'Your request'} — ${after.status === 'done' ? 'done' : 'in progress'}`,
-    { kind: 'integrationRequest' }
+    { speed: ACTION, path: '/integration-requests', kind: 'integrationRequest' }
   );
 });

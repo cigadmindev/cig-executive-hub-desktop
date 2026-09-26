@@ -4,9 +4,18 @@
       "collectionGroup": "expenseReceipts",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "submittedByUid", "order": "ASCENDING" },
-        { "fieldPath": "dateSpent", "order": "DESCENDING" },
-        { "fieldPath": "__name__", "order": "DESCENDING" }
+        {
+          "fieldPath": "submittedByUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dateSpent",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
       ],
       "density": "SPARSE_ALL"
     },
@@ -14,8 +23,56 @@
       "collectionGroup": "integrationRequests",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "createdByUid", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "createdByUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "kind",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "emailedAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "throttleKey",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "emailedAt",
+          "order": "ASCENDING"
+        }
       ],
       "density": "SPARSE_ALL"
     }
