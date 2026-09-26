@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import WhoNeedsToKnow from '../components/WhoNeedsToKnow';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { Link , useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -64,6 +65,9 @@ export default function CalendarScreen() {
   const [formTitle, setFormTitle] = useState('');
   const [formNote, setFormNote] = useState('');
   const [formLocationId, setFormLocationId] = useState('');
+  // Job titles and particular people, the same two fields event requests use.
+  const [formNeeds, setFormNeeds] = useState([]);
+  const [formPeople, setFormPeople] = useState([]);
   const [formTime, setFormTime] = useState('12:00');
 
   const locationInfo = {};
@@ -181,6 +185,8 @@ export default function CalendarScreen() {
     setFormTitle('');
     setFormNote('');
     setFormLocationId(allLocationOptions[0]?.id ?? '');
+    setFormNeeds([]);
+    setFormPeople([]);
     setFormTime('12:00');
     setFormOpen(true);
   };
@@ -191,6 +197,8 @@ export default function CalendarScreen() {
     setFormTitle(entry.title);
     setFormNote(entry.note);
     setFormLocationId(entry.locationId);
+    setFormNeeds(entry.needs ?? []);
+    setFormPeople(entry.notifyUids ?? []);
     setFormTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
     setFormOpen(true);
   };
@@ -208,6 +216,8 @@ export default function CalendarScreen() {
     } else {
       await addEntry({
         locationId: formLocationId,
+        needs: formNeeds,
+        notifyUids: formPeople,
         title: formTitle.trim(),
         note: formNote.trim(),
         dateTime: dateTime.getTime(),
@@ -535,6 +545,14 @@ export default function CalendarScreen() {
                     </option>
                   ))}
                 </select>
+                <WhoNeedsToKnow
+                  needs={formNeeds}
+                  people={formPeople}
+                  onChange={({ needs, people }) => {
+                    setFormNeeds(needs);
+                    setFormPeople(people);
+                  }}
+                />
               </div>
               <div style={{ width: 120, flexShrink: 0 }}>
                 <label style={styles.label}>Time</label>

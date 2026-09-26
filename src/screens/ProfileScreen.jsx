@@ -141,7 +141,7 @@ export default function ProfileScreen() {
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Edit Profile</h2>
 
-            <label style={styles.fieldLabel}>Emails from the Hub</label>
+            <label style={styles.fieldLabel}>Email notifications from the Hub</label>
             <div style={styles.prefWrap}>
               {[
                 { key: 'default', label: 'Anything that needs you, plus one summary at 8am', sub: 'Recommended' },
