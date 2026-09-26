@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useOffboarding } from '../context/OffboardingContext';
 import { useSupportRequests } from '../context/SupportRequestsContext';
 import { useTheme } from '../context/ThemeContext';
 import Icon from '../components/Icon';
@@ -8,6 +9,7 @@ import Icon from '../components/Icon';
 export default function ProfileScreen() {
   const navigate = useNavigate();
   const { user, logout, deleteMyAccount, updateMyProfile } = useAuth();
+  const { outstanding: offboardingOutstanding } = useOffboarding();
   const { requests: supportRequests } = useSupportRequests();
   const { hue, intensity, setAccentTheme, previewHue, previewIntensity } = useTheme();
   const isAdmin = user?.role === 'admin';
@@ -91,6 +93,11 @@ export default function ProfileScreen() {
       onClick: () => navigate('/support'),
     },
     ...(isAdmin ? [{ key: 'manageLogins', icon: 'people', label: 'Manage Logins', onClick: () => navigate('/admin/users') }] : []),
+    // The dot stays until every step on every record is resolved - whether
+    // someone is leaving or coming back.
+    ...(isAdmin
+      ? [{ key: 'offboarding', icon: 'exit', label: 'Offboarding', badge: offboardingOutstanding(), onClick: () => navigate('/admin/offboarding') }]
+      : []),
     ...(isAdmin ? [{ key: 'resetData', icon: 'warning', label: 'Reset App Data', danger: true, onClick: () => navigate('/reset-app-data') }] : []),
   ];
 

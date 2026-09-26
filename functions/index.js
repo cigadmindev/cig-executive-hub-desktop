@@ -343,3 +343,5 @@ Object.assign(exports, require('./sweepOrphanDocs'));
 Object.assign(exports, require('./driveSetup'));
 
 Object.assign(exports, require('./accountSetup'));
+
+Object.assign(exports, require('./driveAccess'));

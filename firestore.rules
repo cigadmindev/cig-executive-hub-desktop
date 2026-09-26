@@ -76,6 +76,12 @@ service cloud.firestore {
     // they can reach. Not restaurants or locations: those belong to the
     // person, not the role. Only admins create logins, so only admins need
     // these at all.
+    // What to revoke when someone leaves, and what was removed so it can be
+    // put back. Admins only - nobody else needs to know who is on their way out.
+    match /offboarding/{uid} {
+      allow read, write: if isAdmin();
+    }
+
     match /accessPresets/{id} {
       allow read, write: if isAdmin();
     }

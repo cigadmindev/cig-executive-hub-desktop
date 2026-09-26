@@ -3,6 +3,7 @@ import { UnderRepairControls } from '../components/UnderRepair';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useAccessPresets } from '../context/AccessPresetsContext';
+import { useOffboarding } from '../context/OffboardingContext';
 import { brands, categories, FEATURES } from '../data/mockData';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
 import { useDialog } from '../hooks/useDialog';
@@ -56,6 +57,7 @@ export default function AdminUsersScreen() {
   } = useAuth();
   const { getByBrand } = useCustomLocations();
   const { presets, savePreset, deletePreset } = useAccessPresets();
+  const { startOffboarding, markReactivated } = useOffboarding();
 
   // One panel for creating and editing, so the two never drift apart.
   // mode is 'create', or the uid being edited.
@@ -192,6 +194,7 @@ export default function AdminUsersScreen() {
       onConfirm: async () => {
         try {
           await setUserActive(uid, true);
+          await markReactivated(uid);
         } catch (err) {
           notify('Could not reactivate', err?.message ?? 'Something went wrong.');
         }
@@ -208,6 +211,8 @@ export default function AdminUsersScreen() {
       onConfirm: async () => {
         try {
           await setUserActive(uid, false);
+          // Opens the checklist of what to revoke outside the Hub.
+          await startOffboarding(users.find((u) => u.uid === uid) ?? { uid, name: targetName }, currentUser?.name);
         } catch (err) {
           notify('Could not deactivate', err?.message ?? 'Something went wrong.');
         }

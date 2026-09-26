@@ -47,6 +47,8 @@ import OpeningSoonScreen from './screens/OpeningSoonScreen';
 import WaresInventoryScreen from './screens/WaresInventoryScreen';
 import { UnderRepairGate } from './components/UnderRepair';
 import { AccessPresetsProvider } from './context/AccessPresetsContext';
+import { OffboardingProvider } from './context/OffboardingContext';
+import OffboardingScreen from './screens/OffboardingScreen';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
 import IntegrationsScreen from './screens/IntegrationsScreen';
@@ -97,6 +99,7 @@ function Gate() {
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/availability" element={<RequireFeature feature="availability"><AvailabilityScreen /></RequireFeature>} />
         <Route path="/admin/users" element={<AdminUsersScreen />} />
+        <Route path="/admin/offboarding" element={<RequireReviewer><OffboardingScreen /></RequireReviewer>} />
         <Route path="/admin/pending-requests" element={<PendingRequestsScreen />} />
         <Route path="/brand/:brandId/location/:locationId/opening-checklist" element={<RequireBrand><RequireFeature feature="openingChecklist"><OpeningChecklistScreen /></RequireFeature></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<RequireBrand><RequireFeature feature="operationalPoc"><OperationalPOCScreen /></RequireFeature></RequireBrand>} />
@@ -131,6 +134,7 @@ function Providers({ children }) {
       {/* Reads role and job to decide whether this account sees everyone's
           receipts or only its own, so it sits inside AuthProvider. */}
       <IntegrationRequestsProvider>
+      <OffboardingProvider>
       <AccessPresetsProvider>
       <BudgetTargetsProvider>
       <ExpensesProvider>
@@ -169,6 +173,7 @@ function Providers({ children }) {
       </ExpensesProvider>
       </BudgetTargetsProvider>
       </AccessPresetsProvider>
+      </OffboardingProvider>
       </IntegrationRequestsProvider>
       </ExecutiveNotesProvider>
       </WorkOrdersProvider>
