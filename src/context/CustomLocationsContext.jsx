@@ -52,13 +52,26 @@ export function CustomLocationsProvider({ children }) {
   // would otherwise be orphaned — same cascade as mobile.
   const deleteLocation = async (id) => {
     await deleteDoc(doc(db, 'customLocations', id));
-    const collectionsToClean = ['categoryPosts', 'schedules', 'permitItems', 'licenseRenewals', 'eventRequests'];
+    const collectionsToClean = [
+      'categoryPosts',
+      'schedules',
+      'licenseRenewals',
+      'eventRequests',
+      'openingOngoingContacts',
+      'categoryDriveLinks',
+    ];
     for (const collName of collectionsToClean) {
       const snap = await getDocs(query(collection(db, collName), where('locationId', '==', id)));
       if (snap.empty) continue;
       const batch = writeBatch(db);
       snap.docs.forEach((d) => batch.delete(d.ref));
       await batch.commit();
+    }
+
+    // These two use the location id as their own id, so they are not found by
+    // the queries above.
+    for (const collName of ['openingLocationInfo', 'openingOngoingContactsSeedMarker']) {
+      await deleteDoc(doc(db, collName, id)).catch(() => {});
     }
   };
 
