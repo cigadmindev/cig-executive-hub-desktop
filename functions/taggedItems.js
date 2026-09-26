@@ -90,3 +90,55 @@ exports.onTaggedEntryUpdated = onDocumentUpdated('schedules/{id}', async (event)
     { speed: ACTION, path: dayPath(after.dateTime), kind: 'calendar', locationId: after.locationId ?? null }
   );
 });
+
+const STATIC_LOCATION_BRANDS = {
+  'taste-starkville': 'taste',
+  'taste-ridgeland': 'taste',
+  'blutos-starkville': 'blutos',
+  'heritage-starkville': 'heritage',
+};
+
+// A location's restaurant, so the link can go to the checklist itself rather
+// than dropping someone on the calendar to find it. The same lookup
+// notifications.js has - copied rather than moved, since that file has twelve
+// working triggers reading it and this is five lines.
+async function brandForLocation(locationId) {
+  if (!locationId) return null;
+  if (STATIC_LOCATION_BRANDS[locationId]) return STATIC_LOCATION_BRANDS[locationId];
+  const snap = await admin.firestore().collection('customLocations').doc(locationId).get();
+  return snap.exists ? snap.data().brandId ?? null : null;
+}
+
+// Assigning a checklist item wrote a field and told nobody, so handing someone
+// a job relied on them noticing it.
+//
+// Separate from the tagged triggers above, which skip checklist items: those
+// are generated in bulk and a date change would fire hundreds at once. An
+// assignment is one person, one item, deliberate.
+exports.onChecklistAssigned = onDocumentUpdated('schedules/{id}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return;
+
+  const uid = after.assignedToUid;
+  if (!uid || uid === before.assignedToUid) return;
+
+  const snap = await admin.firestore().collection('users').doc(uid).get();
+  if (!snap.exists || snap.data().active === false) return;
+  const person = { uid, ...snap.data() };
+
+  const brandId = after.openingItem ? await brandForLocation(after.locationId) : null;
+  const path =
+    brandId && after.locationId
+      ? '/brand/' + brandId + '/location/' + after.locationId + '/opening-checklist'
+      : dayPath(after.dateTime);
+
+  const section = after.openingSection ? ' · ' + after.openingSection : '';
+
+  await notifyPeople(
+    [person],
+    'Assigned to you: ' + (after.title || 'a checklist item'),
+    'Due ' + whenText(after.dateTime) + section,
+    { speed: ACTION, path, kind: 'assignment', locationId: after.locationId ?? null }
+  );
+});
