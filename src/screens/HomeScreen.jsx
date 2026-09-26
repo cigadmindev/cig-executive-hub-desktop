@@ -149,6 +149,9 @@ export default function HomeScreen() {
                 <span
                   style={{
                     ...styles.dot,
+                    ...(a.level === 'tagged'
+                      ? { background: 'var(--neon)' }
+                      : {}),
                     ...(a.level === 'todo'
                       ? { background: 'transparent', border: '1.5px solid var(--text-tertiary)', boxSizing: 'border-box' }
                       : { background: a.level === 'overdue' ? 'var(--danger)' : '#C9A227' }),

@@ -175,6 +175,41 @@ export function useHomeSummary() {
     }
 
     const locById = Object.fromEntries(visibleLocations.map((l) => [l.id, l]));
+
+    // Tagged or assigned to this person, and not finished. It leaves when the
+    // work is done - not when they have read about it. Reading tells you
+    // something exists; it does not do it.
+    const mine = [];
+    if (user) {
+      for (const e of entries) {
+        if (e.done) continue;
+        const loc = locById[e.locationId];
+        if (!loc) continue;
+        const tagged =
+          (user.uid && (e.notifyUids ?? []).includes(user.uid)) ||
+          (user.job && (e.needs ?? []).includes(user.job)) ||
+          (user.uid && e.assignedToUid && e.assignedToUid === user.uid);
+        if (!tagged) continue;
+
+        const overdue = e.dateTime && e.dateTime < now;
+        const soon = e.dateTime && e.dateTime - now < 7 * DAY;
+        mine.push({
+          level: overdue ? 'overdue' : soon ? 'soon' : 'tagged',
+          text: e.title,
+          where: e.assignedToUid === user.uid ? `Assigned to you · ${loc.name}` : `Tagged · ${loc.name}`,
+          to: e.openingItem
+            ? `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`
+            : e.dateTime
+              ? '/calendar?date=' + new Date(e.dateTime).toISOString().slice(0, 10)
+              : '/calendar',
+          sort: e.dateTime ?? Infinity,
+        });
+      }
+      mine.sort((a, b2) => a.sort - b2.sort);
+      if (mine.length > 0) {
+        attention.unshift({ level: 'header', text: 'Tagged for you', sort: -Infinity }, ...mine);
+      }
+    }
     const weekEnd = now + 7 * DAY;
 
     // Everything landing in the next seven days, across every location. The
