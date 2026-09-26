@@ -180,7 +180,7 @@ export function NotificationsBell({ onClick, floating = false }) {
       onClick={onClick}
       aria-label={unreadCount > 0 ? unreadCount + ' unread notifications' : 'Notifications'}
     >
-      <Icon name="bell" size={floating ? 22 : 18} color="var(--text-secondary)" />
+      <Icon name="bell" size={floating ? 19 : 18} color="var(--text-secondary)" />
       {unreadCount > 0 ? <span style={floating ? styles.dotFloating : styles.dot} /> : null}
     </button>
   );
@@ -215,6 +215,6 @@ const styles = {
   dot: { position: 'absolute', top: 7, right: 8, width: 7, height: 7, borderRadius: 4, background: 'var(--danger)' },
 
   // On a phone: floating above the bottom bar, bottom right.
-  bellFloating: { position: 'fixed', right: 16, bottom: 78, zIndex: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 46, height: 46, borderRadius: 23, border: '1px solid var(--border)', background: 'var(--bg-elevated)', boxShadow: 'var(--shadow-lg)', cursor: 'pointer' },
-  dotFloating: { position: 'absolute', top: 11, right: 12, width: 8, height: 8, borderRadius: 4, background: 'var(--danger)' },
+  bellFloating: { position: 'fixed', right: 14, bottom: 96, zIndex: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 20, border: '1px solid var(--border)', background: 'var(--bg-elevated)', boxShadow: 'var(--shadow-lg)', cursor: 'pointer' },
+  dotFloating: { position: 'absolute', top: 9, right: 10, width: 7, height: 7, borderRadius: 4, background: 'var(--danger)' },
 };
