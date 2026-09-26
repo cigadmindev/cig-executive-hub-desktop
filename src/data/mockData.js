@@ -119,6 +119,7 @@ export const categories = [
       'Job Descriptions',
       'Training Materials & Guidelines',
       'Onboarding Forms',
+      'Onboarding Checklists',
       'Performance Reviews & Feedback',
       'Time & Attendance Records',
       'HR Policies & Forms',
