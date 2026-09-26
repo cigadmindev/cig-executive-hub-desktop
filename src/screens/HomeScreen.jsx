@@ -145,7 +145,12 @@ export default function HomeScreen() {
               a.level === 'header' ? (
                 <p key={i} style={styles.attentionHeader}>{a.text}</p>
               ) : (
-              <button key={i} data-row="" style={styles.attentionRow} onClick={() => navigate(a.to)}>
+              <button
+                key={i}
+                data-row=""
+                style={{ ...styles.attentionRow, ...(a.mine ? styles.attentionRowMine : {}) }}
+                onClick={() => navigate(a.to)}
+              >
                 <span
                   style={{
                     ...styles.dot,
@@ -374,6 +379,7 @@ const styles = {
   openingStatRow: { display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' },
   openingOverdue: { fontSize: 11, color: 'var(--danger)' },
   attentionHeader: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: 0, padding: '12px 16px 6px' },
+  attentionRowMine: { borderLeft: '3px solid var(--neon)', background: 'rgba(34,211,238,0.06)' },
   attentionRow: {
     display: 'flex',
     alignItems: 'center',

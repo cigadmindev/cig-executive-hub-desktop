@@ -81,7 +81,7 @@ export function useHomeSummary() {
         attention.push({
           level: 'overdue',
           text: item.title,
-          where: `${loc.brandName} · ${loc.name}`,
+          where: `${loc.brandName} · ${loc.name}${item.assignedToName ? ' · ' + item.assignedToName : ''}`,
           to: `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`,
           sort: item.dateTime ?? 0,
         });
@@ -109,7 +109,7 @@ export function useHomeSummary() {
         attention.push({
           level: 'overdue',
           text: item.title,
-          where: `${loc.brandName} · ${loc.name}`,
+          where: `${loc.brandName} · ${loc.name}${item.assignedToName ? ' · ' + item.assignedToName : ''}`,
           to: `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`,
           sort: item.dateTime ?? 0,
         });
@@ -195,6 +195,8 @@ export function useHomeSummary() {
         const soon = e.dateTime && e.dateTime - now < 7 * DAY;
         mine.push({
           level: overdue ? 'overdue' : soon ? 'soon' : 'tagged',
+          // Marks the row as this person's, whatever its urgency.
+          mine: true,
           text: e.title,
           where: e.assignedToUid === user.uid ? `Assigned to you · ${loc.name}` : `Tagged · ${loc.name}`,
           to: e.openingItem
@@ -207,7 +209,18 @@ export function useHomeSummary() {
       }
       mine.sort((a, b2) => a.sort - b2.sort);
       if (mine.length > 0) {
-        attention.unshift({ level: 'header', text: 'Tagged for you', sort: -Infinity }, ...mine);
+        // Anything in the tagged section, so it is not repeated below.
+        const mineText = new Set(mine.map((m) => m.text));
+        for (let i = attention.length - 1; i >= 0; i--) {
+          if (attention[i].level !== 'header' && mineText.has(attention[i].text)) attention.splice(i, 1);
+        }
+
+        const rest = attention.length > 0;
+        attention.unshift(
+          { level: 'header', text: 'Tagged for you', sort: -Infinity },
+          ...mine,
+          ...(rest ? [{ level: 'header', text: 'Everything else', sort: -Infinity }] : [])
+        );
       }
     }
     const weekEnd = now + 7 * DAY;
