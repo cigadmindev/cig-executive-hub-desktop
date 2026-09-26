@@ -54,7 +54,14 @@ async function activeUsers() {
     .map((d) => ({ uid: d.id, ...d.data() }))
     // Test logins are left out of everyone else's notifications. They
     // still get their own - that is how notifications get tested.
-    .filter((u) => u.active !== false && u.isGhost !== true && u.pushToken);
+    .filter((u) => u.active !== false);
+}
+
+// Broadcast audiences - posts, announcements - leave test logins out, so
+// testing does not clutter what everyone else sees. Anything named at a
+// specific person still reaches them, ghost or not.
+function notGhost(u) {
+  return u.isGhost !== true;
 }
 
 // Resolves any location to its brand: the static four from the map above, and
@@ -94,7 +101,7 @@ exports.onBrandPostCreated = onDocumentCreated('brandPosts/{id}', async (event) 
   const brandId = await brandForTarget(post.targetId);
   const users = await activeUsers();
   const recipients = users
-    .filter((u) => u.uid !== post.authorUid && canSee(u, brandId));
+    .filter((u) => u.uid !== post.authorUid && notGhost(u) && canSee(u, brandId));
 
   await notifyPeople(
     recipients,
@@ -111,7 +118,7 @@ exports.onCategoryPostCreated = onDocumentCreated('categoryPosts/{id}', async (e
   const brandId = await brandForLocation(post.locationId);
   const users = await activeUsers();
   const recipients = users
-    .filter((u) => u.uid !== post.authorUid && canSee(u, brandId));
+    .filter((u) => u.uid !== post.authorUid && notGhost(u) && canSee(u, brandId));
 
   await notifyPeople(
     recipients,
