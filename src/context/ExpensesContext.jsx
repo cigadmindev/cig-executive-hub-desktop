@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { recordDid } from './NotificationsContext';
 import { collection, onSnapshot, query, where, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -165,6 +166,7 @@ export function ExpensesProvider({ children }) {
   // accepts as-is. The mobile version has to fetch its local URI into a blob
   // first; same destination, different starting point.
   const submitReceipt = async ({ file, amountCents, categoryKey, where: whereText, reason, dateSpent, chargeToId }) => {
+    recordDid('You submitted a receipt', 'Submitted from the Hub', '/expenses');
     if (!user) throw new Error('You must be signed in.');
 
     // Named here rather than by the server: the upload has to happen before

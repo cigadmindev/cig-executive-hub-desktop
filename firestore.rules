@@ -84,7 +84,13 @@ service cloud.firestore {
       allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
       allow update: if isSignedIn() && resource.data.uid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']);
-      allow create, delete: if false;
+      // Only a record of your own action, about yourself, marked as such.
+      // Anything sent to you is written by the functions, which these rules
+      // do not apply to - so nobody can fake being told something.
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.source == 'did';
+      allow delete: if false;
     }
 
     match /offboarding/{uid} {

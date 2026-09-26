@@ -48,6 +48,7 @@ import WaresInventoryScreen from './screens/WaresInventoryScreen';
 import { UnderRepairGate } from './components/UnderRepair';
 import { AccessPresetsProvider } from './context/AccessPresetsContext';
 import { OffboardingProvider } from './context/OffboardingContext';
+import { NotificationsProvider } from './context/NotificationsContext';
 import OffboardingScreen from './screens/OffboardingScreen';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
@@ -134,6 +135,7 @@ function Providers({ children }) {
       {/* Reads role and job to decide whether this account sees everyone's
           receipts or only its own, so it sits inside AuthProvider. */}
       <IntegrationRequestsProvider>
+      <NotificationsProvider>
       <OffboardingProvider>
       <AccessPresetsProvider>
       <BudgetTargetsProvider>
@@ -174,6 +176,7 @@ function Providers({ children }) {
       </BudgetTargetsProvider>
       </AccessPresetsProvider>
       </OffboardingProvider>
+      </NotificationsProvider>
       </IntegrationRequestsProvider>
       </ExecutiveNotesProvider>
       </WorkOrdersProvider>

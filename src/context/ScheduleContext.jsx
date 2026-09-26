@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { recordDid } from './NotificationsContext';
 import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, writeBatch , query, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { brandOfLocation } from '../data/brandOfLocation';
@@ -138,6 +139,8 @@ export function ScheduleProvider({ children }) {
       doneBy: done ? doneByName : null,
       doneAt: done ? Date.now() : null,
     });
+    // So "did I tick that off" has an answer.
+    if (done) recordDid('You signed off a checklist item', doneByName ?? '', '/calendar');
   };
 
   const getByLocation = (locationId) =>

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import UpdateBanner from '../components/UpdateBanner';
+import NotificationsPanel, { NotificationsBell } from '../components/NotificationsPanel';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
@@ -23,6 +24,7 @@ import { useIsNarrow } from '../hooks/useIsNarrow';
 // sidebar.
 export default function AppLayout({ children }) {
   const isNarrow = useIsNarrow();
+  const [notifOpen, setNotifOpen] = useState(false);
   const { user, hasBrandAccess } = useAuth();
   const { unreadCount } = useChat();
   const { hasUnseenTimeOff, hasUnseenCalendar } = useViewTracking();
@@ -83,6 +85,7 @@ export default function AppLayout({ children }) {
           </div>
           {children}
         </div>
+        <NotificationsBell floating onClick={() => setNotifOpen(true)} />
         <BottomBar
           homeBadge={anyEventNeedsMyJob}
           messagesBadge={unreadCount > 0}
@@ -90,6 +93,7 @@ export default function AppLayout({ children }) {
           directoryBadge={directoryNeedsAttention}
           profileBadge={profileNeedsAttention}
         />
+        {notifOpen ? <NotificationsPanel onClose={() => setNotifOpen(false)} /> : null}
       </div>
     );
   }
@@ -145,18 +149,23 @@ export default function AppLayout({ children }) {
 
         <div style={styles.sidebarFooter}>
           <UpdateBanner />
-          <NavLink to="/profile" style={styles.userRow}>
+
+          <div style={styles.profileRow}>
+            <NavLink to="/profile" style={styles.userRow}>
             <div style={styles.avatar}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
             <div style={{ overflow: 'hidden', flex: 1 }}>
               <div style={styles.userName}>{user?.name}</div>
               <div style={styles.userRole}>{isAdmin ? 'Admin' : isExecutive ? 'Executive' : 'Manager'}</div>
             </div>
             {profileNeedsAttention ? <span style={styles.navDot} /> : null}
-          </NavLink>
+            </NavLink>
+            <NotificationsBell onClick={() => setNotifOpen(true)} />
+          </div>
         </div>
       </div>
 
       <div style={styles.content}>{children}</div>
+      {notifOpen ? <NotificationsPanel onClose={() => setNotifOpen(false)} /> : null}
     </div>
   );
 }
@@ -216,6 +225,7 @@ const styles = {
   navItemLabel: { display: 'flex', alignItems: 'center', gap: 10 },
   navDot: { width: 7, height: 7, borderRadius: 4, background: 'var(--danger)', flexShrink: 0 },
   narrowBanner: { padding: '10px 14px 0' },
+  profileRow: { display: 'flex', alignItems: 'center', gap: 8 },
   sidebarFooter: { padding: 14, borderTop: '1px solid var(--border)' },
   userRow: {
     display: 'flex',

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { recordDid } from './NotificationsContext';
 import { collection, onSnapshot, doc, setDoc, updateDoc, runTransaction , query, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { brandOfLocation } from '../data/brandOfLocation';
@@ -146,6 +147,7 @@ export function RenewalsProvider({ children }) {
   };
 
   const markRenewed = async (itemId, signedOffBy, newExpirationDate) => {
+    recordDid('You marked a renewal renewed', signedOffBy ?? '', '/');
     await updateDoc(doc(db, COLLECTION, itemId), {
       approvedDate: Date.now(),
       expirationDate: newExpirationDate,
