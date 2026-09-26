@@ -36,6 +36,9 @@ async function fetchProfile(uid, email) {
     // A test login. Hidden from every list, picker and feed, and from
     // reports and activity - so testing does not clutter anyone else's Hub.
     isGhost: data.isGhost === true,
+    // default | all | action | none. Absent is the default: immediate for
+    // anything waiting on you, one 8am summary for everything else.
+    notifyEmail: data.notifyEmail ?? 'default',
     photoUrl: data.photoUrl ?? null,
   };
 }
@@ -60,9 +63,10 @@ export function AuthProvider({ children }) {
           pushToken: data.pushToken ?? null,
           job: data.job ?? null,
           isGhost: data.isGhost === true,
-    // A test login. Hidden from every list, picker and feed, and from
-    // reports and activity - so testing does not clutter anyone else's Hub.
-    isGhost: data.isGhost === true,
+          notifyEmail: data.notifyEmail ?? 'default',
+    // default | all | action | none. Absent is the default: immediate for
+    // anything waiting on you, one 8am summary for everything else.
+    notifyEmail: data.notifyEmail ?? 'default',
           photoUrl: data.photoUrl ?? null,
         };
       })
@@ -170,6 +174,13 @@ export function AuthProvider({ children }) {
   // real behaviour now - Financials sees expense reports, COO and the beverage
   // manager restructure checklists, IT / Training handles integration requests
   // - so it has to be editable.
+  const setMyEmailPreference = async (notifyEmail) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    await updateDoc(doc(db, 'users', uid), { notifyEmail });
+    setUser((prev) => (prev && prev.uid === uid ? { ...prev, notifyEmail } : prev));
+  };
+
   const setUserGhost = async (uid, isGhost) => {
     await updateDoc(doc(db, 'users', uid), { isGhost });
     await refreshUsers();
@@ -269,6 +280,7 @@ export function AuthProvider({ children }) {
         updatePermissions,
         updateUserJob,
         setUserGhost,
+        setMyEmailPreference,
         updateUserRole,
         updateMyProfile,
         setUserActive,

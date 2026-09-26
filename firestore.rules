@@ -133,7 +133,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isAdmin();
       allow update: if isAdmin()
-        || (isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pushToken']))
+        || (isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pushToken', 'notifyEmail']))
         // Approving a request grants access, which is a permissions write.
         // Executives approve requests, so they may change a manager's
         // permissions - nothing else on the profile, and nobody else's.

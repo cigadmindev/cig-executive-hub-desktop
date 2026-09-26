@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useIsNarrow } from '../hooks/useIsNarrow';
-import { Link } from 'react-router-dom';
+import { Link , useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSchedule } from '../context/ScheduleContext';
 import { useRenewals } from '../context/RenewalsContext';
@@ -40,7 +40,17 @@ export default function CalendarScreen() {
 
   const visibleBrands = brands.filter((b) => hasBrandAccess(user, b.id));
   const [filterBrandId, setFilterBrandId] = useState('all');
-  const [selectedDate, setSelectedDate] = useState(null);
+  // An email about an event links to its own day - /calendar?date=2026-10-14 -
+  // so clicking through lands where the event is rather than on today.
+  const [searchParams] = useSearchParams();
+  const linkedDate = (() => {
+    const raw = searchParams.get('date');
+    if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+    const [y, m, d] = raw.split('-').map(Number);
+    const parsed = new Date(y, m - 1, d);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  })();
+  const [selectedDate, setSelectedDate] = useState(linkedDate ?? null);
   const [editingOpeningDateId, setEditingOpeningDateId] = useState(null);
   // One row open at a time, same as the checklist and renewals.
   const [expandedEntryId, setExpandedEntryId] = useState(null);

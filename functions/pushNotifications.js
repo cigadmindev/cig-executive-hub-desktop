@@ -9,6 +9,7 @@
 // Firestore triggers fix all three: they fire regardless of which surface
 // wrote the document, they retry, and tokens never leave the server.
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { notifyPeople, ACTION, AMBIENT } = require('./notify');
 const admin = require('firebase-admin');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
@@ -57,13 +58,11 @@ exports.onAnnouncementCreated = onDocumentCreated('categoryPosts/{id}', async (e
   );
 
   const where = post.categoryLabel ? ` in ${post.categoryLabel}` : '';
-  await sendExpoPush(
-    buildMessages(recipients, `${post.authorName}${where}`, post.message ?? 'Posted an announcement', {
-      screen: 'CategoryDetail',
-      categoryId: post.categoryId,
-      locationId: post.locationId,
-    })
-  );
+  await notifyPeople(recipients, `${post.authorName}${where}`, post.message ?? 'Posted an announcement', {
+    speed: AMBIENT,
+    path: '/',
+    kind: 'announcement',
+  });
 });
 
 // Brand announcements. targetId 'all' means everyone.

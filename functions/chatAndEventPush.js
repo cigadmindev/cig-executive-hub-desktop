@@ -11,6 +11,7 @@
 // screens, and an operations thread carries permit numbers and staffing
 // decisions that shouldn't be readable to anyone holding the phone.
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { notifyPeople, ACTION, AMBIENT } = require('./notify');
 const admin = require('firebase-admin');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
@@ -40,6 +41,28 @@ async function sendToTokens(tokens, title, body) {
   } catch (err) {
     console.error('push send failed', err.message);
   }
+}
+
+/** The people behind a list of uids, skipping deactivated accounts. */
+async function peopleForUids(uids) {
+  if (!uids || uids.length === 0) return [];
+  const db = admin.firestore();
+  // Firestore caps `in` queries at 30 values, so chunk for large groups.
+  const chunks = [];
+  for (let i = 0; i < uids.length; i += 30) chunks.push(uids.slice(i, i + 30));
+
+  const people = [];
+  for (const chunk of chunks) {
+    const snap = await db
+      .collection('users')
+      .where(admin.firestore.FieldPath.documentId(), 'in', chunk)
+      .get();
+    snap.docs.forEach((d) => {
+      const data = d.data();
+      if (data.active !== false) people.push({ uid: d.id, ...data });
+    });
+  }
+  return people;
 }
 
 /** Looks up push tokens for a list of uids, skipping deactivated accounts. */
@@ -73,8 +96,20 @@ exports.onChatMessageCreated = onDocumentCreated('messages/{id}', async (event) 
   const recipients = (msg.memberUids ?? []).filter((uid) => uid !== msg.senderUid);
   if (recipients.length === 0) return;
 
-  const tokens = await tokensForUids(recipients);
-  await sendToTokens(tokens, 'New Message', `You have a new message from ${msg.senderName ?? 'someone'}`);
+  const people = await peopleForUids(recipients);
+  await notifyPeople(
+    people,
+    `Message from ${msg.senderName ?? 'someone'}`,
+    (msg.text ?? '').slice(0, 140) || 'Sent you something in the Hub.',
+    {
+      speed: ACTION,
+      path: '/messages',
+      // One email per conversation, then nothing for twenty minutes - a
+      // back-and-forth should not fill an inbox.
+      throttleKey: 'chat:' + (msg.conversationId ?? 'unknown'),
+      kind: 'chat',
+    }
+  );
 });
 
 /**
@@ -91,14 +126,17 @@ exports.onEventRequestCreated = onDocumentCreated('eventRequests/{id}', async (e
   // Executives approve event requests too, so notifying admins alone meant
   // the people who could act on it were never told.
   const snap = await db.collection('users').where('role', 'in', ['admin', 'executive']).get();
-  const tokens = snap.docs
-    .filter((d) => d.id !== req.requestedByUid && d.data().active !== false && d.data().pushToken)
-    .map((d) => d.data().pushToken);
+  // The pushToken filter is gone: email matters as much as push, and someone
+  // without the app was being dropped before they could be emailed.
+  const people = snap.docs
+    .filter((d) => d.id !== req.requestedByUid && d.data().active !== false)
+    .map((d) => ({ uid: d.id, ...d.data() }));
 
-  await sendToTokens(
-    tokens,
-    'New Event Request',
-    `${req.requestedBy ?? 'Someone'} requested "${req.title}" at ${req.locationName ?? 'a location'}`
+  await notifyPeople(
+    people,
+    'Event request waiting',
+    `${req.requestedBy ?? 'Someone'} requested "${req.title}" at ${req.locationName ?? 'a location'}`,
+    { speed: ACTION, path: '/admin/pending-requests', kind: 'eventRequest' }
   );
 });
 
@@ -138,6 +176,12 @@ exports.onEventRequestResolved = onDocumentUpdated('eventRequests/{id}', async (
     }
   }
 
-  const tokens = await tokensForUids([...uids]);
-  await sendToTokens(tokens, title, body);
+  const people = await peopleForUids([...uids]);
+  // Straight to the day it is on, rather than to today.
+  const day = after.dateTime ? new Date(after.dateTime).toISOString().slice(0, 10) : null;
+  await notifyPeople(people, title, body, {
+    speed: ACTION,
+    path: day ? '/calendar?date=' + day : '/calendar',
+    kind: 'eventRequest',
+  });
 });

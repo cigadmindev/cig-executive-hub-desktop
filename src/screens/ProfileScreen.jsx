@@ -8,7 +8,7 @@ import Icon from '../components/Icon';
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
-  const { user, logout, deleteMyAccount, updateMyProfile } = useAuth();
+  const { user, logout, deleteMyAccount, updateMyProfile , setMyEmailPreference } = useAuth();
   const { outstanding: offboardingOutstanding } = useOffboarding();
   const { requests: supportRequests } = useSupportRequests();
   const { hue, intensity, setAccentTheme, previewHue, previewIntensity } = useTheme();
@@ -140,6 +140,33 @@ export default function ProfileScreen() {
         <div style={styles.modalBackdrop} onClick={() => !savingProfile && setEditOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Edit Profile</h2>
+
+            <label style={styles.fieldLabel}>Emails from the Hub</label>
+            <div style={styles.prefWrap}>
+              {[
+                { key: 'default', label: 'Anything that needs you, plus one summary at 8am', sub: 'Recommended' },
+                { key: 'action', label: 'Only what needs me', sub: 'No morning summary' },
+                { key: 'all', label: 'Everything, as it happens', sub: 'More email' },
+                { key: 'none', label: 'No emails', sub: 'Red dots in the Hub only' },
+              ].map((opt) => (
+                <button
+                  key={opt.key}
+                  style={{
+                    ...styles.prefRow,
+                    ...((user?.notifyEmail ?? 'default') === opt.key ? styles.prefRowOn : {}),
+                  }}
+                  onClick={() => setMyEmailPreference(opt.key)}
+                >
+                  <span style={styles.prefTick}>
+                    {(user?.notifyEmail ?? 'default') === opt.key ? '●' : '○'}
+                  </span>
+                  <span style={{ flex: 1 }}>
+                    <span style={styles.prefLabel}>{opt.label}</span>
+                    <span style={styles.prefSub}>{opt.sub}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
 
             <label style={styles.fieldLabel}>Name</label>
             <input
@@ -338,6 +365,12 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
   },
+  prefWrap: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 },
+  prefRow: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', textAlign: 'left' },
+  prefRowOn: { borderColor: 'var(--neon)', background: 'rgba(34,211,238,0.08)' },
+  prefTick: { color: 'var(--neon)', fontSize: 12, lineHeight: '18px' },
+  prefLabel: { display: 'block', fontSize: 13, color: 'var(--text-primary)' },
+  prefSub: { display: 'block', fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 },
   fieldLabel: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 },
   customizeSection: { marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--border)' },
   customizeTitle: { fontSize: 12, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
