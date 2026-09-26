@@ -179,16 +179,19 @@ export function useHomeSummary() {
     // Tagged or assigned to this person, and not finished. It leaves when the
     // work is done - not when they have read about it. Reading tells you
     // something exists; it does not do it.
+    const isMine = (e) =>
+      !!user &&
+      ((user.uid && (e.notifyUids ?? []).includes(user.uid)) ||
+        (user.job && (e.needs ?? []).includes(user.job)) ||
+        (user.uid && e.assignedToUid && e.assignedToUid === user.uid));
+
     const mine = [];
     if (user) {
       for (const e of entries) {
         if (e.done) continue;
         const loc = locById[e.locationId];
         if (!loc) continue;
-        const tagged =
-          (user.uid && (e.notifyUids ?? []).includes(user.uid)) ||
-          (user.job && (e.needs ?? []).includes(user.job)) ||
-          (user.uid && e.assignedToUid && e.assignedToUid === user.uid);
+        const tagged = isMine(e);
         if (!tagged) continue;
 
         const overdue = e.dateTime && e.dateTime < now;
@@ -253,6 +256,7 @@ export function useHomeSummary() {
         id: e.id,
         title: e.title,
         dateTime: e.dateTime,
+        mine: isMine(e),
         where: locById[e.locationId]
           ? `${locById[e.locationId].brandName} · ${locById[e.locationId].name}`
           : '',

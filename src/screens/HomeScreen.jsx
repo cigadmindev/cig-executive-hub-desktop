@@ -240,7 +240,12 @@ export default function HomeScreen() {
               <p style={styles.emptyNote}>Nothing scheduled in the next seven days.</p>
             ) : (
               summary.thisWeek.slice(0, 3).map((e) => (
-                <button key={e.id} data-row="" style={styles.attentionRow} onClick={() => navigate(e.to)}>
+                <button
+                  key={e.id}
+                  data-row=""
+                  style={{ ...styles.attentionRow, ...(e.mine ? styles.attentionRowMine : {}) }}
+                  onClick={() => navigate(e.to)}
+                >
                   <span style={styles.weekDay}>
                     {new Date(e.dateTime).toLocaleDateString([], { weekday: 'short', day: 'numeric' }).toUpperCase()}
                   </span>
