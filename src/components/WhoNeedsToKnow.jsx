@@ -1,107 +1,138 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
 
 // Pointing something at the people who need to know about it.
 //
-// The same control everywhere - a calendar event, a checklist item, a renewal,
-// a receipt - so it works the same wherever someone meets it. It sits
-// alongside assignment rather than replacing it: an item can be assigned to
-// one person and tag another.
+// The same control event requests already used, pulled out so it can be used
+// anywhere: two dropdowns that add, then a list of what has been picked with
+// an × to remove. Nothing expands, so nothing needs scrolling.
 //
-// Two fields, matching what event requests already use, so the notification
-// code reads them unchanged:
-//   needs       job titles - reaches whoever holds them, now and in future
+// Two fields, matching what event requests write, so the notification code
+// reads them unchanged:
+//   needs       job titles - reaches whoever holds them, now and later
 //   notifyUids  particular people
-//
-// A title rather than a person is usually the better choice: tagging
-// "Videographer" reaches Nico today and whoever else holds it later, without
-// anyone remembering to update it.
 export default function WhoNeedsToKnow({ needs = [], people = [], onChange, label = 'Who needs to know?' }) {
-  const { activeUsers } = useAuth();
-  const [open, setOpen] = useState(false);
+  const { activeUsers: users } = useAuth();
 
-  const toggle = (list, value) => (list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
   const setNeeds = (next) => onChange({ needs: next, people });
   const setPeople = (next) => onChange({ needs, people: next });
 
-  const nameFor = (uid) => activeUsers.find((u) => u.uid === uid)?.name ?? 'Someone';
-  const chosen = [...needs, ...people.map(nameFor)];
-
-  // Whoever holds a title, so the person choosing can see it reaches someone.
-  const holdersOf = (job) => activeUsers.filter((u) => u.job === job);
+  const toggleNeed = (need) =>
+    setNeeds(needs.includes(need) ? needs.filter((n) => n !== need) : [...needs, need]);
+  const togglePerson = (uid) =>
+    setPeople(people.includes(uid) ? people.filter((p) => p !== uid) : [...people, uid]);
 
   return (
-    <div style={styles.wrap}>
-      <button style={styles.head} onClick={() => setOpen((v) => !v)}>
-        <span style={styles.label}>{label}</span>
-        <span style={styles.summary}>
-          {chosen.length === 0 ? 'Nobody yet' : chosen.join(', ')}
-        </span>
-        <span style={styles.chevron}>{open ? '▾' : '▸'}</span>
-      </button>
+    <>
+      <label style={styles.label}>{label}</label>
 
-      {open ? (
-        <div style={styles.body}>
-          <p style={styles.hint}>
-            A job title reaches whoever holds it, now and later. Pick a person for someone in particular.
-          </p>
+      <div style={styles.row}>
+        <select
+          style={styles.input}
+          value=""
+          onChange={(e) => {
+            if (e.target.value) toggleNeed(e.target.value);
+          }}
+        >
+          <option value="">Add a role…</option>
+          {JOB_OPTIONS.filter((n) => !needs.includes(n)).map((need) => (
+            <option key={need} value={need}>
+              {need}
+            </option>
+          ))}
+        </select>
 
-          <p style={styles.sectionLabel}>By job</p>
-          <div style={styles.chipWrap}>
-            {JOB_OPTIONS.map((job) => {
-              const holders = holdersOf(job);
-              const on = needs.includes(job);
-              return (
-                <button
-                  key={job}
-                  style={{ ...styles.chip, ...(on ? styles.chipOn : {}), ...(holders.length === 0 ? styles.chipEmpty : {}) }}
-                  onClick={() => setNeeds(toggle(needs, job))}
-                  title={holders.length === 0 ? 'Nobody holds this title yet' : holders.map((h) => h.name).join(', ')}
-                >
-                  {job}
-                  {holders.length > 0 ? <span style={styles.count}> {holders.length}</span> : null}
-                </button>
-              );
-            })}
-          </div>
-
-          <p style={styles.sectionLabel}>By person</p>
-          <div style={styles.chipWrap}>
-            {activeUsers.map((u) => (
-              <button
-                key={u.uid}
-                style={{ ...styles.chip, ...(people.includes(u.uid) ? styles.chipOn : {}) }}
-                onClick={() => setPeople(toggle(people, u.uid))}
-              >
+        <select
+          style={styles.input}
+          value=""
+          onChange={(e) => {
+            if (e.target.value) togglePerson(e.target.value);
+          }}
+        >
+          <option value="">Add a person…</option>
+          {users
+            .filter((u) => u.active !== false && !people.includes(u.uid))
+            .map((u) => (
+              <option key={u.uid} value={u.uid}>
                 {u.name}
-              </button>
+                {u.job ? ` — ${u.job}` : ''}
+              </option>
             ))}
-          </div>
+        </select>
+      </div>
 
-          {chosen.length > 0 ? (
-            <p style={styles.hint}>
-              They will be emailed about this, and it will show under "Tagged for you" on their home screen.
-            </p>
-          ) : null}
+      {needs.length > 0 || people.length > 0 ? (
+        <div style={styles.list}>
+          {needs.map((need) => (
+            <div key={need} data-row="" style={styles.item}>
+              <span style={styles.name}>Everyone in {need}</span>
+              <span style={styles.meta}>
+                {users.filter((u) => u.job === need && u.active !== false).length} people
+              </span>
+              <button data-hover-only="" style={styles.remove} onClick={() => toggleNeed(need)}>
+                ×
+              </button>
+            </div>
+          ))}
+          {people.map((uid) => {
+            const person = users.find((u) => u.uid === uid);
+            if (!person) return null;
+            return (
+              <div key={uid} data-row="" style={styles.item}>
+                <span style={styles.name}>{person.name}</span>
+                <span style={styles.meta}>{person.job || person.role}</span>
+                <button data-hover-only="" style={styles.remove} onClick={() => togglePerson(uid)}>
+                  ×
+                </button>
+              </div>
+            );
+          })}
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
 
+// Matching the event request form, so the same control looks the same
+// wherever someone meets it.
 const styles = {
-  wrap: { border: '1px solid var(--border)', borderRadius: 10, marginBottom: 12, overflow: 'hidden' },
-  head: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' },
-  label: { fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' },
-  summary: { flex: 1, fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  chevron: { fontSize: 11, color: 'var(--text-tertiary)' },
-  body: { padding: '0 12px 12px' },
-  sectionLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '10px 0 6px' },
-  chipWrap: { display: 'flex', flexWrap: 'wrap', gap: 6 },
-  chip: { padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' },
-  chipOn: { borderColor: 'var(--neon)', background: 'rgba(34,211,238,0.12)', color: 'var(--text-primary)' },
-  chipEmpty: { opacity: 0.45 },
-  count: { color: 'var(--text-tertiary)', fontSize: 11 },
-  hint: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '8px 0 0' },
+  label: { display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 5 },
+  // Stacked, not side by side: two selects sharing a modal's width cut
+  // their own placeholder text off mid-word.
+  row: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 },
+  input: {
+    width: '100%',
+    minWidth: 0,
+    boxSizing: 'border-box',
+    height: 38,
+    padding: '0 11px',
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-card)',
+    color: 'var(--text-primary)',
+    fontSize: 13,
+  },
+  list: { background: 'var(--bg-inset)', borderRadius: 9, overflow: 'hidden', marginBottom: 14 },
+  item: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 11px',
+    borderBottom: '1px solid var(--border)',
+  },
+  name: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
+  meta: { fontSize: 11, color: 'var(--text-tertiary)' },
+  remove: {
+    width: 18,
+    height: 18,
+    lineHeight: '16px',
+    textAlign: 'center',
+    borderRadius: 5,
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text-tertiary)',
+    fontSize: 15,
+    cursor: 'pointer',
+  },
 };

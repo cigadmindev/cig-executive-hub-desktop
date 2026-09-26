@@ -704,6 +704,8 @@ const styles = {
     borderRadius: 14,
     padding: 24,
     boxShadow: 'var(--shadow-lg)',
+    maxHeight: '86vh',
+    overflowY: 'auto',
   },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 5, marginTop: 12 },
