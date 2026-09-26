@@ -19,7 +19,7 @@ import { brands } from '../data/mockData';
 // fourteen people every time someone ticks something off would mean thousands
 // of records from one checklist run.
 const DAY_MS = 24 * 60 * 60 * 1000;
-const AROUND_DAYS = 30;
+const AROUND_DAYS = 60;
 
 const dayLabel = (t) => {
   const d = new Date(t);
@@ -132,7 +132,7 @@ export default function NotificationsPanel({ onClose }) {
                 ? 'Nothing yet. Anything sent to you shows here.'
                 : tab === 'youDid'
                   ? 'Nothing yet. Things you sign, tick off or submit show here.'
-                  : 'Nothing from anyone else in the last 30 days.'}
+                  : 'Nothing from anyone else in the last 60 days.'}
             </p>
           ) : (
             <>

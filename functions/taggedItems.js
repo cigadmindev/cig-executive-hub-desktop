@@ -120,6 +120,19 @@ exports.onChecklistAssigned = onDocumentUpdated('schedules/{id}', async (event) 
   const after = event.data?.after?.data();
   if (!before || !after) return;
 
+  // Taken off it: tell the person who was holding it.
+  if (before.assignedToUid && before.assignedToUid !== after.assignedToUid) {
+    const oldSnap = await admin.firestore().collection('users').doc(before.assignedToUid).get();
+    if (oldSnap.exists && oldSnap.data().active !== false) {
+      await notifyPeople(
+        [{ uid: before.assignedToUid, ...oldSnap.data() }],
+        'No longer assigned to you: ' + (after.title || 'a checklist item'),
+        after.assignedToName ? 'It is now with ' + after.assignedToName : 'Nobody is on it now',
+        { speed: ACTION, path: '/', kind: 'assignment', locationId: after.locationId ?? null }
+      );
+    }
+  }
+
   const uid = after.assignedToUid;
   if (!uid || uid === before.assignedToUid) return;
 
