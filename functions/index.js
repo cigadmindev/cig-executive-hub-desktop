@@ -349,3 +349,5 @@ Object.assign(exports, require('./driveAccess'));
 Object.assign(exports, require('./dailyDigest'));
 
 Object.assign(exports, require('./taggedItems'));
+
+Object.assign(exports, require('./invoices'));

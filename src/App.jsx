@@ -49,6 +49,8 @@ import { UnderRepairGate } from './components/UnderRepair';
 import { AccessPresetsProvider } from './context/AccessPresetsContext';
 import { OffboardingProvider } from './context/OffboardingContext';
 import { NotificationsProvider } from './context/NotificationsContext';
+import { InvoicesProvider } from './context/InvoicesContext';
+import InvoicesScreen from './screens/InvoicesScreen';
 import OffboardingScreen from './screens/OffboardingScreen';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
@@ -112,6 +114,7 @@ function Gate() {
         <Route path="/executive-notes" element={<ExecutiveNotesScreen />} />
         <Route path="/work-orders" element={<RequireFeature feature="workOrders"><WorkOrdersScreen /></RequireFeature>} />
         <Route path="/expenses" element={<RequireFeature feature="expenses"><ExpensesScreen /></RequireFeature>} />
+        <Route path="/invoices" element={<InvoicesScreen />} />
         <Route path="/reset-app-data" element={<ResetAppDataScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -135,6 +138,7 @@ function Providers({ children }) {
       {/* Reads role and job to decide whether this account sees everyone's
           receipts or only its own, so it sits inside AuthProvider. */}
       <IntegrationRequestsProvider>
+      <InvoicesProvider>
       <NotificationsProvider>
       <OffboardingProvider>
       <AccessPresetsProvider>
@@ -177,6 +181,7 @@ function Providers({ children }) {
       </AccessPresetsProvider>
       </OffboardingProvider>
       </NotificationsProvider>
+      </InvoicesProvider>
       </IntegrationRequestsProvider>
       </ExecutiveNotesProvider>
       </WorkOrdersProvider>

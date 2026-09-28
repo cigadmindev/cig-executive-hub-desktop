@@ -58,6 +58,13 @@ export default function DirectoryScreen() {
       onClick: () => navigate('/integration-requests'),
     },
     {
+      key: 'invoices',
+      icon: 'document',
+      title: 'Invoices',
+      subtitle: 'Send one for paying, or see where yours are',
+      onClick: () => navigate('/invoices'),
+    },
+    {
       key: 'expenses',
       badge: hasUncollectedReport(),
       icon: 'barChart',
