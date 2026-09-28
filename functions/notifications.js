@@ -94,7 +94,9 @@ const isFinance = (u) => u.role === 'admin' || u.job === 'Financials';
 // ---------------------------------------------------------------------------
 // Announcements
 // ---------------------------------------------------------------------------
-exports.onBrandPostCreated = onDocumentCreated('brandPosts/{id}', async (event) => {
+exports.onBrandPostCreated = onDocumentCreated(
+  { document: 'brandPosts/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const post = event.data?.data();
   if (!post) return;
 
@@ -109,9 +111,12 @@ exports.onBrandPostCreated = onDocumentCreated('brandPosts/{id}', async (event) 
     `${post.authorName ?? 'Someone'}: ${(post.message ?? '').slice(0, 90)}`,
     { speed: AMBIENT, path: `/brand/${brandId}`, kind: 'brandPost', brandId }
   );
-});
+  }
+);
 
-exports.onCategoryPostCreated = onDocumentCreated('categoryPosts/{id}', async (event) => {
+exports.onCategoryPostCreated = onDocumentCreated(
+  { document: 'categoryPosts/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const post = event.data?.data();
   if (!post) return;
 
@@ -126,12 +131,15 @@ exports.onCategoryPostCreated = onDocumentCreated('categoryPosts/{id}', async (e
     `${post.authorName ?? 'Someone'}: ${(post.message ?? '').slice(0, 90)}`,
     { speed: AMBIENT, path: `/brand/${brandId}/location/${post.locationId}/category/${post.categoryId}`, kind: 'categoryPost', locationId: post.locationId, categoryId: post.categoryId }
   );
-});
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Work orders
 // ---------------------------------------------------------------------------
-exports.onWorkOrderCreated = onDocumentCreated('workOrders/{id}', async (event) => {
+exports.onWorkOrderCreated = onDocumentCreated(
+  { document: 'workOrders/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const order = event.data?.data();
   if (!order) return;
 
@@ -147,12 +155,15 @@ exports.onWorkOrderCreated = onDocumentCreated('workOrders/{id}', async (event) 
     `${order.uploadedByName ?? 'Someone'} sent "${order.title}" for your signature`,
     { speed: ACTION, path: '/work-orders', kind: 'workOrder', orderId: event.params.id }
   );
-});
+  }
+);
 
 // Complete and ready to collect - only the person who sent it. The status
 // flips before the PDF has finished being assembled, so this waits for the
 // file rather than the status alone.
-exports.onWorkOrderCompleted = onDocumentUpdated('workOrders/{id}', async (event) => {
+exports.onWorkOrderCompleted = onDocumentUpdated(
+  { document: 'workOrders/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after) return;
@@ -167,12 +178,15 @@ exports.onWorkOrderCompleted = onDocumentUpdated('workOrders/{id}', async (event
     `Everyone has signed "${after.title}" — it's ready to download`,
     { speed: ACTION, path: '/work-orders', kind: 'workOrder', orderId: event.params.id }
   );
-});
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Expenses
 // ---------------------------------------------------------------------------
-exports.onExpenseReceiptCreated = onDocumentCreated('expenseReceipts/{id}', async (event) => {
+exports.onExpenseReceiptCreated = onDocumentCreated(
+  { document: 'expenseReceipts/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const receipt = event.data?.data();
   if (!receipt) return;
 
@@ -187,12 +201,15 @@ exports.onExpenseReceiptCreated = onDocumentCreated('expenseReceipts/{id}', asyn
     `${receipt.submittedByName ?? 'Someone'} submitted $${amount} — ${receipt.categoryLabel}`,
     { speed: AMBIENT, path: '/expenses', kind: 'expense' }
   );
-});
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Time off
 // ---------------------------------------------------------------------------
-exports.onTimeOffCreated = onDocumentCreated('timeOffRequests/{id}', async (event) => {
+exports.onTimeOffCreated = onDocumentCreated(
+  { document: 'timeOffRequests/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const req = event.data?.data();
   if (!req) return;
 
@@ -203,9 +220,12 @@ exports.onTimeOffCreated = onDocumentCreated('timeOffRequests/{id}', async (even
     recipients, 'Time off request', `${req.name ?? 'Someone'} requested time off`, {
     speed: ACTION, path: '/availability', kind: 'timeOff',
   });
-});
+  }
+);
 
-exports.onTimeOffResolved = onDocumentUpdated('timeOffRequests/{id}', async (event) => {
+exports.onTimeOffResolved = onDocumentUpdated(
+  { document: 'timeOffRequests/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after) return;
@@ -222,12 +242,15 @@ exports.onTimeOffResolved = onDocumentUpdated('timeOffRequests/{id}', async (eve
       : 'Your time off request has been resolved',
     { speed: ACTION, path: '/availability', kind: 'timeOff' }
   );
-});
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Access requests
 // ---------------------------------------------------------------------------
-exports.onAccessRequestCreated = onDocumentCreated('accessRequests/{id}', async (event) => {
+exports.onAccessRequestCreated = onDocumentCreated(
+  { document: 'accessRequests/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const req = event.data?.data();
   if (!req) return;
 
@@ -241,9 +264,12 @@ exports.onAccessRequestCreated = onDocumentCreated('accessRequests/{id}', async 
     `${req.userName ?? 'Someone'} asked for access to ${req.targetLabel ?? 'something'}`,
     { speed: ACTION, path: '/admin/pending-requests', kind: 'accessRequest' }
   );
-});
+  }
+);
 
-exports.onAccessRequestResolved = onDocumentUpdated('accessRequests/{id}', async (event) => {
+exports.onAccessRequestResolved = onDocumentUpdated(
+  { document: 'accessRequests/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after) return;
@@ -262,7 +288,8 @@ exports.onAccessRequestResolved = onDocumentUpdated('accessRequests/{id}', async
       : `Your request for ${after.targetLabel ?? 'access'} was denied`,
     { speed: ACTION, path: '/', kind: 'accessRequest' }
   );
-});
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Renewals
@@ -270,7 +297,9 @@ exports.onAccessRequestResolved = onDocumentUpdated('accessRequests/{id}', async
 //
 // Fires when an expiry moves into the warning window, not on a schedule - so
 // it announces the change rather than nagging daily.
-exports.onRenewalDueSoon = onDocumentUpdated('licenseRenewals/{id}', async (event) => {
+exports.onRenewalDueSoon = onDocumentUpdated(
+  { document: 'licenseRenewals/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after || !after.expirationDate) return;
@@ -306,11 +335,14 @@ exports.onRenewalDueSoon = onDocumentUpdated('licenseRenewals/{id}', async (even
     daysOut < 0 ? `${after.type} has expired` : `${after.type} expires in ${daysOut} day${daysOut === 1 ? '' : 's'}`,
     { speed: ACTION, path: `/brand/${brandId}/location/${after.locationId}/renewals`, kind: 'renewal', locationId: after.locationId }
   );
-});
+  }
+);
 
 // Systems Help. Built after the other triggers, which is why it had none - a
 // request went into a queue nobody was told about.
-exports.onIntegrationRequestCreated = onDocumentCreated('integrationRequests/{id}', async (event) => {
+exports.onIntegrationRequestCreated = onDocumentCreated(
+  { document: 'integrationRequests/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const req = event.data?.data();
   if (!req) return;
 
@@ -326,11 +358,14 @@ exports.onIntegrationRequestCreated = onDocumentCreated('integrationRequests/{id
     `${req.createdByName ?? 'Someone'} · ${req.system ?? 'a system'}`,
     { speed: ACTION, path: '/integration-requests', kind: 'integrationRequest' }
   );
-});
+  }
+);
 
 // And back the other way when it is answered - otherwise the person who asked
 // has to keep checking.
-exports.onIntegrationRequestResolved = onDocumentUpdated('integrationRequests/{id}', async (event) => {
+exports.onIntegrationRequestResolved = onDocumentUpdated(
+  { document: 'integrationRequests/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after) return;
@@ -350,4 +385,5 @@ exports.onIntegrationRequestResolved = onDocumentUpdated('integrationRequests/{i
     after.response ? after.response.slice(0, 120) : `${after.system ?? 'Your request'} — ${after.status === 'done' ? 'done' : 'in progress'}`,
     { speed: ACTION, path: '/integration-requests', kind: 'integrationRequest' }
   );
-});
+  }
+);

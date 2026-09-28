@@ -38,7 +38,9 @@ function whenText(dateTime) {
   });
 }
 
-exports.onTaggedEntryCreated = onDocumentCreated('schedules/{id}', async (event) => {
+exports.onTaggedEntryCreated = onDocumentCreated(
+  { document: 'schedules/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const entry = event.data?.data();
   if (!entry) return;
   // Checklist items are generated in bulk; only things someone typed carry
@@ -57,10 +59,13 @@ exports.onTaggedEntryCreated = onDocumentCreated('schedules/{id}', async (event)
     who + ' added this for ' + whenText(entry.dateTime) + note,
     { speed: ACTION, path: dayPath(entry.dateTime), kind: 'calendar', locationId: entry.locationId ?? null }
   );
-});
+  }
+);
 
 // Tagged onto something that already existed, or the date moved.
-exports.onTaggedEntryUpdated = onDocumentUpdated('schedules/{id}', async (event) => {
+exports.onTaggedEntryUpdated = onDocumentUpdated(
+  { document: 'schedules/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after || after.openingItem === true) return;
@@ -89,7 +94,8 @@ exports.onTaggedEntryUpdated = onDocumentUpdated('schedules/{id}', async (event)
       : who + ' added this for ' + whenText(after.dateTime),
     { speed: ACTION, path: dayPath(after.dateTime), kind: 'calendar', locationId: after.locationId ?? null }
   );
-});
+  }
+);
 
 const STATIC_LOCATION_BRANDS = {
   'taste-starkville': 'taste',
@@ -115,7 +121,9 @@ async function brandForLocation(locationId) {
 // Separate from the tagged triggers above, which skip checklist items: those
 // are generated in bulk and a date change would fire hundreds at once. An
 // assignment is one person, one item, deliberate.
-exports.onChecklistAssigned = onDocumentUpdated('schedules/{id}', async (event) => {
+exports.onChecklistAssigned = onDocumentUpdated(
+  { document: 'schedules/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after) return;
@@ -154,4 +162,5 @@ exports.onChecklistAssigned = onDocumentUpdated('schedules/{id}', async (event) 
     'Due ' + whenText(after.dateTime) + section,
     { speed: ACTION, path, kind: 'assignment', locationId: after.locationId ?? null }
   );
-});
+  }
+);

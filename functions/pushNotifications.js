@@ -46,7 +46,9 @@ function buildMessages(recipients, title, body, data) {
 
 // Category announcements. Mirrors the targeting the mobile client used:
 // admins always, plus anyone whose permissions include this category.
-exports.onAnnouncementCreated = onDocumentCreated('categoryPosts/{id}', async (event) => {
+exports.onAnnouncementCreated = onDocumentCreated(
+  { document: 'categoryPosts/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const post = event.data?.data();
   if (!post) return;
 
@@ -63,7 +65,8 @@ exports.onAnnouncementCreated = onDocumentCreated('categoryPosts/{id}', async (e
     path: '/',
     kind: 'announcement',
   });
-});
+  }
+);
 
 // Brand announcements. targetId 'all' means everyone.
 // onBrandPostCreated lived here too, and never ran: index.js loads this file

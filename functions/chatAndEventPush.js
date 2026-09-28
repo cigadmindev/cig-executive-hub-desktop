@@ -89,7 +89,9 @@ async function tokensForUids(uids) {
 }
 
 /** A new chat message — everyone in the conversation except the sender. */
-exports.onChatMessageCreated = onDocumentCreated('messages/{id}', async (event) => {
+exports.onChatMessageCreated = onDocumentCreated(
+  { document: 'messages/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const msg = event.data?.data();
   if (!msg) return;
 
@@ -110,7 +112,8 @@ exports.onChatMessageCreated = onDocumentCreated('messages/{id}', async (event) 
       kind: 'chat',
     }
   );
-});
+  }
+);
 
 /**
  * A new event request — admins, so it doesn't sit unseen.
@@ -118,7 +121,9 @@ exports.onChatMessageCreated = onDocumentCreated('messages/{id}', async (event) 
  * Requests are time-sensitive in a way most things here aren't: a wine dinner
  * three weeks out still needs the kitchen told this week.
  */
-exports.onEventRequestCreated = onDocumentCreated('eventRequests/{id}', async (event) => {
+exports.onEventRequestCreated = onDocumentCreated(
+  { document: 'eventRequests/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const req = event.data?.data();
   if (!req) return;
 
@@ -138,7 +143,8 @@ exports.onEventRequestCreated = onDocumentCreated('eventRequests/{id}', async (e
     `${req.requestedBy ?? 'Someone'} requested "${req.title}" at ${req.locationName ?? 'a location'}`,
     { speed: ACTION, path: '/admin/pending-requests', kind: 'eventRequest' }
   );
-});
+  }
+);
 
 /**
  * An event request resolved — the requester, plus anyone flagged to be told
@@ -147,7 +153,9 @@ exports.onEventRequestCreated = onDocumentCreated('eventRequests/{id}', async (e
  * Only fires on the pending -> resolved transition. Editing an already-
  * approved request shouldn't re-notify everyone.
  */
-exports.onEventRequestResolved = onDocumentUpdated('eventRequests/{id}', async (event) => {
+exports.onEventRequestResolved = onDocumentUpdated(
+  { document: 'eventRequests/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after) return;
@@ -184,4 +192,5 @@ exports.onEventRequestResolved = onDocumentUpdated('eventRequests/{id}', async (
     path: day ? '/calendar?date=' + day : '/calendar',
     kind: 'eventRequest',
   });
-});
+  }
+);

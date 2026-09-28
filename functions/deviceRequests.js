@@ -17,7 +17,9 @@ async function person(uid) {
   return { uid, ...snap.data() };
 }
 
-exports.onDeviceRequestCreated = onDocumentCreated('deviceRequests/{id}', async (event) => {
+exports.onDeviceRequestCreated = onDocumentCreated(
+  { document: 'deviceRequests/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const r = event.data?.data();
   if (!r) return;
 
@@ -36,9 +38,12 @@ exports.onDeviceRequestCreated = onDocumentCreated('deviceRequests/{id}', async 
     kind: 'deviceRequest',
     locationId: r.locationId ?? null,
   });
-});
+  }
+);
 
-exports.onDeviceRequestMoved = onDocumentUpdated('deviceRequests/{id}', async (event) => {
+exports.onDeviceRequestMoved = onDocumentUpdated(
+  { document: 'deviceRequests/{id}', secrets: ['RESEND_API_KEY'] },
+  async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after || before.status === after.status) return;
@@ -79,4 +84,5 @@ exports.onDeviceRequestMoved = onDocumentUpdated('deviceRequests/{id}', async (e
     kind: 'deviceRequest',
     locationId: after.locationId ?? null,
   });
-});
+  }
+);
