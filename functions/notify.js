@@ -117,7 +117,7 @@ ${name ? name + ', this' : 'This'} was sent because it needs you or your role. R
  */
 // One email per conversation, then nothing for twenty minutes - so a
 // back-and-forth does not fill an inbox. Applies to chat only.
-const THROTTLE_MS = 20 * 60 * 1000;
+const THROTTLE_MS = 10 * 60 * 1000;
 
 async function recentlyEmailed(db, uid, throttleKey) {
   const since = Date.now() - THROTTLE_MS;
@@ -131,6 +131,24 @@ async function recentlyEmailed(db, uid, throttleKey) {
   return snap.empty === false;
 }
 
+
+/**
+ * Stamped after a send succeeds, so emailedAt means an email went out rather
+ * than that one was intended. The throttle reads it, and reading an intention
+ * is what made chat block its own emails.
+ */
+async function markEmailed(db, uid, throttleKey, at) {
+  if (!throttleKey) return;
+  const snap = await db
+    .collection(NOTIFICATIONS)
+    .where('uid', '==', uid)
+    .where('throttleKey', '==', throttleKey)
+    .where('emailedAt', '==', null)
+    .limit(1)
+    .get();
+  if (!snap.empty) await snap.docs[0].ref.update({ emailedAt: at });
+}
+
 async function notify({ to, title, body, path = '/', kind = AMBIENT, throttleKey = null, data = {} }) {
   const people = await audience(to);
   if (people.length === 0) return { sent: 0 };
@@ -138,6 +156,15 @@ async function notify({ to, title, body, path = '/', kind = AMBIENT, throttleKey
   const db = admin.firestore();
   const link = WEB_URL + path;
   const now = Date.now();
+
+  // Worked out before anything is written: afterwards every record looks
+  // like a recent email and blocks itself.
+  const throttled = new Set();
+  if (throttleKey) {
+    for (const t of people) {
+      if (await recentlyEmailed(db, t.uid, throttleKey)) throttled.add(t.uid);
+    }
+  }
 
   const batch = db.batch();
   people.forEach((p) => {
@@ -149,7 +176,7 @@ async function notify({ to, title, body, path = '/', kind = AMBIENT, throttleKey
       kind,
       createdAt: now,
       readAt: null,
-      emailedAt: kind === ACTION ? now : null,
+      emailedAt: null,
       throttleKey,
       ...data,
     });
@@ -164,7 +191,6 @@ async function notify({ to, title, body, path = '/', kind = AMBIENT, throttleKey
     const resend = new Resend(process.env.RESEND_API_KEY);
     for (const p of people) {
       if (!p.email || !wantsEmail(p, kind)) continue;
-      if (throttleKey && (await recentlyEmailed(db, p.uid, throttleKey))) continue;
       try {
         await resend.emails.send({
           from: FROM,
@@ -173,6 +199,7 @@ async function notify({ to, title, body, path = '/', kind = AMBIENT, throttleKey
           subject: (kind === ACTION ? 'Needs you: ' : '') + title,
           html: emailHtml({ name: p.name, title, body, link, kind }),
         });
+        await markEmailed(db, p.uid, throttleKey, Date.now());
       } catch (err) {
         console.error('email to ' + p.email + ' failed: ' + err.message);
       }
@@ -196,6 +223,15 @@ async function notifyPeople(people, title, body, { speed = AMBIENT, path = '/', 
 
   const db = admin.firestore();
   const now = Date.now();
+  // Worked out before anything is written: afterwards every record looks
+  // like a recent email and blocks itself.
+  const throttled = new Set();
+  if (throttleKey) {
+    for (const t of wanted) {
+      if (await recentlyEmailed(db, t.uid, throttleKey)) throttled.add(t.uid);
+    }
+  }
+
   const batch = db.batch();
   wanted.forEach((p) => {
     batch.set(db.collection(NOTIFICATIONS).doc(), {
@@ -207,7 +243,7 @@ async function notifyPeople(people, title, body, { speed = AMBIENT, path = '/', 
       throttleKey,
       createdAt: now,
       readAt: null,
-      emailedAt: speed === ACTION ? now : null,
+      emailedAt: null,
       ...data,
     });
   });
@@ -215,11 +251,19 @@ async function notifyPeople(people, title, body, { speed = AMBIENT, path = '/', 
 
   await push(wanted.map((p) => p.pushToken).filter(Boolean), title, body, { ...data, path });
 
+  console.log(
+    'email path: speed=' + speed + ' key=' + (process.env.RESEND_API_KEY ? 'yes' : 'MISSING') +
+    ' people=' + wanted.length + ' throttled=' + throttled.size
+  );
+
   if (speed === ACTION && process.env.RESEND_API_KEY) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     for (const p of wanted) {
-      if (!p.email || !wantsEmail(p, speed)) continue;
-      if (throttleKey && (await recentlyEmailed(db, p.uid, throttleKey))) continue;
+      if (!p.email) { console.log('  skip ' + p.name + ': no email'); continue; }
+      if (!wantsEmail(p, speed)) { console.log('  skip ' + p.name + ': preference ' + (p.notifyEmail ?? 'default')); continue; }
+      if (throttled.has(p.uid)) { console.log('  skip ' + p.name + ': throttled'); continue; }
+      console.log('  sending to ' + p.email);
+      if (throttled.has(p.uid)) continue;
       try {
         await resend.emails.send({
           from: FROM,
@@ -227,6 +271,7 @@ async function notifyPeople(people, title, body, { speed = AMBIENT, path = '/', 
           subject: 'Needs you: ' + title,
           html: emailHtml({ name: p.name, title, body, link: WEB_URL + path, kind: ACTION }),
         });
+        await markEmailed(db, p.uid, throttleKey, Date.now());
       } catch (err) {
         console.error('email to ' + p.email + ' failed: ' + err.message);
       }
