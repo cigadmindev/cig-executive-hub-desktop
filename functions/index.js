@@ -351,3 +351,5 @@ Object.assign(exports, require('./dailyDigest'));
 Object.assign(exports, require('./taggedItems'));
 
 Object.assign(exports, require('./invoices'));
+
+Object.assign(exports, require('./deviceRequests'));

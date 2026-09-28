@@ -99,6 +99,29 @@ service cloud.firestore {
       return p.role == 'admin' || p.job == 'Financials' || p.job == 'Owner';
     }
 
+    // Who decides on a new device: the COO and admins.
+    function handlesDevices() {
+      let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return p.role == 'admin' || p.job == 'COO';
+    }
+
+    match /deviceRequests/{id} {
+      allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
+      // Raised as yourself, and always starting at the beginning.
+      allow create: if (isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands()))
+        && request.resource.data.requestedByUid == request.auth.uid
+        && request.resource.data.status == 'requested';
+      // Deciding and ordering belong to the COO and admins. Confirming it
+      // turned up belongs to whoever asked - they are the only one who knows.
+      allow update: if handlesDevices()
+        || (isSignedIn() && resource.data.requestedByUid == request.auth.uid
+            && resource.data.status == 'ordered'
+            && request.resource.data.status == 'arrived'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'arrivedAt', 'arrivedByName']));
+      allow delete: if isAdmin();
+    }
+
     match /invoices/{id} {
       // Everyone with the restaurant sees the status - "has this been paid"
       // is the question that generates the chasing.

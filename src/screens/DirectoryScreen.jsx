@@ -58,6 +58,13 @@ export default function DirectoryScreen() {
       onClick: () => navigate('/integration-requests'),
     },
     {
+      key: 'deviceRequests',
+      icon: 'cpu',
+      title: 'Device Requests',
+      subtitle: 'Ask for a new laptop, iPad or phone',
+      onClick: () => navigate('/device-requests'),
+    },
+    {
       key: 'invoices',
       icon: 'document',
       title: 'Invoices',
