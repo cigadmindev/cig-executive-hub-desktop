@@ -96,7 +96,7 @@ export default function ProfileScreen() {
     // The dot stays until every step on every record is resolved - whether
     // someone is leaving or coming back.
     ...(isAdmin
-      ? [{ key: 'offboarding', icon: 'exit', label: 'Offboarding', badge: offboardingOutstanding(), onClick: () => navigate('/admin/offboarding') }]
+      ? [{ key: 'offboarding', icon: 'archive', label: 'Offboarding', badge: offboardingOutstanding(), onClick: () => navigate('/admin/offboarding') }]
       : []),
     ...(isAdmin ? [{ key: 'resetData', icon: 'warning', label: 'Reset App Data', danger: true, onClick: () => navigate('/reset-app-data') }] : []),
   ];

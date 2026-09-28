@@ -66,7 +66,7 @@ export default function DirectoryScreen() {
     },
     {
       key: 'invoices',
-      icon: 'document',
+      icon: 'creditCard',
       title: 'Invoices',
       subtitle: 'Send one for paying, or see where yours are',
       onClick: () => navigate('/invoices'),
