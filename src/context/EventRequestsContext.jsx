@@ -18,6 +18,8 @@ export const JOB_OPTIONS = [
   'COO',
   'Culinary Director',
   'Culinary Manager',
+  'Executive Chef',
+  'Sous Chef',
   'General Manager',
   'Assistant Manager',
   'Kitchen Manager',
