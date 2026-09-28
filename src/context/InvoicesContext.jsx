@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes } from 'firebase/storage';
 import { db, storage, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
@@ -90,7 +90,14 @@ export function InvoicesProvider({ children }) {
     });
 
     // Named by the record, so the function knows which invoice it belongs to.
-    await uploadBytes(storageRef(storage, `invoiceUploads/${created.id}/${file.name}`), file);
+    try {
+      await uploadBytes(storageRef(storage, `invoiceUploads/${created.id}/${file.name}`), file);
+    } catch (err) {
+      // The record exists before the file does, so a failed upload would
+      // otherwise leave an invoice nobody can open and nobody can explain.
+      await deleteDoc(doc(db, COLLECTION, created.id));
+      throw err;
+    }
     return created.id;
   };
 

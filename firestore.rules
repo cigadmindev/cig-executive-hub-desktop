@@ -103,7 +103,7 @@ service cloud.firestore {
       // Everyone with the restaurant sees the status - "has this been paid"
       // is the question that generates the chasing.
       allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
-      allow create: if isSignedIn() && request.resource.data.brandId in myBrands()
+      allow create: if (isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands()))
         && request.resource.data.paidByUid == null
         && request.resource.data.claimedByUid == null;
       // Claiming and paying only. The invoice itself does not change once
