@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import DatePickerField from '../components/DatePickerField';
 import { useAuth } from '../context/AuthContext';
 import {
   useExpenses,
@@ -477,13 +478,7 @@ export default function ExpensesScreen() {
               </select>
 
               <p style={styles.label}>Date spent</p>
-              <input
-                style={styles.input}
-                type="date"
-                value={dateSpent}
-                max={today}
-                onChange={(e) => setDateSpent(e.target.value)}
-              />
+              <DatePickerField value={dateSpent} onChange={setDateSpent} max={today} placeholder="Date spent" />
 
               <p style={styles.label}>Reason</p>
               <textarea

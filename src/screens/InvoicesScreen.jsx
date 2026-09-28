@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import DatePickerField from '../components/DatePickerField';
 import { useAuth } from '../context/AuthContext';
 import { useInvoices } from '../context/InvoicesContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
@@ -207,7 +208,7 @@ export default function InvoicesScreen() {
             <input style={styles.input} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" inputMode="decimal" />
 
             <label style={styles.label}>Due date</label>
-            <input style={styles.input} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <DatePickerField value={dueDate} onChange={setDueDate} placeholder="Due date" />
 
             <label style={styles.label}>Anything they should know</label>
             <textarea style={{ ...styles.input, ...styles.textarea }} value={note} onChange={(e) => setNote(e.target.value)} />

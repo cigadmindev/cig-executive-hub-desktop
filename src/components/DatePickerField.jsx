@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 // value/onChange work with plain 'YYYY-MM-DD' strings, same as a native
 // date input, so this drops in wherever one was used before.
-export default function DatePickerField({ value, onChange, placeholder = 'Select date' }) {
+export default function DatePickerField({ value, onChange, placeholder = 'Select date', min, max }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const selected = value ? new Date(`${value}T00:00:00`) : null;
@@ -23,7 +23,19 @@ export default function DatePickerField({ value, onChange, placeholder = 'Select
   const today = new Date();
   const cells = [...Array(firstDayOfMonth).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
 
+  // Both are 'YYYY-MM-DD', same as value - so a caller passes what it would
+  // have passed a native input.
+  const isoFor = (day) => {
+    const d = new Date(year, month, day);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const outOfRange = (day) => {
+    const iso = isoFor(day);
+    return (min && iso < min) || (max && iso > max);
+  };
+
   const pick = (day) => {
+    if (outOfRange(day)) return;
     const d = new Date(year, month, day);
     const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     onChange(iso);
@@ -65,12 +77,15 @@ export default function DatePickerField({ value, onChange, placeholder = 'Select
               const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
               const isSelected =
                 !!selected && selected.getFullYear() === year && selected.getMonth() === month && selected.getDate() === day;
+              const blocked = outOfRange(day);
               return (
                 <button
                   key={day}
                   type="button"
+                  disabled={blocked}
                   style={{
                     ...styles.cell,
+                    ...(blocked ? { opacity: 0.3, cursor: 'default' } : {}),
                     ...styles.dayButton,
                     ...(isSelected ? styles.daySelected : {}),
                     ...(isToday && !isSelected ? styles.dayToday : {}),
