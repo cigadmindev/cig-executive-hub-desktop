@@ -24,7 +24,9 @@ const GROUPS = [
 
 export default function CateringScreen() {
   const { user } = useAuth();
-  const { enquiries, claim, setStatus, update, markInvoiced, markPaid } = useCatering();
+  const { enquiries, claim, setStatus, update, correct, markInvoiced, markPaid } = useCatering();
+  const [editing, setEditing] = useState(null);
+  const [fix, setFix] = useState({});
   const { dialogNode, confirm, notify } = useDialog();
   const [openId, setOpenId] = useState(null);
   const [showDone, setShowDone] = useState(false);
@@ -204,6 +206,16 @@ export default function CateringScreen() {
 
               <button
                 style={styles.quiet}
+                onClick={() => {
+                  setFix({ ...e });
+                  setEditing(e.id);
+                }}
+              >
+                Correct the details
+              </button>
+
+              <button
+                style={styles.quiet}
                 onClick={() =>
                   confirm({
                     title: 'They are not going ahead?',
@@ -251,6 +263,79 @@ export default function CateringScreen() {
         </>
       ) : null}
 
+      {editing ? (
+        <div style={styles.backdrop} onClick={() => setEditing(null)}>
+          <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Correct the details</h2>
+            <p style={styles.hint}>
+              What the form collected is whatever they typed. Fix anything that came through wrong — what they
+              originally sent is kept on the record.
+            </p>
+
+            {[
+              ['name', 'Name'],
+              ['email', 'Email'],
+              ['phone', 'Phone'],
+              ['organisation', 'Organisation'],
+              ['occasion', 'Occasion'],
+              ['guests', 'Guests'],
+              ['preferredDateText', 'Date'],
+              ['preferredTime', 'Time'],
+              ['space', 'Space'],
+              ['style', 'Style'],
+              ['fulfilment', 'Pick-up or delivery'],
+              ['address', 'Address'],
+            ].map(([key, label]) => (
+              <React.Fragment key={key}>
+                <label style={styles.fieldLabel}>{label}</label>
+                <input
+                  style={styles.input}
+                  value={fix[key] ?? ''}
+                  onChange={(ev) => setFix({ ...fix, [key]: ev.target.value })}
+                />
+              </React.Fragment>
+            ))}
+
+            <label style={styles.fieldLabel}>What they wrote</label>
+            <textarea
+              style={{ ...styles.input, ...styles.textarea }}
+              value={fix.about ?? ''}
+              onChange={(ev) => setFix({ ...fix, about: ev.target.value })}
+            />
+
+            <div style={styles.modalButtons}>
+              <button style={styles.quiet} onClick={() => setEditing(null)}>
+                Cancel
+              </button>
+              <button
+                style={styles.button}
+                onClick={async () => {
+                  const { id, ...fields } = fix;
+                  await correct(editing, {
+                    name: fields.name ?? '',
+                    email: fields.email ?? '',
+                    phone: fields.phone ?? '',
+                    organisation: fields.organisation ?? '',
+                    occasion: fields.occasion ?? '',
+                    guests: fields.guests ?? '',
+                    preferredDateText: fields.preferredDateText ?? '',
+                    preferredTime: fields.preferredTime ?? '',
+                    space: fields.space ?? '',
+                    style: fields.style ?? '',
+                    about: fields.about ?? '',
+                    fulfilment: fields.fulfilment ?? '',
+                    address: fields.address ?? '',
+                  });
+                  setEditing(null);
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {dialogNode}
     </div>
   );
@@ -287,6 +372,12 @@ const styles = {
 
   actions: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   button: { display: 'inline-block', padding: '7px 12px', borderRadius: 9, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'none' },
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 },
+  modal: { width: 'min(420px, 100%)', maxHeight: '86vh', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 },
+  modalTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
+  fieldLabel: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, marginTop: 10 },
+  hint: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '0 0 6px' },
+  modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
   quiet: { padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   showDone: { background: 'none', border: 'none', padding: '8px 0', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' },
 };

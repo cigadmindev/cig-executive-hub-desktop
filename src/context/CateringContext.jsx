@@ -81,6 +81,8 @@ export function CateringProvider({ children }) {
               invoicedAt: x.invoicedAt ?? null,
               paidAt: x.paidAt ?? null,
               createdAt: x.createdAt ?? 0,
+              asReceived: x.asReceived ?? null,
+              correctedByName: x.correctedByName ?? '',
             };
           })
         ),
@@ -103,6 +105,35 @@ export function CateringProvider({ children }) {
       paidAt: null,
       createdAt: Date.now(),
       addedByHand: true,
+    });
+  };
+
+  // The form carries whatever the customer typed - "2040" for twenty to
+  // forty people, a date in the wrong year, a misspelt address. What is shown
+  // is the corrected version; the original is kept quietly on the record, so
+  // a misunderstanding can still be traced without cluttering the card.
+  const correct = async (id, fields) => {
+    const existing = enquiries.find((e) => e.id === id);
+    const original = existing?.asReceived ?? {
+      name: existing?.name ?? '',
+      email: existing?.email ?? '',
+      phone: existing?.phone ?? '',
+      organisation: existing?.organisation ?? '',
+      occasion: existing?.occasion ?? '',
+      guests: existing?.guests ?? '',
+      preferredDateText: existing?.preferredDateText ?? '',
+      preferredTime: existing?.preferredTime ?? '',
+      space: existing?.space ?? '',
+      style: existing?.style ?? '',
+      about: existing?.about ?? '',
+      fulfilment: existing?.fulfilment ?? '',
+      address: existing?.address ?? '',
+    };
+    await updateDoc(doc(db, COLLECTION, id), {
+      ...fields,
+      asReceived: original,
+      correctedByName: user?.name ?? '',
+      correctedAt: Date.now(),
     });
   };
 
@@ -134,7 +165,7 @@ export function CateringProvider({ children }) {
 
   return (
     <CateringContext.Provider
-      value={{ enquiries: visible, addEnquiry, update, claim, setStatus, markInvoiced, markPaid }}
+      value={{ enquiries: visible, addEnquiry, update, correct, claim, setStatus, markInvoiced, markPaid }}
     >
       {children}
     </CateringContext.Provider>
