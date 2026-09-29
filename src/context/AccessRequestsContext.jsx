@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc , query, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 
@@ -16,7 +16,14 @@ export function AccessRequestsProvider({ children }) {
       setRequests([]);
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
+    // Reviewers see everything; everyone else sees their own, which is all
+    // the rule allows them to read anyway.
+    const reviews = user.role === 'admin' || user.role === 'executive';
+    const source = reviews
+      ? collection(db, COLLECTION)
+      : query(collection(db, COLLECTION), where('userEmail', '==', user.email));
+
+    const unsubscribe = onSnapshot(source, (snapshot) => {
       const list = snapshot.docs.map((d) => {
         const data = d.data();
         return {

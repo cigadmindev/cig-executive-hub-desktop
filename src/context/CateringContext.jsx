@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 
@@ -29,8 +29,18 @@ export function CateringProvider({ children }) {
       setEnquiries([]);
       return;
     }
+    const seesAll = user.role === 'admin' || user.role === 'executive';
+    const mine = user.permissions?.brandIds ?? [];
+    if (!seesAll && mine.length === 0) {
+      setEnquiries([]);
+      return;
+    }
+    const source = seesAll
+      ? query(collection(db, COLLECTION), orderBy('createdAt', 'desc'))
+      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)), orderBy('createdAt', 'desc'));
+
     return onSnapshot(
-      query(collection(db, COLLECTION), orderBy('createdAt', 'desc')),
+      source,
       (snapshot) =>
         setEnquiries(
           snapshot.docs.map((d) => {

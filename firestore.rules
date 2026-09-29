@@ -5,6 +5,12 @@ service cloud.firestore {
       return request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
+    // Here with the other shared helpers: rules resolve top to bottom, and
+    // this was previously defined below the rules that use it.
+    function myBrands() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.brandIds;
+    }
+
     function isAdminOrExecutive() {
       return request.auth != null &&
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
@@ -115,22 +121,27 @@ service cloud.firestore {
     // Who looks after catering and events at a location. Ann Marie should
     // not be reading Starkville's enquiries, and vice versa - the narrowing
     // within a restaurant is enforced in the app, as elsewhere.
-    function handlesEvents() {
-      let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return p.role == 'admin' || p.role == 'executive'
-        || p.job == 'General Manager' || p.job == 'Assistant Manager'
-        || p.job == 'Executive Chef' || p.job == 'Sous Chef'
-        || p.job == 'Catering & Events';
+    function eventsProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Looks after this side of things at a restaurant they have. One profile
+    // read, since two in a single rule is enough to fail.
+    function handlesEventsFor(brandId) {
+      let p = eventsProfile();
+      return (p.role == 'admin' || p.role == 'executive')
+        || ((p.job == 'General Manager' || p.job == 'Assistant Manager'
+             || p.job == 'Executive Chef' || p.job == 'Sous Chef'
+             || p.job == 'Catering & Events')
+            && brandId in p.permissions.brandIds);
     }
 
     match /cateringEnquiries/{id} {
-      allow read: if isAdminOrExecutive()
-        || (handlesEvents() && resource.data.brandId in myBrands());
+      allow read: if handlesEventsFor(resource.data.brandId);
       // Written by the function that reads the mailbox, and by anyone adding
       // one that came in by phone.
-      allow create: if handlesEvents();
-      allow update: if isAdminOrExecutive()
-        || (handlesEvents() && resource.data.brandId in myBrands());
+      allow create: if handlesEventsFor(request.resource.data.brandId);
+      allow update: if handlesEventsFor(resource.data.brandId);
       allow delete: if isAdmin();
     }
 
@@ -436,9 +447,6 @@ service cloud.firestore {
     // Every contact carries the restaurant it belongs to, so reads can be
     // limited to the restaurants someone actually has. Before this, every
     // location's contacts sat in every browser.
-    function myBrands() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions.brandIds;
-    }
 
     match /openingOngoingContacts/{id} {
       allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());

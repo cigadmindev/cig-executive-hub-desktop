@@ -9,7 +9,7 @@ import { nike } from '../theme/nike';
 // The conversation stays in email - that is the right tool for gathering
 // details. What lives here is where each one stands, what was agreed on the
 // phone, and who is handling it, so nobody has to ask.
-const MENU_URL = 'https://drive.google.com/drive/folders/1GX2vfJlL5r-Uekwjw7oEma2jksWqH_O-';
+const MENU_URL = 'https://drive.google.com/drive/u/1/folders/1pynbcFvlkT0bymTd-HTrcFTzp72TjTqc';
 
 const dateText = (t, fallback) => {
   if (!t) return fallback || 'No date';
@@ -46,7 +46,10 @@ export default function CateringScreen() {
   // Opens a reply in Gmail with the address filled in - the thread belongs in
   // email, not here.
   const mailto = (e, subject, body) =>
-    `mailto:${e.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    'https://mail.google.com/mail/?view=cm&fs=1' +
+    '&to=' + encodeURIComponent(e.email) +
+    '&su=' + encodeURIComponent(subject) +
+    '&body=' + encodeURIComponent(body);
 
   const card = (e) => {
     const isOpen = openId === e.id;
@@ -83,7 +86,12 @@ export default function CateringScreen() {
             <p style={styles.sectionLabel}>Them</p>
             <div style={styles.contactRow}>
               {e.email ? (
-                <a href={'mailto:' + e.email} style={styles.contact}>
+                <a
+                  href={'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(e.email)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={styles.contact}
+                >
                   {e.email}
                 </a>
               ) : null}
@@ -142,6 +150,8 @@ export default function CateringScreen() {
             <div style={styles.actions}>
               <a
                 href={mailto(e, `Your ${isCatering ? 'catering order' : 'event'} at Taste ${e.locationName}`, `Hi ${(e.name || '').split(' ')[0]},\n\n`)}
+                target="_blank"
+                rel="noreferrer"
                 style={styles.button}
               >
                 Reply
@@ -154,6 +164,8 @@ export default function CateringScreen() {
                     'Taste Italian Kitchen — catering menu',
                     `Hi ${(e.name || '').split(' ')[0]},\n\nThanks for getting in touch. Have you had a chance to look at our catering menu? You can see it here:\n\n${MENU_URL}\n\nLet me know what you would like and I will take it from there.\n\n`
                   )}
+                  target="_blank"
+                  rel="noreferrer"
                   style={styles.button}
                 >
                   Send the menu

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy , where } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes } from 'firebase/storage';
 import { db, storage, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
@@ -28,8 +28,18 @@ export function InvoicesProvider({ children }) {
       setInvoices([]);
       return;
     }
+    const seesAll = user.role === 'admin' || user.role === 'executive';
+    const mine = user.permissions?.brandIds ?? [];
+    if (!seesAll && mine.length === 0) {
+      setInvoices([]);
+      return;
+    }
+    const source = seesAll
+      ? query(collection(db, COLLECTION), orderBy('createdAt', 'desc'))
+      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)), orderBy('createdAt', 'desc'));
+
     return onSnapshot(
-      query(collection(db, COLLECTION), orderBy('createdAt', 'desc')),
+      source,
       (snapshot) =>
         setInvoices(
           snapshot.docs.map((d) => {
