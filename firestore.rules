@@ -105,6 +105,13 @@ service cloud.firestore {
       return p.role == 'admin' || p.job == 'COO';
     }
 
+    // The HR page: form links and contacts, kept here so a changed contact
+    // or a moved folder does not need a deploy.
+    match /appSettings/hr {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /deviceRequests/{id} {
       allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
       // Raised as yourself, and always starting at the beginning.

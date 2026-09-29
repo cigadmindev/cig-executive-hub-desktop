@@ -52,6 +52,8 @@ import { NotificationsProvider } from './context/NotificationsContext';
 import { InvoicesProvider } from './context/InvoicesContext';
 import { DeviceRequestsProvider } from './context/DeviceRequestsContext';
 import DeviceRequestsScreen from './screens/DeviceRequestsScreen';
+import EmergencyScreen from './screens/EmergencyScreen';
+import HRScreen from './screens/HRScreen';
 import InvoicesScreen from './screens/InvoicesScreen';
 import OffboardingScreen from './screens/OffboardingScreen';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
@@ -118,6 +120,8 @@ function Gate() {
         <Route path="/expenses" element={<RequireFeature feature="expenses"><ExpensesScreen /></RequireFeature>} />
         <Route path="/invoices" element={<InvoicesScreen />} />
         <Route path="/device-requests" element={<DeviceRequestsScreen />} />
+        <Route path="/emergency" element={<EmergencyScreen />} />
+        <Route path="/hr" element={<HRScreen />} />
         <Route path="/reset-app-data" element={<ResetAppDataScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

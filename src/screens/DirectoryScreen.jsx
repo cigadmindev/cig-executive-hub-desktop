@@ -58,6 +58,20 @@ export default function DirectoryScreen() {
       onClick: () => navigate('/integration-requests'),
     },
     {
+      key: 'emergency',
+      icon: 'phone',
+      title: 'Emergency Procedures',
+      subtitle: 'What to do when something happens',
+      onClick: () => navigate('/emergency'),
+    },
+    {
+      key: 'hr',
+      icon: 'person',
+      title: 'HR',
+      subtitle: 'Forms, and who to talk to',
+      onClick: () => navigate('/hr'),
+    },
+    {
       key: 'deviceRequests',
       icon: 'cpu',
       title: 'Device Requests',
