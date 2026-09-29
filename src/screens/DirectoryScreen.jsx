@@ -66,7 +66,7 @@ export default function DirectoryScreen() {
     },
     {
       key: 'hr',
-      icon: 'person',
+      icon: 'clipboard',
       title: 'HR',
       subtitle: 'Forms, and who to talk to',
       onClick: () => navigate('/hr'),
