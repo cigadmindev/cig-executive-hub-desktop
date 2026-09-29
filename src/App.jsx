@@ -51,6 +51,8 @@ import { OffboardingProvider } from './context/OffboardingContext';
 import { NotificationsProvider } from './context/NotificationsContext';
 import { InvoicesProvider } from './context/InvoicesContext';
 import { DeviceRequestsProvider } from './context/DeviceRequestsContext';
+import { CateringProvider } from './context/CateringContext';
+import CateringScreen from './screens/CateringScreen';
 import DeviceRequestsScreen from './screens/DeviceRequestsScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
 import HRScreen from './screens/HRScreen';
@@ -120,6 +122,7 @@ function Gate() {
         <Route path="/expenses" element={<RequireFeature feature="expenses"><ExpensesScreen /></RequireFeature>} />
         <Route path="/invoices" element={<InvoicesScreen />} />
         <Route path="/device-requests" element={<DeviceRequestsScreen />} />
+        <Route path="/catering" element={<CateringScreen />} />
         <Route path="/emergency" element={<EmergencyScreen />} />
         <Route path="/hr" element={<HRScreen />} />
         <Route path="/reset-app-data" element={<ResetAppDataScreen />} />
@@ -145,6 +148,7 @@ function Providers({ children }) {
       {/* Reads role and job to decide whether this account sees everyone's
           receipts or only its own, so it sits inside AuthProvider. */}
       <IntegrationRequestsProvider>
+      <CateringProvider>
       <DeviceRequestsProvider>
       <InvoicesProvider>
       <NotificationsProvider>
@@ -191,6 +195,7 @@ function Providers({ children }) {
       </NotificationsProvider>
       </InvoicesProvider>
       </DeviceRequestsProvider>
+      </CateringProvider>
       </IntegrationRequestsProvider>
       </ExecutiveNotesProvider>
       </WorkOrdersProvider>

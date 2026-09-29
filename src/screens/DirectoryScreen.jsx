@@ -58,6 +58,13 @@ export default function DirectoryScreen() {
       onClick: () => navigate('/integration-requests'),
     },
     {
+      key: 'catering',
+      icon: 'utensils',
+      title: 'Catering & Events',
+      subtitle: 'Enquiries, and where each one stands',
+      onClick: () => navigate('/catering'),
+    },
+    {
       key: 'emergency',
       icon: 'phone',
       title: 'Emergency Procedures',
