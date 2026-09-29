@@ -81,6 +81,7 @@ export function CateringProvider({ children }) {
               invoicedAt: x.invoicedAt ?? null,
               paidAt: x.paidAt ?? null,
               createdAt: x.createdAt ?? 0,
+              calendarEntryId: x.calendarEntryId ?? null,
               asReceived: x.asReceived ?? null,
               correctedByName: x.correctedByName ?? '',
             };
@@ -144,7 +145,42 @@ export function CateringProvider({ children }) {
   const claim = async (id) =>
     update(id, { ownerUid: auth.currentUser?.uid ?? null, ownerName: user?.name ?? '', status: 'talking' });
 
-  const setStatus = async (id, status) => update(id, { status });
+  const setStatus = async (id, status) => {
+    const e = enquiries.find((x) => x.id === id);
+    await update(id, { status });
+    if (status !== 'confirmed' || !e || e.calendarEntryId) return;
+
+    // Everything someone working the event would otherwise have to ask for.
+    const lines = [
+      e.kind === 'catering'
+        ? [e.fulfilment, e.address].filter(Boolean).join(' to ')
+        : [e.space, e.style].filter(Boolean).join(' · '),
+      (e.finalGuests || e.guests) ? (e.finalGuests || e.guests) + ' guests' : '',
+      e.minimum ? (e.kind === 'catering' ? 'Order ' : 'Minimum ') + e.minimum : '',
+      e.details,
+      [e.name, e.phone].filter(Boolean).join(' · '),
+    ].filter(Boolean);
+
+    const when = e.preferredDate ?? Date.now();
+    const entry = await addDoc(collection(db, 'schedules'), {
+      locationId: e.locationId,
+      brandId: e.brandId,
+      title: (e.kind === 'catering' ? 'Catering — ' : '') + (e.occasion || e.name || 'Event'),
+      note: lines.join('\n'),
+      dateTime: when,
+      authorName: user?.name ?? '',
+      authorUid: auth.currentUser?.uid ?? null,
+      timestamp: Date.now(),
+      // The people who need to know it is happening.
+      needs: ['General Manager', 'Assistant Manager', 'Executive Chef', 'Sous Chef'],
+      notifyUids: [],
+      done: false,
+      doneBy: null,
+      doneAt: null,
+      attentionFlag: false,
+    });
+    await update(id, { calendarEntryId: entry.id });
+  };
 
   const markInvoiced = async (id) => update(id, { invoicedAt: Date.now() });
   const markPaid = async (id) => update(id, { paidAt: Date.now() });
