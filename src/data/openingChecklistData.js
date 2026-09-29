@@ -78,7 +78,7 @@ export const INITIAL_SETUP_WINDOW = { windowStartDaysBefore: 120, windowEndDaysB
 export const PRE_OPENING_ORDERS_SECTIONS = [
   {
     key: 'marketing_social',
-    label: 'Marketing / Social Media',
+    label: 'Marketing — Pre-Opening Setup',
     items: [
       'Pre-Open Marketing Info To',
       'Establish w/ Google Address/Info',
@@ -146,7 +146,7 @@ export const PRE_OPENING_ORDERS_SECTIONS = [
 export const OPERATIONAL_POC_SECTIONS = [
   {
     key: 'marketing_media',
-    label: 'Marketing / Media',
+    label: 'Marketing — Ongoing Contacts',
     items: ['Social Media: All', 'Videographer/Photography'],
   },
   {
@@ -169,12 +169,25 @@ export const OPERATIONAL_POC_SECTIONS = [
       'Grease Bin',
       'Specialty Vendor 1',
       'Specialty Vendor 2',
+      'Plumber',
+      'Electrician',
+      'HVAC Company',
+      'Power Company',
+      'Property Manager',
+      'Insurance Company',
+      'Payroll Provider',
+      'Workers Comp',
+      'Background Checks',
+      'Staffing Agency',
+      'POS / Toast Rep',
+      'Third-Party Delivery (Uber, DoorDash, Grub Hub)',
+      'Alarm Company',
+      'Music System Provider',
+      'Soda / CO2 Delivery',
+      'Uniform Supplier',
+      'Banking / Accounting',
+      'Valet Service',
     ],
-  },
-  {
-    key: 'hr_staffing',
-    label: 'HR / Staffing',
-    items: ['HR Contact', 'Payroll Provider', 'Background Checks', 'Staffing Agency', 'Workers Comp'],
   },
   {
     key: 'other_tasks_numbers',
