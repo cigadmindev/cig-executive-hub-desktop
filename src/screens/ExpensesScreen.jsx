@@ -187,12 +187,15 @@ export default function ExpensesScreen() {
   const grouped = useMemo(() => {
     // Finance saw only receipts dated today, so one submitted this morning for
     // something bought a fortnight ago appeared nowhere - which looks exactly
-    // like a receipt that failed to save. Fourteen days, by the date spent.
+    // like a receipt that failed to save.
     // By when it was submitted, not when it was spent: a receipt handed in
     // this morning for work done in September is new and should be seen, while
     // a September receipt submitted in September is not.
-    const since = Date.now() - 14 * 24 * 60 * 60 * 1000;
-    const visible = seesAll ? receipts.filter((r) => (r.submittedAt ?? 0) >= since) : receipts;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const visible = seesAll
+      ? receipts.filter((r) => (r.submittedAt ?? 0) >= startOfToday.getTime())
+      : receipts;
     const byDate = {};
     for (const r of visible) {
       (byDate[r.dateSpent] = byDate[r.dateSpent] || []).push(r);
