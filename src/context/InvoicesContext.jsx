@@ -28,15 +28,16 @@ export function InvoicesProvider({ children }) {
       setInvoices([]);
       return;
     }
-    const seesAll = user.role === 'admin' || user.role === 'executive';
-    const mine = user.permissions?.brandIds ?? [];
-    if (!seesAll && mine.length === 0) {
-      setInvoices([]);
-      return;
-    }
+    // Matches the rule: the whole list for whoever pays, your own otherwise.
+    const seesAll =
+      user.role === 'admin' || user.job === 'Financials' || user.job === 'Owner' || user.job === 'COO';
     const source = seesAll
       ? query(collection(db, COLLECTION), orderBy('createdAt', 'desc'))
-      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)), orderBy('createdAt', 'desc'));
+      : query(
+          collection(db, COLLECTION),
+          where('submittedByUid', '==', auth.currentUser?.uid ?? '-'),
+          orderBy('createdAt', 'desc')
+        );
 
     return onSnapshot(
       source,
