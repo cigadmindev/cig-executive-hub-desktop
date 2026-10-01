@@ -185,7 +185,11 @@ export default function ExpensesScreen() {
 
   const today = centralDateKey(new Date());
   const grouped = useMemo(() => {
-    const visible = seesAll ? receipts.filter((r) => r.dateSpent === today) : receipts;
+    // Finance saw only receipts dated today, so one submitted this morning for
+    // something bought a fortnight ago appeared nowhere - which looks exactly
+    // like a receipt that failed to save. Fourteen days, by the date spent.
+    const since = centralDateKey(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000));
+    const visible = seesAll ? receipts.filter((r) => r.dateSpent >= since) : receipts;
     const byDate = {};
     for (const r of visible) {
       (byDate[r.dateSpent] = byDate[r.dateSpent] || []).push(r);
@@ -198,7 +202,7 @@ export default function ExpensesScreen() {
         // Voided receipts are shown but never counted.
         total: byDate[key].reduce((sum, r) => sum + (r.voided ? 0 : r.amountCents), 0),
       }));
-  }, [receipts, seesAll, today]);
+  }, [receipts, seesAll]);
 
   const isAdmin = user?.role === 'admin';
 
