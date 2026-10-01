@@ -50,6 +50,10 @@ export default function ExpensesScreen() {
   const [urls, setUrls] = useState({});
   const [viewing, setViewing] = useState(null);
 
+  // A receipt can be a photo or a PDF emailed by the vendor. An <img> draws
+  // nothing for the second, so it gets something to open instead.
+  const isPdf = (r) => (r?.storagePath ?? '').toLowerCase().endsWith('.pdf');
+
   // Drives the countdown. One second would be needlessly busy for something
   // measured in hours.
   const [now, setNow] = useState(Date.now());
@@ -417,7 +421,11 @@ export default function ExpensesScreen() {
                     role="button"
                   >
                     {urls[r.id] ? (
-                      <img src={urls[r.id]} alt="" style={styles.thumb} />
+                      isPdf(r) ? (
+                        <span style={styles.pdfThumb}>PDF</span>
+                      ) : (
+                        <img src={urls[r.id]} alt="" style={styles.thumb} />
+                      )
                     ) : (
                       <div style={{ ...styles.thumb, ...styles.thumbEmpty }}>
                         {r.imageDeletedAt ? 'No photo' : '—'}
@@ -572,7 +580,18 @@ export default function ExpensesScreen() {
         <div style={styles.modalBackdrop}>
           <div style={styles.viewerCard}>
             {urls[viewing.id] ? (
-              <img src={urls[viewing.id]} alt="" style={styles.viewerImage} />
+              isPdf(viewing) ? (
+                <a
+                  href={urls[viewing.id]}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={styles.pdfOpen}
+                >
+                  Open the PDF
+                </a>
+              ) : (
+                <img src={urls[viewing.id]} alt="" style={styles.viewerImage} />
+              )
             ) : (
               <p style={styles.hint}>
                 {viewing.imageDeletedAt
@@ -665,6 +684,8 @@ const styles = {
   cardVoided: { opacity: 0.5 },
   cardMain: { display: 'flex', alignItems: 'center', gap: 14, padding: 13, cursor: 'pointer' },
   cardText: { flex: 1, minWidth: 0 },
+  pdfThumb: { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 8, background: 'var(--bg-inset)', color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 800, letterSpacing: 0.5 },
+  pdfOpen: { display: 'inline-block', padding: '12px 20px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 14, fontWeight: 700, textDecoration: 'none' },
   thumb: {
     width: 52,
     height: 52,

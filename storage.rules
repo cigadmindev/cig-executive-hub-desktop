@@ -100,7 +100,9 @@ service firebase.storage {
       allow create: if request.auth != null
         && request.auth.uid == uid
         && request.resource.size < 12 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf'
+            || request.resource.contentType == 'application/octet-stream');
       allow update, delete: if false;
     }
 
