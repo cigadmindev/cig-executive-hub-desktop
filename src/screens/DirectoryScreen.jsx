@@ -30,6 +30,13 @@ export default function DirectoryScreen() {
   const canPostAnnouncements = user?.role === 'admin' || user?.role === 'executive';
   const anyPendingAccessRequests = accessRequests.some((r) => r.status === 'pending');
 
+  const GROUPS = [
+    { label: 'Day to day', keys: ['catering', 'availability', 'expenses', 'waresInventory'] },
+    { label: 'Requests', keys: ['integrationRequests', 'deviceRequests', 'invoices', 'workOrders'] },
+    { label: 'Reference', keys: ['hr', 'emergency'] },
+    { label: 'Executive', keys: ['executiveNotes', 'announcement', 'pendingRequests'] },
+  ];
+
   const items = [
     {
       key: 'availability',
@@ -138,41 +145,64 @@ export default function DirectoryScreen() {
   return (
     <div style={styles.page}>
       <h1 style={{ ...styles.title, ...nike.pageTitle }}>Directory</h1>
-      <div style={styles.grid}>
+      <div>
         {/* Filtered once here rather than at each tile - the array is built
             with conditional pushes, so one filter at the render is the only
             place that catches every route in. */}
-        {items
-          // Tile keys are camelCase here and the feature list uses its own
-          // names, so they are mapped rather than renamed. A tile absent from
-          // the map is ungated and always shown.
-          .filter((item) => {
+        {(() => {
+          // Filtered once here rather than at each tile - the array is built
+          // with conditional pushes, so one filter at the render is the only
+          // place that catches every route in.
+          const visible = items.filter((item) => {
+            // Tile keys are camelCase here and the feature list uses its own
+            // names, so they are mapped rather than renamed. A tile absent
+            // from the map is ungated and always shown.
             const feature = {
               availability: 'availability',
               workOrders: 'workOrders',
               expenses: 'expenses',
               support: 'support',
             }[item.key];
-            // Request an Update is deliberately not in that map: anyone should
-            // be able to say a till is behaving oddly.
+            // Systems Help is deliberately not in that map: anyone should be
+            // able to say a till is behaving oddly.
             if (!feature) return true;
             return hasFeature(user, feature);
-          })
-          .map((item) => (
-          <button key={item.key} data-card="" style={{ ...styles.card, ...nike.card }} onClick={item.onClick}>
-            <div style={styles.iconCircle}>
-              <Icon name={item.icon} color="var(--neon)" />
-            </div>
-            <div style={styles.textCol}>
-              <div style={styles.cardTitleRow}>
-                <span style={styles.cardTitle}>{item.title}</span>
-                {item.comingSoon ? <span style={styles.soonPill}>SOON</span> : null}
+          });
+
+          const card = (item) => (
+            <button key={item.key} data-card="" style={{ ...styles.card, ...nike.card }} onClick={item.onClick}>
+              <div style={styles.iconCircle}>
+                <Icon name={item.icon} color="var(--neon)" />
               </div>
-              <span style={styles.cardSubtitle}>{item.subtitle}</span>
+              <div style={styles.textCol}>
+                <div style={styles.cardTitleRow}>
+                  <span style={styles.cardTitle}>{item.title}</span>
+                  {item.comingSoon ? <span style={styles.soonPill}>SOON</span> : null}
+                </div>
+                <span style={styles.cardSubtitle}>{item.subtitle}</span>
+              </div>
+              {item.badge ? <span style={styles.badgeDot} /> : null}
+            </button>
+          );
+
+          const grouped = GROUPS.map((g) => ({
+            label: g.label,
+            tiles: g.keys.map((k) => visible.find((i) => i.key === k)).filter(Boolean),
+          })).filter((g) => g.tiles.length > 0);
+
+          // Anything new that nobody has put in a group yet still appears,
+          // rather than quietly vanishing from the page.
+          const placed = new Set(GROUPS.flatMap((g) => g.keys));
+          const rest = visible.filter((i) => !placed.has(i.key));
+          if (rest.length > 0) grouped.push({ label: 'Everything else', tiles: rest });
+
+          return grouped.map((g) => (
+            <div key={g.label} style={styles.group}>
+              <p style={styles.groupLabel}>{g.label}</p>
+              <div style={styles.grid}>{g.tiles.map(card)}</div>
             </div>
-            {item.badge ? <span style={styles.badgeDot} /> : null}
-          </button>
-        ))}
+          ));
+        })()}
       </div>
       {dialogNode}
     </div>
@@ -182,6 +212,8 @@ export default function DirectoryScreen() {
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 720 },
   title: { fontSize: 24, fontWeight: 700, margin: '0 0 20px' },
+  group: { marginBottom: 24 },
+  groupLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 10px' },
   grid: { display: 'flex', flexDirection: 'column', gap: 12 },
   card: {
     display: 'flex',

@@ -23,7 +23,6 @@ const ZONE = 'America/Chicago';
 const FORWARDER_LOCATIONS = {
   'sarah@tasteitaliankitchen.com': { locationId: 'taste-starkville', locationName: 'Starkville', brandId: 'taste', brandName: 'Taste Italian Kitchen' },
   'annmarie@tasteitaliankitchen.com': { locationId: 'taste-ridgeland', locationName: 'Ridgeland', brandId: 'taste', brandName: 'Taste Italian Kitchen' },
-  'annmari@tasteitaliankitchen.com': { locationId: 'taste-ridgeland', locationName: 'Ridgeland', brandId: 'taste', brandName: 'Taste Italian Kitchen' },
 };
 
 // The form's own labels, as they appear in the table.
