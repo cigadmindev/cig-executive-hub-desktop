@@ -131,6 +131,7 @@ exports.closeExpenseDay = onSchedule(
       generatedAt: Date.now(),
       // Stays until collected. See the note at the top of this file.
       downloadedAt: null,
+      kind: 'daily',
       downloadedBy: null,
     });
 
@@ -300,6 +301,33 @@ exports.confirmExpenseReportDownloaded = onCall(async (request) => {
       downloadedByUids: [...existing, request.auth.uid],
       downloadedByNames: [...(snap.data().downloadedByNames ?? []), p.name ?? 'Unknown'],
     });
+
+    // A monthly report covers the same receipts as that month's dailies, so
+    // collecting it collects them - rather than leaving a row of red dots for
+    // data already in hand.
+    if (snap.data().kind === 'monthly') {
+      const monthKey = (snap.id || '').replace('-monthly', '');
+      const dailies = await db
+        .collection(REPORTS)
+        .where('kind', '==', 'daily')
+        .get();
+      const batch = db.batch();
+      let marked = 0;
+      dailies.forEach((d) => {
+        if (!d.id.startsWith(monthKey)) return;
+        const already = d.data().downloadedByUids ?? [];
+        if (already.includes(request.auth.uid)) return;
+        batch.update(d.ref, {
+          downloadedByUids: [...already, request.auth.uid],
+          downloadedByNames: [...(d.data().downloadedByNames ?? []), p.name ?? 'Unknown'],
+        });
+        marked++;
+      });
+      if (marked > 0) {
+        await batch.commit();
+        console.log('Collecting ' + monthKey + ' also collected ' + marked + ' daily report(s).');
+      }
+    }
   }
 
   return { ok: true };

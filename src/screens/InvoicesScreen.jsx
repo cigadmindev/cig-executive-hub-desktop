@@ -233,7 +233,7 @@ export default function InvoicesScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 760 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 820 },
   headRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   title: { fontSize: 22, fontWeight: 700, margin: 0 },
   subtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 20px' },

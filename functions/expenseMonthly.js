@@ -218,3 +218,45 @@ exports.closeExpenseMonth = onSchedule(
     console.log(`Expense month ${monthKey}: ${receipts.length} receipt(s), $${money(total)}.`);
   }
 );
+
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+
+exports.rebuildMonthlyArchive = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const db = admin.firestore();
+
+  const me = await db.collection('users').doc(request.auth.uid).get();
+  if (!me.exists || me.data().role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Admins only.');
+  }
+
+  const monthKey = request.data?.monthKey;
+  if (!monthKey) throw new HttpsError('invalid-argument', 'Which month?');
+
+  const reportRef = db.collection(REPORTS).doc(monthKey + '-monthly');
+  const report = await reportRef.get();
+  if (!report.exists) throw new HttpsError('not-found', 'No report for ' + monthKey + '.');
+
+  // The same receipts that month's report covered.
+  const ghosts = await db.collection('users').where('isGhost', '==', true).get();
+  const ghostUids = new Set(ghosts.docs.map((d) => d.id));
+
+  const all = await db.collection(RECEIPTS).get();
+  const receipts = all.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((r) => (r.dateSpent ?? '').startsWith(monthKey))
+    .filter((r) => !ghostUids.has(r.submittedByUid))
+    .filter((r) => !r.voided);
+
+  const withPhotos = receipts.filter((r) => r.storagePath && !r.imageDeletedAt);
+  const archivePath = await buildReceiptArchive(receipts, monthKey);
+
+  await reportRef.update({ archivePath: archivePath ?? null });
+
+  return {
+    ok: true,
+    receipts: receipts.length,
+    photos: withPhotos.length,
+    missing: receipts.length - withPhotos.length,
+  };
+});

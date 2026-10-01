@@ -166,10 +166,18 @@ export default function ExpensesScreen() {
   // Grouped by the day the money was spent, not the day it was uploaded — a
   // receipt entered on Wednesday for Monday belongs under Monday.
   const [pastReportsOpen, setPastReportsOpen] = useState(false);
+  const [dailyOpen, setDailyOpen] = useState(false);
   const [budgetsOpen, setBudgetsOpen] = useState(false);
   const [newTargetName, setNewTargetName] = useState('');
   const uncollectedReports = reports.filter((r) => !(r.downloadedByUids ?? []).includes(user?.uid));
   const collectedReports = reports.filter((r) => (r.downloadedByUids ?? []).includes(user?.uid));
+
+  // Monthly first: it is what finance is actually doing on the first of the
+  // month. The dailies under it are the same receipts, broken down.
+  // Every month, not only the uncollected ones: the page is organised around
+  // the month, so hiding it once collected leaves nothing to orient by.
+  const monthlyReports = reports.filter((r) => r.kind === 'monthly');
+  const dailyReports = uncollectedReports.filter((r) => r.kind !== 'monthly');
 
   const today = centralDateKey(new Date());
   const grouped = useMemo(() => {
@@ -270,35 +278,83 @@ export default function ExpensesScreen() {
               Everything already collected goes in a folder - ninety days of
               daily reports on one page would bury today's under three months
               of history. */}
-          {uncollectedReports.length > 0 ? (
-            <>
-              <p style={styles.zoneLabel}>Waiting for you</p>
-              {uncollectedReports.map((r) => (
-                <div key={r.dateKey} style={styles.reportRow}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={styles.reportLabel}>
-                      {r.label}
-                      <span style={styles.reportDot} />
-                    </div>
-                    <div style={styles.reportMeta}>
-                      {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)}
-                    </div>
+          {monthlyReports.length > 0 ? <p style={styles.zoneLabel}>The month</p> : null}
+          {monthlyReports.map((r) => (
+            <div
+              key={r.dateKey}
+              style={{
+                ...styles.monthlyCard,
+                ...((r.downloadedByUids ?? []).includes(user?.uid) ? styles.monthlyCardDone : {}),
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={styles.monthlyLabel}>{r.label}</div>
+                  <div style={styles.reportMeta}>
+                    {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)} · every location
                   </div>
-                  <div style={styles.reportActions}>
-                    <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey)}>
-                      Download CSV
-                    </button>
-                    {r.archivePath ? (
-                      <button
-                        style={styles.reportButtonQuiet}
-                        onClick={() => handleDownloadReport(r.dateKey, 'photos')}
-                      >
-                        Photos
-                      </button>
-                    ) : null}
-                  </div>
+                  <div style={styles.monthlyKept}>Kept for ninety days from the day it closed.</div>
                 </div>
-              ))}
+                <span
+                  style={{
+                    ...styles.monthlyPill,
+                    ...((r.downloadedByUids ?? []).includes(user?.uid) ? styles.monthlyPillDone : {}),
+                  }}
+                >
+                  {(r.downloadedByUids ?? []).includes(user?.uid) ? 'Collected' : 'Not collected'}
+                </span>
+              </div>
+              <div style={styles.monthlyActions}>
+                <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey)}>
+                  Download the spreadsheet
+                </button>
+                {r.archivePath ? (
+                  <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey, 'photos')}>
+                    Download the photos
+                  </button>
+                ) : (
+                  <span style={styles.noPhotos}>No photo archive for this month</span>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {dailyReports.length > 0 ? (
+            <>
+              <p style={styles.zoneLabel}>Day by day</p>
+              <button style={styles.folderRow} onClick={() => setDailyOpen((v) => !v)}>
+                <span style={styles.folderChevron}>{dailyOpen ? '▾' : '▸'}</span>
+                <span style={styles.folderLabel}>
+                  {dailyReports.length} day{dailyReports.length === 1 ? '' : 's'} you have not collected
+                </span>
+                <span style={styles.folderCount}>
+                  ${formatAmount(dailyReports.reduce((sum, r) => sum + (r.totalCents ?? 0), 0))}
+                </span>
+              </button>
+
+              {dailyOpen
+                ? dailyReports.map((r) => (
+                    <div key={r.dateKey} style={{ ...styles.reportRow, ...styles.reportRowNested }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={styles.reportLabel}>
+                          {r.label}
+                          <span style={styles.reportDot} />
+                        </div>
+                        <div style={styles.reportMeta}>
+                          {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)}
+                        </div>
+                      </div>
+                      <button style={styles.reportButtonQuiet} onClick={() => handleDownloadReport(r.dateKey)}>
+                        Download CSV
+                      </button>
+                    </div>
+                  ))
+                : null}
+
+              <p style={styles.dailyNote}>
+                These are the same receipts as the monthly spreadsheet, split by day — useful for checking one
+                particular day rather than collecting separately.
+              </p>
             </>
           ) : null}
 
@@ -548,7 +604,7 @@ export default function ExpensesScreen() {
 }
 
 const styles = {
-  page: { padding: '36px max(22px, min(44px, 4vw))', maxWidth: 1040 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 820 },
   headerRow: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 },
   title: { margin: 0, flex: 1 },
   addButton: {
@@ -566,15 +622,24 @@ const styles = {
   hint: { fontSize: 13, color: 'var(--text-tertiary)', padding: '12px 0' },
 
   budgetAddRow: { display: 'flex', gap: 8, marginLeft: 20, marginBottom: 10, alignItems: 'center' },
-  folderRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'none', border: 'none', padding: '10px 2px', marginTop: 6, cursor: 'pointer', textAlign: 'left' },
+  folderRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: '15px 16px', marginBottom: 10, cursor: 'pointer', textAlign: 'left' },
   folderChevron: { color: 'var(--text-tertiary)', fontSize: 11 },
   folderLabel: { flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' },
   folderCount: { fontSize: 12, color: 'var(--text-tertiary)' },
-  reportRowNested: { marginLeft: 20 },
+  reportRowNested: { marginLeft: 20, marginTop: 10, marginBottom: 10 },
   reportActions: { display: 'flex', gap: 8, alignItems: 'center' },
   reportButtonQuiet: { background: 'none', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-secondary)', padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 },
-  reportsSection: { marginBottom: 30 },
-  zoneLabel: { fontSize: 12, fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', margin: '0 0 10px' },
+  reportsSection: { marginBottom: 8 },
+  monthlyCard: { background: 'var(--bg-card)', border: '1px solid rgba(34,211,238,0.35)', borderRadius: 12, padding: '16px 18px', marginBottom: 24 },
+  monthlyCardDone: { border: '1px solid var(--border)' },
+  monthlyPillDone: { color: 'var(--text-tertiary)', border: '1px solid var(--border)' },
+  monthlyLabel: { fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' },
+  monthlyKept: { fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 },
+  monthlyPill: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--neon)', border: '1px solid rgba(34,211,238,0.35)', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap' },
+  monthlyActions: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  noPhotos: { fontSize: 12, color: 'var(--text-tertiary)', alignSelf: 'center' },
+  dailyNote: { fontSize: 12, lineHeight: 1.55, color: 'var(--text-tertiary)', margin: '12px 0 0' },
+  zoneLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.7, color: 'var(--text-tertiary)', textTransform: 'uppercase', margin: '26px 0 10px' },
   reportRow: { display: 'flex', alignItems: 'center', gap: 14, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 8 },
   reportLabel: { display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' },
   reportDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--danger)' },

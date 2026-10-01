@@ -263,7 +263,7 @@ export default function EmergencyScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 680 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 820 },
   title: { fontSize: 22, fontWeight: 700, margin: 0 },
   subtitle: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)', margin: '6px 0 20px' },
 
