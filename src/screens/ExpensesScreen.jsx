@@ -470,9 +470,16 @@ export default function ExpensesScreen() {
             <div style={styles.modalScroll}>
               {previewUrl ? (
                 <div style={styles.previewWrap}>
-                  <img src={previewUrl} alt="" style={styles.preview} />
+                  {file?.type === 'application/pdf' ? (
+                    <div style={styles.preview}>
+                      <span style={styles.pdfThumb}>PDF</span>
+                      <span style={styles.pdfName}>{file.name}</span>
+                    </div>
+                  ) : (
+                    <img src={previewUrl} alt="" style={styles.preview} />
+                  )}
                   <button style={styles.clearPhoto} onClick={() => setFile(null)}>
-                    Remove photo
+                    Remove
                   </button>
                 </div>
               ) : (
@@ -757,6 +764,7 @@ const styles = {
     cursor: 'pointer',
   },
   previewWrap: { textAlign: 'center' },
+  pdfName: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 8, wordBreak: 'break-all', textAlign: 'center' },
   preview: {
     width: '100%',
     maxHeight: 220,
