@@ -48,6 +48,7 @@ export default function AdminUsersScreen() {
     users,
     addUser,
     sendPasswordReset,
+    sendWelcomeLink,
     setUserActive,
     updateUserRole,
     updateUserJob,
@@ -168,6 +169,22 @@ export default function AdminUsersScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSendWelcome = (targetEmail, targetName) => {
+    confirm({
+      title: 'Send a welcome link?',
+      body: targetName + ' will get an email with a link to set their password. It does not expire.',
+      confirmLabel: 'Send',
+      onConfirm: async () => {
+        try {
+          await sendWelcomeLink(targetEmail, targetName);
+          notify('Sent', targetName + ' can set their password whenever they get to it.');
+        } catch (err) {
+          notify('Could not send', err?.message ?? 'Something went wrong.');
+        }
+      },
+    });
   };
 
   const handleSendReset = (targetEmail, targetName) => {
@@ -326,6 +343,9 @@ export default function AdminUsersScreen() {
                         </button>
                         <button style={styles.actionButton} onClick={() => openEdit(item)}>
                           Edit access
+                        </button>
+                        <button style={styles.actionButton} onClick={() => handleSendWelcome(item.email, item.name)}>
+                          Send welcome link
                         </button>
                         <button style={styles.actionButton} onClick={() => handleSendReset(item.email, item.name)}>
                           Send password reset

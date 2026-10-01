@@ -143,6 +143,13 @@ export function AuthProvider({ children }) {
   // Firebase's own reset email can't be styled on this project and lands in
   // spam. The function generates the action link server-side and sends it
   // through Resend from our own authenticated domain.
+  // The welcome link carries a one-time token that works until it is used,
+  // unlike a reset link, which expires after an hour.
+  const sendWelcomeLink = async (email, name) => {
+    const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'sendInviteEmail');
+    await fn({ email, name, isReset: false });
+  };
+
   const sendPasswordReset = async (email, name) => {
     const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'sendInviteEmail');
     await fn({ email, name, isReset: true });
@@ -285,6 +292,7 @@ export function AuthProvider({ children }) {
         updateMyProfile,
         setUserActive,
         sendPasswordReset,
+        sendWelcomeLink,
         deleteMyAccount,
         hasBrandAccess,
         hasCategoryAccess,
