@@ -330,6 +330,7 @@ exports.sweepOldExpenseReports = onSchedule(
       const r = d.data();
       try {
         if (r.storagePath) await bucket.file(r.storagePath).delete({ ignoreNotFound: true });
+        if (r.archivePath) await bucket.file(r.archivePath).delete({ ignoreNotFound: true });
         await d.ref.delete();
         removed++;
       } catch (err) {
