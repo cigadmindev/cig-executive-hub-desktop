@@ -70,9 +70,6 @@ export function ExpensesProvider({ children }) {
               submittedDateKey: data.submittedDateKey ?? '',
               editableUntil: data.editableUntil ?? 0,
               storagePath: data.storagePath ?? '',
-              // A monthly report carries that month's receipt photos as a zip.
-              // Null on dailies, and on months that had none.
-              archivePath: data.archivePath ?? null,
               imageDeletedAt: data.imageDeletedAt ?? null,
               voided: data.voided === true,
               voidedBy: data.voidedBy ?? null,
@@ -111,6 +108,16 @@ export function ExpensesProvider({ children }) {
             return {
               dateKey: d.id,
               label: data.label ?? d.id,
+              // 'monthly' or 'daily'. Without it the page cannot tell them
+              // apart, and the month never gets its own block.
+              kind: data.kind ?? (d.id.endsWith('-monthly') ? 'monthly' : 'daily'),
+              // A monthly report carries that month's receipt photos as a zip.
+              // Null on dailies, and on months that had none.
+              archivePath: data.archivePath ?? null,
+              // Receipts dated into this month that arrived after it closed.
+              lateReceiptIds: data.lateReceiptIds ?? [],
+              staleSince: data.staleSince ?? null,
+              regeneratedAt: data.regeneratedAt ?? null,
               receiptCount: data.receiptCount ?? 0,
               totalCents: data.totalCents ?? 0,
               // Collection is per person now: the report used to be deleted when
@@ -151,6 +158,13 @@ export function ExpensesProvider({ children }) {
     if (which !== 'photos') {
       await httpsCallable(fns, 'confirmExpenseReportDownloaded')({ dateKey });
     }
+  };
+
+  // Rebuilds a closed month from the receipts as they stand now. Admins only.
+  const rebuildMonth = async (monthKey) => {
+    const fns = getFunctions(undefined, 'us-central1');
+    const res = await httpsCallable(fns, 'rebuildMonthlyReport', { timeout: 540000 })({ monthKey });
+    return res.data;
   };
 
   // Uncollected by you specifically. Someone else downloading it does not
@@ -225,6 +239,7 @@ export function ExpensesProvider({ children }) {
       voidReceipt,
       isEditable,
       downloadReport,
+      rebuildMonth,
       hasUncollectedReport,
     }),
     [receipts, reports, seesAll, loading, user?.uid]

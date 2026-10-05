@@ -83,7 +83,7 @@ function canSeeEverything(profile) {
 //   2. Every field is validated somewhere the caller cannot skip.
 //   3. submittedByUid is taken from the auth token, not the request body, so a
 //      receipt cannot be filed in someone else's name.
-exports.submitExpenseReceipt = onCall(async (request) => {
+exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
   const uid = request.auth.uid;
   const profile = await callerProfile(uid);
@@ -180,8 +180,47 @@ exports.submitExpenseReceipt = onCall(async (request) => {
     voidedReason: null,
   });
 
+  // A receipt dated into a month whose report has already been built is
+  // counted nowhere until that month is rebuilt. Flag the report so the
+  // Expenses page says so, and tell finance once per month rather than once
+  // per receipt. Never allowed to fail the submission - the receipt is saved.
+  try {
+    await flagLateReceipt(ref.id, dateSpent, uid, profile);
+  } catch (err) {
+    console.error('Late receipt flag failed for ' + ref.id + ': ' + err.message);
+  }
+
   return { id: ref.id, editableUntil };
 });
+
+async function flagLateReceipt(receiptId, dateSpent, uid, profile) {
+  if (profile.isGhost) return;
+  const monthKey = dateSpent.slice(0, 7);
+  const db = admin.firestore();
+  const reportRef = db.collection('expenseReports').doc(monthKey + '-monthly');
+  const report = await reportRef.get();
+  if (!report.exists) return;   // month still open - the 1st will include it
+
+  const firstLate = !report.data().staleSince;
+  await reportRef.update({
+    lateReceiptIds: admin.firestore.FieldValue.arrayUnion(receiptId),
+    staleSince: report.data().staleSince ?? Date.now(),
+  });
+  if (!firstLate) return;
+
+  const { notifyPeople, ACTION } = require('./notify');
+  const users = await db.collection('users').where('active', '==', true).get();
+  const people = users.docs
+    .map((d) => ({ uid: d.id, ...d.data() }))
+    .filter((u) => u.role === 'admin' || u.job === 'Financials');
+  await notifyPeople(
+    people,
+    report.data().label + ' report is out of date',
+    (profile.name ?? 'Someone') + ' submitted a receipt dated ' + dateSpent +
+      ' after that month closed. Rebuild it from the Expenses page.',
+    { speed: ACTION, path: '/expenses', throttleKey: 'late-' + monthKey }
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Signed image URLs
@@ -234,8 +273,7 @@ exports.getReceiptUrls = onCall(async (request) => {
   return { urls };
 });
 
-// Receipt photos are deleted nightly by closeExpenseDay, once the day's
-// report exists. A 90-day sweep used to do it and is gone - it could only
-// ever find images the nightly close had already removed.
+// Receipt photos age out at ninety days in sweepReceiptPhotos. Each month's
+// go to finance as a zip with the monthly report on the 1st.
 
 exports.EXPENSE_CATEGORIES = CATEGORIES;

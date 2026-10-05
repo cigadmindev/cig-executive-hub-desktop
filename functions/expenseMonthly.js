@@ -38,120 +38,130 @@ function csvCell(v) {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
+// Everything the monthly report is, built from the receipts as they stand now.
+// Shared by the scheduled close on the 1st and by a rebuild, so a rebuilt
+// month is the same spreadsheet - summary, budgets, labels - not a lookalike.
+async function buildMonth(monthKey) {
+  const db = admin.firestore();
+  const [year, month] = monthKey.split('-');
+
+  // dateSpent is stored as YYYY-MM-DD, so a prefix range picks the month.
+  const snap = await db
+    .collection(RECEIPTS)
+    .where('dateSpent', '>=', `${monthKey}-01`)
+    .where('dateSpent', '<=', `${monthKey}-31`)
+    .get();
+
+  // Receipts from test logins never reach a real report, or the photo zip.
+  const ghostSnap = await db.collection('users').where('isGhost', '==', true).get();
+  const ghostUids = new Set(ghostSnap.docs.map((d) => d.id));
+
+  const receipts = snap.docs
+    .filter((d) => !ghostUids.has(d.data().submittedByUid))
+    .map((d) => ({ id: d.id, ...d.data() }));
+
+  // Category totals first - the question finance actually asks.
+  const byCategory = {};
+  // Spend grouped by which budget it was charged against. Most receipts are
+  // not market-specific and land under "Not specific" - that is expected.
+  const byChargeTo = {};
+  let total = 0;
+  for (const r of receipts) {
+    if (r.voided) continue;
+    const label = r.categoryLabel ?? 'Uncategorised';
+    byCategory[label] = (byCategory[label] ?? 0) + (r.amountCents ?? 0);
+    const target = r.chargeToName ?? 'Not specific';
+    byChargeTo[target] = (byChargeTo[target] ?? 0) + (r.amountCents ?? 0);
+    total += r.amountCents ?? 0;
+  }
+
+  const label = new Date(Date.UTC(Number(year), Number(month) - 1, 1)).toLocaleDateString('en-US', {
+    timeZone: 'UTC',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const lines = [];
+  lines.push([csvCell(label + ' — Expense Summary')].join(','));
+  lines.push('');
+  lines.push([csvCell('Category'), csvCell('Total')].join(','));
+  Object.keys(byCategory)
+    .sort((a, b) => byCategory[b] - byCategory[a])
+    .forEach((cat) => lines.push([csvCell(cat), csvCell(money(byCategory[cat]))].join(',')));
+  lines.push('');
+  lines.push([csvCell('TOTAL'), csvCell(money(total))].join(','));
+  lines.push('');
+  lines.push('');
+
+  lines.push([csvCell('By budget')].join(','));
+  lines.push('');
+  lines.push([csvCell('Charged to'), csvCell('Total')].join(','));
+  Object.keys(byChargeTo)
+    .sort((a, b) => byChargeTo[b] - byChargeTo[a])
+    .forEach((t) => lines.push([csvCell(t), csvCell(money(byChargeTo[t]))].join(',')));
+  lines.push('');
+  lines.push('');
+
+  lines.push([csvCell('Every receipt')].join(','));
+  lines.push('');
+  lines.push(
+    ['Date spent', 'Submitted by', 'Amount', 'Category', 'Charge to', 'Where', 'Reason', 'Submitted at', 'Voided']
+      .map(csvCell)
+      .join(',')
+  );
+
+  receipts
+    .slice()
+    .sort((a, b) => (a.dateSpent ?? '').localeCompare(b.dateSpent ?? ''))
+    .forEach((r) => {
+      lines.push(
+        [
+          r.dateSpent,
+          r.submittedByName,
+          money(r.amountCents ?? 0),
+          r.categoryLabel,
+          r.chargeToName ?? '',
+          r.where,
+          r.reason,
+          r.submittedAt ? new Date(r.submittedAt).toLocaleString('en-US', { timeZone: ZONE }) : '',
+          r.voided ? 'VOIDED' : '',
+        ]
+          .map(csvCell)
+          .join(',')
+      );
+    });
+
+  const path = `expenseReports/${monthKey}-monthly.csv`;
+  await admin.storage().bucket().file(path).save(lines.join('\n'), { contentType: 'text/csv' });
+
+  let archivePath = null;
+  try {
+    archivePath = await buildReceiptArchive(receipts, monthKey);
+  } catch (err) {
+    console.error('Receipt archive failed for ' + monthKey + ': ' + err.message);
+  }
+
+  return { receipts, byCategory, total, label, path, archivePath };
+}
+
 exports.closeExpenseMonth = onSchedule(
   { schedule: '5 0 1 * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], memory: '1GiB', timeoutSeconds: 540 },
   async () => {
     const db = admin.firestore();
-    const bucket = admin.storage().bucket();
 
     // The month that just ended - step back a day from the 1st.
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const { year, month } = centralParts(yesterday);
     const monthKey = `${year}-${month}`;
 
-    // dateSpent is stored as YYYY-MM-DD, so a prefix range picks the month.
-    const snap = await db
-      .collection(RECEIPTS)
-      .where('dateSpent', '>=', `${monthKey}-01`)
-      .where('dateSpent', '<=', `${monthKey}-31`)
-      .get();
+    const { receipts, byCategory, total, label, path, archivePath } = await buildMonth(monthKey);
 
-    // Receipts from test logins never reach a real report, or the photo zip.
-    const ghostSnap = await db.collection('users').where('isGhost', '==', true).get();
-    const ghostUids = new Set(ghostSnap.docs.map((d) => d.id));
-
-    if (snap.empty) {
+    if (receipts.length === 0) {
       console.log(`Expense month ${monthKey}: nothing submitted, no report.`);
       return;
     }
 
-    const receipts = snap.docs.filter((d) => !ghostUids.has(d.data().submittedByUid)).map((d) => d.data());
-
-    // Category totals first - the question finance actually asks.
-    const byCategory = {};
-    // Spend grouped by which budget it was charged against. Most receipts are
-    // not market-specific and land under "Not specific" - that is expected,
-    // and the point is to see what Birmingham actually cost before Birmingham
-    // exists as a location.
-    const byChargeTo = {};
-    let total = 0;
-    for (const r of receipts) {
-      if (r.voided) continue;
-      const label = r.categoryLabel ?? 'Uncategorised';
-      byCategory[label] = (byCategory[label] ?? 0) + (r.amountCents ?? 0);
-      const target = r.chargeToName ?? 'Not specific';
-      byChargeTo[target] = (byChargeTo[target] ?? 0) + (r.amountCents ?? 0);
-      total += r.amountCents ?? 0;
-    }
-
-    const label = new Date(Date.UTC(Number(year), Number(month) - 1, 1)).toLocaleDateString('en-US', {
-      timeZone: 'UTC',
-      month: 'long',
-      year: 'numeric',
-    });
-
-    const lines = [];
-
-    lines.push([csvCell(label + ' — Expense Summary')].join(','));
-    lines.push('');
-    lines.push([csvCell('Category'), csvCell('Total')].join(','));
-    Object.keys(byCategory)
-      .sort((a, b) => byCategory[b] - byCategory[a])
-      .forEach((cat) => lines.push([csvCell(cat), csvCell(money(byCategory[cat]))].join(',')));
-    lines.push('');
-    lines.push([csvCell('TOTAL'), csvCell(money(total))].join(','));
-    lines.push('');
-    lines.push('');
-
-    lines.push([csvCell('By budget')].join(','));
-    lines.push('');
-    lines.push([csvCell('Charged to'), csvCell('Total')].join(','));
-    Object.keys(byChargeTo)
-      .sort((a, b) => byChargeTo[b] - byChargeTo[a])
-      .forEach((t) => lines.push([csvCell(t), csvCell(money(byChargeTo[t]))].join(',')));
-    lines.push('');
-    lines.push('');
-
-    lines.push([csvCell('Every receipt')].join(','));
-    lines.push('');
-    lines.push(
-      ['Date spent', 'Submitted by', 'Amount', 'Category', 'Charge to', 'Where', 'Reason', 'Submitted at', 'Voided']
-        .map(csvCell)
-        .join(',')
-    );
-
-    receipts
-      .sort((a, b) => (a.dateSpent ?? '').localeCompare(b.dateSpent ?? ''))
-      .forEach((r) => {
-        lines.push(
-          [
-            r.dateSpent,
-            r.submittedByName,
-            money(r.amountCents ?? 0),
-            r.categoryLabel,
-            r.chargeToName ?? '',
-            r.where,
-            r.reason,
-            r.submittedAt ? new Date(r.submittedAt).toLocaleString('en-US', { timeZone: ZONE }) : '',
-            r.voided ? 'VOIDED' : '',
-          ]
-            .map(csvCell)
-            .join(',')
-        );
-      });
-
-    const path = `expenseReports/${monthKey}-monthly.csv`;
-    await bucket.file(path).save(lines.join('\n'), { contentType: 'text/csv' });
-
-    // Same collection as the dailies, with kind marking which is which - the
-    // screen shows both without needing anything new.
-    let archivePath = null;
-    try {
-      archivePath = await buildReceiptArchive(receipts, monthKey);
-    } catch (err) {
-      console.error('Receipt archive failed for ' + monthKey + ': ' + err.message);
-    }
-
+    // Same collection as the dailies, with kind marking which is which.
     await db.collection(REPORTS).doc(`${monthKey}-monthly`).set({
       dateKey: `${monthKey}-monthly`,
       kind: 'monthly',
@@ -164,6 +174,10 @@ exports.closeExpenseMonth = onSchedule(
       generatedAt: Date.now(),
       downloadedAt: null,
       downloadedBy: null,
+      // Receipts dated into this month that arrive after today. Set by
+      // submitExpenseReceipt, cleared by a rebuild.
+      lateReceiptIds: [],
+      staleSince: null,
     });
 
     // Tell finance it is waiting.
@@ -221,7 +235,13 @@ exports.closeExpenseMonth = onSchedule(
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 
-exports.rebuildMonthlyArchive = onCall(async (request) => {
+// Rebuilds a closed month from the receipts as they stand now - spreadsheet
+// and photo zip together - for when receipts dated into it arrived after it
+// closed. Admins only.
+//
+// Everyone's "collected" is cleared, because what they downloaded is no longer
+// the report: the dot coming back is how they find out.
+exports.rebuildMonthlyReport = onCall({ memory: '1GiB', timeoutSeconds: 540 }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = admin.firestore();
 
@@ -230,33 +250,39 @@ exports.rebuildMonthlyArchive = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'Admins only.');
   }
 
-  const monthKey = request.data?.monthKey;
-  if (!monthKey) throw new HttpsError('invalid-argument', 'Which month?');
+  const monthKey = String(request.data?.monthKey ?? '');
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) throw new HttpsError('invalid-argument', 'Which month?');
 
   const reportRef = db.collection(REPORTS).doc(monthKey + '-monthly');
   const report = await reportRef.get();
   if (!report.exists) throw new HttpsError('not-found', 'No report for ' + monthKey + '.');
 
-  // The same receipts that month's report covered.
-  const ghosts = await db.collection('users').where('isGhost', '==', true).get();
-  const ghostUids = new Set(ghosts.docs.map((d) => d.id));
+  const was = report.data();
+  const { receipts, total, path, archivePath } = await buildMonth(monthKey);
 
-  const all = await db.collection(RECEIPTS).get();
-  const receipts = all.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((r) => (r.dateSpent ?? '').startsWith(monthKey))
-    .filter((r) => !ghostUids.has(r.submittedByUid))
-    .filter((r) => !r.voided);
+  await reportRef.update({
+    receiptCount: receipts.length,
+    totalCents: total,
+    storagePath: path,
+    archivePath,
+    regeneratedAt: Date.now(),
+    lateReceiptIds: [],
+    staleSince: null,
+    downloadedByUids: [],
+    downloadedByNames: [],
+  });
 
-  const withPhotos = receipts.filter((r) => r.storagePath && !r.imageDeletedAt);
-  const archivePath = await buildReceiptArchive(receipts, monthKey);
-
-  await reportRef.update({ archivePath: archivePath ?? null });
+  const photos = receipts.filter((r) => r.storagePath && !r.imageDeletedAt && !r.voided).length;
+  console.log(
+    `Rebuilt ${monthKey}: ${was.receiptCount ?? 0} -> ${receipts.length} receipt(s), ` +
+      `$${money(was.totalCents ?? 0)} -> $${money(total)}, ${photos} photo(s).`
+  );
 
   return {
     ok: true,
     receipts: receipts.length,
-    photos: withPhotos.length,
-    missing: receipts.length - withPhotos.length,
+    previousReceipts: was.receiptCount ?? 0,
+    totalCents: total,
+    photos,
   };
 });

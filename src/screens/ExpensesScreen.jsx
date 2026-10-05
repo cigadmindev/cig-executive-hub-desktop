@@ -27,6 +27,7 @@ export default function ExpensesScreen() {
     voidReceipt,
     isEditable,
     downloadReport,
+    rebuildMonth,
   } =
     useExpenses();
   const { activeTargets, addTarget, archiveTarget, restoreTarget, targets } = useBudgetTargets();
@@ -143,6 +144,31 @@ export default function ExpensesScreen() {
   // leave the app and that report disagreeing about the day's total.
   const canVoid = (r) => Date.now() < r.editableUntil;
 
+  const [rebuilding, setRebuilding] = useState(null);
+  const handleRebuild = (r) => {
+    const monthKey = r.dateKey.replace('-monthly', '');
+    confirm({
+      title: `Rebuild ${r.label}?`,
+      body:
+        'The spreadsheet and photo zip are rebuilt from every receipt dated in that month, including ones that arrived late. Anyone who already downloaded it will see it as not collected again.',
+      confirmLabel: 'Rebuild',
+      onConfirm: async () => {
+        setRebuilding(r.dateKey);
+        try {
+          const res = await rebuildMonth(monthKey);
+          notify(
+            'Rebuilt',
+            `${r.label}: ${res.previousReceipts} → ${res.receipts} receipts, $${formatAmount(res.totalCents)}.`
+          );
+        } catch (err) {
+          notify('Could not rebuild', err?.message ?? 'Try again.');
+        } finally {
+          setRebuilding(null);
+        }
+      },
+    });
+  };
+
   const handleDownloadReport = async (dateKey, which = 'csv') => {
     try {
       await downloadReport(dateKey, which);
@@ -191,10 +217,10 @@ export default function ExpensesScreen() {
     // By when it was submitted, not when it was spent: a receipt handed in
     // this morning for work done in September is new and should be seen, while
     // a September receipt submitted in September is not.
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    // Central, the same day boundary the server and the daily report use.
+    const todayKey = centralDateKey(new Date());
     const visible = seesAll
-      ? receipts.filter((r) => (r.submittedAt ?? 0) >= startOfToday.getTime())
+      ? receipts.filter((r) => (r.submittedDateKey || centralDateKey(new Date(r.submittedAt ?? 0))) === todayKey)
       : receipts;
     const byDate = {};
     for (const r of visible) {
@@ -308,6 +334,13 @@ export default function ExpensesScreen() {
                     {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)} · every location
                   </div>
                   <div style={styles.monthlyKept}>Kept for ninety days from the day it closed.</div>
+                  {(r.lateReceiptIds ?? []).length > 0 ? (
+                    <div style={styles.monthlyStale}>
+                      {r.lateReceiptIds.length} receipt{r.lateReceiptIds.length === 1 ? '' : 's'} dated in{' '}
+                      {r.label} arrived after it closed and {r.lateReceiptIds.length === 1 ? 'is' : 'are'} not in this
+                      spreadsheet yet.
+                    </div>
+                  ) : null}
                 </div>
                 <span
                   style={{
@@ -329,6 +362,15 @@ export default function ExpensesScreen() {
                 ) : (
                   <span style={styles.noPhotos}>No photo archive for this month</span>
                 )}
+                {isAdmin ? (
+                  <button
+                    style={styles.reportButtonQuiet}
+                    disabled={rebuilding === r.dateKey}
+                    onClick={() => handleRebuild(r)}
+                  >
+                    {rebuilding === r.dateKey ? 'Rebuilding…' : 'Rebuild'}
+                  </button>
+                ) : null}
               </div>
             </div>
           ))}
@@ -494,15 +536,25 @@ export default function ExpensesScreen() {
                 </div>
               ) : (
                 <button style={styles.photoButton} onClick={() => fileInputRef.current?.click()}>
-                  Choose a receipt photo
+                  Choose a receipt photo or PDF
                 </button>
               )}
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,application/pdf"
                 style={{ display: 'none' }}
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  // Checked here because Storage refuses anything over 12 MB
+                  // with a permission error, which reads as an access problem.
+                  const picked = e.target.files?.[0] ?? null;
+                  if (picked && picked.size >= 12 * 1024 * 1024) {
+                    notify('That file is too large', 'Receipts can be up to 12 MB. Try a smaller photo or a PDF.');
+                    e.target.value = '';
+                    return;
+                  }
+                  setFile(picked);
+                }}
               />
 
               <p style={styles.label}>Amount</p>
@@ -673,6 +725,7 @@ const styles = {
   monthlyKept: { fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 },
   monthlyPill: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--neon)', border: '1px solid rgba(34,211,238,0.35)', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap' },
   monthlyActions: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  monthlyStale: { fontSize: 12, fontWeight: 700, color: 'var(--danger)', marginTop: 8, lineHeight: 1.45 },
   noPhotos: { fontSize: 12, color: 'var(--text-tertiary)', alignSelf: 'center' },
   dailyNote: { fontSize: 12, lineHeight: 1.55, color: 'var(--text-tertiary)', margin: '12px 0 0' },
   zoneLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.7, color: 'var(--text-tertiary)', textTransform: 'uppercase', margin: '26px 0 10px' },

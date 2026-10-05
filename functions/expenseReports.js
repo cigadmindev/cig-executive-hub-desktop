@@ -2,9 +2,8 @@
 //
 // Two scheduled functions:
 //
-//   At 23:59 Central - the day's receipts lock, a CSV covering every account
-//   is generated and stored, and every receipt photo from that day is deleted.
-//   The report is the durable artifact; the photos are not.
+//   At 00:01 Central - a CSV of every receipt submitted the day before is
+//   generated and stored. Photos are untouched; they age out at ninety days.
 //
 //   At 05:00 Central - a notification that the report is waiting. It is only
 //   a notification: the report already exists by then, because it cannot be
@@ -98,25 +97,36 @@ function buildCsv(receipts, dateKey) {
 // ---------------------------------------------------------------------------
 // 23:59 Central - lock the day, build the report, delete the photos
 // ---------------------------------------------------------------------------
+// Runs at 00:01 for the day that just ended, rather than at 23:59 for the day
+// still running: editing closes at 23:59:59.999, so a report built a minute
+// early could miss a last edit or a last receipt and disagree with the app.
+//
+// Keyed by the day a receipt was SUBMITTED, not the day it was spent. Keyed by
+// spend date, a receipt handed in today for last Tuesday landed in a report
+// that had already closed and appeared in no daily at all. The monthly is
+// still by spend date - that is the accounting view.
 exports.closeExpenseDay = onSchedule(
-  { schedule: '59 23 * * *', timeZone: ZONE },
+  { schedule: '1 0 * * *', timeZone: ZONE },
   async () => {
     const db = admin.firestore();
     const bucket = admin.storage().bucket();
 
-    const dateKey = centralDateKey(new Date());
+    // Yesterday in Central - two hours back is safely inside it.
+    const dateKey = centralDateKey(new Date(Date.now() - 2 * 60 * 60 * 1000));
 
-    const snap = await db.collection(RECEIPTS).where('dateSpent', '==', dateKey).get();
+    const snap = await db.collection(RECEIPTS).where('submittedDateKey', '==', dateKey).get();
 
     // Receipts from test logins never reach a real report.
     const ghostSnap = await db.collection('users').where('isGhost', '==', true).get();
     const ghostUids = new Set(ghostSnap.docs.map((d) => d.id));
-    if (snap.empty) {
+
+    const receipts = snap.docs.filter((d) => !ghostUids.has(d.data().submittedByUid)).map((d) => ({ id: d.id, ...d.data() }));
+    // Checked after the ghost filter: a day with only test receipts would
+    // otherwise produce an empty $0.00 report with a red dot.
+    if (receipts.length === 0) {
       console.log(`Expense day ${dateKey}: nothing submitted, no report.`);
       return;
     }
-
-    const receipts = snap.docs.filter((d) => !ghostUids.has(d.data().submittedByUid)).map((d) => ({ id: d.id, ...d.data() }));
     const { csv, total } = buildCsv(receipts, dateKey);
 
     const path = `expenseReports/${dateKey}.csv`;
@@ -205,7 +215,7 @@ exports.notifyExpenseReport = onSchedule(
         The report is waiting at the top of the Expenses page. It stays there until you download it.
       </div>
     </td></tr>
-    <tr><td style="font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#6A6A76;padding-top:22px;">Receipt photos are removed once the report is generated. The report is the record.</td></tr>
+    <tr><td style="font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#6A6A76;padding-top:22px;">Receipts handed in that day, whenever the money was spent. Photos are kept ninety days and go out with each monthly report.</td></tr>
   </table>
 </td></tr>
 </table>

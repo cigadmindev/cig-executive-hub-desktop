@@ -201,15 +201,19 @@ service cloud.firestore {
     match /expenseReceipts/{receiptId} {
       allow read: if isAdmin() || isFinance() ||
         (isSignedIn() && resource.data.submittedByUid == request.auth.uid);
-      allow create: if isSignedIn()
-        && request.resource.data.submittedByUid == request.auth.uid;
-      // Editable by the person who submitted it until their cutoff passes.
-      // The cutoff is stored on the document at create time, so the rule
-      // does not have to compute a timezone.
+      // Written only by submitExpenseReceipt, which stamps the deadline from
+      // the server clock. A client create would let a device set its own.
+      allow create: if false;
+      // Editable by the person who submitted it until their cutoff passes -
+      // the details only. The deadline, the void, the photo and who filed it
+      // are not theirs to change, or a receipt could extend its own window
+      // or un-void itself.
       allow update: if isSignedIn()
         && resource.data.submittedByUid == request.auth.uid
-        && request.resource.data.submittedByUid == resource.data.submittedByUid
-        && request.time < resource.data.editableUntil;
+        && request.time.toMillis() < resource.data.editableUntil
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['amountCents', 'categoryKey', 'categoryLabel', 'where', 'reason',
+                       'dateSpent', 'chargeToId', 'chargeToName']);
       // Admins can void a receipt but not delete it. Voiding stops it
       // counting toward totals and greys it out; the record survives, so a
       // daily report that already mentioned it still matches what is in the

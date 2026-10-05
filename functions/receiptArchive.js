@@ -55,6 +55,13 @@ async function buildReceiptArchive(receipts, monthKey) {
 
   const passthrough = new PassThrough();
   const upload = file.createWriteStream({ contentType: 'application/zip' });
+  // Listened for before anything is written: a small archive can finish
+  // uploading before finalize() returns, and a listener attached after that
+  // waits forever.
+  const uploaded = new Promise((resolve, reject) => {
+    upload.on('finish', resolve);
+    upload.on('error', reject);
+  });
   passthrough.pipe(upload);
 
   const archive = archiver('zip', { zlib: { level: 6 } });
@@ -80,10 +87,7 @@ async function buildReceiptArchive(receipts, monthKey) {
   }
 
   await archive.finalize();
-  await new Promise((resolve, reject) => {
-    upload.on('finish', resolve);
-    upload.on('error', reject);
-  });
+  await uploaded;
 
   console.log('Archived ' + added + ' receipt photo(s) for ' + monthKey + '.');
   return path;
