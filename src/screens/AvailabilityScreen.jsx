@@ -132,7 +132,8 @@ export default function AvailabilityScreen() {
     return timeOffRequests.some((r) => r.uid === uid && r.status === 'approved' && r.startDate - DAY / 2 <= t && t <= r.endDate + DAY / 2);
   };
 
-  const dayEditor = (
+  // Built only while editing - draft is empty the rest of the time.
+  const dayEditor = () => (
     <div style={styles.editor}>
       {DAYS.map((d) => (
         <div key={d} style={styles.editRow}>
@@ -212,7 +213,7 @@ export default function AvailabilityScreen() {
         <div style={styles.card}>
           <p style={styles.cardTitle}>My hours</p>
           <p style={styles.note}>Set your usual week once — it carries forward every week. If one week is different, change just that week.</p>
-          {editing ? dayEditor : (
+          {editing && draft ? dayEditor() : (
             <>
               {!hasUsual ? <p style={styles.note}><strong style={styles.strong}>You haven't set your usual week yet.</strong></p> : null}
               {thisWeekDiffers ? <p style={styles.badge}>This week is different from usual</p> : null}
