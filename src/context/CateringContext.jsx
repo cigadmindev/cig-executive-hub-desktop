@@ -1,3 +1,4 @@
+import { accessLevel } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -187,11 +188,13 @@ export function CateringProvider({ children }) {
 
   // What each person sees: their own locations, and only if they look after
   // this side of things. Ann Marie should not be reading Starkville's.
-  const TITLES = ['General Manager', 'Assistant Manager', 'Executive Chef', 'Sous Chef', 'Catering & Events'];
+  // From the who-sees-what table: anyone with Catering at View or Claim,
+  // narrowed to their own locations when their row says "Own location".
   const canSee = (e) => {
     if (!user) return false;
-    if (user.role === 'admin' || user.role === 'executive') return true;
-    if (!TITLES.includes(user.job)) return false;
+    if (user.role === 'admin') return true;
+    if (accessLevel(user, 'catering') === 'none') return false;
+    if (['all', 'brands'].includes(accessLevel(user, 'where'))) return true;
     if (!e.brandId || !(user.permissions?.brandIds ?? []).includes(e.brandId)) return false;
     const only = user.permissions?.locationsByBrand?.[e.brandId];
     return !Array.isArray(only) || only.length === 0 || only.includes(e.locationId);

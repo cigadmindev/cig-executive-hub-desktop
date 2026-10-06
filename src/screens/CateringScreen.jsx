@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCatering } from '../context/CateringContext';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
+import { atLeast } from '../data/accessMatrix';
 
 // Catering orders and private event bookings.
 //
@@ -174,7 +175,7 @@ export default function CateringScreen() {
                 </a>
               ) : null}
 
-              {!e.ownerUid ? (
+              {!e.ownerUid && atLeast(user, 'catering', 'claim') ? (
                 <button style={styles.button} onClick={() => claim(e.id)}>
                   I'm on it
                 </button>

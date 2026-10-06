@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
-import { ROWS } from '../data/accessMatrix';
+import { ROWS, setLiveMatrix } from '../data/accessMatrix';
 
 // The live "who sees what" table: the approved defaults in data/accessMatrix,
 // with any cell an admin has changed (stored in accessMatrix/{rowId}) on top.
@@ -25,6 +25,7 @@ export function AccessMatrixProvider({ children }) {
     () => Object.fromEntries(ROWS.map((row) => [row.id, { ...row.d, ...(overrides[row.id] ?? {}) }])),
     [overrides]
   );
+  setLiveMatrix(matrix);
 
   // Admins only - the rule refuses anyone else.
   const setCell = (rowId, column, value) =>

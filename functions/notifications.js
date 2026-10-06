@@ -167,7 +167,7 @@ exports.onAccessRequestResolved = onDocumentUpdated(
     const after = event.data?.after?.data();
     if (!before || !after) return;
     if (before.status !== 'pending' || after.status === 'pending') return;
-    await resolveRef('accessRequest/' + event.params.id);
+    await resolveRef('accessRequest/' + event.params.id, after.resolvedByName ?? null);
     // Found by email, with the uid kept - the old version dropped it, and
     // then dropped anyone without the iPhone app, so nobody was ever told.
     const people = (await R.activeUsers()).filter((u) => u.email && u.email === after.userEmail);
@@ -270,7 +270,7 @@ exports.onIntegrationRequestResolved = onDocumentUpdated(
     const newlyDone = before.status !== 'done' && after.status === 'done';
     if (!newlyAnswered && !newlyDone) return;
     // Someone has picked it up - it is no longer waiting on the others.
-    await resolveRef('systemsHelp/' + event.params.id);
+    await resolveRef('systemsHelp/' + event.params.id, after.respondedByName || null);
     const people = (await R.activeUsers()).filter((u) => u.uid === after.createdByUid);
     await notifyPeople(
       people,

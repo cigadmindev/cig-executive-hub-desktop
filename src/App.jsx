@@ -40,6 +40,7 @@ import AvailabilityScreen from './screens/AvailabilityScreen';
 import EventRequestsScreen from './screens/EventRequestsScreen';
 import EmailPreviewScreen from './screens/EmailPreviewScreen';
 import { AccessMatrixProvider } from './context/AccessMatrixContext';
+import { atLeast } from './data/accessMatrix';
 import RenewalsScreen from './screens/RenewalsScreen';
 import AdminUsersScreen from './screens/AdminUsersScreen';
 import PendingRequestsScreen from './screens/PendingRequestsScreen';
@@ -101,7 +102,7 @@ function Gate() {
           path="/brand/:brandId/location/:locationId/category/:categoryId/announcements"
           element={<AnnouncementsScreen />}
         />
-        <Route path="/announcements/new" element={<RequireReviewer><HomeAnnouncementsScreen /></RequireReviewer>} />
+        <Route path="/announcements/new" element={<RequireColumn column="announcements" level="post"><HomeAnnouncementsScreen /></RequireColumn>} />
         <Route path="/messages" element={<MessagesScreen />} />
         <Route path="/calendar" element={<CalendarScreen />} />
         <Route path="/directory" element={<DirectoryScreen />} />
@@ -115,16 +116,16 @@ function Gate() {
         <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<RequireBrand><RequireFeature feature="operationalPoc"><OperationalPOCScreen /></RequireFeature></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId/integrations" element={<RequireBrand><RequireFeature feature="integrations"><IntegrationsScreen /></RequireFeature></RequireBrand>} />
         <Route path="/support" element={<RequireFeature feature="support"><SupportScreen /></RequireFeature>} />
-        <Route path="/integration-requests" element={<IntegrationRequestsScreen />} />
+        <Route path="/integration-requests" element={<RequireColumn column="systemsHelp" level="read"><IntegrationRequestsScreen /></RequireColumn>} />
         <Route path="/opening-soon" element={<OpeningSoonScreen />} />
         <Route path="/wares-inventory" element={<WaresInventoryScreen />} />
-        <Route path="/executive-notes" element={<ExecutiveNotesScreen />} />
+        <Route path="/executive-notes" element={<RequireColumn column="executiveNotes" level="read"><ExecutiveNotesScreen /></RequireColumn>} />
         <Route path="/work-orders" element={<RequireFeature feature="workOrders"><WorkOrdersScreen /></RequireFeature>} />
         <Route path="/expenses" element={<RequireFeature feature="expenses"><ExpensesScreen /></RequireFeature>} />
-        <Route path="/device-requests" element={<DeviceRequestsScreen />} />
-        <Route path="/catering" element={<CateringScreen />} />
-        <Route path="/emergency" element={<EmergencyScreen />} />
-        <Route path="/hr" element={<HRScreen />} />
+        <Route path="/device-requests" element={<RequireColumn column="deviceRequests" level="read"><DeviceRequestsScreen /></RequireColumn>} />
+        <Route path="/catering" element={<RequireColumn column="catering" level="read"><CateringScreen /></RequireColumn>} />
+        <Route path="/emergency" element={<RequireColumn column="hr" level="read"><EmergencyScreen /></RequireColumn>} />
+        <Route path="/hr" element={<RequireColumn column="hr" level="read"><HRScreen /></RequireColumn>} />
         <Route path="/reset-app-data" element={<ResetAppDataScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -230,6 +231,13 @@ function RequireCategory({ children }) {
   if (!hasBrandAccess(user, brandId)) return <Navigate to="/" replace />;
   if (!hasLocationAccess(user, brandId, locationId)) return <Navigate to={'/brand/' + brandId} replace />;
   if (!hasCategoryAccess(user, categoryId)) return <Navigate to="/" replace />;
+  return children;
+}
+
+// A page that follows a column of the who-sees-what table.
+function RequireColumn({ column, level, children }) {
+  const { user } = useAuth();
+  if (!atLeast(user, column, level)) return <Navigate to="/" replace />;
   return children;
 }
 

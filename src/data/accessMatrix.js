@@ -7,9 +7,9 @@
 // The defaults below are the table Brenner approved on 6 October 2026.
 // Admins can change any cell in Manage Logins → Who sees what; a change is
 // stored in Firestore (accessMatrix/{job}) and overrides the default here.
-import { categories } from './mockData';
-
-export const ALL_FOLDERS = categories.map((c) => c.id);
+// The folder ids, in the order the Hub shows them (data/mockData categories).
+// Listed here rather than imported, so mockData can import this file.
+export const ALL_FOLDERS = ['operations', 'financials', 'inventory', 'menu', 'staffing', 'marketing', 'maintenance', 'projects', 'compliance', 'techai', 'archives'];
 
 // Each column, and the levels it can be set to, strongest first.
 export const COLUMNS = [
@@ -42,18 +42,18 @@ const NO_FIN = ALL_FOLDERS.filter((f) => f !== 'financials');
 
 // Rows in display order. Several job titles share a row.
 export const ROWS = [
-  { id: 'owner', label: 'Owner · CEO', jobs: ['Owner', 'CEO'], d: r('all', ALL, 'view', 'full', 'view', 'view', 'full', 'team', 'own', 'full', 'view', 'ask', 'ask', 'raise', 'full', 'post', 'full') },
+  { id: 'owner', label: 'Owner · CEO', jobs: ['Owner', 'CEO'], d: r('all', ALL, 'tick', 'full', 'view', 'view', 'full', 'team', 'own', 'full', 'view', 'ask', 'ask', 'raise', 'full', 'post', 'full') },
   { id: 'coo', label: 'COO', jobs: ['COO'], d: r('all', ALL, 'edit', 'full', 'full', 'full', 'full', 'approve', 'own', 'full', 'view', 'approve', 'approve', 'raise', 'full', 'post', 'full', 'Approves time off, events, devices; gets the daily receipts email') },
-  { id: 'financials', label: 'Financials', jobs: ['Financials'], d: r('all', ['financials'], 'view', 'full', 'none', 'none', 'full', 'team', 'all', 'own', 'none', 'none', 'ask', 'raise', 'none', 'read', 'full') },
-  { id: 'culinary', label: 'Culinary Dir. / Mgr', jobs: ['Culinary Director', 'Culinary Manager'], d: r('all', OPS4, 'edit', 'full', 'view', 'view', 'full', 'team', 'own', 'own', 'view', 'ask', 'ask', 'raise', 'read', 'post', 'full') },
-  { id: 'beverage', label: 'Beverage Manager', jobs: ['Beverage Manager'], d: r('all', OPS4, 'edit', 'full', 'view', 'view', 'full', 'team', 'own', 'own', 'view', 'ask', 'ask', 'raise', 'read', 'post', 'full') },
-  { id: 'gm', label: 'General Manager', jobs: ['General Manager'], d: r('own', ALL, 'tick', 'full', 'full', 'full', 'full', 'team', 'own', 'own', 'claim', 'ask', 'ask', 'raise', 'read', 'read', 'none', 'Gets catering and renewals for their location') },
-  { id: 'agm', label: 'Assistant Manager', jobs: ['Assistant Manager'], d: r('own', NO_FIN, 'tick', 'full', 'view', 'view', 'full', 'own', 'own', 'own', 'claim', 'ask', 'ask', 'raise', 'read', 'read', 'none') },
+  { id: 'financials', label: 'Financials', jobs: ['Financials'], d: r('all', ['financials'], 'view', 'full', 'none', 'none', 'full', 'team', 'all', 'own', 'none', 'none', 'ask', 'raise', 'none', 'post', 'full') },
+  { id: 'culinary', label: 'Culinary Dir. / Mgr', jobs: ['Culinary Director', 'Culinary Manager'], d: r('all', ALL, 'edit', 'full', 'view', 'view', 'full', 'team', 'own', 'own', 'view', 'ask', 'ask', 'raise', 'read', 'post', 'full') },
+  { id: 'beverage', label: 'Beverage Manager', jobs: ['Beverage Manager'], d: r('all', 'all', 'edit', 'full', 'view', 'view', 'full', 'team', 'own', 'own', 'view', 'ask', 'ask', 'raise', 'read', 'post', 'full') },
+  { id: 'gm', label: 'General Manager', jobs: ['General Manager'], d: r('own', ALL, 'none', 'full', 'full', 'full', 'full', 'team', 'own', 'own', 'claim', 'ask', 'ask', 'raise', 'read', 'read', 'none', 'Gets catering and renewals for their location') },
+  { id: 'agm', label: 'Assistant Manager', jobs: ['Assistant Manager'], d: r('own', NO_FIN, 'none', 'full', 'view', 'view', 'full', 'own', 'own', 'own', 'claim', 'ask', 'ask', 'raise', 'read', 'read', 'none') },
   { id: 'km', label: 'Kitchen Manager', jobs: ['Kitchen Manager'], d: r('own', KITCHEN, 'tick', 'full', 'view', 'view', 'full', 'own', 'own', 'own', 'view', 'ask', 'ask', 'raise', 'read', 'read', 'none') },
-  { id: 'chef', label: 'Executive Chef', jobs: ['Executive Chef'], d: r('own', KITCHEN, 'tick', 'full', 'view', 'view', 'full', 'own', 'own', 'own', 'claim', 'ask', 'ask', 'raise', 'read', 'read', 'none', 'Gets catering for their location') },
-  { id: 'sous', label: 'Sous Chef', jobs: ['Sous Chef'], d: r('own', ['operations', 'menu', 'inventory', 'maintenance'], 'none', 'full', 'none', 'none', 'full', 'own', 'own', 'own', 'view', 'none', 'ask', 'raise', 'read', 'read', 'none', 'Gets catering for their location') },
-  { id: 'catering', label: 'Catering & Events', jobs: ['Catering & Events'], d: r('own', ['marketing', 'menu', 'operations'], 'none', 'full', 'none', 'none', 'full', 'own', 'own', 'own', 'claim', 'ask', 'ask', 'raise', 'read', 'read', 'none') },
-  { id: 'it', label: 'IT & Training', jobs: ['IT & Training'], d: r('all', ['techai', 'operations', 'projects'], 'view', 'full', 'none', 'view', 'full', 'own', 'own', 'own', 'none', 'none', 'view', 'handle', 'read', 'read', 'none', 'Handles Systems Help') },
+  { id: 'chef', label: 'Executive Chef', jobs: ['Executive Chef'], d: r('own', KITCHEN, 'none', 'full', 'view', 'view', 'full', 'own', 'own', 'own', 'claim', 'ask', 'ask', 'raise', 'read', 'read', 'none', 'Gets catering for their location') },
+  { id: 'sous', label: 'Sous Chef', jobs: ['Sous Chef'], d: r('own', ['operations', 'menu', 'inventory', 'maintenance'], 'none', 'full', 'none', 'full', 'full', 'own', 'own', 'own', 'view', 'none', 'ask', 'raise', 'read', 'read', 'none', 'Gets catering for their location') },
+  { id: 'catering', label: 'Catering & Events', jobs: ['Catering & Events'], d: r('own', ['marketing', 'menu', 'operations'], 'none', 'full', 'none', 'full', 'full', 'own', 'own', 'own', 'claim', 'ask', 'ask', 'raise', 'read', 'read', 'none') },
+  { id: 'it', label: 'IT & Training', jobs: ['IT & Training'], d: r('all', ALL, 'none', 'full', 'full', 'full', 'full', 'team', 'own', 'full', 'claim', 'ask', 'view', 'handle', 'full', 'post', 'full', 'Everything except the pre-opening checklist; handles Systems Help') },
   { id: 'marketing', label: 'Marketing & Media', jobs: ['Marketing', 'Communications'], d: r('brands', ['marketing', 'archives'], 'none', 'full', 'none', 'none', 'full', 'none', 'none', 'none', 'none', 'none', 'none', 'raise', 'none', 'read', 'none', 'Includes the agency logins') },
   { id: 'video', label: 'Videographer', jobs: ['Videographer'], d: r('brands', ['marketing'], 'none', 'full', 'none', 'none', 'full', 'none', 'none', 'own', 'none', 'none', 'none', 'raise', 'none', 'read', 'none') },
   { id: 'hr', label: 'HR', jobs: ['HR'], d: r('all', ['staffing'], 'none', 'full', 'none', 'none', 'full', 'team', 'own', 'own', 'none', 'none', 'ask', 'raise', 'full', 'read', 'none') },
@@ -64,13 +64,51 @@ export function rowForJob(job) {
   return ROWS.find((row) => row.jobs.includes(job)) ?? null;
 }
 
+// The live table, set by AccessMatrixProvider whenever it changes, so plain
+// functions (hasFeature, hasCategoryAccess) can read it without a hook.
+let LIVE = null;
+export function setLiveMatrix(m) {
+  LIVE = m;
+}
+
 // The level a person has for a column. Admins: always the top level.
 // matrix is the live table (defaults with admin edits applied).
-export function accessLevel(user, column, matrix) {
+export function accessLevel(user, column, matrix = LIVE) {
   const col = COLUMNS.find((c) => c.key === column);
   if (!user || !col) return 'none';
   if (user.role === 'admin') return col.folders ? ALL : col.options[0][0];
   const row = rowForJob(user.job);
   if (!row) return col.folders ? [] : 'none';
   return (matrix?.[row.id] ?? row.d)[column];
+}
+
+const RANK = { none: 0, read: 1, raise: 1, ask: 1, view: 1, own: 1, tick: 2, team: 2, full: 3, claim: 3, all: 3, post: 3, handle: 3, approve: 4, edit: 4 };
+
+// Does this person have at least this level? e.g. atLeast(user, 'availability', 'team').
+export function atLeast(user, column, level) {
+  return (RANK[accessLevel(user, column)] ?? 0) >= (RANK[level] ?? 0);
+}
+
+export function canSeeFolder(user, folderId) {
+  const f = accessLevel(user, 'folders');
+  return f === 'all' || (Array.isArray(f) && f.includes(folderId));
+}
+
+// The old feature switches, answered by the table.
+const FEATURE_COLUMN = {
+  openingChecklist: 'openingChecklist',
+  operationalPoc: 'operationalPoc',
+  renewals: 'renewals',
+  eventRequests: 'eventRequests',
+  integrations: 'operationalPoc',
+  availability: 'availability',
+  workOrders: 'signatures',
+  expenses: 'expenses',
+};
+export function featureAllowed(user, key) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (key === 'support') return true;
+  const col = FEATURE_COLUMN[key];
+  return col ? accessLevel(user, col) !== 'none' : true;
 }

@@ -7,6 +7,7 @@ import TimePickerField from '../components/TimePickerField';
 import { PTO_ALLOWANCE_DAYS } from '../context/AvailabilityContext';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
+import { atLeast } from '../data/accessMatrix';
 
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const DAY_LABELS = { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday' };
@@ -46,13 +47,15 @@ export default function AvailabilityScreen() {
   } = useAvailability();
   const { markTimeOffViewed } = useViewTracking();
   const isAdmin = user?.role === 'admin';
-  const isExecutive = user?.role === 'executive';
+  // From the who-sees-what table: who sees the team, and who decides.
+  const seesTeam = atLeast(user, 'availability', 'team');
+  const approves = atLeast(user, 'availability', 'approve');
 
   useEffect(() => {
     markTimeOffViewed();
   }, []);
 
-  const [tab, setTab] = useState(isAdmin || isExecutive ? 'weekly' : 'mine');
+  const [tab, setTab] = useState(seesTeam ? 'weekly' : 'mine');
   // 0 is this week, 1 next, -1 last. Set-ahead matters more than history, but
   // both are cheap once the week is a parameter rather than a constant.
   const [weekOffset, setWeekOffset] = useState(0);
@@ -187,20 +190,19 @@ export default function AvailabilityScreen() {
       <header style={styles.header}>
         <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Availability</h1>
         <div style={styles.tabRow}>
-          {isAdmin || isExecutive ? null : (
-            <button style={{ ...styles.tab, ...(tab === 'mine' ? styles.tabActive : {}) }} onClick={() => setTab('mine')}>
-              My Time Off
-            </button>
-          )}
+          {/* Everyone can ask for their own time off, executives included. */}
+          <button style={{ ...styles.tab, ...(tab === 'mine' ? styles.tabActive : {}) }} onClick={() => setTab('mine')}>
+            My Time Off
+          </button>
           <button style={{ ...styles.tab, ...(tab === 'weekly' ? styles.tabActive : {}) }} onClick={() => setTab('weekly')}>
             Weekly Availability
           </button>
-          {isAdmin || isExecutive ? (
+          {seesTeam ? (
             <button style={{ ...styles.tab, ...(tab === 'team' ? styles.tabActive : {}) }} onClick={() => setTab('team')}>
               Team
             </button>
           ) : null}
-          {isAdmin || isExecutive ? (
+          {approves ? (
             <button style={{ ...styles.tab, ...(tab === 'admin' ? styles.tabActive : {}) }} onClick={() => setTab('admin')}>
               All Requests {pendingCount > 0 ? `(${pendingCount})` : ''}
             </button>
@@ -306,8 +308,8 @@ export default function AvailabilityScreen() {
               })}
             </div>
 
-            <div style={isAdmin || isExecutive ? styles.ptoGridSolo : styles.ptoGrid}>
-              {isAdmin || isExecutive ? null : (
+            <div style={styles.ptoGrid}>
+              {false ? null : (
               <div>
                 <p style={styles.zoneLabel}>Paid time off</p>
                 <div style={styles.ptoCard}>
@@ -363,7 +365,7 @@ export default function AvailabilityScreen() {
           </>
         ) : null}
 
-        {tab === 'admin' && (isAdmin || isExecutive) ? (
+        {tab === 'admin' && approves ? (
           <>
             {timeOffRequests.length === 0 ? (
               <p style={styles.hint}>No requests yet.</p>
@@ -372,7 +374,7 @@ export default function AvailabilityScreen() {
                 .sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1))
                 .map((r) => {
                   const isOwnRequest = r.uid === user?.uid;
-                  const canResolve = (isAdmin || (isExecutive && !isOwnRequest)) && r.status === 'pending';
+                  const canResolve = (isAdmin || (approves && !isOwnRequest)) && r.status === 'pending';
                   return (
                   <div key={r.id} style={styles.card}>
                     <div style={styles.cardHeaderRow}>
@@ -386,7 +388,7 @@ export default function AvailabilityScreen() {
                     {r.status === 'denied' && r.denialReason ? (
                       <p style={styles.denialReason}>Reason for denial: {r.denialReason}</p>
                     ) : null}
-                    {isExecutive && isOwnRequest && r.status === 'pending' ? (
+                    {approves && !isAdmin && isOwnRequest && r.status === 'pending' ? (
                       <p style={styles.hint}>This is your own request — another admin or executive needs to approve it.</p>
                     ) : null}
                     <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>

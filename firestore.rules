@@ -38,6 +38,11 @@ service cloud.firestore {
 
     // Finance is a job, not a role - Sam is an executive whose job is
     // Financials. There is no fourth role.
+    function isCoo() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'COO';
+    }
+
     function isFinance() {
       return request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'Financials';
@@ -124,10 +129,10 @@ service cloud.firestore {
     // read, since two in a single rule is enough to fail.
     function handlesEventsFor(brandId) {
       let p = eventsProfile();
-      return (p.role == 'admin' || p.role == 'executive')
+      return (p.role == 'admin' || p.role == 'executive' || p.job == 'IT & Training')
         || ((p.job == 'General Manager' || p.job == 'Assistant Manager'
              || p.job == 'Executive Chef' || p.job == 'Sous Chef'
-             || p.job == 'Catering & Events')
+             || p.job == 'Catering & Events' || p.job == 'Kitchen Manager')
             && brandId in p.permissions.brandIds);
     }
 
@@ -354,8 +359,16 @@ service cloud.firestore {
         .hasAny(['resolvedAt', 'resolvedByUid', 'denialReason']);
     }
 
+    // Who sees the team's time off - the who-sees-what table's "Team" and up:
+    // executives, General Managers and IT & Training. The app narrows a GM
+    // to their own location.
+    function seesTeam() {
+      let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return p.role == 'admin' || p.role == 'executive' || p.job == 'General Manager' || p.job == 'IT & Training';
+    }
+
     match /timeOffRequests/{requestId} {
-      allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow read: if seesTeam() || (isSignedIn() && resource.data.uid == request.auth.uid);
       // Filed as yourself, and pending. It could be created already approved.
       allow create: if isSignedIn()
         && request.resource.data.uid == request.auth.uid
@@ -363,8 +376,9 @@ service cloud.firestore {
       // Decided by an admin, or an executive who is not the one asking.
       // The requester can edit their own, but the status can only ever be
       // pending in their hands and the decision fields stay untouched.
+      // Decided by admins and the COO (who-sees-what table: Approve).
       allow update: if isAdmin()
-        || (isAdminOrExecutive() && resource.data.uid != request.auth.uid)
+        || (isCoo() && resource.data.uid != request.auth.uid)
         || (isSignedIn() && resource.data.uid == request.auth.uid
             && request.resource.data.uid == request.auth.uid
             && request.resource.data.status == 'pending'
@@ -375,7 +389,7 @@ service cloud.firestore {
     match /weeklyAvailability/{uid} {
       // Your own hours, and whoever builds the schedule. Everyone could read
       // everyone's before.
-      allow read: if isAdminOrExecutive() || (isSignedIn() && request.auth.uid == uid);
+      allow read: if seesTeam() || (isSignedIn() && request.auth.uid == uid);
       allow write: if isSignedIn() && (request.auth.uid == uid || isAdmin());
     }
 
@@ -390,8 +404,9 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.requestedByUid == request.auth.uid
         && request.resource.data.status == 'pending';
+      // Decided by admins and the COO (who-sees-what table: Approve).
       allow update: if isAdmin()
-        || (isAdminOrExecutive() && resource.data.requestedByUid != request.auth.uid)
+        || (isCoo() && resource.data.requestedByUid != request.auth.uid)
         || (isSignedIn() && resource.data.requestedByUid == request.auth.uid
             && request.resource.data.requestedByUid == request.auth.uid
             && request.resource.data.status == 'pending'

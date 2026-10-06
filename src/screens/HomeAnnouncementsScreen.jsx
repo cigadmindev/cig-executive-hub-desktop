@@ -5,6 +5,7 @@ import { useBrandAnnouncements } from '../context/BrandAnnouncementsContext';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { nike } from '../theme/nike';
+import { accessLevel } from '../data/accessMatrix';
 import { useDialog } from '../hooks/useDialog';
 
 // New announcement, in three steps: who it is for, what it says, and how long
@@ -63,10 +64,10 @@ export default function HomeAnnouncementsScreen() {
     }).length;
   }, [users, target?.id, brandId, scope]);
 
-  if (user?.role !== 'admin' && user?.role !== 'executive') {
+  if (accessLevel(user, 'announcements') !== 'post') {
     return (
       <div style={styles.page}>
-        <p style={{ color: 'var(--text-secondary)' }}>Admins and executives only.</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Only people who can post announcements.</p>
       </div>
     );
   }

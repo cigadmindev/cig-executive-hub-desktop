@@ -1,3 +1,4 @@
+import { accessLevel, canSeeFolder } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   onAuthStateChanged,
@@ -253,10 +254,11 @@ export function AuthProvider({ children }) {
 
   // Same permission logic as mobile: admins see everything, managers only
   // what's explicitly granted.
-  const hasBrandAccess = (u, brandId) =>
-    !!u && (u.role === 'admin' || u.role === 'executive' || u.permissions.brandIds.includes(brandId));
-  const hasCategoryAccess = (u, categoryId) =>
-    !!u && (u.role === 'admin' || u.role === 'executive' || u.permissions.categoryIds.includes(categoryId));
+  // From the who-sees-what table: "All" or "All brands" sees every restaurant;
+  // "Own location" uses the restaurants and locations on the person's login.
+  const widest = (u) => u.role === 'admin' || ['all', 'brands'].includes(accessLevel(u, 'where'));
+  const hasBrandAccess = (u, brandId) => !!u && (widest(u) || (u.permissions?.brandIds ?? []).includes(brandId));
+  const hasCategoryAccess = (u, categoryId) => !!u && (u.role === 'admin' || canSeeFolder(u, categoryId));
 
   // Per-location access, layered on the brand check. locationsByBrand maps a
   // brand to the locations someone may see there; a brand with no entry - or
@@ -265,7 +267,7 @@ export function AuthProvider({ children }) {
   // and a person on "all locations" picks up new ones as they open.
   const hasLocationAccess = (u, brandId, locationId) => {
     if (!hasBrandAccess(u, brandId)) return false;
-    if (u.role === 'admin' || u.role === 'executive') return true;
+    if (widest(u)) return true;
     const only = u.permissions?.locationsByBrand?.[brandId];
     return !Array.isArray(only) || only.length === 0 || only.includes(locationId);
   };

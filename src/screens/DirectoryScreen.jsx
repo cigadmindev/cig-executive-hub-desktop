@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { hasFeature } from '../data/mockData';
+import { accessLevel } from '../data/accessMatrix';
 import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import { useAvailability } from '../context/AvailabilityContext';
@@ -27,7 +28,7 @@ export default function DirectoryScreen() {
   const { hasUnseen: hasUnseenIntegration } = useIntegrationRequests();
   const myWeekly = weeklyAvailability.find((w) => w.uid === user?.uid);
   const myWeeklyIsStale = !myWeekly || myWeekly.weekStartDate !== getWeekStart();
-  const canPostAnnouncements = user?.role === 'admin' || user?.role === 'executive';
+  const canPostAnnouncements = accessLevel(user, 'announcements') === 'post';
   const anyPendingAccessRequests = accessRequests.some((r) => r.status === 'pending');
 
   const GROUPS = [
@@ -150,16 +151,21 @@ export default function DirectoryScreen() {
             // Tile keys are camelCase here and the feature list uses its own
             // names, so they are mapped rather than renamed. A tile absent
             // from the map is ungated and always shown.
-            const feature = {
+            // Each tile follows its column in the who-sees-what table.
+            const column = {
               availability: 'availability',
-              workOrders: 'workOrders',
+              workOrders: 'signatures',
               expenses: 'expenses',
-              support: 'support',
+              catering: 'catering',
+              deviceRequests: 'deviceRequests',
+              integrationRequests: 'systemsHelp',
+              hr: 'hr',
+              emergency: 'hr',
+              executiveNotes: 'executiveNotes',
             }[item.key];
-            // Systems Help is deliberately not in that map: anyone should be
-            // able to say a till is behaving oddly.
-            if (!feature) return true;
-            return hasFeature(user, feature);
+            if (item.key === 'waresInventory') return user?.role === 'admin';
+            if (!column) return true;
+            return accessLevel(user, column) !== 'none';
           });
 
           const card = (item) => (

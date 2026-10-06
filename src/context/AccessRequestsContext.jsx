@@ -63,7 +63,8 @@ export function AccessRequestsProvider({ children }) {
   };
 
   const resolveRequest = async (id, status) => {
-    await updateDoc(doc(db, COLLECTION, id), { status, resolvedAt: Date.now() });
+    // Who decided, so everyone else told about it sees "Handled by ...".
+    await updateDoc(doc(db, COLLECTION, id), { status, resolvedAt: Date.now(), resolvedByName: user?.name ?? null });
   };
 
   const hasPendingRequest = (userEmail, type, targetId) =>

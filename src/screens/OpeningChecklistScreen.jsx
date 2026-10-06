@@ -15,6 +15,7 @@ import ItemDetails from '../components/ItemDetails';
 import DatePickerField from '../components/DatePickerField';
 import SearchBar from '../components/SearchBar';
 import { nike } from '../theme/nike';
+import { atLeast } from '../data/accessMatrix';
 import { useDialog } from '../hooks/useDialog';
 
 function formatDate(ts) {
@@ -231,7 +232,12 @@ export default function OpeningChecklistScreen() {
   // Signing off (or un-signing) requires a confirmation step, and records
   // who did it — shown right on the item afterward, on both this screen
   // and the Calendar, since they're reading the exact same document.
-  const requestToggleDone = (item) => setConfirmingItem(item);
+  // View-only people (who-sees-what table: View) can read the list but not
+  // sign items off.
+  const requestToggleDone = (item) => {
+    if (!atLeast(user, 'openingChecklist', 'tick')) return;
+    setConfirmingItem(item);
+  };
   const confirmToggleDone = () => {
     const item = confirmingItem;
     toggleOpeningItemDone(item.id, !item.done, user?.name ?? 'Unknown');

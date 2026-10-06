@@ -151,10 +151,9 @@ exports.onEventRequestResolved = onDocumentUpdated(
     const after = event.data?.after?.data();
     if (!before || !after) return;
     if (before.status !== 'pending' || after.status === 'pending') return;
-    await resolveRef('eventRequest/' + event.params.id);
-
     const approved = after.status === 'approved';
     const users = await R.activeUsers();
+    await resolveRef('eventRequest/' + event.params.id, users.find((u) => u.uid === after.resolvedByUid)?.name ?? null);
     const brandId = after.brandId ?? (await R.brandForLocation(after.locationId));
     const uids = new Set();
     if (after.requestedByUid) uids.add(after.requestedByUid);

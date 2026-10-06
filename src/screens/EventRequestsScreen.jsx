@@ -9,6 +9,7 @@ import DatePickerField from '../components/DatePickerField';
 import TimePickerField from '../components/TimePickerField';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
+import { atLeast } from '../data/accessMatrix';
 
 const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
 
@@ -191,9 +192,10 @@ export default function EventRequestsScreen() {
           <p style={styles.hint}>No event requests yet.</p>
         ) : (
           sortedRequests.map((r) => {
-            const isExecutive = user?.role === 'executive';
+            // The COO and admins decide (who-sees-what table: Approve).
+            const approves = atLeast(user, 'eventRequests', 'approve');
             const isOwnRequest = r.requestedByUid === user?.uid;
-            const canResolve = (isAdmin || (isExecutive && !isOwnRequest)) && r.status === 'pending';
+            const canResolve = (isAdmin || (approves && !isOwnRequest)) && r.status === 'pending';
             const needsMe = !!user?.job && (r.needs ?? []).map(cleanNeed).includes(cleanNeed(user.job));
             return (
               <div key={r.id} style={{ ...styles.card, ...(needsMe ? styles.cardNeedsMe : {}) }}>
@@ -215,8 +217,8 @@ export default function EventRequestsScreen() {
                   </div>
                 ) : null}
                 <p style={styles.cardRequestedBy}>Requested by {r.requestedBy}</p>
-                {isExecutive && isOwnRequest && r.status === 'pending' ? (
-                  <p style={styles.hint}>This is your own request — another admin or executive needs to approve it.</p>
+                {approves && !isAdmin && isOwnRequest && r.status === 'pending' ? (
+                  <p style={styles.hint}>This is your own request — the COO or an admin needs to approve it.</p>
                 ) : null}
                 {r.status === 'denied' && r.denialReason ? (
                   <p style={styles.denialReason}>Reason for denial: {r.denialReason}</p>

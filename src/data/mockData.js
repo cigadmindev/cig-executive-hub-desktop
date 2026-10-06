@@ -1,3 +1,4 @@
+import { accessLevel, featureAllowed } from './accessMatrix';
 // Mirrors the Notion hub: Brand > Location > Category > Item
 export const brands = [
   {
@@ -230,10 +231,8 @@ export const categories = [
  * Job strings match JOB_OPTIONS in EventRequestsContext exactly.
  */
 export function canEditChecklists(user) {
-  if (!user) return false;
-  if (user.role === 'admin') return true;
-  if (user.role !== 'executive') return false;
-  return user.job === 'COO' || user.job === 'Beverage Manager';
+  // From the who-sees-what table: "Edit" on the pre-opening checklist.
+  return accessLevel(user, 'openingChecklist') === 'edit';
 }
 
 /**
@@ -262,12 +261,8 @@ export const FEATURES = [
 ];
 
 export function hasFeature(user, key) {
-  if (!user) return false;
-  if (user.role === 'admin' || user.role === 'executive') return true;
-  const granted = user.permissions?.features;
-  // Absent means everything - see above.
-  if (!Array.isArray(granted)) return true;
-  return granted.includes(key);
+  // Answered by the who-sees-what table (data/accessMatrix.js).
+  return featureAllowed(user, key);
 }
 
 /**
