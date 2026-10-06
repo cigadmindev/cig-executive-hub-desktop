@@ -100,11 +100,6 @@ service cloud.firestore {
     }
 
     // Whoever handles paying: finance, the owner, and admins.
-    function handlesInvoices() {
-      let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return p.role == 'admin' || p.job == 'Financials' || p.job == 'Owner' || p.job == 'COO';
-    }
-
     // Who decides on a new device: the COO and admins.
     function handlesDevices() {
       let p = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
@@ -162,22 +157,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Invoices were removed from the Hub on 6 October 2026. The old records
+    // stay readable by admins; nothing can add to or change them.
     match /invoices/{id} {
-      // Everyone with the restaurant sees the status - "has this been paid"
-      // is the question that generates the chasing.
-      // The whole list belongs to whoever pays. Everyone else sees what they
-      // sent, which is enough to know it arrived and was paid.
-      allow read: if handlesInvoices()
-        || (isSignedIn() && resource.data.submittedByUid == request.auth.uid);
-      allow create: if (isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands()))
-        && request.resource.data.paidByUid == null
-        && request.resource.data.claimedByUid == null;
-      // Claiming and paying only. The invoice itself does not change once
-      // filed - a corrected one is a new upload.
-      allow update: if handlesInvoices()
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['claimedByUid', 'claimedByName', 'claimedAt', 'paidByUid', 'paidByName', 'paidAt']);
-      allow delete: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /offboarding/{uid} {

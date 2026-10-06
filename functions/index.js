@@ -350,7 +350,7 @@ Object.assign(exports, require('./dailyDigest'));
 
 Object.assign(exports, require('./taggedItems'));
 
-Object.assign(exports, require('./invoices'));
+// Invoices were removed on 6 October 2026.
 
 Object.assign(exports, require('./deviceRequests'));
 

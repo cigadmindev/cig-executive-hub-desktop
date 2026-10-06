@@ -32,7 +32,7 @@ export default function DirectoryScreen() {
 
   const GROUPS = [
     { label: 'Day to day', keys: ['catering', 'availability', 'expenses', 'waresInventory'] },
-    { label: 'Requests', keys: ['integrationRequests', 'deviceRequests', 'invoices', 'workOrders'] },
+    { label: 'Requests', keys: ['integrationRequests', 'deviceRequests', 'workOrders'] },
     { label: 'Reference', keys: ['hr', 'emergency'] },
     { label: 'Executive', keys: ['executiveNotes', 'announcement', 'pendingRequests'] },
   ];
@@ -91,13 +91,6 @@ export default function DirectoryScreen() {
       title: 'Device Requests',
       subtitle: 'Ask for a new laptop, iPad or phone',
       onClick: () => navigate('/device-requests'),
-    },
-    {
-      key: 'invoices',
-      icon: 'creditCard',
-      title: 'Invoices',
-      subtitle: 'Send one for paying, or see where yours are',
-      onClick: () => navigate('/invoices'),
     },
     {
       key: 'expenses',

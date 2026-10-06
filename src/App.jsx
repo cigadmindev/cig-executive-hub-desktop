@@ -49,14 +49,12 @@ import { UnderRepairGate } from './components/UnderRepair';
 import { AccessPresetsProvider } from './context/AccessPresetsContext';
 import { OffboardingProvider } from './context/OffboardingContext';
 import { NotificationsProvider } from './context/NotificationsContext';
-import { InvoicesProvider } from './context/InvoicesContext';
 import { DeviceRequestsProvider } from './context/DeviceRequestsContext';
 import { CateringProvider } from './context/CateringContext';
 import CateringScreen from './screens/CateringScreen';
 import DeviceRequestsScreen from './screens/DeviceRequestsScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
 import HRScreen from './screens/HRScreen';
-import InvoicesScreen from './screens/InvoicesScreen';
 import OffboardingScreen from './screens/OffboardingScreen';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
@@ -120,7 +118,6 @@ function Gate() {
         <Route path="/executive-notes" element={<ExecutiveNotesScreen />} />
         <Route path="/work-orders" element={<RequireFeature feature="workOrders"><WorkOrdersScreen /></RequireFeature>} />
         <Route path="/expenses" element={<RequireFeature feature="expenses"><ExpensesScreen /></RequireFeature>} />
-        <Route path="/invoices" element={<InvoicesScreen />} />
         <Route path="/device-requests" element={<DeviceRequestsScreen />} />
         <Route path="/catering" element={<CateringScreen />} />
         <Route path="/emergency" element={<EmergencyScreen />} />
@@ -150,7 +147,6 @@ function Providers({ children }) {
       <IntegrationRequestsProvider>
       <CateringProvider>
       <DeviceRequestsProvider>
-      <InvoicesProvider>
       <NotificationsProvider>
       <OffboardingProvider>
       <AccessPresetsProvider>
@@ -193,7 +189,6 @@ function Providers({ children }) {
       </AccessPresetsProvider>
       </OffboardingProvider>
       </NotificationsProvider>
-      </InvoicesProvider>
       </DeviceRequestsProvider>
       </CateringProvider>
       </IntegrationRequestsProvider>
