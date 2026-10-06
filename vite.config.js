@@ -1,13 +1,22 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
+
+const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
-  // Electron loads from file:// and needs relative paths; the web needs
-  // absolute ones, or a reload on a deep link asks for the app's code inside
-  // that address and gets the page back instead. ELECTRON=1 is set by the
-  // desktop build.
-  base: process.env.ELECTRON ? './' : '/',
+  base: '/',
+  resolve: {
+    // Every Firebase write goes through src/readOnly, which refuses while an
+    // admin is viewing the Hub as someone else. Exact matches only, so the
+    // wrappers themselves can still reach the real packages (@firebase/...).
+    alias: [
+      { find: /^firebase\/firestore$/, replacement: here('./src/readOnly/firestore.js') },
+      { find: /^firebase\/functions$/, replacement: here('./src/readOnly/functions.js') },
+      { find: /^firebase\/storage$/, replacement: here('./src/readOnly/storage.js') },
+    ],
+  },
   server: {
     port: 5173,
   },

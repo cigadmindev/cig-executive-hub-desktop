@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UnderRepairControls } from '../components/UnderRepair';
 import AccessMatrixEditor from '../components/AccessMatrixEditor';
+import AccessSummary from '../components/AccessSummary';
+import ViewAsPicker from '../components/ViewAsPicker';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useAccessPresets } from '../context/AccessPresetsContext';
@@ -48,6 +50,7 @@ export default function AdminUsersScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const navigate = useNavigate();
   const [matrixOpen, setMatrixOpen] = useState(false);
+  const [viewAsOpen, setViewAsOpen] = useState(false);
   const {
     users,
     addUser,
@@ -133,6 +136,10 @@ export default function AdminUsersScreen() {
     if (panelMode === 'create') {
       if (!draft.name.trim() || !draft.email.trim()) {
         notify('Missing details', 'Enter a name and an email address.');
+        return;
+      }
+      if (draft.role !== 'admin' && !draft.job) {
+        notify('Choose a job', 'The job decides what they can see. Pick one before creating the login.');
         return;
       }
       setSaving(true);
@@ -410,6 +417,11 @@ export default function AdminUsersScreen() {
         </div>
       ) : null}
 
+      <button style={styles.repairRow} onClick={() => setViewAsOpen((v) => !v)}>
+        <span>👁 See the Hub as someone</span>
+        <span style={styles.chevron}>{viewAsOpen ? '▾' : '▸'}</span>
+      </button>
+      {viewAsOpen ? <ViewAsPicker /> : null}
       <button style={styles.repairRow} onClick={() => setMatrixOpen((v) => !v)}>
         <span>▦ Who sees what — access by job</span>
         <span style={styles.chevron}>{matrixOpen ? '▾' : '▸'}</span>
@@ -494,7 +506,7 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, presets, savePreset,
       <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
         <h2 style={styles.panelTitle}>{mode === 'create' ? 'New login' : `Edit access — ${draft.name}`}</h2>
 
-        {mode === 'create' && presets.length > 0 ? (
+        {false && mode === 'create' && presets.length > 0 ? (
           <>
             <p style={styles.sectionLabel}>Start from</p>
             <div style={styles.twoCol}>
@@ -544,7 +556,7 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, presets, savePreset,
             <option value="admin">Admin</option>
           </select>
           <select style={styles.input} value={draft.job ?? ''} onChange={(e) => set({ job: e.target.value || null })}>
-            <option value="">No job / department</option>
+            <option value="">Choose a job (required)</option>
             {JOB_OPTIONS.map((j) => (
               <option key={j} value={j}>
                 {j}
@@ -595,99 +607,12 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, presets, savePreset,
               })}
             </div>
 
-            <div style={styles.twoCol}>
-              <div>
-                <p style={styles.sectionLabel}>Folders</p>
-                <button style={styles.summaryBox} onClick={() => setFoldersOpen((v) => !v)}>
-                  <span>{folderSummary}</span>
-                  <span style={styles.chevron}>{foldersOpen ? '▾' : '▸'}</span>
-                </button>
-              </div>
-              <div>
-                <p style={styles.sectionLabel}>Can reach</p>
-                <button style={styles.summaryBox} onClick={() => setReachOpen((v) => !v)}>
-                  <span>{reachSummary}</span>
-                  <span style={styles.chevron}>{reachOpen ? '▾' : '▸'}</span>
-                </button>
-              </div>
-            </div>
-
-            {foldersOpen ? (
-              <div style={styles.box}>
-                <div style={styles.boxHead}>
-                  <span style={styles.sectionLabelInline}>Folders</span>
-                  <button style={styles.linkButton} onClick={() => set({ categoryIds: ALL_CATEGORY_IDS })}>All</button>
-                  <button style={styles.linkButton} onClick={() => set({ categoryIds: [] })}>None</button>
-                </div>
-                <div style={styles.locGrid}>
-                  {categories.map((c) => (
-                    <label key={c.id} style={styles.checkRow}>
-                      <input
-                        type="checkbox"
-                        checked={draft.categoryIds.includes(c.id)}
-                        onChange={() => set({ categoryIds: toggleInArray(draft.categoryIds, c.id) })}
-                      />
-                      <span>{c.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {reachOpen ? (
-              <div style={styles.box}>
-                <div style={styles.boxHead}>
-                  <span style={styles.sectionLabelInline}>Can reach</span>
-                  <button style={styles.linkButton} onClick={() => set({ features: ALL_FEATURE_KEYS })}>All</button>
-                  <button style={styles.linkButton} onClick={() => set({ features: [] })}>None</button>
-                </div>
-                <div style={styles.locGrid}>
-                  {FEATURES.map((f) => (
-                    <label key={f.key} style={styles.checkRow}>
-                      <input
-                        type="checkbox"
-                        checked={draft.features.includes(f.key)}
-                        onChange={() => set({ features: toggleInArray(draft.features, f.key) })}
-                      />
-                      <span>{f.label}</span>
-                    </label>
-                  ))}
-                </div>
-                <p style={styles.note}>Messages, the calendar and their profile are always available.</p>
-              </div>
-            ) : null}
+            {/* Folders and sections come from the job's row in Who sees what. */}
+            <AccessSummary person={{ ...draft, permissions: { brandIds: draft.brandIds ?? [], locationsByBrand: draft.locationsByBrand ?? {} } }} />
           </>
         ) : (
-          <p style={styles.note}>
-            {draft.role === 'executive'
-              ? "Executives see everything, and can approve requests, post announcements and manage the calendar — but can't manage logins, connect Drive folders, set an opening date, or approve their own requests."
-              : 'Admins see everything.'}
-            {mode === 'edit' ? ' Their manager access stays saved, so switching back restores exactly what they had.' : ''}
-          </p>
+          <AccessSummary person={{ ...draft, permissions: { brandIds: draft.brandIds ?? [], locationsByBrand: draft.locationsByBrand ?? {} } }} />
         )}
-
-        {draft.role === 'manager' ? (
-          <button
-            style={styles.linkButton}
-            onClick={async () => {
-              const name = window.prompt('Name this preset — for example, Assistant Manager');
-              if (!name || !name.trim()) return;
-              try {
-                await savePreset({
-                  name,
-                  role: draft.role,
-                  job: draft.job,
-                  categoryIds: draft.categoryIds,
-                  features: draft.features,
-                });
-              } catch (err) {
-                console.error('[Presets] ' + err.message);
-              }
-            }}
-          >
-            Save these settings as a preset
-          </button>
-        ) : null}
 
         <div style={styles.panelFooter}>
           <span style={styles.note}>{mode === 'create' ? 'A setup email sends when you create the login.' : ''}</span>

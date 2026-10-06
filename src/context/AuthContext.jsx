@@ -1,3 +1,4 @@
+import { setReadOnly } from '../readOnly/state';
 import { accessLevel, canSeeFolder } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
@@ -46,6 +47,21 @@ async function fetchProfile(uid, email) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  // See the Hub as someone (admins only): their profile stands in for
+  // "user" everywhere, and the read-only switch blocks every write.
+  const [viewAsUser, setViewAsUser] = useState(null);
+  const startViewAs = async (uid) => {
+    if (user?.role !== 'admin' || uid === user.uid) return;
+    const target = users.find((u) => u.uid === uid);
+    const profile = await fetchProfile(uid, target?.email ?? '');
+    if (!profile) return;
+    setReadOnly(true);
+    setViewAsUser(profile);
+  };
+  const stopViewAs = () => {
+    setReadOnly(false);
+    setViewAsUser(null);
+  };
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -275,7 +291,12 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider
       value={{
-        user,
+        // While an admin is viewing as someone, everything reads as them.
+        user: viewAsUser ?? user,
+        realUser: user,
+        viewAs: viewAsUser,
+        startViewAs,
+        stopViewAs,
         users, // everyone, including deactivated - for Manage Logins
         // Everyone who can still sign in, minus test logins. This is what
         // the assignee pickers, message recipients, team lists and

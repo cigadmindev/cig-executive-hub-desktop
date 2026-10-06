@@ -1,3 +1,4 @@
+import ViewAsBar from '../components/ViewAsBar';
 import React, { useState } from 'react';
 import UpdateBanner from '../components/UpdateBanner';
 import NotificationsPanel, { NotificationsBell } from '../components/NotificationsPanel';
@@ -83,6 +84,7 @@ export default function AppLayout({ children }) {
           <div style={styles.narrowBanner}>
             <UpdateBanner />
           </div>
+          <ViewAsBar />
           {children}
         </div>
         <NotificationsBell floating onClick={() => setNotifOpen(true)} />
@@ -164,7 +166,10 @@ export default function AppLayout({ children }) {
         </div>
       </div>
 
-      <div style={styles.content}>{children}</div>
+      <div style={styles.content}>
+        <ViewAsBar />
+        {children}
+      </div>
       {notifOpen ? <NotificationsPanel onClose={() => setNotifOpen(false)} /> : null}
     </div>
   );
