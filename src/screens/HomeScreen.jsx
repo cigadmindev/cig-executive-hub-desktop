@@ -14,6 +14,7 @@ import { useHomeSummary } from '../hooks/useHomeSummary';
 import { nike } from '../theme/nike';
 import { useBrandAnnouncements } from '../context/BrandAnnouncementsContext';
 import PostCard from '../components/PostCard';
+import { accessLevel } from '../data/accessMatrix';
 import { brandIdForTarget } from '../data/mockData';
 
 export default function HomeScreen() {
@@ -61,7 +62,8 @@ export default function HomeScreen() {
       navigate(`/brand/${loc.brandId}/location/${loc.id}/opening-checklist`);
       return;
     }
-    if (!user) return;
+    // Opening date only for this person - nothing to open, nothing to request.
+    if (!user || accessLevel(user, 'openingChecklist') === 'none') return;
     if (hasPendingRequest(user.email, 'feature', 'openingChecklist')) {
       notify('Already requested', 'Your request for the opening checklist is still waiting on approval.');
       return;
@@ -244,6 +246,8 @@ export default function HomeScreen() {
                   {loc.name} · {new Date(loc.openingDate).toLocaleDateString([], { month: 'short', day: 'numeric' })} ·{' '}
                   {loc.daysOut} days out
                 </span>
+                {hasFeature(user, 'openingChecklist') ? (
+                  <>
                 <div style={styles.barTrack}>
                   <div
                     style={{
@@ -271,6 +275,8 @@ export default function HomeScreen() {
                     <span style={styles.openingOverdue}>{loc.timelineOverdue} overdue</span>
                   ) : null}
                 </div>
+                  </>
+                ) : null}
               </button>
             ))}
           </div>

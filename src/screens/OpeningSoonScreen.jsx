@@ -24,7 +24,11 @@ export default function OpeningSoonScreen() {
   const { dialogNode, notify } = useDialog();
   const [requestTarget, setRequestTarget] = useState(null);
 
+  // Opening dates are for everyone with "Opening dates" in Who sees what; the
+  // progress and the checklist behind it only for those who have the checklist.
+  const seesChecklist = hasFeature(user, 'openingChecklist');
   const handleClick = (loc) => {
+    if (!seesChecklist) return;
     if (hasFeature(user, 'openingChecklist')) {
       navigate(`/brand/${loc.brandId}/location/${loc.id}/opening-checklist`);
       return;
@@ -71,7 +75,7 @@ export default function OpeningSoonScreen() {
           <button
             key={loc.id}
             data-card=""
-            style={styles.card}
+            style={{ ...styles.card, ...(seesChecklist ? {} : { cursor: 'default' }) }}
             onClick={() => handleClick(loc)}
           >
             <span style={styles.name}>{loc.brandName}</span>
@@ -79,6 +83,9 @@ export default function OpeningSoonScreen() {
               {loc.name} · {new Date(loc.openingDate).toLocaleDateString([], { month: 'short', day: 'numeric' })} ·{' '}
               {loc.daysOut} days out
             </span>
+
+            {seesChecklist ? (
+              <>
 
             <div style={styles.barTrack}>
               <div
@@ -112,6 +119,8 @@ export default function OpeningSoonScreen() {
                 <span style={styles.overdue}>{loc.timelineOverdue} overdue</span>
               ) : null}
             </div>
+              </>
+            ) : null}
           </button>
         ))}
       </div>
