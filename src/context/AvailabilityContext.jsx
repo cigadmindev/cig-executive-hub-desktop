@@ -1,5 +1,6 @@
+import { atLeast } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, query, where, deleteField } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 
@@ -26,7 +27,8 @@ export function AvailabilityProvider({ children }) {
     // Rules are not filters: an unfiltered query is rejected outright for
     // anyone the rule would not let read every document. Reviewers read the
     // collection; everyone else must ask only for their own.
-    const canReviewTimeOff = user.role === 'admin' || user.role === 'executive';
+    // Who sees what: "Team" and up read everyone's time off; others their own.
+    const canReviewTimeOff = user.role === 'admin' || atLeast(user, 'availability', 'team');
     const timeOffQuery = canReviewTimeOff
       ? collection(db, 'timeOffRequests')
       : query(collection(db, 'timeOffRequests'), where('uid', '==', user.uid));
@@ -68,7 +70,7 @@ export function AvailabilityProvider({ children }) {
     // executives and admins, so they keep the whole collection; a manager
     // reads their own record only - by document, since the id is the person
     // and there is no uid field to query on.
-    const seesEveryone = user.role === 'admin' || user.role === 'executive';
+    const seesEveryone = user.role === 'admin' || atLeast(user, 'availability', 'team');
     const availabilitySource = seesEveryone
       ? collection(db, 'weeklyAvailability')
       : doc(db, 'weeklyAvailability', user.uid);
@@ -92,6 +94,9 @@ export function AvailabilityProvider({ children }) {
           uid: d.id,
           name: data.name,
           weekStartDate: data.weekStartDate ?? null,
+          // Weeks that differ from the usual week, by the Monday they start
+          // on ('2026-10-12') - each a full set of days.
+          overrides: data.overrides ?? {},
           monday: readDay(data.monday),
           tuesday: readDay(data.tuesday),
           wednesday: readDay(data.wednesday),
@@ -170,13 +175,24 @@ export function AvailabilityProvider({ children }) {
     return d.getTime();
   };
 
-  const setMyWeeklyAvailability = async (weekly, weekStartDate) => {
+  // The usual week: set once, it applies to every week that has no override.
+  const setMyWeeklyAvailability = async (weekly) => {
     if (!user) return;
-    await setDoc(doc(db, 'weeklyAvailability', user.uid), {
-      name: user.name,
-      weekStartDate: weekStartDate ?? getWeekStart(),
-      ...weekly,
-    });
+    await setDoc(doc(db, 'weeklyAvailability', user.uid), { name: user.name, usualSetAt: Date.now(), ...weekly }, { merge: true });
+  };
+
+  // One week that differs from the usual - or null to go back to usual.
+  const setWeekOverride = async (mondayKey, days) => {
+    if (!user) return;
+    const ref = doc(db, 'weeklyAvailability', user.uid);
+    const mine = weeklyAvailability.find((w) => w.uid === user.uid);
+    if (!mine) {
+      if (days) await setDoc(ref, { name: user.name, overrides: { [mondayKey]: days } }, { merge: true });
+      return;
+    }
+    // A field path, so one week changes without touching the others - and
+    // deleteField really removes it, which a merge would not.
+    await updateDoc(ref, { ['overrides.' + mondayKey]: days ?? deleteField() });
   };
 
   return (
@@ -189,6 +205,7 @@ export function AvailabilityProvider({ children }) {
         updateTimeOffRequest,
         deleteTimeOffRequest,
         setMyWeeklyAvailability,
+        setWeekOverride,
         getWeekStart,
         ptoUsed,
       }}

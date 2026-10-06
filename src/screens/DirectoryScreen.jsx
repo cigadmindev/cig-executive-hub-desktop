@@ -27,7 +27,9 @@ export default function DirectoryScreen() {
   const { hasUncollectedReport } = useExpenses();
   const { hasUnseen: hasUnseenIntegration } = useIntegrationRequests();
   const myWeekly = weeklyAvailability.find((w) => w.uid === user?.uid);
-  const myWeeklyIsStale = !myWeekly || myWeekly.weekStartDate !== getWeekStart();
+  // Only until the usual week is set once - it carries forward, so there is
+  // no Monday reminder any more.
+  const myWeeklyIsStale = !myWeekly;
   const canPostAnnouncements = accessLevel(user, 'announcements') === 'post';
   const anyPendingAccessRequests = accessRequests.some((r) => r.status === 'pending');
 

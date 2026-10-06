@@ -31,7 +31,9 @@ export default function AppLayout({ children }) {
   const { hasUnseenTimeOff, hasUnseenCalendar } = useViewTracking();
   const { weeklyAvailability, getWeekStart } = useAvailability();
   const myWeekly = weeklyAvailability.find((w) => w.uid === user?.uid);
-  const myWeeklyIsStale = !myWeekly || myWeekly.weekStartDate !== getWeekStart();
+  // Only until the usual week is set once - it carries forward, so there is
+  // no Monday reminder any more.
+  const myWeeklyIsStale = !myWeekly;
   const { hasNeedMatchingJob } = useEventRequests();
   const { getByBrand } = useCustomLocations();
   const { requests: supportRequests } = useSupportRequests();

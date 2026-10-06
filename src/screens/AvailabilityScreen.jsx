@@ -1,501 +1,304 @@
-import React, { useEffect, useState } from 'react';
-import { useAvailability } from '../context/AvailabilityContext';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useViewTracking } from '../context/ViewTrackingContext';
+import { useAvailability } from '../context/AvailabilityContext';
+import { brands } from '../data/mockData';
+import { atLeast } from '../data/accessMatrix';
+import { useCustomLocations } from '../context/CustomLocationsContext';
 import DatePickerField from '../components/DatePickerField';
-import TimePickerField from '../components/TimePickerField';
-import { PTO_ALLOWANCE_DAYS } from '../context/AvailabilityContext';
-import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 import { pageHeader, pageAction } from '../theme/pageHeader';
-import { atLeast } from '../data/accessMatrix';
+import { useDialog } from '../hooks/useDialog';
 
-const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-const DAY_LABELS = { monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday' };
-const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
+// Availability - one page, the same for everyone:
+//   Waiting on you  (the COO and admins) time off to approve or deny
+//   My hours        your usual week, set once, carried forward every week;
+//                   "only this week is different" for one-offs
+//   My time off     your requests and where each stands
+//   My team         (GMs and up) a week grid, time off shaded
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const SHORT = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
+const BLANK = { off: true, start: '09:00', end: '17:00' };
+const DAY = 24 * 60 * 60 * 1000;
 
-function formatDate(ts) {
-  return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+const ymd = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+function mondayOf(offsetWeeks = 0) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + offsetWeeks * 7);
+  return d;
 }
+const fmt = (t) => {
+  const [h, m] = t.split(':').map(Number);
+  const hh = ((h + 11) % 12) + 1;
+  return hh + (m ? ':' + String(m).padStart(2, '0') : '') + (h < 12 ? 'a' : 'p');
+};
+const span = (d) => (!d || d.off ? null : fmt(d.start) + '–' + fmt(d.end));
+const shortDate = (ms) => new Date(ms).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+const range = (r) => (r.endDate && r.endDate !== r.startDate ? shortDate(r.startDate) + ' – ' + shortDate(r.endDate) : shortDate(r.startDate));
 
-function formatTimeLabel(hhmm) {
-  if (typeof hhmm !== 'string' || !hhmm.includes(':')) return '';
-  const [h, m] = hhmm.split(':').map(Number);
-  const date = new Date();
-  date.setHours(h, m, 0, 0);
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-function formatDaySummary(day) {
-  if (!day || typeof day !== 'object') return 'Not set';
-  if (day.off) return 'Unavailable';
-  return `${formatTimeLabel(day.start)} – ${formatTimeLabel(day.end)}`;
+// What someone is working on a given week: that week's override, or the usual.
+function weekFor(record, mondayKey) {
+  if (!record) return null;
+  return record.overrides?.[mondayKey] ?? record;
 }
 
 export default function AvailabilityScreen() {
-  const { dialogNode, confirm, notify } = useDialog();
-  const { user, activeUsers } = useAuth();
-  const {
-    timeOffRequests,
-    weeklyAvailability,
-    submitTimeOff,
-    resolveTimeOff,
-    updateTimeOffRequest,
-    deleteTimeOffRequest,
-    setMyWeeklyAvailability,
-    getWeekStart,
-    ptoUsed,
-  } = useAvailability();
-  const { markTimeOffViewed } = useViewTracking();
-  const isAdmin = user?.role === 'admin';
-  // From the who-sees-what table: who sees the team, and who decides.
-  const seesTeam = atLeast(user, 'availability', 'team');
-  const approves = atLeast(user, 'availability', 'approve');
+  const { user, users, refreshUsers, hasLocationAccess } = useAuth();
+  const { timeOffRequests, weeklyAvailability, submitTimeOff, resolveTimeOff, deleteTimeOffRequest, setMyWeeklyAvailability, setWeekOverride } = useAvailability();
+  const { getByBrand } = useCustomLocations();
+  const { dialogNode, notify, confirm } = useDialog();
+
+  const approves = user?.role === 'admin' || atLeast(user, 'availability', 'approve');
+  const seesTeam = user?.role === 'admin' || atLeast(user, 'availability', 'team');
 
   useEffect(() => {
-    markTimeOffViewed();
-  }, []);
+    if (seesTeam && !(users ?? []).length && refreshUsers) refreshUsers().catch(() => {});
+  }, [seesTeam]);
 
-  const [tab, setTab] = useState(seesTeam ? 'weekly' : 'mine');
-  // 0 is this week, 1 next, -1 last. Set-ahead matters more than history, but
-  // both are cheap once the week is a parameter rather than a constant.
-  const [weekOffset, setWeekOffset] = useState(0);
+  // ---- My hours ----
+  const mine = weeklyAvailability.find((w) => w.uid === user?.uid);
+  const thisMonday = ymd(mondayOf(0));
+  const [editing, setEditing] = useState(null); // 'usual' | 'week'
+  const [draft, setDraft] = useState(null);
+  const startEdit = (kind) => {
+    const base = kind === 'week' ? weekFor(mine, thisMonday) : mine;
+    setDraft(Object.fromEntries(DAYS.map((d) => [d, { ...(base?.[d] ?? BLANK) }])));
+    setEditing(kind);
+  };
+  const saveHours = async () => {
+    try {
+      if (editing === 'usual') await setMyWeeklyAvailability(draft);
+      else await setWeekOverride(thisMonday, draft);
+      setEditing(null);
+      notify('Saved', editing === 'usual' ? 'Your usual week carries forward every week.' : 'Saved for this week only.');
+    } catch (err) {
+      notify('Could not save', err?.message ?? 'Try again.');
+    }
+  };
+  const hasUsual = !!mine && DAYS.some((d) => mine[d] && !mine[d].off);
+  const thisWeekDiffers = !!mine?.overrides?.[thisMonday];
+  const shownWeek = weekFor(mine, thisMonday);
 
+  // ---- Time off ----
   const [formOpen, setFormOpen] = useState(false);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [reason, setReason] = useState('');
-
-  const [denyingId, setDenyingId] = useState(null);
+  const submit = async () => {
+    if (!from) return;
+    const s = new Date(from + 'T12:00:00').getTime();
+    const e = to ? new Date(to + 'T12:00:00').getTime() : s;
+    if (e < s) return notify('Check the dates', 'The last day is before the first.');
+    try {
+      await submitTimeOff(s, e, reason.trim());
+      setFormOpen(false);
+      setFrom(''); setTo(''); setReason('');
+      notify('Sent', 'Ronnie or an admin will decide, and you will be emailed the answer.');
+    } catch (err) {
+      notify('Could not send', err?.message ?? 'Try again.');
+    }
+  };
+  const myRequests = timeOffRequests.filter((r) => r.uid === user?.uid).sort((a, b) => b.startDate - a.startDate);
+  const waiting = approves ? timeOffRequests.filter((r) => r.status === 'pending' && (user?.role === 'admin' || r.uid !== user?.uid)) : [];
+  const [denying, setDenying] = useState(null);
   const [denyReason, setDenyReason] = useState('');
 
-  const [editingRequest, setEditingRequest] = useState(null);
-  const [editStart, setEditStart] = useState('');
-  const [editEnd, setEditEnd] = useState('');
-  const [editReason, setEditReason] = useState('');
-
-  const [viewingPerson, setViewingPerson] = useState(null);
-
-  const myTimeOff = timeOffRequests.filter((r) => r.uid === user?.uid);
-  const myWeekly = weeklyAvailability.find((w) => w.uid === user?.uid);
-  // Availability records outlive the account they belong to - deactivating
-  // someone sets a flag on their profile and leaves everything else alone. The
-  // team view answers "who is around this week", and someone without an
-  // account is not. They stay visible in Manage Logins, which is where
-  // deactivated people belong.
-  const activeUids = new Set(activeUsers.map((u) => u.uid));
-  const otherWeekly = weeklyAvailability.filter((w) => w.uid !== user?.uid && activeUids.has(w.uid));
-  const pendingCount = timeOffRequests.filter((r) => r.status === 'pending').length;
-
-  // A new week starting means last week's answers no longer apply — treat
-  // it as if nothing's been set yet, rather than showing stale info.
-  const currentWeekStart = getWeekStart(weekOffset);
-  const myWeeklyIsCurrent = myWeekly && myWeekly.weekStartDate === currentWeekStart;
-  const weekRangeLabel = (() => {
-    const start = new Date(currentWeekStart);
-    const end = new Date(currentWeekStart + 6 * 24 * 60 * 60 * 1000);
-    return `${start.toLocaleDateString([], { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
-  })();
-
-  // Saves one day immediately rather than collecting a form and submitting.
-  // Seven fields behind a Save button meant losing everything if you navigated
-  // away, and there's no reason a single day's hours needs a transaction.
-  const setDayHours = async (day, hours) => {
-    const base = myWeeklyIsCurrent ? myWeekly : {};
-    const DEFAULT_DAY = { off: true, start: '09:00', end: '17:00' };
-    const next = Object.fromEntries(
-      DAYS.map((d) => {
-        const v = base?.[d];
-        return [d, v && typeof v === 'object' && typeof v.off === 'boolean' ? v : { ...DEFAULT_DAY }];
-      })
-    );
-    next[day] = hours;
-    await setMyWeeklyAvailability(next, currentWeekStart);
-  };
-
-  // Approved time off replaces a day's hours — you're not available, and
-  // showing pickers next to "approved" would invite editing something that's
-  // already been decided.
-  const timeOffOnDay = (dayMs) =>
-    timeOffRequests.some(
-      (r) => r.uid === user?.uid && r.status === 'approved' && dayMs >= r.startDate && dayMs <= r.endDate
-    );
-
-  const usedDays = ptoUsed(user?.uid);
-
-  const weekEndMs = currentWeekStart + 7 * 24 * 60 * 60 * 1000;
-  const offThisWeek = timeOffRequests.filter(
-    (r) => r.status === 'approved' && r.startDate < weekEndMs && r.endDate >= currentWeekStart
-  );
-
-  const handleSubmit = async () => {
-    if (!startDate || !endDate || !reason.trim()) return;
-    try {
-      await submitTimeOff(new Date(startDate).getTime(), new Date(endDate).getTime(), reason.trim());
-      // Only clears on success - otherwise the form empties and closes while
-      // nothing was actually requested.
-      setFormOpen(false);
-      setStartDate('');
-      setEndDate('');
-      setReason('');
-    } catch (err) {
-      notify('Could not submit', err?.message ?? 'Your request was not sent. Try again.');
-    }
-  };
-
-  const openDeny = (id) => {
-    setDenyingId(id);
-    setDenyReason('');
-  };
-  const confirmDeny = async () => {
-    try {
-      await resolveTimeOff(denyingId, 'denied', denyReason.trim());
-      setDenyingId(null);
-    } catch (err) {
-      notify('Could not deny', err?.message ?? 'Nothing was changed. Try again.');
-      return;
-    }
-  };
-
-  const openEdit = (r) => {
-    setEditingRequest(r);
-    setEditStart(new Date(r.startDate).toISOString().slice(0, 10));
-    setEditEnd(new Date(r.endDate).toISOString().slice(0, 10));
-    setEditReason(r.reason);
-  };
-  const saveEdit = async () => {
-    try {
-      await updateTimeOffRequest(editingRequest.id, {
-        startDate: new Date(editStart).getTime(),
-        endDate: new Date(editEnd).getTime(),
-        reason: editReason.trim(),
+  // ---- Team ----
+  const myLocations = useMemo(() => {
+    const out = [];
+    brands.forEach((b) => {
+      [...(b.locations ?? []), ...getByBrand(b.id).map((l) => ({ id: l.id, name: l.name }))].forEach((l) => {
+        if (user?.role === 'admin' || hasLocationAccess(user, b.id, l.id)) out.push({ brandId: b.id, id: l.id, label: b.name + ' · ' + l.name });
       });
-      setEditingRequest(null);
-    } catch (err) {
-      notify('Could not save', err?.message ?? 'Your changes were not saved. Try again.');
-    }
-  };
-  const handleDelete = (r) => {
-    confirm({
-      title: 'Delete this request?',
-      body: 'This cannot be undone.',
-      confirmLabel: 'Delete',
-      tone: 'danger',
-      onConfirm: () => deleteTimeOffRequest(r.id),
     });
+    return out;
+  }, [user?.uid, getByBrand]);
+  const [locKey, setLocKey] = useState('');
+  const loc = myLocations.find((l) => l.id === locKey) ?? myLocations[0];
+  const [weekOffset, setWeekOffset] = useState(0);
+  const teamMonday = mondayOf(weekOffset);
+  const teamKey = ymd(teamMonday);
+  const team = (users ?? [])
+    .filter((u) => u.active !== false && u.role !== 'admin' && loc)
+    .filter((u) => (u.permissions?.brandIds ?? []).includes(loc.brandId))
+    .filter((u) => {
+      const only = u.permissions?.locationsByBrand?.[loc.brandId];
+      return !Array.isArray(only) || only.length === 0 || only.includes(loc.id);
+    })
+    .filter((u) => u.role === 'manager')
+    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+  const offOn = (uid, dayIndex) => {
+    const t = teamMonday.getTime() + dayIndex * DAY + DAY / 2;
+    return timeOffRequests.some((r) => r.uid === uid && r.status === 'approved' && r.startDate - DAY / 2 <= t && t <= r.endDate + DAY / 2);
   };
 
+  const dayEditor = (
+    <div style={styles.editor}>
+      {DAYS.map((d) => (
+        <div key={d} style={styles.editRow}>
+          <span style={styles.editDay}>{SHORT[d]}</span>
+          <label style={styles.offLabel}>
+            <input type="checkbox" checked={!draft?.[d]?.off} onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], off: !e.target.checked } })} /> Working
+          </label>
+          {!draft?.[d]?.off ? (
+            <>
+              <input type="time" style={styles.time} value={draft[d].start} onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], start: e.target.value } })} />
+              <span style={styles.muted}>to</span>
+              <input type="time" style={styles.time} value={draft[d].end} onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], end: e.target.value } })} />
+            </>
+          ) : <span style={styles.muted}>Off</span>}
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <button style={styles.primary} onClick={saveHours}>{editing === 'usual' ? 'Save my usual week' : 'Save for this week only'}</button>
+        <button style={styles.ghost} onClick={() => setEditing(null)}>Cancel</button>
+      </div>
+    </div>
+  );
 
   return (
     <div style={styles.page}>
-      <header style={styles.header}>
-        <div style={pageHeader}>
+      <div style={pageHeader}>
+        <div>
           <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Availability</h1>
-          <button style={pageAction} onClick={() => setFormOpen(true)}>
-            + Request Time Off
-          </button>
+          <p style={styles.subtitle}>Your usual hours, your time off{seesTeam ? ', and your team' : ''} — one page for everyone.</p>
         </div>
-        <div style={styles.tabRow}>
-          {/* Everyone can ask for their own time off, executives included. */}
-          <button style={{ ...styles.tab, ...(tab === 'mine' ? styles.tabActive : {}) }} onClick={() => setTab('mine')}>
-            My Time Off
-          </button>
-          <button style={{ ...styles.tab, ...(tab === 'weekly' ? styles.tabActive : {}) }} onClick={() => setTab('weekly')}>
-            Weekly Availability
-          </button>
-          {seesTeam ? (
-            <button style={{ ...styles.tab, ...(tab === 'team' ? styles.tabActive : {}) }} onClick={() => setTab('team')}>
-              Team
-            </button>
-          ) : null}
-          {approves ? (
-            <button style={{ ...styles.tab, ...(tab === 'admin' ? styles.tabActive : {}) }} onClick={() => setTab('admin')}>
-              All Requests {pendingCount > 0 ? `(${pendingCount})` : ''}
-            </button>
-          ) : null}
-        </div>
-      </header>
-
-      <div style={styles.body}>
-        {tab === 'mine' ? (
-          <>
-            {myTimeOff.length === 0 ? (
-              <p style={styles.hint}>No time off requested yet.</p>
-            ) : (
-              myTimeOff.map((r) => (
-                <div key={r.id} style={styles.card}>
-                  <div style={styles.cardHeaderRow}>
-                    <span style={styles.cardDates}>
-                      {formatDate(r.startDate)} – {formatDate(r.endDate)}
-                    </span>
-                    <span style={{ ...styles.statusBadge, background: STATUS_COLORS[r.status] }}>{r.status.toUpperCase()}</span>
-                  </div>
-                  <p style={styles.cardReason}>{r.reason}</p>
-                  {r.status === 'denied' && r.denialReason ? (
-                    <p style={styles.denialReason}>Reason for denial: {r.denialReason}</p>
-                  ) : null}
-                  {r.status === 'denied' ? (
-                    <button style={styles.linkButtonDanger} onClick={() => handleDelete(r)}>
-                      Delete Request
-                    </button>
-                  ) : null}
-                </div>
-              ))
-            )}
-          </>
-        ) : null}
-
-        {tab === 'weekly' ? (
-          <>
-            <div style={styles.weekNav}>
-              <button style={styles.weekArrow} onClick={() => setWeekOffset((w) => w - 1)}>
-                ‹
-              </button>
-              <span style={styles.weekLabel}>{weekRangeLabel}</span>
-              <button style={styles.weekArrow} onClick={() => setWeekOffset((w) => w + 1)}>
-                ›
-              </button>
-              {weekOffset !== 0 ? (
-                <button style={styles.thisWeekLink} onClick={() => setWeekOffset(0)}>
-                  This week
-                </button>
-              ) : null}
-            </div>
-
-            {/* One editable grid rather than a banner, a read-only view, and a
-                modal. Three states for what is really just seven rows meant
-                you couldn't see and change your week at the same time. */}
-            <div style={styles.weekCard}>
-              {DAYS.map((day, i) => {
-                const dayDate = new Date(currentWeekStart + i * 24 * 60 * 60 * 1000);
-                const value = myWeeklyIsCurrent ? myWeekly?.[day] : null;
-                // A working day is an object whose off is explicitly false.
-                // Anything else - off: true, null, or a legacy string - is not.
-                const hours = value && typeof value === 'object' && value.off === false ? value : null;
-                const legacy = typeof value === 'string' && value ? value : null;
-                const off = timeOffOnDay(dayDate.getTime());
-
-                return (
-                  <div key={day} data-row="" style={styles.dayRow}>
-                    <span style={styles.dayLabel}>
-                      {DAY_LABELS[day].slice(0, 3)} <span style={styles.dayNum}>{dayDate.getDate()}</span>
-                    </span>
-
-                    {off ? (
-                      <span style={styles.timeOffNote}>Time off approved</span>
-                    ) : legacy ? (
-                      // Written before hours became structured. Shown as-is so
-                      // nothing is lost, and replaced the next time it's set.
-                      <span style={styles.legacyValue}>{legacy}</span>
-                    ) : hours ? (
-                      <>
-                        <TimePickerField value={hours.start} onChange={(v) => setDayHours(day, { ...hours, off: false, start: v })} />
-                        <span style={styles.toLabel}>to</span>
-                        <TimePickerField value={hours.end} onChange={(v) => setDayHours(day, { ...hours, off: false, end: v })} />
-                        <div style={{ flex: 1 }} />
-                        <button style={styles.clearDay} onClick={() => setDayHours(day, { off: true, start: hours.start, end: hours.end })}>
-                          Unavailable
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span style={styles.unavailable}>Unavailable</span>
-                        <div style={{ flex: 1 }} />
-                        <button style={styles.setHours} onClick={() => setDayHours(day, { off: false, start: '09:00', end: '17:00' })}>
-                          Set hours
-                        </button>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div style={styles.ptoGrid}>
-              {false ? null : (
-              <div>
-                <p style={styles.zoneLabel}>Paid time off</p>
-                <div style={styles.ptoCard}>
-                  <div style={styles.ptoTop}>
-                    <span style={styles.ptoBig}>{PTO_ALLOWANCE_DAYS - usedDays}</span>
-                    <span style={styles.ptoOf}>of {PTO_ALLOWANCE_DAYS} days left</span>
-                  </div>
-                  <div style={styles.ptoTrack}>
-                    <div style={{ ...styles.ptoFill, width: `${Math.min(100, (usedDays / PTO_ALLOWANCE_DAYS) * 100)}%` }} />
-                  </div>
-                  <p style={styles.ptoNote}>Resets January 1</p>
-                  <button style={styles.requestLink} onClick={() => setFormOpen(true)}>
-                    Request time off
-                  </button>
-                </div>
-              </div>
-              )}
-
-              <div>
-                <p style={styles.zoneLabel}>Who's off this week</p>
-                <div style={styles.panel}>
-                  {offThisWeek.length === 0 ? (
-                    <p style={styles.emptyNote}>Nobody's off this week.</p>
-                  ) : (
-                    offThisWeek.map((r) => (
-                      <div key={r.id} data-row="" style={styles.offRow}>
-                        <span style={styles.offName}>{r.name}</span>
-                        <span style={styles.offDates}>
-                          {formatDate(r.startDate)}
-                          {r.endDate !== r.startDate ? ` – ${formatDate(r.endDate)}` : ''}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          </>
-        ) : null}
-
-        {tab === 'team' ? (
-          <>
-            {otherWeekly.length === 0 ? (
-              <p style={styles.emptyNote}>Nobody else has set their availability yet.</p>
-            ) : (
-              otherWeekly.map((w) => (
-                <button key={w.uid} data-row="" style={styles.personRow} onClick={() => setViewingPerson(w)}>
-                  <span>{w.name}</span>
-                  <span style={{ color: 'var(--text-secondary)' }}>›</span>
-                </button>
-              ))
-            )}
-          </>
-        ) : null}
-
-        {tab === 'admin' && approves ? (
-          <>
-            {timeOffRequests.length === 0 ? (
-              <p style={styles.hint}>No requests yet.</p>
-            ) : (
-              [...timeOffRequests]
-                .sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1))
-                .map((r) => {
-                  const isOwnRequest = r.uid === user?.uid;
-                  const canResolve = (isAdmin || (approves && !isOwnRequest)) && r.status === 'pending';
-                  return (
-                  <div key={r.id} style={styles.card}>
-                    <div style={styles.cardHeaderRow}>
-                      <span style={styles.cardDates}>{r.name}</span>
-                      <span style={{ ...styles.statusBadge, background: STATUS_COLORS[r.status] }}>{r.status.toUpperCase()}</span>
-                    </div>
-                    <p style={styles.cardReason}>
-                      {formatDate(r.startDate)} – {formatDate(r.endDate)}
-                    </p>
-                    <p style={styles.cardReason}>{r.reason}</p>
-                    {r.status === 'denied' && r.denialReason ? (
-                      <p style={styles.denialReason}>Reason for denial: {r.denialReason}</p>
-                    ) : null}
-                    {approves && !isAdmin && isOwnRequest && r.status === 'pending' ? (
-                      <p style={styles.hint}>This is your own request — another admin or executive needs to approve it.</p>
-                    ) : null}
-                    <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                      {canResolve ? (
-                        <>
-                          <button style={styles.saveButton} onClick={() => resolveTimeOff(r.id, 'approved')}>
-                            Approve
-                          </button>
-                          <button style={styles.cancelButton} onClick={() => openDeny(r.id)}>
-                            Deny
-                          </button>
-                        </>
-                      ) : null}
-                      {isAdmin ? (
-                        <>
-                          <button style={styles.linkButton} onClick={() => openEdit(r)}>
-                            Edit
-                          </button>
-                          <button style={styles.linkButtonDanger} onClick={() => handleDelete(r)}>
-                            Delete
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                  );
-                })
-            )}
-          </>
-        ) : null}
+        <button style={pageAction} onClick={() => setFormOpen(true)}>+ Request Time Off</button>
       </div>
 
       {formOpen ? (
-        <div style={styles.modalBackdrop} onClick={() => setFormOpen(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Request Time Off</h2>
-            <label style={styles.label}>Start Date</label>
-            <DatePickerField value={startDate} onChange={setStartDate} placeholder="Start date" />
-            <label style={styles.label}>End Date</label>
-            <DatePickerField value={endDate} onChange={setEndDate} placeholder="End date" />
-            <label style={styles.label}>Reason</label>
-            <input style={styles.input} value={reason} onChange={(e) => setReason(e.target.value)} />
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button style={styles.cancelButton} onClick={() => setFormOpen(false)}>
-                Cancel
-              </button>
-              <button style={styles.saveButton} onClick={handleSubmit}>
-                Submit
-              </button>
-            </div>
+        <div style={styles.card}>
+          <p style={styles.cardTitle}>Request time off</p>
+          <div style={styles.formRow}>
+            <div style={{ flex: 1 }}><p style={styles.label}>First day</p><DatePickerField value={from} onChange={setFrom} /></div>
+            <div style={{ flex: 1 }}><p style={styles.label}>Last day (leave blank for one day)</p><DatePickerField value={to} onChange={setTo} min={from || undefined} /></div>
+          </div>
+          <p style={styles.label}>Reason (optional)</p>
+          <input style={styles.input} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Family wedding" />
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button style={{ ...styles.primary, ...(from ? {} : { opacity: 0.4 }) }} disabled={!from} onClick={submit}>Send request</button>
+            <button style={styles.ghost} onClick={() => setFormOpen(false)}>Cancel</button>
           </div>
         </div>
       ) : null}
 
-      {denyingId ? (
-        <div style={styles.modalBackdrop} onClick={() => setDenyingId(null)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Reason for Denial</h2>
-            <input style={styles.input} value={denyReason} onChange={(e) => setDenyReason(e.target.value)} placeholder="e.g. Short staffed those dates" />
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button style={styles.cancelButton} onClick={() => setDenyingId(null)}>
-                Cancel
-              </button>
-              <button style={styles.saveButton} onClick={confirmDeny}>
-                Confirm Deny
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {editingRequest ? (
-        <div style={styles.modalBackdrop} onClick={() => setEditingRequest(null)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Edit Request</h2>
-            <label style={styles.label}>Start Date</label>
-            <DatePickerField value={editStart} onChange={setEditStart} placeholder="Start date" />
-            <label style={styles.label}>End Date</label>
-            <DatePickerField value={editEnd} onChange={setEditEnd} placeholder="End date" />
-            <label style={styles.label}>Reason</label>
-            <input style={styles.input} value={editReason} onChange={(e) => setEditReason(e.target.value)} />
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button style={styles.cancelButton} onClick={() => setEditingRequest(null)}>
-                Cancel
-              </button>
-              <button style={styles.saveButton} onClick={saveEdit}>
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {viewingPerson ? (
-        <div style={styles.modalBackdrop} onClick={() => setViewingPerson(null)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>{viewingPerson.name}</h2>
-            {DAYS.map((day) => (
-              <div key={day} style={styles.viewRow}>
-                <span style={styles.viewDayLabel}>{DAY_LABELS[day]}</span>
-                <span>{formatDaySummary(viewingPerson[day])}</span>
+      {waiting.length > 0 ? (
+        <div style={{ ...styles.card, borderLeft: '3px solid #E8B93B' }}>
+          <p style={styles.cardTitle}>{waiting.length} request{waiting.length === 1 ? '' : 's'} waiting on you</p>
+          {waiting.map((r) => (
+            <div key={r.id} style={styles.row}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong style={styles.strong}>{r.name}</strong>
+                <span style={styles.muted}> · {range(r)}{r.reason ? ' · “' + r.reason + '”' : ''}</span>
+                {denying === r.id ? (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <input style={{ ...styles.input, flex: 1 }} autoFocus value={denyReason} onChange={(e) => setDenyReason(e.target.value)} placeholder="Reason - they will see this" />
+                    <button style={styles.ghost} onClick={async () => { await resolveTimeOff(r.id, 'denied', denyReason.trim()); setDenying(null); setDenyReason(''); }}>Deny</button>
+                  </div>
+                ) : null}
               </div>
-            ))}
+              {denying !== r.id ? (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button style={styles.primarySmall} onClick={() => resolveTimeOff(r.id, 'approved')}>Approve</button>
+                  <button style={styles.ghost} onClick={() => { setDenying(r.id); setDenyReason(''); }}>Deny…</button>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div style={styles.twoCol}>
+        <div style={styles.card}>
+          <p style={styles.cardTitle}>My hours</p>
+          <p style={styles.note}>Set your usual week once — it carries forward every week. If one week is different, change just that week.</p>
+          {editing ? dayEditor : (
+            <>
+              {!hasUsual ? <p style={styles.note}><strong style={styles.strong}>You haven't set your usual week yet.</strong></p> : null}
+              {thisWeekDiffers ? <p style={styles.badge}>This week is different from usual</p> : null}
+              {DAYS.map((d) => (
+                <div key={d} style={styles.hourRow}>
+                  <span>{SHORT[d]}</span>
+                  <span style={span(shownWeek?.[d]) ? styles.strong : styles.muted}>{span(shownWeek?.[d]) ?? 'Off'}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <button style={styles.ghost} onClick={() => startEdit('usual')}>{hasUsual ? 'Edit my usual week' : 'Set my usual week'}</button>
+                {hasUsual ? <button style={styles.ghost} onClick={() => startEdit('week')}>Only this week is different</button> : null}
+                {thisWeekDiffers ? <button style={styles.ghost} onClick={() => setWeekOverride(thisMonday, null)}>Back to usual this week</button> : null}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={styles.card}>
+          <p style={styles.cardTitle}>My time off</p>
+          <p style={styles.note}>Ask with the button at the top. Ronnie or an admin decides, and you're emailed the answer.</p>
+          {myRequests.length === 0 ? <p style={styles.muted}>Nothing requested.</p> : null}
+          {myRequests.map((r) => (
+            <div key={r.id} style={styles.row}>
+              <div style={{ flex: 1 }}>
+                <strong style={styles.strong}>{range(r)}</strong>
+                {r.reason ? <span style={styles.muted}> · {r.reason}</span> : null}
+                {r.status === 'denied' && r.denialReason ? <div style={styles.muted}>“{r.denialReason}”</div> : null}
+              </div>
+              <span style={{ ...styles.pill, ...(r.status === 'approved' ? styles.pillOk : r.status === 'denied' ? styles.pillNo : styles.pillWait) }}>
+                {r.status === 'pending' ? 'Waiting' : r.status === 'approved' ? 'Approved' : 'Denied'}
+              </span>
+              {r.status === 'pending' ? (
+                <button style={styles.linkDanger} onClick={() => confirm({ title: 'Withdraw this request?', confirmLabel: 'Withdraw', onConfirm: () => deleteTimeOffRequest(r.id) })}>Withdraw</button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {seesTeam && loc ? (
+        <div style={styles.card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <p style={{ ...styles.cardTitle, margin: 0, flex: 1 }}>
+              My team <span style={styles.muted}>· week of {teamMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            </p>
+            <button style={styles.ghost} onClick={() => setWeekOffset(weekOffset - 1)}>‹</button>
+            <select style={styles.select} value={loc.id} onChange={(e) => setLocKey(e.target.value)}>
+              {myLocations.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+            </select>
+            <button style={styles.ghost} onClick={() => setWeekOffset(weekOffset + 1)}>›</button>
           </div>
+          <div style={{ overflowX: 'auto', marginTop: 12 }}>
+            <table style={styles.grid}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.th, textAlign: 'left' }}>Person</th>
+                  {DAYS.map((d, i) => (
+                    <th key={d} style={styles.th}>{SHORT[d]} {new Date(teamMonday.getTime() + i * DAY).getDate()}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {team.length === 0 ? (
+                  <tr><td style={styles.td} colSpan={8}>Nobody is assigned to this location yet.</td></tr>
+                ) : team.map((u) => {
+                  const rec = weekFor(weeklyAvailability.find((w) => w.uid === u.uid), teamKey);
+                  return (
+                    <tr key={u.uid}>
+                      <td style={{ ...styles.td, textAlign: 'left', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{u.name} <span style={styles.muted}>· {u.job ?? ''}</span></td>
+                      {DAYS.map((d, i) => {
+                        const off = offOn(u.uid, i);
+                        const s = span(rec?.[d]);
+                        return (
+                          <td key={d} style={{ ...styles.td, ...(off ? styles.offCell : {}) }}>
+                            {off ? 'Off' : !rec ? <span style={styles.muted}>not set</span> : s ?? '—'}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ ...styles.note, marginTop: 8 }}>Amber is approved time off. “Not set” means they haven't filled in their usual week.</p>
         </div>
       ) : null}
       {dialogNode}
@@ -504,78 +307,37 @@ export default function AvailabilityScreen() {
 }
 
 const styles = {
-  weekNav: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 },
-  weekArrow: { padding: '2px 8px', fontSize: 15, color: 'var(--text-secondary)', background: 'none', border: 'none' },
-  weekLabel: { fontSize: 13, fontWeight: 700, letterSpacing: 0.3, color: 'var(--text-primary)' },
-  thisWeekLink: { fontSize: 11, color: 'var(--neon)', background: 'none', border: 'none', marginLeft: 4 },
-  ptoGridSolo: { display: 'grid', gridTemplateColumns: '1fr', gap: 16, marginBottom: 20 },
-  requestLink: { fontSize: 11, color: 'var(--neon)', background: 'none', border: 'none', padding: '8px 0 0' },
-  weekCard: { background: 'var(--bg-card)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 },
-  dayRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    padding: '11px 14px',
-    borderBottom: '1px solid var(--border)',
-  },
-  dayLabel: { width: 90, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 },
-  dayNum: { color: 'var(--text-tertiary)', fontWeight: 400 },
-  toLabel: { fontSize: 12, color: 'var(--text-tertiary)' },
-  unavailable: { fontSize: 13, color: 'var(--text-tertiary)', fontStyle: 'italic' },
-  legacyValue: { fontSize: 13, color: 'var(--text-secondary)', flex: 1 },
-  timeOffNote: { fontSize: 13, color: 'var(--neon)', flex: 1 },
-  setHours: { fontSize: 11, color: 'var(--neon)', background: 'none', border: 'none', padding: '4px 6px' },
-  clearDay: { fontSize: 11, color: 'var(--text-tertiary)', background: 'none', border: 'none', padding: '4px 6px' },
-
-  ptoGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 },
-  zoneLabel: {
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: 'var(--text-tertiary)',
-    margin: '0 0 8px',
-  },
-  ptoCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 15 },
-  ptoTop: { display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 },
-  ptoBig: { fontSize: 26, fontWeight: 800, color: 'var(--text-primary)' },
-  ptoOf: { fontSize: 13, color: 'var(--text-tertiary)' },
-  ptoTrack: { height: 5, background: 'rgba(255,255,255,0.13)', borderRadius: 3, marginBottom: 10 },
-  ptoFill: { height: 5, background: 'var(--neon)', borderRadius: 3 },
-  ptoNote: { fontSize: 11, color: 'var(--text-tertiary)', margin: 0 },
-
-  panel: { background: 'var(--bg-card)', borderRadius: 10, overflow: 'hidden' },
-  emptyNote: { fontSize: 12, color: 'var(--text-tertiary)', padding: '14px 16px', margin: 0 },
-  offRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)' },
-  offName: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
-  offDates: { fontSize: 11, color: 'var(--text-tertiary)' },
-
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 700 },
-  header: { marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: 700, margin: '0 0 14px' },
-  tabRow: { display: 'flex', gap: 8 },
-  tab: { padding: '7px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' },
-  tabActive: { background: 'var(--neon)', color: 'var(--neon-text)' },
-  body: {},
-  hint: { color: 'var(--text-secondary)', fontSize: 13 },
-  card: { background: 'var(--bg-card)', border: 'none', borderRadius: 10, padding: 16, marginBottom: 10 },
-  cardHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  cardDates: { fontSize: 14, fontWeight: 700 },
-  cardReason: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0' },
-  denialReason: { fontSize: 12, color: 'var(--danger)', fontStyle: 'italic', margin: '6px 0 0' },
-  statusBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px' },
-  addButton: { padding: '11px 0', width: '100%', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 14, marginTop: 4, textTransform: 'uppercase' },
-  label: { display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4, marginTop: 10 },
-  input: { width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', boxSizing: 'border-box' },
-  saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
-  cancelButton: { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
-  linkButton: { fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 },
-  linkButtonDanger: { fontSize: 12, color: 'var(--danger)', fontWeight: 600 },
-  personRow: { display: 'flex', justifyContent: 'space-between', width: '100%', padding: '10px 14px', borderRadius: 8, background: 'var(--bg-card)', border: '1px solid var(--border)', marginBottom: 6, fontSize: 13 },
-  viewRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 },
-  viewDayLabel: { color: 'var(--accent)', fontWeight: 600 },
-
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 'min(360px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, maxHeight: '80vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' },
-  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
+  page: { padding: '24px 28px 60px', maxWidth: 1100 },
+  title: { margin: 0, color: 'var(--text-primary)' },
+  subtitle: { fontSize: 14, color: 'var(--text-secondary)', margin: '6px 0 0' },
+  card: { background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 16 },
+  cardTitle: { fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' },
+  note: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.5 },
+  twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 },
+  row: { display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--border)', padding: '10px 0', fontSize: 14 },
+  hourRow: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', padding: '8px 0', fontSize: 13, color: 'var(--text-secondary)' },
+  strong: { color: 'var(--text-primary)', fontWeight: 700 },
+  muted: { color: 'var(--text-tertiary)', fontSize: 13 },
+  badge: { display: 'inline-block', fontSize: 11, fontWeight: 800, color: '#E8B93B', background: '#3A2A0E', borderRadius: 5, padding: '3px 8px', margin: '0 0 8px' },
+  pill: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', borderRadius: 5, padding: '3px 8px', flexShrink: 0 },
+  pillWait: { background: '#3A2A0E', color: '#E8B93B' },
+  pillOk: { background: '#0D3640', color: '#22D3EE' },
+  pillNo: { background: '#24242B', color: '#9A9AA6' },
+  primary: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '9px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
+  primarySmall: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 7, padding: '6px 12px', fontWeight: 800, fontSize: 12, cursor: 'pointer' },
+  ghost: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
+  linkDanger: { background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer' },
+  label: { fontSize: 12, color: 'var(--text-secondary)', margin: '10px 0 6px' },
+  input: { width: '100%', boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: 'var(--text-primary)', fontFamily: 'inherit' },
+  formRow: { display: 'flex', gap: 12, flexWrap: 'wrap' },
+  select: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', fontSize: 13, color: 'var(--text-primary)', fontFamily: 'inherit' },
+  editor: { marginTop: 4 },
+  editRow: { display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--border)', padding: '7px 0', fontSize: 13, color: 'var(--text-secondary)' },
+  editDay: { width: 36, fontWeight: 700, color: 'var(--text-primary)' },
+  offLabel: { width: 90, display: 'flex', alignItems: 'center', gap: 4 },
+  time: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 6px', color: 'var(--text-primary)', fontFamily: 'inherit' },
+  grid: { borderCollapse: 'collapse', width: '100%', minWidth: 760, fontSize: 12 },
+  th: { color: 'var(--text-secondary)', fontWeight: 700, padding: '6px', textAlign: 'center', borderBottom: '1px solid var(--border)' },
+  td: { border: '1px solid var(--border)', padding: '7px 6px', textAlign: 'center', color: 'var(--text-secondary)' },
+  offCell: { background: '#3A2A0E', color: '#E8B93B', fontWeight: 700 },
 };
