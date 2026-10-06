@@ -149,7 +149,6 @@ const styles = {
     boxSizing: 'border-box',
     height: 36,
     textAlign: 'left',
-    fontSize: 13,
     padding: '0 11px',
     borderRadius: 'var(--radius-sm)',
     border: '1px dashed var(--border-strong)',

@@ -39,6 +39,7 @@ import CalendarScreen from './screens/CalendarScreen';
 import AvailabilityScreen from './screens/AvailabilityScreen';
 import EventRequestsScreen from './screens/EventRequestsScreen';
 import EmailPreviewScreen from './screens/EmailPreviewScreen';
+import { AccessMatrixProvider } from './context/AccessMatrixContext';
 import RenewalsScreen from './screens/RenewalsScreen';
 import AdminUsersScreen from './screens/AdminUsersScreen';
 import PendingRequestsScreen from './screens/PendingRequestsScreen';
@@ -152,6 +153,7 @@ function Providers({ children }) {
       <NotificationsProvider>
       <OffboardingProvider>
       <AccessPresetsProvider>
+      <AccessMatrixProvider>
       <BudgetTargetsProvider>
       <ExpensesProvider>
       <CategoryDriveLinksProvider>
@@ -188,6 +190,7 @@ function Providers({ children }) {
       </CategoryDriveLinksProvider>
       </ExpensesProvider>
       </BudgetTargetsProvider>
+      </AccessMatrixProvider>
       </AccessPresetsProvider>
       </OffboardingProvider>
       </NotificationsProvider>

@@ -125,8 +125,8 @@ export default function ProfileScreen() {
         ))}
       </div>
 
-      {/* Help & policies. Support and Privacy are public pages, so they open
-          in a new tab; Systems Help is inside the Hub. */}
+      {/* Help & policies. Public pages, so they open in a new tab. Systems
+          Help lives in the Directory. */}
       <div style={styles.menuCard}>
         <p style={styles.helpLabel}>Help &amp; policies</p>
         {[
@@ -141,13 +141,6 @@ export default function ProfileScreen() {
             <span style={styles.helpArrow}>↗</span>
           </a>
         ))}
-        <button style={styles.menuItem} onClick={() => navigate('/integration-requests')}>
-          <span style={{ flex: 1, textAlign: 'left' }}>
-            <span style={{ ...styles.menuItemText, display: 'block' }}>Systems Help</span>
-            <span style={styles.helpSub}>Something not working? Raise it here</span>
-          </span>
-          <span style={styles.helpArrow}>›</span>
-        </button>
       </div>
 
       <div style={styles.menuCard}>

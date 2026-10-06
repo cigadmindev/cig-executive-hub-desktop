@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UnderRepairControls } from '../components/UnderRepair';
+import AccessMatrixEditor from '../components/AccessMatrixEditor';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useAccessPresets } from '../context/AccessPresetsContext';
@@ -46,6 +47,7 @@ const blankDraft = () => ({
 export default function AdminUsersScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const navigate = useNavigate();
+  const [matrixOpen, setMatrixOpen] = useState(false);
   const {
     users,
     addUser,
@@ -408,6 +410,11 @@ export default function AdminUsersScreen() {
         </div>
       ) : null}
 
+      <button style={styles.repairRow} onClick={() => setMatrixOpen((v) => !v)}>
+        <span>▦ Who sees what — access by job</span>
+        <span style={styles.chevron}>{matrixOpen ? '▾' : '▸'}</span>
+      </button>
+      {matrixOpen ? <AccessMatrixEditor /> : null}
       <button style={styles.repairRow} onClick={() => navigate('/admin/email-preview')}>
         <span>✉️ Email preview — every email the Hub sends</span>
         <span style={styles.chevron}>›</span>

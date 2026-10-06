@@ -63,10 +63,9 @@ export function AuthProvider({ children }) {
           pushToken: data.pushToken ?? null,
           job: data.job ?? null,
           isGhost: data.isGhost === true,
+          // default | all | action | none. Absent is the default: immediate for
+          // anything waiting on you, one 8am summary for everything else.
           notifyEmail: data.notifyEmail ?? 'default',
-    // default | all | action | none. Absent is the default: immediate for
-    // anything waiting on you, one 8am summary for everything else.
-    notifyEmail: data.notifyEmail ?? 'default',
           photoUrl: data.photoUrl ?? null,
         };
       })

@@ -172,6 +172,13 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Who sees what, by job - the admin's changes to the approved table.
+    // Read by everyone, since every page checks it; changed by admins only.
+    match /accessMatrix/{rowId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // What a receipt can be charged to. Finance and admins open, close and
     // reopen them.
     match /budgetTargets/{id} {
