@@ -31,6 +31,8 @@ export function BudgetTargetsProvider({ children }) {
               id: d.id,
               name: data.name ?? '',
               archived: data.archived === true,
+              // The one a receipt goes to when nothing else is chosen - Corporate.
+              isDefault: data.isDefault === true,
             };
           })
         );

@@ -9,6 +9,9 @@ import {
   centralDateKey,
   prettyDate,
   timeLeft,
+  previewPeriod,
+  periodRange,
+  prettyDay,
 } from '../context/ExpensesContext';
 import { useBudgetTargets } from '../context/BudgetTargetsContext';
 import { nike } from '../theme/nike';
@@ -27,7 +30,9 @@ export default function ExpensesScreen() {
     voidReceipt,
     isEditable,
     downloadReport,
-    rebuildMonth,
+    rebuildPeriod,
+    movePeriod,
+    periods,
   } =
     useExpenses();
   const { activeTargets, addTarget, archiveTarget, restoreTarget, targets } = useBudgetTargets();
@@ -43,10 +48,10 @@ export default function ExpensesScreen() {
   const [where, setWhere] = useState('');
   const [reason, setReason] = useState('');
   const [dateSpent, setDateSpent] = useState(() => centralDateKey(new Date()));
-  // Optional. Blank means the spend is not against any one market - a
-  // subscription, office supplies. Not required, because forcing a choice
-  // would put wrong answers in the reports.
+  // Blank means "the default" - Corporate - until someone picks another.
   const [chargeToId, setChargeToId] = useState('');
+  const defaultTarget = activeTargets.find((t) => t.isDefault) ?? null;
+  const effectiveChargeTo = chargeToId || defaultTarget?.id || '';
 
   const [urls, setUrls] = useState({});
   const [viewing, setViewing] = useState(null);
@@ -118,7 +123,7 @@ export default function ExpensesScreen() {
     if (!canSubmit) return;
     setSaving(true);
     try {
-      await submitReceipt({
+      const res = await submitReceipt({
         file,
         amountCents: cents,
         categoryKey,
@@ -127,11 +132,11 @@ export default function ExpensesScreen() {
         dateSpent,
         // Both stored: the id so it stays correct if a market is renamed, the
         // name so the nightly report needs no extra lookup per receipt.
-        chargeToId: chargeToId || null,
+        chargeToId: effectiveChargeTo || null,
       });
       setFormOpen(false);
       resetForm();
-      notify('Receipt submitted', 'Finance will see it in the morning report.');
+      notify('Receipt submitted', res?.periodLabel ? `Filed to ${res.periodLabel}.` : 'Saved.');
     } catch (err) {
       notify('Could not submit', err?.message ?? 'Something went wrong.');
     } finally {
@@ -146,16 +151,15 @@ export default function ExpensesScreen() {
 
   const [rebuilding, setRebuilding] = useState(null);
   const handleRebuild = (r) => {
-    const monthKey = r.dateKey.replace('-monthly', '');
     confirm({
       title: `Rebuild ${r.label}?`,
       body:
-        'The spreadsheet and photo zip are rebuilt from every receipt dated in that month, including ones that arrived late. Anyone who already downloaded it will see it as not collected again.',
+        'The spreadsheet and photo zip are rebuilt from every receipt in that period as it stands now, including any finance has moved. Anyone who already downloaded it will see it as not collected again.',
       confirmLabel: 'Rebuild',
       onConfirm: async () => {
         setRebuilding(r.dateKey);
         try {
-          const res = await rebuildMonth(monthKey);
+          const res = await rebuildPeriod(r.periodId ?? r.dateKey);
           notify(
             'Rebuilt',
             `${r.label}: ${res.previousReceipts} → ${res.receipts} receipts, $${formatAmount(res.totalCents)}.`
@@ -174,6 +178,25 @@ export default function ExpensesScreen() {
       await downloadReport(dateKey, which);
     } catch (err) {
       notify('Could not download', err?.message ?? 'The report was not downloaded. Try again.');
+    }
+  };
+
+  // Finance moves a receipt to another period - open or shut.
+  const [moving, setMoving] = useState(null);
+  const [moveTo, setMoveTo] = useState('');
+  const handleMove = async () => {
+    if (!moving || !moveTo) return;
+    try {
+      const res = await movePeriod(moving.id, moveTo);
+      const to = periods.find((p) => p.id === moveTo);
+      notify(
+        'Moved',
+        `Now in ${to?.label ?? moveTo}.` +
+          ((res?.flagged ?? []).length ? ' A report that was already built is marked as needing a rebuild.' : '')
+      );
+      setMoving(null);
+    } catch (err) {
+      notify('Could not move', err?.message ?? 'Try again.');
     }
   };
 
@@ -196,18 +219,21 @@ export default function ExpensesScreen() {
   // Grouped by the day the money was spent, not the day it was uploaded — a
   // receipt entered on Wednesday for Monday belongs under Monday.
   const [pastReportsOpen, setPastReportsOpen] = useState(false);
-  const [dailyOpen, setDailyOpen] = useState(false);
   const [budgetsOpen, setBudgetsOpen] = useState(false);
   const [newTargetName, setNewTargetName] = useState('');
-  const uncollectedReports = reports.filter((r) => !(r.downloadedByUids ?? []).includes(user?.uid));
-  const collectedReports = reports.filter((r) => (r.downloadedByUids ?? []).includes(user?.uid));
 
-  // Monthly first: it is what finance is actually doing on the first of the
-  // month. The dailies under it are the same receipts, broken down.
-  // Every month, not only the uncollected ones: the page is organised around
-  // the month, so hiding it once collected leaves nothing to orient by.
-  const monthlyReports = reports.filter((r) => r.kind === 'monthly');
-  const dailyReports = uncollectedReports.filter((r) => r.kind !== 'monthly');
+  // One report per fiscal period. The latest, and any you have not collected,
+  // sit at the top; the rest - and the old monthly reports from before the
+  // switch to periods - are in Past reports. The old dailies are not shown.
+  const periodReports = reports
+    .filter((r) => r.kind === 'period')
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+  const topReports = periodReports.filter(
+    (r, i) => i === 0 || !(r.downloadedByUids ?? []).includes(user?.uid)
+  );
+  const pastReports = reports
+    .filter((r) => (r.kind === 'period' && !topReports.includes(r)) || r.kind === 'monthly')
+    .sort((a, b) => (b.generatedAt ?? 0) - (a.generatedAt ?? 0));
 
   const today = centralDateKey(new Date());
   const grouped = useMemo(() => {
@@ -237,6 +263,13 @@ export default function ExpensesScreen() {
   }, [receipts, seesAll]);
 
   const isAdmin = user?.role === 'admin';
+  const isFinance = user?.job === 'Financials';
+
+  // Where today sits in the fiscal calendar, said at the top of the page so
+  // nobody has to know the calendar to use it.
+  const currentPeriod = previewPeriod(periods, today, today);
+  const catchUp = periods.find((p) => p.endKey < today && today <= p.windowEndKey) ?? null;
+  const formPeriod = previewPeriod(periods, dateSpent, today);
 
   return (
     <div style={styles.page}>
@@ -248,19 +281,38 @@ export default function ExpensesScreen() {
       </div>
       <p style={styles.subtitle}>
         {seesAll
-          ? "Today's receipts, and any daily report waiting to be collected."
+          ? "This period's report, and the receipts submitted today."
           : 'Your receipts, grouped by the day you spent the money.'}
       </p>
+
+      {currentPeriod ? (
+        <div style={styles.periodBar}>
+          <span style={styles.periodNow}>{currentPeriod.label}</span>
+          <span style={styles.periodRange}>{periodRange(currentPeriod)}</span>
+        </div>
+      ) : periods.length > 0 ? (
+        <div style={styles.catchUp}>
+          Today is outside the fiscal calendar loaded in the Hub, so receipts cannot be filed. Finance needs to load
+          the next year.
+        </div>
+      ) : null}
+      {catchUp ? (
+        <div style={styles.catchUp}>
+          {catchUp.label} ended {prettyDay(catchUp.endKey)}. Receipts from {periodRange(catchUp)} are due by{' '}
+          <strong>{prettyDay(catchUp.windowEndKey)}</strong> and go into {catchUp.label} automatically. After that
+          they go into the current period.
+        </div>
+      ) : null}
 
       {/* Reports are generated at 11:59pm Central and stay until downloaded -
           not until the next one arrives, which would give one day to collect
           them. Finance and admins only; the rules reject anyone else, so this
           never renders for them. */}
-      {isAdmin ? (
+      {isAdmin || isFinance ? (
         <div style={styles.reportsSection}>
           <button style={styles.folderRow} onClick={() => setBudgetsOpen((v) => !v)}>
             <span style={styles.folderChevron}>{budgetsOpen ? '▾' : '▸'}</span>
-            <span style={styles.folderLabel}>Budgets to charge against</span>
+            <span style={styles.folderLabel}>Charge-to options</span>
             <span style={styles.folderCount}>{activeTargets.length}</span>
           </button>
 
@@ -271,7 +323,7 @@ export default function ExpensesScreen() {
                   style={{ ...styles.input, marginBottom: 0 }}
                   value={newTargetName}
                   onChange={(e) => setNewTargetName(e.target.value)}
-                  placeholder="Birmingham"
+                  placeholder="Name of the account"
                 />
                 <button
                   style={styles.reportButton}
@@ -296,14 +348,17 @@ export default function ExpensesScreen() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ ...styles.reportLabel, opacity: t.archived ? 0.5 : 1 }}>
                       {t.name}
-                      {t.archived ? <span style={styles.reportMeta}> · archived</span> : null}
+                      {t.isDefault ? <span style={styles.reportMeta}> · default</span> : null}
+                      {t.archived ? <span style={styles.reportMeta}> · closed</span> : null}
                     </div>
                   </div>
                   <button
                     style={styles.reportButtonQuiet}
+                    disabled={t.isDefault && !t.archived}
+                    title={t.isDefault ? 'The default cannot be closed - every receipt needs somewhere to go.' : ''}
                     onClick={() => (t.archived ? restoreTarget(t.id) : archiveTarget(t.id))}
                   >
-                    {t.archived ? 'Restore' : 'Archive'}
+                    {t.archived ? 'Reopen' : 'Close'}
                   </button>
                 </div>
               ))}
@@ -312,121 +367,76 @@ export default function ExpensesScreen() {
         </div>
       ) : null}
 
-      {seesAll && reports.length > 0 ? (
+      {seesAll && (topReports.length > 0 || pastReports.length > 0) ? (
         <div style={styles.reportsSection}>
-          {/* Uncollected at the top, because those need something doing.
-              Everything already collected goes in a folder - ninety days of
-              daily reports on one page would bury today's under three months
-              of history. */}
-          {monthlyReports.length > 0 ? <p style={styles.zoneLabel}>The month</p> : null}
-          {monthlyReports.map((r) => (
-            <div
-              key={r.dateKey}
-              style={{
-                ...styles.monthlyCard,
-                ...((r.downloadedByUids ?? []).includes(user?.uid) ? styles.monthlyCardDone : {}),
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={styles.monthlyLabel}>{r.label}</div>
-                  <div style={styles.reportMeta}>
-                    {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)} · every location
-                  </div>
-                  <div style={styles.monthlyKept}>Kept for ninety days from the day it closed.</div>
-                  {(r.lateReceiptIds ?? []).length > 0 ? (
-                    <div style={styles.monthlyStale}>
-                      {r.lateReceiptIds.length} receipt{r.lateReceiptIds.length === 1 ? '' : 's'} dated in{' '}
-                      {r.label} arrived after it closed and {r.lateReceiptIds.length === 1 ? 'is' : 'are'} not in this
-                      spreadsheet yet.
+          {topReports.length > 0 ? <p style={styles.zoneLabel}>Period reports</p> : null}
+          {topReports.map((r) => {
+            const collected = (r.downloadedByUids ?? []).includes(user?.uid);
+            const changed = (r.changedReceiptIds ?? []).length;
+            return (
+              <div key={r.dateKey} style={{ ...styles.monthlyCard, ...(collected ? styles.monthlyCardDone : {}) }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={styles.monthlyLabel}>{r.label}</div>
+                    <div style={styles.reportMeta}>
+                      {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)} · every
+                      location
                     </div>
+                    <div style={styles.monthlyKept}>
+                      Built when its catch-up week closed. Kept for ninety days - save a copy.
+                    </div>
+                    {changed > 0 ? (
+                      <div style={styles.monthlyStale}>
+                        {changed} receipt{changed === 1 ? ' was' : 's were'} moved into or out of this period after it
+                        was built. Rebuild it to bring the spreadsheet up to date.
+                      </div>
+                    ) : null}
+                  </div>
+                  <span style={{ ...styles.monthlyPill, ...(collected ? styles.monthlyPillDone : {}) }}>
+                    {collected ? 'Collected' : 'Not collected'}
+                  </span>
+                </div>
+                <div style={styles.monthlyActions}>
+                  <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey)}>
+                    Download the spreadsheet
+                  </button>
+                  {r.archivePath ? (
+                    <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey, 'photos')}>
+                      Download the photos
+                    </button>
+                  ) : (
+                    <span style={styles.noPhotos}>No receipt photos in this period</span>
+                  )}
+                  {isAdmin || isFinance ? (
+                    <button
+                      style={styles.reportButtonQuiet}
+                      disabled={rebuilding === r.dateKey}
+                      onClick={() => handleRebuild(r)}
+                    >
+                      {rebuilding === r.dateKey ? 'Rebuilding…' : 'Rebuild'}
+                    </button>
                   ) : null}
                 </div>
-                <span
-                  style={{
-                    ...styles.monthlyPill,
-                    ...((r.downloadedByUids ?? []).includes(user?.uid) ? styles.monthlyPillDone : {}),
-                  }}
-                >
-                  {(r.downloadedByUids ?? []).includes(user?.uid) ? 'Collected' : 'Not collected'}
-                </span>
               </div>
-              <div style={styles.monthlyActions}>
-                <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey)}>
-                  Download the spreadsheet
-                </button>
-                {r.archivePath ? (
-                  <button style={styles.reportButton} onClick={() => handleDownloadReport(r.dateKey, 'photos')}>
-                    Download the photos
-                  </button>
-                ) : (
-                  <span style={styles.noPhotos}>No photo archive for this month</span>
-                )}
-                {isAdmin ? (
-                  <button
-                    style={styles.reportButtonQuiet}
-                    disabled={rebuilding === r.dateKey}
-                    onClick={() => handleRebuild(r)}
-                  >
-                    {rebuilding === r.dateKey ? 'Rebuilding…' : 'Rebuild'}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
-          {dailyReports.length > 0 ? (
-            <>
-              <p style={styles.zoneLabel}>Day by day</p>
-              <button style={styles.folderRow} onClick={() => setDailyOpen((v) => !v)}>
-                <span style={styles.folderChevron}>{dailyOpen ? '▾' : '▸'}</span>
-                <span style={styles.folderLabel}>
-                  {dailyReports.length} day{dailyReports.length === 1 ? '' : 's'} you have not collected
-                </span>
-                <span style={styles.folderCount}>
-                  ${formatAmount(dailyReports.reduce((sum, r) => sum + (r.totalCents ?? 0), 0))}
-                </span>
-              </button>
-
-              {dailyOpen
-                ? dailyReports.map((r) => (
-                    <div key={r.dateKey} style={{ ...styles.reportRow, ...styles.reportRowNested }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.reportLabel}>
-                          {r.label}
-                          <span style={styles.reportDot} />
-                        </div>
-                        <div style={styles.reportMeta}>
-                          {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)}
-                        </div>
-                      </div>
-                      <button style={styles.reportButtonQuiet} onClick={() => handleDownloadReport(r.dateKey)}>
-                        Download CSV
-                      </button>
-                    </div>
-                  ))
-                : null}
-
-              <p style={styles.dailyNote}>
-                These are the same receipts as the monthly spreadsheet, split by day — useful for checking one
-                particular day rather than collecting separately.
-              </p>
-            </>
-          ) : null}
-
-          {collectedReports.length > 0 ? (
+          {pastReports.length > 0 ? (
             <>
               <button style={styles.folderRow} onClick={() => setPastReportsOpen((v) => !v)}>
                 <span style={styles.folderChevron}>{pastReportsOpen ? '▾' : '▸'}</span>
                 <span style={styles.folderLabel}>Past reports</span>
-                <span style={styles.folderCount}>{collectedReports.length}</span>
+                <span style={styles.folderCount}>{pastReports.length}</span>
               </button>
 
               {pastReportsOpen
-                ? collectedReports.map((r) => (
+                ? pastReports.map((r) => (
                     <div key={r.dateKey} style={{ ...styles.reportRow, ...styles.reportRowNested }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.reportLabel}>{r.label}</div>
+                        <div style={styles.reportLabel}>
+                          {r.label}
+                          {r.kind === 'monthly' ? <span style={styles.reportMeta}> · before fiscal periods</span> : null}
+                        </div>
                         <div style={styles.reportMeta}>
                           {r.receiptCount} receipt{r.receiptCount === 1 ? '' : 's'} · ${formatAmount(r.totalCents)}
                         </div>
@@ -440,7 +450,7 @@ export default function ExpensesScreen() {
                         </button>
                       ) : null}
                       <button style={styles.reportButtonQuiet} onClick={() => handleDownloadReport(r.dateKey)}>
-                        Download again
+                        Download
                       </button>
                     </div>
                   ))
@@ -493,8 +503,24 @@ export default function ExpensesScreen() {
                       </div>
                       <div style={styles.cardReason}>{r.reason}</div>
                       {seesAll ? <div style={styles.cardWho}>{r.submittedByName}</div> : null}
+                      <div style={styles.cardPeriod}>
+                        {r.periodLabel ?? 'No period'} · {r.chargeToName}
+                        {r.movedByName ? ` · moved by ${r.movedByName}` : ''}
+                      </div>
                       {left ? <div style={styles.cardCountdown}>{left}</div> : null}
                     </div>
+                    {isFinance ? (
+                      <button
+                        style={styles.voidButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMoveTo(r.periodId ?? '');
+                          setMoving(r);
+                        }}
+                      >
+                        Period
+                      </button>
+                    ) : null}
                     {isAdmin && !r.voided && canVoid(r) ? (
                       <button
                         style={styles.voidButton}
@@ -598,11 +624,11 @@ export default function ExpensesScreen() {
                 placeholder="City, State"
               />
 
-              {/* Optional, and last before the date because most receipts do not
-                  need it. Blank means the spend is not against one market. */}
-              <p style={styles.label}>Charge to (optional)</p>
-              <select style={styles.input} value={chargeToId} onChange={(e) => setChargeToId(e.target.value)}>
-                <option value="">Not specific to one place</option>
+              {/* Every receipt is charged to something. Corporate unless another
+                  account is chosen. */}
+              <p style={styles.label}>Charge to</p>
+              <select style={styles.input} value={effectiveChargeTo} onChange={(e) => setChargeToId(e.target.value)}>
+                {defaultTarget ? null : <option value="">Corporate</option>}
                 {activeTargets.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -612,6 +638,14 @@ export default function ExpensesScreen() {
 
               <p style={styles.label}>Date spent</p>
               <DatePickerField value={dateSpent} onChange={setDateSpent} max={today} placeholder="Date spent" />
+              {formPeriod ? (
+                <p style={styles.formPeriod}>
+                  Goes into <strong>{formPeriod.label}</strong> ({periodRange(formPeriod)})
+                  {currentPeriod && formPeriod.id !== currentPeriod.id
+                    ? ` - still open until ${prettyDay(formPeriod.windowEndKey)}.`
+                    : '.'}
+                </p>
+              ) : null}
 
               <p style={styles.label}>Reason</p>
               <textarea
@@ -675,6 +709,12 @@ export default function ExpensesScreen() {
               </div>
               <div style={styles.cardReason}>{viewing.reason}</div>
               <div style={styles.cardWho}>Submitted by {viewing.submittedByName}</div>
+              <div style={styles.cardPeriod}>
+                {viewing.periodLabel ?? 'No period'} · charged to {viewing.chargeToName}
+                {viewing.movedByName
+                  ? ` · moved from ${viewing.previousPeriodLabel ?? 'another period'} by ${viewing.movedByName}`
+                  : ''}
+              </div>
               {viewing.voided ? (
                 <div style={styles.voidNote}>Voided — {viewing.voidedReason}</div>
               ) : null}
@@ -682,6 +722,42 @@ export default function ExpensesScreen() {
             <button style={styles.cancelButton} onClick={() => setViewing(null)}>
               Close
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Finance only: move a receipt to another period, open or shut. */}
+      {moving ? (
+        <div style={styles.modalBackdrop}>
+          <div style={styles.modalCard}>
+            <h2 style={styles.modalTitle}>Move to another period</h2>
+            <p style={styles.hint}>
+              ${formatAmount(moving.amountCents)} · {moving.submittedByName} · spent {prettyDate(moving.dateSpent)}. Now in{' '}
+              {moving.periodLabel ?? 'no period'}. If the period you move it into or out of already has a report, that
+              report is marked as needing a rebuild.
+            </p>
+            <select style={styles.input} value={moveTo} onChange={(e) => setMoveTo(e.target.value)}>
+              {periods
+                .slice()
+                .reverse()
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label} ({periodRange(p)})
+                  </option>
+                ))}
+            </select>
+            <div style={styles.modalButtonsRow}>
+              <button style={styles.cancelButton} onClick={() => setMoving(null)}>
+                Cancel
+              </button>
+              <button
+                style={{ ...styles.confirmButton, ...(moveTo === moving.periodId ? styles.confirmDisabled : {}) }}
+                disabled={moveTo === moving.periodId}
+                onClick={handleMove}
+              >
+                Move
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -725,6 +801,12 @@ const styles = {
   monthlyKept: { fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 },
   monthlyPill: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--neon)', border: '1px solid rgba(34,211,238,0.35)', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap' },
   monthlyActions: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  periodBar: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 },
+  periodNow: { fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: 0.2 },
+  periodRange: { fontSize: 13, color: 'var(--text-secondary)' },
+  catchUp: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-primary)', background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 },
+  cardPeriod: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 },
+  formPeriod: { fontSize: 13, color: 'var(--text-secondary)', margin: '8px 0 0' },
   monthlyStale: { fontSize: 12, fontWeight: 700, color: 'var(--danger)', marginTop: 8, lineHeight: 1.45 },
   noPhotos: { fontSize: 12, color: 'var(--text-tertiary)', alignSelf: 'center' },
   dailyNote: { fontSize: 12, lineHeight: 1.55, color: 'var(--text-tertiary)', margin: '12px 0 0' },

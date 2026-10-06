@@ -273,7 +273,7 @@ Object.assign(exports, require('./expenseReports'));
 
 Object.assign(exports, require('./notifications'));
 
-Object.assign(exports, require('./expenseMonthly'));
+Object.assign(exports, require('./expensePeriods'));
 
 Object.assign(exports, require('./sweepIntegrationRequests'));
 

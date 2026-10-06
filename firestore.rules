@@ -188,9 +188,18 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // What a receipt can be charged to. Finance and admins open, close and
+    // reopen them.
     match /budgetTargets/{id} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isFinance();
+    }
+
+    // The fiscal calendar. Read by everyone so the receipt form can say which
+    // period a receipt will land in; written only by the setup script.
+    match /fiscalPeriods/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
     }
 
     match /expenseReports/{dateKey} {

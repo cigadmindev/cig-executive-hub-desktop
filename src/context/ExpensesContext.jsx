@@ -74,6 +74,13 @@ export function ExpensesProvider({ children }) {
               voided: data.voided === true,
               voidedBy: data.voidedBy ?? null,
               voidedReason: data.voidedReason ?? null,
+              chargeToId: data.chargeToId ?? null,
+              chargeToName: data.chargeToName ?? 'Corporate',
+              // The fiscal period, set by the server. Finance can move it.
+              periodId: data.periodId ?? null,
+              periodLabel: data.periodLabel ?? null,
+              movedByName: data.movedByName ?? null,
+              previousPeriodLabel: data.previousPeriodLabel ?? null,
             };
           })
         );
@@ -116,6 +123,8 @@ export function ExpensesProvider({ children }) {
               archivePath: data.archivePath ?? null,
               // Receipts dated into this month that arrived after it closed.
               lateReceiptIds: data.lateReceiptIds ?? [],
+              // Receipts finance moved into or out of this period after it was built.
+              changedReceiptIds: data.changedReceiptIds ?? [],
               staleSince: data.staleSince ?? null,
               regeneratedAt: data.regeneratedAt ?? null,
               receiptCount: data.receiptCount ?? 0,
@@ -132,6 +141,24 @@ export function ExpensesProvider({ children }) {
       (err) => console.error('[ExpenseReports listener] ' + err.code + ': ' + err.message)
     );
   }, [user?.uid, seesAll]);
+
+  // The fiscal calendar - a few dozen small documents, read by everyone so
+  // the form can say which period a receipt will go into.
+  const [periods, setPeriods] = useState([]);
+  useEffect(() => {
+    if (!user) {
+      setPeriods([]);
+      return undefined;
+    }
+    return onSnapshot(
+      collection(db, 'fiscalPeriods'),
+      (snap) =>
+        setPeriods(
+          snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.startKey.localeCompare(b.startKey))
+        ),
+      (err) => console.error('[FiscalPeriods listener] ' + err.code + ': ' + err.message)
+    );
+  }, [user?.uid]);
 
   // Two calls rather than one: the URL is issued first, and only once the
   // browser has the file do we mark it collected and delete it. A failed
@@ -161,16 +188,24 @@ export function ExpensesProvider({ children }) {
   };
 
   // Rebuilds a closed month from the receipts as they stand now. Admins only.
-  const rebuildMonth = async (monthKey) => {
+  const rebuildPeriod = async (periodId) => {
     const fns = getFunctions(undefined, 'us-central1');
-    const res = await httpsCallable(fns, 'rebuildMonthlyReport', { timeout: 540000 })({ monthKey });
+    const res = await httpsCallable(fns, 'rebuildPeriodReport', { timeout: 540000 })({ periodId });
+    return res.data;
+  };
+
+  // Finance only - enforced by the function.
+  const movePeriod = async (receiptId, periodId) => {
+    const fns = getFunctions(undefined, 'us-central1');
+    const res = await httpsCallable(fns, 'moveReceiptPeriod')({ receiptId, periodId });
     return res.data;
   };
 
   // Uncollected by you specifically. Someone else downloading it does not
   // clear your dot, and yours does not clear theirs.
+  // Period reports only - the old dailies are history and age out on their own.
   const hasUncollectedReport = () =>
-    reports.some((r) => !(r.downloadedByUids ?? []).includes(user?.uid));
+    reports.some((r) => r.kind === 'period' && !(r.downloadedByUids ?? []).includes(user?.uid));
 
   // Upload first, then record. The Storage rules already restrict a person to
   // their own folder, and the Cloud Function verifies the file exists before
@@ -193,7 +228,7 @@ export function ExpensesProvider({ children }) {
     // field. Writing the record here would let a device decide its own
     // deadline.
     const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'submitExpenseReceipt');
-    await fn({
+    const res = await fn({
       amountCents,
       categoryKey,
       where: whereText,
@@ -202,6 +237,7 @@ export function ExpensesProvider({ children }) {
       storagePath: path,
       chargeToId: chargeToId ?? null,
     });
+    return res.data;
   };
 
   // Storage denies reads to every client, so this is the only way to see a
@@ -239,10 +275,12 @@ export function ExpensesProvider({ children }) {
       voidReceipt,
       isEditable,
       downloadReport,
-      rebuildMonth,
+      rebuildPeriod,
+      movePeriod,
+      periods,
       hasUncollectedReport,
     }),
-    [receipts, reports, seesAll, loading, user?.uid]
+    [receipts, reports, periods, seesAll, loading, user?.uid]
   );
 
   return <ExpensesContext.Provider value={value}>{children}</ExpensesContext.Provider>;
@@ -301,3 +339,30 @@ export function timeLeft(until, now) {
   const m = mins % 60;
   return h > 0 ? `${h}h ${m}m left to edit` : `${m}m left to edit`;
 }
+
+// The same rule the server applies (functions/fiscal.js), used only to tell
+// the person in advance where their receipt will go. The server decides.
+export function previewPeriod(periods, dateSpent, todayKey) {
+  const find = (k) => periods.find((p) => p.startKey <= k && k <= p.endKey) ?? null;
+  const current = find(todayKey);
+  if (!current) return null;
+  const spent = find(dateSpent);
+  if (spent && spent.id !== current.id && todayKey <= spent.windowEndKey) return spent;
+  return current;
+}
+
+// "Sep 28 – Oct 25"
+export function periodRange(p) {
+  const fmt = (k) => {
+    const [y, m, d] = k.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
+  };
+  return p ? fmt(p.startKey) + ' – ' + fmt(p.endKey) : '';
+}
+
+// "Friday, Oct 30"
+export function prettyDay(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' });
+}
+

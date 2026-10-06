@@ -9,6 +9,7 @@ const { onCall, HttpsError } = require('firebase-functions/https');
 const admin = require('firebase-admin');
 
 const COLLECTION = 'expenseReceipts';
+const { loadPeriods, assignPeriod } = require('./fiscal');
 
 // The nine categories. Kept as stable keys with the label separate, the same
 // way checklist items work — renaming a label later must not orphan every
@@ -135,20 +136,32 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
     throw new HttpsError('failed-precondition', 'The receipt photo did not finish uploading. Try again.');
   }
 
-  // Which budget this is charged against. Optional - most spend is not
-  // specific to one market, and forcing a choice would put wrong answers in
-  // the reports.
-  //
-  // The name is looked up here rather than trusted from the client, so a
-  // receipt cannot claim one market while pointing at another. One read per
-  // submission, which is fine for something this occasional.
-  let chargeToName = null;
+  // What it is charged to. Every receipt is charged to something: when the
+  // form sends nothing - the iPhone app, or someone who left it alone - it
+  // goes to the default, Corporate. The name is looked up here rather than
+  // trusted from the client.
+  const db = admin.firestore();
+  let target = null;
   if (chargeToId) {
-    const target = await admin.firestore().collection('budgetTargets').doc(String(chargeToId)).get();
-    if (!target.exists) {
-      throw new HttpsError('invalid-argument', 'That budget no longer exists — pick another.');
+    const t = await db.collection('budgetTargets').doc(String(chargeToId)).get();
+    if (!t.exists || t.data().archived) {
+      throw new HttpsError('invalid-argument', 'That charge-to option is no longer open - pick another.');
     }
-    chargeToName = target.data().name ?? null;
+    target = { id: t.id, ...t.data() };
+  } else {
+    const d = await db.collection('budgetTargets').where('isDefault', '==', true).limit(1).get();
+    if (!d.empty) target = { id: d.docs[0].id, ...d.docs[0].data() };
+  }
+
+  // Which fiscal period it belongs to - decided here, on the server's clock,
+  // so a device cannot put a receipt into a period that has shut.
+  const periods = await loadPeriods(db);
+  const period = assignPeriod(periods, dateSpent, todayKey);
+  if (!period) {
+    throw new HttpsError(
+      'failed-precondition',
+      "Today is outside the fiscal calendar loaded in the Hub, so receipts can't be filed. Let finance know."
+    );
   }
 
   const now = Date.now();
@@ -168,8 +181,10 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
     where: whereTrimmed,
     reason: reasonTrimmed,
     dateSpent,                       // YYYY-MM-DD, Central. The accounting date.
-    chargeToId: chargeToId || null,  // null when the spend is not market-specific
-    chargeToName,                    // resolved above, never taken from the client
+    chargeToId: target?.id ?? null,
+    chargeToName: target?.name ?? 'Corporate',   // resolved above, never taken from the client
+    periodId: period.id,             // the fiscal period - see fiscal.js
+    periodLabel: period.label,
     submittedAt: now,
     submittedDateKey: centralDateKey(new Date(now)),
     editableUntil,
@@ -180,47 +195,8 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
     voidedReason: null,
   });
 
-  // A receipt dated into a month whose report has already been built is
-  // counted nowhere until that month is rebuilt. Flag the report so the
-  // Expenses page says so, and tell finance once per month rather than once
-  // per receipt. Never allowed to fail the submission - the receipt is saved.
-  try {
-    await flagLateReceipt(ref.id, dateSpent, uid, profile);
-  } catch (err) {
-    console.error('Late receipt flag failed for ' + ref.id + ': ' + err.message);
-  }
-
-  return { id: ref.id, editableUntil };
+  return { id: ref.id, editableUntil, periodId: period.id, periodLabel: period.label };
 });
-
-async function flagLateReceipt(receiptId, dateSpent, uid, profile) {
-  if (profile.isGhost) return;
-  const monthKey = dateSpent.slice(0, 7);
-  const db = admin.firestore();
-  const reportRef = db.collection('expenseReports').doc(monthKey + '-monthly');
-  const report = await reportRef.get();
-  if (!report.exists) return;   // month still open - the 1st will include it
-
-  const firstLate = !report.data().staleSince;
-  await reportRef.update({
-    lateReceiptIds: admin.firestore.FieldValue.arrayUnion(receiptId),
-    staleSince: report.data().staleSince ?? Date.now(),
-  });
-  if (!firstLate) return;
-
-  const { notifyPeople, ACTION } = require('./notify');
-  const users = await db.collection('users').where('active', '==', true).get();
-  const people = users.docs
-    .map((d) => ({ uid: d.id, ...d.data() }))
-    .filter((u) => u.role === 'admin' || u.job === 'Financials');
-  await notifyPeople(
-    people,
-    report.data().label + ' report is out of date',
-    (profile.name ?? 'Someone') + ' submitted a receipt dated ' + dateSpent +
-      ' after that month closed. Rebuild it from the Expenses page.',
-    { speed: ACTION, path: '/expenses', throttleKey: 'late-' + monthKey }
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Signed image URLs
@@ -273,7 +249,7 @@ exports.getReceiptUrls = onCall(async (request) => {
   return { urls };
 });
 
-// Receipt photos age out at ninety days in sweepReceiptPhotos. Each month's
-// go to finance as a zip with the monthly report on the 1st.
+// Receipt photos age out at ninety days in sweepReceiptPhotos. Each period's
+// go to finance as a zip with the period report.
 
 exports.EXPENSE_CATEGORIES = CATEGORIES;

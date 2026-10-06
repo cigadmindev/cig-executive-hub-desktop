@@ -184,25 +184,8 @@ exports.onWorkOrderCompleted = onDocumentUpdated(
 // ---------------------------------------------------------------------------
 // Expenses
 // ---------------------------------------------------------------------------
-exports.onExpenseReceiptCreated = onDocumentCreated(
-  { document: 'expenseReceipts/{id}', secrets: ['RESEND_API_KEY'] },
-  async (event) => {
-  const receipt = event.data?.data();
-  if (!receipt) return;
-
-  const users = await activeUsers();
-  const recipients = users
-    .filter((u) => isFinance(u) && u.uid !== receipt.submittedByUid);
-
-  const amount = ((receipt.amountCents ?? 0) / 100).toFixed(2);
-  await notifyPeople(
-    recipients,
-    'New receipt',
-    `${receipt.submittedByName ?? 'Someone'} submitted $${amount} — ${receipt.categoryLabel}`,
-    { speed: AMBIENT, path: '/expenses', kind: 'expense' }
-  );
-  }
-);
+// No per-receipt notification. Finance works from the period report, and the
+// COO gets one email a day of what came in (expensePeriods.js).
 
 // ---------------------------------------------------------------------------
 // Time off
