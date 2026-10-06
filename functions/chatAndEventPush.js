@@ -88,109 +88,93 @@ async function tokensForUids(uids) {
   return tokens;
 }
 
+const R = require('./routing');
+const { resolveRef } = require('./notify');
+const clip = (t, n) => {
+  const x = String(t ?? '').trim();
+  return x.length > n ? x.slice(0, n - 1) + '…' : x;
+};
+const fmtWhen = (ms) =>
+  ms ? new Date(ms).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+
 /** A new chat message — everyone in the conversation except the sender. */
 exports.onChatMessageCreated = onDocumentCreated(
   { document: 'messages/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const msg = event.data?.data();
-  if (!msg) return;
-
-  const recipients = (msg.memberUids ?? []).filter((uid) => uid !== msg.senderUid);
-  if (recipients.length === 0) return;
-
-  const people = await peopleForUids(recipients);
-  await notifyPeople(
-    people,
-    `Message from ${msg.senderName ?? 'someone'}`,
-    (msg.text ?? '').slice(0, 140) || 'Sent you something in the Hub.',
-    {
+    const msg = event.data?.data();
+    if (!msg) return;
+    const recipients = (msg.memberUids ?? []).filter((uid) => uid !== msg.senderUid);
+    if (recipients.length === 0) return;
+    const people = await peopleForUids(recipients);
+    await notifyPeople(people, 'Message from ' + (msg.senderName ?? 'someone'), clip(msg.text, 160) || 'Sent you something in the Hub.', {
       speed: ACTION,
+      topic: 'message',
       path: '/messages',
-      // One email per conversation, then nothing for twenty minutes - a
+      // One email per conversation, then nothing for ten minutes - a
       // back-and-forth should not fill an inbox.
       throttleKey: 'chat:' + (msg.conversationId ?? 'unknown'),
-      kind: 'chat',
-    }
-  );
+      button: 'Reply in the Hub',
+      why: 'You got this because you are in this conversation.',
+    });
   }
 );
 
-/**
- * A new event request — admins, so it doesn't sit unseen.
- *
- * Requests are time-sensitive in a way most things here aren't: a wine dinner
- * three weeks out still needs the kitchen told this week.
- */
+/** A new event or promo request - the COO and admins decide. */
 exports.onEventRequestCreated = onDocumentCreated(
   { document: 'eventRequests/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const req = event.data?.data();
-  if (!req) return;
-
-  const db = admin.firestore();
-  // Executives approve event requests too, so notifying admins alone meant
-  // the people who could act on it were never told.
-  const snap = await db.collection('users').where('role', 'in', ['admin', 'executive']).get();
-  // The pushToken filter is gone: email matters as much as push, and someone
-  // without the app was being dropped before they could be emailed.
-  const people = snap.docs
-    .filter((d) => d.id !== req.requestedByUid && d.data().active !== false)
-    .map((d) => ({ uid: d.id, ...d.data() }));
-
-  await notifyPeople(
-    people,
-    'Event request waiting',
-    `${req.requestedBy ?? 'Someone'} requested "${req.title}" at ${req.locationName ?? 'a location'}`,
-    { speed: ACTION, path: '/admin/pending-requests', kind: 'eventRequest' }
-  );
+    const req = event.data?.data();
+    if (!req) return;
+    const brandId = req.brandId ?? (await R.brandForLocation(req.locationId));
+    const people = R.without(R.approvers(await R.activeUsers()), req.requestedByUid);
+    await notifyPeople(people, (req.requestedBy ?? 'Someone') + ' asked for an event: ' + (req.title ?? ''), (req.locationName ?? 'A location') + (req.dateTime ? ' · ' + fmtWhen(req.dateTime) : ''), {
+      speed: ACTION,
+      topic: 'eventRequest',
+      ref: 'eventRequest/' + event.params.id,
+      // Straight to that location's requests, where it can be approved.
+      path: brandId && req.locationId ? '/brand/' + brandId + '/location/' + req.locationId + '/event-requests' : '/',
+      details: [['When', fmtWhen(req.dateTime)], ['Where', req.locationName ?? ''], ['Guests', String(req.expectedAttendees ?? '')], ['Details', clip(req.details, 200)]].filter(([, v]) => v),
+      button: 'Approve or deny',
+      why: 'You got this because you approve event and promo requests.',
+    });
   }
 );
 
 /**
- * An event request resolved — the requester, plus anyone flagged to be told
- * once it's approved.
- *
- * Only fires on the pending -> resolved transition. Editing an already-
- * approved request shouldn't re-notify everyone.
+ * Decided - the person who asked; if approved, the people named on it and
+ * whoever holds the chosen jobs at that location (not at every restaurant).
  */
 exports.onEventRequestResolved = onDocumentUpdated(
   { document: 'eventRequests/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const before = event.data?.before?.data();
-  const after = event.data?.after?.data();
-  if (!before || !after) return;
-  if (before.status !== 'pending' || after.status === 'pending') return;
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    if (before.status !== 'pending' || after.status === 'pending') return;
+    await resolveRef('eventRequest/' + event.params.id);
 
-  const approved = after.status === 'approved';
-  const title = approved ? 'Event Request Approved' : 'Event Request Denied';
-  const body = `"${after.title}" at ${after.locationName ?? 'a location'} was ${after.status}`;
-
-  // The requester always hears back.
-  const uids = new Set();
-  if (after.requestedByUid) uids.add(after.requestedByUid);
-
-  if (approved) {
-    // People named directly on the request.
-    (after.notifyUids ?? []).forEach((uid) => uids.add(uid));
-
-    // Everyone whose job matches one of the roles picked.
-    const roles = after.needs ?? [];
-    if (roles.length > 0) {
-      const db = admin.firestore();
-      const snap = await db.collection('users').where('job', 'in', roles.slice(0, 30)).get();
-      snap.docs.forEach((d) => {
-        if (d.data().active !== false) uids.add(d.id);
-      });
+    const approved = after.status === 'approved';
+    const users = await R.activeUsers();
+    const brandId = after.brandId ?? (await R.brandForLocation(after.locationId));
+    const uids = new Set();
+    if (after.requestedByUid) uids.add(after.requestedByUid);
+    if (approved) {
+      (after.notifyUids ?? []).forEach((uid) => uids.add(uid));
+      R.atLocation(users, after.needs ?? [], brandId, after.locationId).forEach((u) => uids.add(u.uid));
     }
-  }
-
-  const people = await peopleForUids([...uids]);
-  // Straight to the day it is on, rather than to today.
-  const day = after.dateTime ? new Date(after.dateTime).toISOString().slice(0, 10) : null;
-  await notifyPeople(people, title, body, {
-    speed: ACTION,
-    path: day ? '/calendar?date=' + day : '/calendar',
-    kind: 'eventRequest',
-  });
+    const people = users.filter((u) => uids.has(u.uid));
+    const day = after.dateTime ? new Date(after.dateTime).toISOString().slice(0, 10) : null;
+    await notifyPeople(
+      people,
+      (approved ? 'Approved: ' : 'Denied: ') + (after.title ?? 'event request'),
+      (after.locationName ?? 'A location') + (after.dateTime ? ' · ' + fmtWhen(after.dateTime) : '') + (!approved && after.denialReason ? ' · ' + after.denialReason : ''),
+      {
+        speed: ACTION,
+        topic: 'eventRequest',
+        path: day ? '/calendar?date=' + day : '/calendar',
+        button: approved ? 'See it on the calendar' : 'Open the calendar',
+        why: 'You got this because you asked for this event or are needed for it.',
+      }
+    );
   }
 );

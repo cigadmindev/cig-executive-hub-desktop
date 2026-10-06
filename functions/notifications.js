@@ -1,372 +1,282 @@
-// Push notifications for everything that raises a red dot in the app.
-//
-// One notification per base-level item, not one per dot along the path to it.
-// A post inside a category inside a location dots all three on the way down;
-// it sends one notification, about the post.
-//
-// Everyone only hears about things they can actually open. Sending someone to
-// a screen they have no access to is worse than saying nothing.
-//
-// Opening checklist items are deliberately excluded: people working a
-// checklist are in it daily, and a notification per item would be noise.
+// Notifications for posts, signatures, time off, access requests, renewals and
+// Systems Help. Who hears about what is decided in routing.js - see the table
+// at the top of that file.
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
-const { notifyPeople, ACTION, AMBIENT } = require('./notify');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
+const { notifyPeople, resolveRef, ACTION, AMBIENT } = require('./notify');
+const R = require('./routing');
 
-const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
-
-// The static locations, as a location-to-brand map. Safe to keep here rather
-// than share with the app: brands do not change - the group opens new
-// locations under these five, not new restaurants. Custom locations are added
-// through the app and carry their own brandId in Firestore, read below.
-const STATIC_LOCATION_BRAND = {
-  'taste-starkville': 'taste',
-  'taste-ridgeland': 'taste',
-  'blutos-starkville': 'blutos',
-  'heritage-starkville': 'heritage',
+const ZONE = 'America/Chicago';
+const DAY = 24 * 60 * 60 * 1000;
+const fmtDate = (ms) =>
+  ms ? new Date(ms).toLocaleDateString('en-US', { timeZone: ZONE, weekday: 'short', month: 'short', day: 'numeric' }) : '';
+const clip = (s, n) => {
+  const t = String(s ?? '').trim();
+  return t.length > n ? t.slice(0, n - 1) + '…' : t;
 };
-const BRAND_IDS = ['taste', 'blutos', 'heritage', 'pronto', 'stellas'];
-
-// Same shape as chatAndEventPush's sender, plus a data payload so tapping the
-// notification can open the thing it is about rather than just the app.
-async function push(tokens, title, body, data = {}) {
-  const valid = tokens.filter((t) => typeof t === 'string' && t.startsWith('ExponentPushToken'));
-  if (valid.length === 0) return;
-
-  const messages = valid.map((to) => ({ to, title, body, sound: 'default', data }));
-
-  try {
-    const res = await fetch(EXPO_PUSH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(messages),
-    });
-    const result = await res.json();
-    console.log(`push "${title}" to ${valid.length}`, JSON.stringify(result?.data?.slice?.(0, 3) ?? result));
-  } catch (err) {
-    console.error(`push "${title}" failed: ${err.message}`);
-  }
-}
-
-async function activeUsers() {
-  const snap = await admin.firestore().collection('users').get();
-  return snap.docs
-    .map((d) => ({ uid: d.id, ...d.data() }))
-    // Test logins are left out of everyone else's notifications. They
-    // still get their own - that is how notifications get tested.
-    .filter((u) => u.active !== false);
-}
-
-// Broadcast audiences - posts, announcements - leave test logins out, so
-// testing does not clutter what everyone else sees. Anything named at a
-// specific person still reaches them, ghost or not.
-function notGhost(u) {
-  return u.isGhost !== true;
-}
-
-// Resolves any location to its brand: the static four from the map above, and
-// admin-added ones from Firestore, which store brandId when created.
-async function brandForLocation(locationId) {
-  if (!locationId) return null;
-  if (STATIC_LOCATION_BRAND[locationId]) return STATIC_LOCATION_BRAND[locationId];
-  const snap = await admin.firestore().collection('customLocations').doc(locationId).get();
-  return snap.exists ? snap.data().brandId ?? null : null;
-}
-
-// A brand post's targetId is a brand, a location, or 'all'.
-async function brandForTarget(targetId) {
-  if (!targetId || targetId === 'all') return null;
-  if (BRAND_IDS.includes(targetId)) return targetId;
-  return brandForLocation(targetId);
-}
-
-// The server's copy of hasBrandAccess. Admins and executives see every brand;
-// a manager sees the ones granted to them. A null brand means everyone.
-function canSee(user, brandId) {
-  if (!brandId) return true;
-  if (user.role === 'admin' || user.role === 'executive') return true;
-  return (user.permissions?.brandIds ?? []).includes(brandId);
-}
-
-const isReviewer = (u) => u.role === 'admin' || u.role === 'executive';
-const isFinance = (u) => u.role === 'admin' || u.job === 'Financials';
 
 // ---------------------------------------------------------------------------
-// Announcements
+// Posts - the morning summary, not straight away
 // ---------------------------------------------------------------------------
 exports.onBrandPostCreated = onDocumentCreated(
   { document: 'brandPosts/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const post = event.data?.data();
-  if (!post) return;
-
-  const brandId = await brandForTarget(post.targetId);
-  const users = await activeUsers();
-  const recipients = users
-    .filter((u) => u.uid !== post.authorUid && notGhost(u) && canSee(u, brandId));
-
-  await notifyPeople(
-    recipients,
-    post.targetName ? `New post — ${post.targetName}` : 'New post',
-    `${post.authorName ?? 'Someone'}: ${(post.message ?? '').slice(0, 90)}`,
-    { speed: AMBIENT, path: `/brand/${brandId}`, kind: 'brandPost', brandId }
-  );
+    const post = event.data?.data();
+    if (!post) return;
+    const brandId = await R.brandForTarget(post.targetId);
+    const people = await R.postAudience(await R.activeUsers(), post);
+    await notifyPeople(
+      people,
+      post.targetName ? 'New post · ' + post.targetName : 'New company post',
+      (post.authorName ?? 'Someone') + ': ' + clip(post.message, 120),
+      { speed: AMBIENT, topic: 'post', path: brandId ? '/brand/' + brandId : '/', brandId }
+    );
   }
 );
 
+// One notification per folder post. (A second trigger on the same collection,
+// onAnnouncementCreated, used to send everyone a duplicate - it is removed.)
 exports.onCategoryPostCreated = onDocumentCreated(
   { document: 'categoryPosts/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const post = event.data?.data();
-  if (!post) return;
-
-  const brandId = await brandForLocation(post.locationId);
-  const users = await activeUsers();
-  const recipients = users
-    .filter((u) => u.uid !== post.authorUid && notGhost(u) && canSee(u, brandId));
-
-  await notifyPeople(
-    recipients,
-    post.categoryLabel ? `New post — ${post.categoryLabel}` : 'New post',
-    `${post.authorName ?? 'Someone'}: ${(post.message ?? '').slice(0, 90)}`,
-    { speed: AMBIENT, path: `/brand/${brandId}/location/${post.locationId}/category/${post.categoryId}`, kind: 'categoryPost', locationId: post.locationId, categoryId: post.categoryId }
-  );
+    const post = event.data?.data();
+    if (!post) return;
+    const brandId = await R.brandForLocation(post.locationId);
+    const people = await R.folderPostAudience(await R.activeUsers(), post);
+    await notifyPeople(
+      people,
+      'New in ' + (post.categoryLabel ?? 'a folder') + (post.locationName ? ' · ' + post.locationName : ''),
+      (post.authorName ?? 'Someone') + ': ' + clip(post.message, 120),
+      {
+        speed: AMBIENT,
+        topic: 'folderPost',
+        path: '/brand/' + brandId + '/location/' + post.locationId + '/category/' + post.categoryId,
+        locationId: post.locationId,
+        categoryId: post.categoryId,
+      }
+    );
   }
 );
 
 // ---------------------------------------------------------------------------
-// Work orders
+// Signature Directory
 // ---------------------------------------------------------------------------
 exports.onWorkOrderCreated = onDocumentCreated(
   { document: 'workOrders/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const order = event.data?.data();
-  if (!order) return;
-
-  const assignees = (order.assignedUids ?? []).filter((uid) => uid !== order.uploadedByUid);
-  if (assignees.length === 0) return;
-
-  const users = await activeUsers();
-  const recipients = users.filter((u) => assignees.includes(u.uid));
-
-  await notifyPeople(
-    recipients,
-    'Signature needed',
-    `${order.uploadedByName ?? 'Someone'} sent "${order.title}" for your signature`,
-    { speed: ACTION, path: '/work-orders', kind: 'workOrder', orderId: event.params.id }
-  );
+    const order = event.data?.data();
+    if (!order) return;
+    const signers = (order.assignedUids ?? []).filter((uid) => uid !== order.uploadedByUid);
+    if (!signers.length) return;
+    const people = (await R.activeUsers()).filter((u) => signers.includes(u.uid));
+    // Each signer's own ref, so one person signing does not clear it for the others.
+    for (const p of people) {
+      await notifyPeople([p], 'Signature needed: ' + order.title, (order.uploadedByName ?? 'Someone') + ' sent this for your signature.', {
+        speed: ACTION, topic: 'signature', path: '/work-orders', ref: 'signature/' + event.params.id + '/' + p.uid,
+        button: 'Review and sign', why: 'You got this because you were asked to sign.',
+      });
+    }
   }
 );
 
-// Complete and ready to collect - only the person who sent it. The status
-// flips before the PDF has finished being assembled, so this waits for the
-// file rather than the status alone.
 exports.onWorkOrderCompleted = onDocumentUpdated(
   { document: 'workOrders/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const before = event.data?.before?.data();
-  const after = event.data?.after?.data();
-  if (!before || !after) return;
-  if (!after.signedFileUrl || before.signedFileUrl) return;
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
 
-  const users = await activeUsers();
-  const recipients = users.filter((u) => u.uid === after.uploadedByUid);
+    // Anyone who has signed since the last change stops being asked.
+    // signatures is a list of { uid, name, signedAt, ... }.
+    const signedBefore = new Set((before.signatures ?? []).map((s) => s.uid));
+    for (const uid of (after.signatures ?? []).map((s) => s.uid)) {
+      if (!signedBefore.has(uid)) await resolveRef('signature/' + event.params.id + '/' + uid);
+    }
 
-  await notifyPeople(
-    recipients,
-    'Document ready',
-    `Everyone has signed "${after.title}" — it's ready to download`,
-    { speed: ACTION, path: '/work-orders', kind: 'workOrder', orderId: event.params.id }
-  );
+    // The status flips before the PDF is assembled, so this waits for the file.
+    if (!after.signedFileUrl || before.signedFileUrl) return;
+    const people = (await R.activeUsers()).filter((u) => u.uid === after.uploadedByUid);
+    await notifyPeople(people, 'Everyone has signed: ' + after.title, 'The signed document is ready to download.', {
+      speed: ACTION, topic: 'signature', path: '/work-orders', button: 'Download it',
+      why: 'You got this because you sent the document.',
+    });
   }
 );
 
 // ---------------------------------------------------------------------------
-// Expenses
-// ---------------------------------------------------------------------------
-// No per-receipt notification. Finance works from the period report, and the
-// COO gets one email a day of what came in (expensePeriods.js).
-
-// ---------------------------------------------------------------------------
-// Time off
+// Time off - the COO and admins decide
 // ---------------------------------------------------------------------------
 exports.onTimeOffCreated = onDocumentCreated(
   { document: 'timeOffRequests/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const req = event.data?.data();
-  if (!req) return;
-
-  const users = await activeUsers();
-  const recipients = users.filter((u) => isReviewer(u) && u.uid !== req.uid);
-
-  await notifyPeople(
-    recipients, 'Time off request', `${req.name ?? 'Someone'} requested time off`, {
-    speed: ACTION, path: '/availability', kind: 'timeOff',
-  });
+    const req = event.data?.data();
+    if (!req) return;
+    const users = await R.activeUsers();
+    const asker = users.find((u) => u.uid === req.uid);
+    const people = R.without(R.approvers(users), req.uid);
+    const dates = req.startDate ? fmtDate(req.startDate) + (req.endDate && req.endDate !== req.startDate ? ' – ' + fmtDate(req.endDate) : '') : '';
+    await notifyPeople(people, (req.name ?? 'Someone') + ' asked for time off', [asker?.job, dates].filter(Boolean).join(' · ') || 'Time off request', {
+      speed: ACTION, topic: 'timeOff', path: '/availability', ref: 'timeOff/' + event.params.id,
+      details: [['Dates', dates], ['Reason', clip(req.reason, 200)]].filter(([, v]) => v),
+      button: 'Approve or deny', why: 'You got this because you approve time off.',
+    });
   }
 );
 
 exports.onTimeOffResolved = onDocumentUpdated(
   { document: 'timeOffRequests/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const before = event.data?.before?.data();
-  const after = event.data?.after?.data();
-  if (!before || !after) return;
-  if (before.status !== 'pending' || after.status === 'pending') return;
-
-  const users = await activeUsers();
-  const recipients = users.filter((u) => u.uid === after.uid);
-
-  await notifyPeople(
-    recipients,
-    after.status === 'approved' ? 'Time off approved' : 'Time off denied',
-    after.status === 'denied' && after.denialReason
-      ? `Your request was denied — ${after.denialReason}`
-      : 'Your time off request has been resolved',
-    { speed: ACTION, path: '/availability', kind: 'timeOff' }
-  );
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    if (before.status !== 'pending' || after.status === 'pending') return;
+    const users = await R.activeUsers();
+    await resolveRef('timeOff/' + event.params.id, users.find((u) => u.uid === after.resolvedByUid)?.name ?? null);
+    const people = users.filter((u) => u.uid === after.uid);
+    const approved = after.status === 'approved';
+    await notifyPeople(
+      people,
+      approved ? 'Your time off was approved' : 'Your time off was denied',
+      approved ? 'It is on the team calendar.' : after.denialReason ? 'Reason: ' + after.denialReason : 'No reason was given.',
+      { speed: ACTION, topic: 'timeOff', path: '/availability', button: 'See your time off', why: 'You got this because you asked for time off.' }
+    );
   }
 );
 
 // ---------------------------------------------------------------------------
-// Access requests
+// Access requests - admins only
 // ---------------------------------------------------------------------------
 exports.onAccessRequestCreated = onDocumentCreated(
   { document: 'accessRequests/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const req = event.data?.data();
-  if (!req) return;
-
-  const users = await activeUsers();
-  const recipients = users
-    .filter((u) => isReviewer(u) && u.email !== req.userEmail);
-
-  await notifyPeople(
-    recipients,
-    'Access request',
-    `${req.userName ?? 'Someone'} asked for access to ${req.targetLabel ?? 'something'}`,
-    { speed: ACTION, path: '/admin/pending-requests', kind: 'accessRequest' }
-  );
+    const req = event.data?.data();
+    if (!req) return;
+    const people = R.admins(await R.activeUsers()).filter((u) => u.email !== req.userEmail);
+    await notifyPeople(people, (req.userName ?? 'Someone') + ' asked for access', 'To ' + (req.targetLabel ?? 'something'), {
+      speed: ACTION, topic: 'accessRequest', path: '/admin/pending-requests', ref: 'accessRequest/' + event.params.id,
+      button: 'Review the request', why: 'You got this because you are an admin.',
+    });
   }
 );
 
 exports.onAccessRequestResolved = onDocumentUpdated(
   { document: 'accessRequests/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const before = event.data?.before?.data();
-  const after = event.data?.after?.data();
-  if (!before || !after) return;
-  if (before.status !== 'pending' || after.status === 'pending') return;
-
-  const snap = await admin.firestore().collection('users').where('email', '==', after.userEmail).get();
-  const recipients = snap.docs
-    .map((d) => d.data())
-    .filter((u) => u.active !== false && u.pushToken);
-
-  await notifyPeople(
-    recipients,
-    after.status === 'approved' ? 'Access granted' : 'Access request denied',
-    after.status === 'approved'
-      ? `You now have access to ${after.targetLabel ?? 'a new area'}`
-      : `Your request for ${after.targetLabel ?? 'access'} was denied`,
-    { speed: ACTION, path: '/', kind: 'accessRequest' }
-  );
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    if (before.status !== 'pending' || after.status === 'pending') return;
+    await resolveRef('accessRequest/' + event.params.id);
+    // Found by email, with the uid kept - the old version dropped it, and
+    // then dropped anyone without the iPhone app, so nobody was ever told.
+    const people = (await R.activeUsers()).filter((u) => u.email && u.email === after.userEmail);
+    const approved = after.status === 'approved';
+    await notifyPeople(
+      people,
+      approved ? 'You now have access to ' + (after.targetLabel ?? 'a new area') : 'Your access request was denied',
+      approved ? 'It is in your Directory now.' : 'For ' + (after.targetLabel ?? 'that area') + '.',
+      { speed: ACTION, topic: 'accessRequest', path: '/directory', button: 'Open the Directory', why: 'You got this because you asked for access.' }
+    );
   }
 );
 
 // ---------------------------------------------------------------------------
-// Renewals
+// Renewals - checked every morning, warned once at each step
 // ---------------------------------------------------------------------------
-//
-// Fires when an expiry moves into the warning window, not on a schedule - so
-// it announces the change rather than nagging daily.
-exports.onRenewalDueSoon = onDocumentUpdated(
-  { document: 'licenseRenewals/{id}', secrets: ['RESEND_API_KEY'] },
+// The old trigger only fired when someone edited a permit, so a permit nobody
+// touched expired without a word. This looks at every permit each morning.
+const STEPS = [60, 30, 7, 0];
+
+exports.renewalWarnings = onSchedule(
+  { schedule: '30 7 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'] },
+  async () => {
+    const db = admin.firestore();
+    const users = await R.activeUsers();
+    const snap = await db.collection('licenseRenewals').get();
+    let sent = 0;
+    for (const d of snap.docs) {
+      const r = d.data();
+      if (r.hidden === true || !r.expirationDate) continue;
+      const daysOut = Math.ceil((r.expirationDate - Date.now()) / DAY);
+      // The tightest step this permit has reached, e.g. 55 days out -> the 60 warning.
+      const step = STEPS.filter((s) => daysOut <= s).pop();
+      if (step === undefined) continue;
+      // Keyed to the date, so a renewed permit with a new date starts again.
+      const key = r.expirationDate + ':' + step;
+      if ((r.warningsSent ?? []).includes(key)) continue;
+
+      const brandId = await R.brandForLocation(r.locationId);
+      const locationName = r.locationName ?? (await R.locationName(r.locationId));
+      const people = await R.renewalTeam(users, r.locationId);
+      await notifyPeople(
+        people,
+        daysOut <= 0 ? r.type + ' has expired · ' + locationName : r.type + ' expires in ' + daysOut + ' days · ' + locationName,
+        'Expires ' + fmtDate(r.expirationDate) + '.',
+        {
+          speed: ACTION, topic: 'renewal', ref: 'renewal/' + d.id,
+          path: '/brand/' + brandId + '/location/' + r.locationId + '/renewals',
+          details: [['Location', locationName], ['Expires', fmtDate(r.expirationDate)]],
+          button: 'Open renewals', why: 'You got this because you look after renewals for this location.',
+          locationId: r.locationId,
+        }
+      );
+      await d.ref.update({ warningsSent: admin.firestore.FieldValue.arrayUnion(key) });
+      sent++;
+    }
+    console.log('Renewal warnings sent: ' + sent);
+  }
+);
+
+// Renewed - the date moved out of the warning window - clears the warning.
+exports.onRenewalUpdated = onDocumentUpdated(
+  { document: 'licenseRenewals/{id}' },
   async (event) => {
-  const before = event.data?.before?.data();
-  const after = event.data?.after?.data();
-  if (!before || !after || !after.expirationDate) return;
-  // A permit taken off a location's list keeps its dates - it is hidden, not
-  // deleted, because seeding would recreate a deleted one. So it has to be
-  // skipped here too, or someone gets told to renew something they removed.
-  if (after.hidden === true) return;
-
-  const WARNING_DAYS = 60;
-  const DAY = 24 * 60 * 60 * 1000;
-  const daysOut = Math.round((after.expirationDate - Date.now()) / DAY);
-  const wasOut = before.expirationDate
-    ? Math.round((before.expirationDate - Date.now()) / DAY)
-    : Infinity;
-
-  // Only on the crossing into the window - not every edit afterwards.
-  if (daysOut > WARNING_DAYS || wasOut <= WARNING_DAYS) return;
-
-  const brandId = await brandForLocation(after.locationId);
-  const users = await activeUsers();
-  // Narrowed to the location, not the restaurant: a Starkville manager does
-  // not need telling about a Ridgeland permit. Executives and admins see all.
-  const recipients = users.filter((u) => {
-    if (!canSee(u, brandId)) return false;
-    if (u.role === 'admin' || u.role === 'executive') return true;
-    const only = u.permissions?.locationsByBrand?.[brandId];
-    return !Array.isArray(only) || only.length === 0 || only.includes(after.locationId);
-  });
-
-  await notifyPeople(
-    recipients,
-    'Renewal due soon',
-    daysOut < 0 ? `${after.type} has expired` : `${after.type} expires in ${daysOut} day${daysOut === 1 ? '' : 's'}`,
-    { speed: ACTION, path: `/brand/${brandId}/location/${after.locationId}/renewals`, kind: 'renewal', locationId: after.locationId }
-  );
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after || before.expirationDate === after.expirationDate) return;
+    if ((after.expirationDate ?? 0) - Date.now() > 60 * DAY) await resolveRef('renewal/' + event.params.id);
   }
 );
 
-// Systems Help. Built after the other triggers, which is why it had none - a
-// request went into a queue nobody was told about.
+// ---------------------------------------------------------------------------
+// Systems Help - IT & Training and admins
+// ---------------------------------------------------------------------------
 exports.onIntegrationRequestCreated = onDocumentCreated(
   { document: 'integrationRequests/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const req = event.data?.data();
-  if (!req) return;
-
-  // Whoever holds IT, plus admins. Job rather than person, so it follows the
-  // role rather than a name.
-  const users = await activeUsers();
-  const recipients = users
-    .filter((u) => (u.role === 'admin' || u.job === 'IT & Training') && u.uid !== req.createdByUid);
-
-  await notifyPeople(
-    recipients,
-    req.kind === 'help' ? 'Help needed' : 'Change requested',
-    `${req.createdByName ?? 'Someone'} · ${req.system ?? 'a system'}`,
-    { speed: ACTION, path: '/integration-requests', kind: 'integrationRequest' }
-  );
+    const req = event.data?.data();
+    if (!req) return;
+    const people = (await R.activeUsers()).filter((u) => (R.isAdmin(u) || u.job === 'IT & Training') && u.uid !== req.createdByUid);
+    await notifyPeople(
+      people,
+      (req.kind === 'help' ? 'Help needed: ' : 'Change requested: ') + (req.system ?? 'a system'),
+      'From ' + (req.createdByName ?? 'someone') + (req.description ? ' · ' + clip(req.description, 120) : ''),
+      {
+        speed: ACTION, topic: 'systemsHelp', path: '/integration-requests', ref: 'systemsHelp/' + event.params.id,
+        button: 'Open the request', why: 'You got this because you handle Systems Help.',
+      }
+    );
   }
 );
 
-// And back the other way when it is answered - otherwise the person who asked
-// has to keep checking.
 exports.onIntegrationRequestResolved = onDocumentUpdated(
   { document: 'integrationRequests/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
-  const before = event.data?.before?.data();
-  const after = event.data?.after?.data();
-  if (!before || !after) return;
-
-  // Only when it is newly answered. Marking something in progress twice, or
-  // editing a reply, should not notify again.
-  const newlyAnswered = !before.respondedAt && after.respondedAt;
-  const newlyDone = before.status !== 'done' && after.status === 'done';
-  if (!newlyAnswered && !newlyDone) return;
-
-  const users = await activeUsers();
-  const recipients = users.filter((u) => u.uid === after.createdByUid);
-
-  await notifyPeople(
-    recipients,
-    after.status === 'done' ? 'Sorted' : 'Update on your request',
-    after.response ? after.response.slice(0, 120) : `${after.system ?? 'Your request'} — ${after.status === 'done' ? 'done' : 'in progress'}`,
-    { speed: ACTION, path: '/integration-requests', kind: 'integrationRequest' }
-  );
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    const newlyAnswered = !before.respondedAt && after.respondedAt;
+    const newlyDone = before.status !== 'done' && after.status === 'done';
+    if (!newlyAnswered && !newlyDone) return;
+    // Someone has picked it up - it is no longer waiting on the others.
+    await resolveRef('systemsHelp/' + event.params.id);
+    const people = (await R.activeUsers()).filter((u) => u.uid === after.createdByUid);
+    await notifyPeople(
+      people,
+      after.status === 'done' ? 'Sorted: ' + (after.system ?? 'your request') : 'Update on ' + (after.system ?? 'your request'),
+      after.response ? clip(after.response, 160) : after.status === 'done' ? 'Marked done.' : 'It is being worked on.',
+      { speed: ACTION, topic: 'systemsHelp', path: '/integration-requests', button: 'See the reply', why: 'You got this because you raised the request.' }
+    );
   }
 );

@@ -10,9 +10,10 @@
 // decides which they get.
 const admin = require('firebase-admin');
 const { Resend } = require('resend');
+const { layout } = require('./emailTemplate');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
-const WEB_URL = 'https://hub.cigconcepts.com';
+const { WEB_URL } = require('./emailTemplate');
 const FROM = 'CIG Executive Hub <no-reply@cigconcepts.com>';
 
 const NOTIFICATIONS = 'notifications';
@@ -38,74 +39,21 @@ async function push(tokens, title, body, data = {}) {
   }
 }
 
-/**
- * Everyone who can sign in. Test logins are left out of other people's
- * notifications but still receive their own, which is how notifications get
- * tested at all.
- */
 async function everyone() {
   const snap = await admin.firestore().collection('users').get();
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((u) => u.active !== false);
 }
 
-/**
- * Resolves an audience to people. Any of:
- *   uids:  ['abc']            - these people
- *   jobs:  ['Videographer']   - whoever holds these titles
- *   roles: ['admin']          - whoever holds these roles
- *   brandId                   - narrowed to people who can see that restaurant
- * exceptUid drops the person who caused it: nobody needs telling about their
- * own action.
- */
-async function audience({ uids = [], jobs = [], roles = [], brandId = null, exceptUid = null }) {
-  const all = await everyone();
-  const wanted = all.filter((u) => {
-    if (u.uid === exceptUid) return false;
-    if (u.isGhost === true && !uids.includes(u.uid)) return false;
-    const byUid = uids.includes(u.uid);
-    const byJob = u.job && jobs.includes(u.job);
-    const byRole = roles.includes(u.role);
-    if (!byUid && !byJob && !byRole) return false;
-    // A restaurant limit never applies to someone named directly - being
-    // tagged is the point, whatever they can otherwise see.
-    if (brandId && !byUid && u.role === 'manager') {
-      const theirs = u.permissions?.brandIds ?? [];
-      if (!theirs.includes(brandId)) return false;
-    }
-    return true;
-  });
-  return wanted;
-}
-
-function wantsEmail(person, kind) {
-  // all | action | none. Absent means the sensible default: immediate for
-  // action, a morning summary for the rest.
+// Whether this person is emailed straight away for this notification.
+//   default  urgent now; everything else in the 8am summary
+//   all      everything now
+//   action   urgent now; nothing else
+//   none     nothing
+function emailsNow(person, speed) {
   const pref = person.notifyEmail ?? 'default';
   if (pref === 'none') return false;
   if (pref === 'all') return true;
-  if (pref === 'action') return kind === ACTION;
-  return true; // default - ambient still arrives, just in the summary
-}
-
-function emailHtml({ name, title, body, link, kind }) {
-  const needsYou = kind === ACTION;
-  const F = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0A0A0B;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0A0A0B;">
-<tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:560px;max-width:100%;">
-<tr><td style="font-family:${F};font-size:13px;color:#22D3EE;padding-bottom:18px;">CIG Executive Hub</td></tr>
-${needsYou ? `<tr><td style="padding-bottom:16px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="#3A2A0E" style="border-radius:6px;padding:7px 12px;font-family:${F};font-size:12px;font-weight:bold;color:#E8B93B;letter-spacing:0.4px;">NEEDS YOUR ATTENTION</td></tr></table></td></tr>` : ""}
-<tr><td style="font-family:${F};font-size:19px;font-weight:bold;color:#FFFFFF;padding-bottom:8px;">${title}</td></tr>
-<tr><td style="font-family:${F};font-size:14px;line-height:21px;color:#B4B4BB;padding-bottom:22px;">${body}</td></tr>
-<tr><td><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td bgcolor="#22D3EE" style="border-radius:8px;">
-<a href="${link}" style="display:inline-block;padding:11px 22px;font-family:${F};font-size:14px;font-weight:bold;color:#0A0A0B;text-decoration:none;">Open in the Hub</a>
-</td></tr></table></td></tr>
-<tr><td style="font-family:${F};font-size:12px;line-height:18px;color:#6C6C76;padding-top:26px;">
-${name ? name + ', this' : 'This'} was sent because it needs you or your role. Replies to this address are not read &mdash; everything happens in the Hub.
-</td></tr>
-</table></td></tr></table></body></html>`;
+  return speed === ACTION;
 }
 
 /**
@@ -137,87 +85,45 @@ async function recentlyEmailed(db, uid, throttleKey) {
  * than that one was intended. The throttle reads it, and reading an intention
  * is what made chat block its own emails.
  */
-async function markEmailed(db, uid, throttleKey, at) {
-  if (!throttleKey) return;
-  const snap = await db
-    .collection(NOTIFICATIONS)
-    .where('uid', '==', uid)
-    .where('throttleKey', '==', throttleKey)
-    .where('emailedAt', '==', null)
-    .limit(1)
-    .get();
-  if (!snap.empty) await snap.docs[0].ref.update({ emailedAt: at });
+// Stamped after a send succeeds, on the record written for this person in
+// this same call (matched by its createdAt), so the throttle and the 8am
+// summary both know an email actually went out.
+async function markEmailed(db, uid, throttleKey, at, createdAt) {
+  const snap = await db.collection(NOTIFICATIONS).where('uid', '==', uid).where('createdAt', '==', createdAt).get();
+  await Promise.all(snap.docs.filter((d) => !d.data().emailedAt).map((d) => d.ref.update({ emailedAt: at })));
 }
 
-async function notify({ to, title, body, path = '/', kind = AMBIENT, throttleKey = null, data = {} }) {
-  const people = await audience(to);
-  if (people.length === 0) return { sent: 0 };
-
-  const db = admin.firestore();
-  const link = WEB_URL + path;
-  const now = Date.now();
-
-  // Worked out before anything is written: afterwards every record looks
-  // like a recent email and blocks itself.
-  const throttled = new Set();
-  if (throttleKey) {
-    for (const t of people) {
-      if (await recentlyEmailed(db, t.uid, throttleKey)) throttled.add(t.uid);
-    }
-  }
-
-  const batch = db.batch();
-  people.forEach((p) => {
-    batch.set(db.collection(NOTIFICATIONS).doc(), {
-      uid: p.uid,
-      title,
-      body,
-      path,
-      kind,
-      createdAt: now,
-      readAt: null,
-      emailedAt: null,
-      throttleKey,
-      ...data,
-    });
-  });
-  await batch.commit();
-
-  await push(people.map((p) => p.pushToken).filter(Boolean), title, body, { ...data, path });
-
-  // Action items go out now. Ambient ones wait for the 8am summary, which is
-  // what stops a busy day becoming a dozen separate emails.
-  if (kind === ACTION && process.env.RESEND_API_KEY) {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    for (const p of people) {
-      if (!p.email || !wantsEmail(p, kind)) continue;
-      try {
-        await resend.emails.send({
-          from: FROM,
-          to: [p.email],
-          // Says what it is before they open it.
-          subject: (kind === ACTION ? 'Needs you: ' : '') + title,
-          html: emailHtml({ name: p.name, title, body, link, kind }),
-        });
-        await markEmailed(db, p.uid, throttleKey, Date.now());
-      } catch (err) {
-        console.error('email to ' + p.email + ' failed: ' + err.message);
-      }
-    }
-  }
-
-  console.log(`notify "${title}" to ${people.length} (${kind})`);
-  return { sent: people.length };
-}
+// What each topic is called at the top of its email.
+const TOPIC_LABEL = {
+  timeOff: 'Time off', eventRequest: 'Event request', accessRequest: 'Access request',
+  deviceRequest: 'Device request', systemsHelp: 'Systems Help', catering: 'Catering',
+  renewal: 'Renewal', signature: 'Signature', message: 'Message', tagged: 'Calendar',
+  assignment: 'Opening checklist', expenses: 'Expenses', post: 'Post', folderPost: 'Post', calendar: 'Calendar',
+};
 
 /**
- * For triggers that have already worked out who should hear. Records the
- * notification, pushes, and emails on the same rules as notify.
+ * The one way anything tells people about anything.
  *
- * speed is 'action' - waiting on them, so it emails now - or 'ambient',
- * which waits for the 8am summary.
+ *   people     who - already worked out by routing.js
+ *   title      what happened, in a sentence
+ *   body       one line of detail
+ *   speed      ACTION (urgent: emails now) or AMBIENT (waits for 8am)
+ *   topic      what kind of thing - a key of TOPIC_LABEL
+ *   ref        the thing itself, e.g. 'timeOff/abc'. When it is dealt with,
+ *              resolveRef(ref) clears it for everyone who was told.
+ *   details    [label, value] rows for the email
+ *   button     the email button's label
+ *   why        the footer line: why this person got it
+ *
+ * Each person gets a record (the bell, and the 8am summary read these), a
+ * push if they have the app, and an email according to their preference.
  */
-async function notifyPeople(people, title, body, { speed = AMBIENT, path = '/', throttleKey = null, ...data } = {}) {
+async function notifyPeople(people, title, body, opts = {}) {
+  const {
+    speed = AMBIENT, path = '/', throttleKey = null, topic: topicIn = null, kind: legacyTopic = null,
+    ref = null, details = null, button = null, why = null, ...data
+  } = opts;
+  const topic = topicIn ?? legacyTopic ?? null;
   const wanted = (people ?? []).filter((p) => p && p.uid);
   if (wanted.length === 0) return { sent: 0 };
 
@@ -235,51 +141,76 @@ async function notifyPeople(people, title, body, { speed = AMBIENT, path = '/', 
   const batch = db.batch();
   wanted.forEach((p) => {
     batch.set(db.collection(NOTIFICATIONS).doc(), {
+      ...data,
       uid: p.uid,
       title,
       body,
       path,
+      // Urgency and topic are separate fields. Writing the topic into kind
+      // is what emptied the 8am summary - it looks for kind 'ambient'.
       kind: speed,
+      topic,
+      ref,
       throttleKey,
       createdAt: now,
       readAt: null,
       emailedAt: null,
-      ...data,
+      resolvedAt: null,
     });
   });
   await batch.commit();
 
-  await push(wanted.map((p) => p.pushToken).filter(Boolean), title, body, { ...data, path });
+  await push(wanted.map((p) => p.pushToken).filter(Boolean), title, body, { path });
 
-  console.log(
-    'email path: speed=' + speed + ' key=' + (process.env.RESEND_API_KEY ? 'yes' : 'MISSING') +
-    ' people=' + wanted.length + ' throttled=' + throttled.size
-  );
-
-  if (speed === ACTION && process.env.RESEND_API_KEY) {
+  if (process.env.RESEND_API_KEY) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     for (const p of wanted) {
-      if (!p.email) { console.log('  skip ' + p.name + ': no email'); continue; }
-      if (!wantsEmail(p, speed)) { console.log('  skip ' + p.name + ': preference ' + (p.notifyEmail ?? 'default')); continue; }
-      if (throttled.has(p.uid)) { console.log('  skip ' + p.name + ': throttled'); continue; }
-      console.log('  sending to ' + p.email);
-      if (throttled.has(p.uid)) continue;
+      if (!p.email || !emailsNow(p, speed) || throttled.has(p.uid)) continue;
       try {
         await resend.emails.send({
           from: FROM,
           to: [p.email],
-          subject: 'Needs you: ' + title,
-          html: emailHtml({ name: p.name, title, body, link: WEB_URL + path, kind: ACTION }),
+          subject: (speed === ACTION ? 'Needs you: ' : '') + title,
+          html: layout({
+            urgent: speed === ACTION,
+            kicker: TOPIC_LABEL[topic] ?? 'Update',
+            title,
+            intro: body,
+            details,
+            button: { label: button ?? 'Open in the Hub', url: WEB_URL + path },
+            footer: why,
+          }),
         });
-        await markEmailed(db, p.uid, throttleKey, Date.now());
+        await markEmailed(db, p.uid, throttleKey, Date.now(), now);
       } catch (err) {
         console.error('email to ' + p.email + ' failed: ' + err.message);
       }
     }
   }
 
-  console.log(`notify "${title}" to ${wanted.length} (${speed})`);
+  console.log('notify "' + title + '" to ' + wanted.length + ' (' + speed + (topic ? ', ' + topic : '') + ')');
   return { sent: wanted.length };
 }
 
-module.exports = { notify, notifyPeople, audience, push, everyone, emailHtml, ACTION, AMBIENT, FROM, WEB_URL };
+/**
+ * Someone dealt with it - approved the time off, claimed the enquiry. Every
+ * notification about that thing stops showing as waiting, for everyone who
+ * was told, in the bell, on Home and in the 8am summary.
+ */
+async function resolveRef(ref, byName = null) {
+  if (!ref) return 0;
+  const db = admin.firestore();
+  const snap = await db.collection(NOTIFICATIONS).where('ref', '==', ref).where('resolvedAt', '==', null).get();
+  if (snap.empty) return 0;
+  const now = Date.now();
+  for (let i = 0; i < snap.docs.length; i += 400) {
+    const batch = db.batch();
+    snap.docs.slice(i, i + 400).forEach((d) =>
+      batch.update(d.ref, { resolvedAt: now, resolvedByName: byName, readAt: d.data().readAt ?? now })
+    );
+    await batch.commit();
+  }
+  return snap.size;
+}
+
+module.exports = { notifyPeople, resolveRef, push, everyone, emailsNow, ACTION, AMBIENT, FROM, WEB_URL, TOPIC_LABEL };

@@ -9,7 +9,7 @@
 //   notifyUids  particular people
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
-const { notifyPeople, ACTION } = require('./notify');
+const { notifyPeople, resolveRef, ACTION, AMBIENT } = require('./notify');
 
 /** The people behind a set of titles and uids, without duplicates. */
 async function taggedPeople({ needs = [], notifyUids = [] }, exceptUid) {
@@ -57,7 +57,10 @@ exports.onTaggedEntryCreated = onDocumentCreated(
     people,
     entry.title || 'Something needs you',
     who + ' added this for ' + whenText(entry.dateTime) + note,
-    { speed: ACTION, path: dayPath(entry.dateTime), kind: 'calendar', locationId: entry.locationId ?? null }
+    {
+      speed: ACTION, path: dayPath(entry.dateTime), topic: 'tagged', button: 'See it on the calendar',
+      why: 'You got this because you were tagged on it.', locationId: entry.locationId ?? null,
+    }
   );
   }
 );
@@ -128,6 +131,12 @@ exports.onChecklistAssigned = onDocumentUpdated(
   const after = event.data?.after?.data();
   if (!before || !after) return;
 
+  // Done, or handed to someone else: it is no longer waiting on the person
+  // who held it.
+  if (before.assignedToUid && (before.assignedToUid !== after.assignedToUid || (!before.done && after.done))) {
+    await resolveRef('assignment/' + event.params.id + '/' + before.assignedToUid);
+  }
+
   // Taken off it: tell the person who was holding it.
   if (before.assignedToUid && before.assignedToUid !== after.assignedToUid) {
     const oldSnap = await admin.firestore().collection('users').doc(before.assignedToUid).get();
@@ -136,7 +145,7 @@ exports.onChecklistAssigned = onDocumentUpdated(
         [{ uid: before.assignedToUid, ...oldSnap.data() }],
         'No longer assigned to you: ' + (after.title || 'a checklist item'),
         after.assignedToName ? 'It is now with ' + after.assignedToName : 'Nobody is on it now',
-        { speed: ACTION, path: '/', kind: 'assignment', locationId: after.locationId ?? null }
+        { speed: AMBIENT, path: '/', topic: 'assignment', locationId: after.locationId ?? null }
       );
     }
   }
@@ -160,7 +169,11 @@ exports.onChecklistAssigned = onDocumentUpdated(
     [person],
     'Assigned to you: ' + (after.title || 'a checklist item'),
     'Due ' + whenText(after.dateTime) + section,
-    { speed: ACTION, path, kind: 'assignment', locationId: after.locationId ?? null }
+    {
+      speed: ACTION, path, topic: 'assignment', ref: 'assignment/' + event.params.id + '/' + uid,
+      button: 'Open the checklist', why: 'You got this because this item was assigned to you.',
+      locationId: after.locationId ?? null,
+    }
   );
   }
 );

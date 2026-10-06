@@ -1,46 +1,78 @@
-// One email at 8am with everything that did not need someone straight away.
+// The 8am morning summary.
 //
-// Anything needing action emails immediately. Everything else - posts,
-// announcements, someone else's receipt - waits for this, so a busy day is one
-// email rather than a dozen.
+// Two parts, and only sent when there is something in either:
+//   Waiting on you   - everything still open for this person: a request to
+//                      decide, a document to sign, an item assigned to them.
+//                      Taken from notifications that carry a ref and have not
+//                      been resolved - so it empties itself as things are done.
+//   Since yesterday  - everything that did not need them straight away,
+//                      grouped by topic.
 //
-// Nothing is sent when there is nothing. A daily email that is usually empty
-// teaches people to ignore it.
+// Who gets it: anyone on the default email setting. "Everything" already had
+// each item as it happened; "urgent only" and "nothing" asked not to.
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 const { Resend } = require('resend');
 const { everyone, FROM, WEB_URL } = require('./notify');
+const T = require('./emailTemplate');
 
 const ZONE = 'America/Chicago';
 const NOTIFICATIONS = 'notifications';
-const F = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+const DAY = 24 * 60 * 60 * 1000;
 
-function digestHtml({ name, items }) {
-  const rows = items
-    .map(
-      (n, i) => `<tr><td style="border-top:1px solid #232327;${i === items.length - 1 ? 'border-bottom:1px solid #232327;' : ''}padding:12px 0;">
-<div style="font-family:${F};font-size:14px;color:#FFFFFF;padding-bottom:3px;">${n.title}</div>
-<div style="font-family:${F};font-size:12px;line-height:18px;color:#B4B4BB;">${n.body ?? ''}</div>
-</td></tr>`
-    )
-    .join('');
+// What the link on a waiting item says.
+const ACTION_WORD = {
+  timeOff: 'Decide', eventRequest: 'Decide', accessRequest: 'Decide', deviceRequest: 'Decide',
+  systemsHelp: 'Answer', catering: 'Claim', renewal: 'Renew', signature: 'Sign', assignment: 'Open',
+};
+// How the news is grouped, in this order.
+const GROUPS = [
+  ['Posts', ['post', 'folderPost']],
+  ['Opening checklists', ['assignment']],
+  ['Calendar', ['tagged', 'calendar']],
+  ['Expenses', ['expenses']],
+];
 
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0A0A0B;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0A0A0B;">
-<tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:560px;max-width:100%;">
-<tr><td style="font-family:${F};font-size:13px;color:#22D3EE;padding-bottom:16px;">CIG Executive Hub</td></tr>
-<tr><td style="font-family:${F};font-size:19px;font-weight:bold;color:#FFFFFF;padding-bottom:4px;">Yesterday in the Hub</td></tr>
-<tr><td style="font-family:${F};font-size:13px;color:#6C6C76;padding-bottom:18px;">${items.length} thing${items.length === 1 ? '' : 's'} worth knowing. Nothing here needs you today.</td></tr>
-<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>
-<tr><td style="padding-top:22px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td bgcolor="#22D3EE" style="border-radius:8px;">
-<a href="${WEB_URL}" style="display:inline-block;padding:11px 22px;font-family:${F};font-size:14px;font-weight:bold;color:#0A0A0B;text-decoration:none;">Open the Hub</a>
-</td></tr></table></td></tr>
-<tr><td style="font-family:${F};font-size:12px;line-height:18px;color:#6C6C76;padding-top:26px;">
-One email a day, sent at 8am, covering anything that did not need you straight away. Change this under Notifications in your profile.
-</td></tr>
-</table></td></tr></table></body></html>`;
+async function buildFor(db, person, now) {
+  const snap = await db
+    .collection(NOTIFICATIONS)
+    .where('uid', '==', person.uid)
+    .where('createdAt', '>', now - 30 * DAY)
+    .orderBy('createdAt', 'desc')
+    .limit(300)
+    .get();
+  const docs = snap.docs.filter((d) => d.data().source !== 'did');
+
+  // Waiting: open items with a ref, newest notice per ref.
+  const seen = new Set();
+  const waiting = [];
+  for (const d of docs) {
+    const n = d.data();
+    if (n.kind !== 'action' || !n.ref || n.resolvedAt || seen.has(n.ref)) continue;
+    seen.add(n.ref);
+    waiting.push({ title: n.title, line: n.body, url: WEB_URL + (n.path ?? '/'), action: ACTION_WORD[n.topic] ?? 'Open' });
+  }
+
+  // News: not urgent, not already emailed, from the last day and a bit.
+  const news = docs.filter((d) => {
+    const n = d.data();
+    return n.kind === 'ambient' && !n.emailedAt && n.createdAt > now - 1.25 * DAY;
+  });
+  const groups = [];
+  const used = new Set();
+  for (const [heading, topics] of GROUPS) {
+    const items = news.filter((d) => topics.includes(d.data().topic));
+    items.forEach((d) => used.add(d.id));
+    if (items.length) groups.push({ heading, items: items.map((d) => toItem(d.data())) });
+  }
+  const other = news.filter((d) => !used.has(d.id));
+  if (other.length) groups.push({ heading: 'Other', items: other.map((d) => toItem(d.data())) });
+
+  return { waiting, groups, newsDocs: news };
+}
+
+function toItem(n) {
+  return { title: n.title, line: n.body, url: WEB_URL + (n.path ?? '/'), action: 'Open' };
 }
 
 exports.sendDailyDigest = onSchedule(
@@ -48,46 +80,38 @@ exports.sendDailyDigest = onSchedule(
   async () => {
     const db = admin.firestore();
     const people = await everyone();
-
-    let sent = 0;
     const resend = new Resend(process.env.RESEND_API_KEY);
+    const now = Date.now();
+    const dateLabel = new Date(now).toLocaleDateString('en-US', { timeZone: ZONE, weekday: 'short', month: 'short', day: 'numeric' });
+    let sent = 0;
 
     for (const person of people) {
       if (!person.email) continue;
-      // none turns everything off. all and action both already had their
-      // immediate emails; only the default gathers ambient ones here.
-      const pref = person.notifyEmail ?? 'default';
-      if (pref === 'none' || pref === 'action') continue;
+      if ((person.notifyEmail ?? 'default') !== 'default') continue;
 
-      const snap = await db
-        .collection(NOTIFICATIONS)
-        .where('uid', '==', person.uid)
-        .where('kind', '==', 'ambient')
-        .where('emailedAt', '==', null)
-        .orderBy('createdAt', 'desc')
-        .limit(25)
-        .get();
+      const { waiting, groups, newsDocs } = await buildFor(db, person, now);
+      if (!waiting.length && !groups.length) continue;
 
-      if (snap.empty) continue;
-
-      const items = snap.docs.map((d) => d.data());
+      const count = waiting.length + groups.reduce((s, g) => s + g.items.length, 0);
       try {
         await resend.emails.send({
           from: FROM,
           to: [person.email],
-          subject: `Yesterday in the Hub — ${items.length} thing${items.length === 1 ? '' : 's'}`,
-          html: digestHtml({ name: person.name, items }),
+          subject: waiting.length
+            ? waiting.length + ' waiting on you · morning summary'
+            : 'Morning summary · ' + count + ' thing' + (count === 1 ? '' : 's') + ' since yesterday',
+          html: T.morningSummary({ name: person.name, dateLabel, waiting, groups }),
         });
-        const batch = db.batch();
-        const now = Date.now();
-        snap.docs.forEach((d) => batch.update(d.ref, { emailedAt: now }));
-        await batch.commit();
+        for (let i = 0; i < newsDocs.length; i += 400) {
+          const batch = db.batch();
+          newsDocs.slice(i, i + 400).forEach((d) => batch.update(d.ref, { emailedAt: now }));
+          await batch.commit();
+        }
         sent++;
       } catch (err) {
-        console.error('digest to ' + person.email + ' failed: ' + err.message);
+        console.error('summary to ' + person.email + ' failed: ' + err.message);
       }
     }
-
-    console.log('Daily digest sent to ' + sent + ' of ' + people.length + '.');
+    console.log('Morning summary sent to ' + sent + ' of ' + people.length + '.');
   }
 );

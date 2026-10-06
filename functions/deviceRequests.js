@@ -5,7 +5,7 @@
 // checking the page.
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
-const { notifyPeople, ACTION } = require('./notify');
+const { notifyPeople, resolveRef, ACTION } = require('./notify');
 
 const PATH = '/device-requests';
 const ZONE = 'America/Chicago';
@@ -32,10 +32,13 @@ exports.onDeviceRequestCreated = onDocumentCreated(
   const who = r.requestedByName || 'Someone';
   const forWhom = r.forWhom ? ' — for ' + r.forWhom : '';
 
-  await notifyPeople(deciders, 'Device request: ' + r.deviceType, who + ' at ' + r.locationName + forWhom, {
+  await notifyPeople(deciders, who + ' asked for a ' + r.deviceType, (r.locationName ?? '') + forWhom, {
     speed: ACTION,
     path: PATH,
-    kind: 'deviceRequest',
+    topic: 'deviceRequest',
+    ref: 'deviceRequest/' + event.params.id,
+    button: 'Approve or decline',
+    why: 'You got this because you approve device requests.',
     locationId: r.locationId ?? null,
   });
   }
@@ -47,6 +50,8 @@ exports.onDeviceRequestMoved = onDocumentUpdated(
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after || before.status === after.status) return;
+  // Decided - no longer waiting on the other deciders.
+  if (before.status === 'requested') await resolveRef('deviceRequest/' + event.params.id, after.decidedByName ?? null);
 
   // Whoever asked is the one waiting. Arriving is their own doing, so that
   // one tells nobody.
@@ -81,7 +86,9 @@ exports.onDeviceRequestMoved = onDocumentUpdated(
   await notifyPeople([asker], title, body, {
     speed: ACTION,
     path: PATH,
-    kind: 'deviceRequest',
+    topic: 'deviceRequest',
+    button: 'See your request',
+    why: 'You got this because you asked for this device.',
     locationId: after.locationId ?? null,
   });
   }

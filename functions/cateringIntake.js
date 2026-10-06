@@ -12,7 +12,9 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 const { google } = require('googleapis');
-const { notifyPeople, ACTION } = require('./notify');
+const { notifyPeople, resolveRef, ACTION } = require('./notify');
+const R = require('./routing');
+const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 
 const MAILBOX = 'info@cigconcepts.com';
 const LABEL = 'catering';
@@ -128,7 +130,7 @@ function parseDate(text) {
 }
 
 exports.pullCateringEnquiries = onSchedule(
-  { schedule: 'every 5 minutes', timeZone: ZONE, timeoutSeconds: 300, secrets: ['DRIVE_SA_KEY'] },
+  { schedule: 'every 5 minutes', timeZone: ZONE, timeoutSeconds: 300, secrets: ['DRIVE_SA_KEY', 'RESEND_API_KEY'] },
   async () => {
     let gmail;
     try {
@@ -153,6 +155,7 @@ exports.pullCateringEnquiries = onSchedule(
     }
 
     const db = admin.firestore();
+    const users = await R.activeUsers();
     let created = 0;
 
     for (const ref of messages) {
@@ -180,7 +183,15 @@ exports.pullCateringEnquiries = onSchedule(
       // The only difference between the two: a private event says so.
       const isPrivateEvent = /private\s*(dining|event)/i.test(subject);
 
-      await db.collection('cateringEnquiries').add({
+      // Filed under the email's own id, so the same email can never become two
+      // enquiries - even if taking its label off below fails and it comes
+      // round again in five minutes.
+      const docRef = db.collection('cateringEnquiries').doc('gmail-' + ref.id);
+      if ((await docRef.get()).exists) {
+        await gmail.users.messages.modify({ userId: 'me', id: ref.id, requestBody: { removeLabelIds: [label.id] } });
+        continue;
+      }
+      await docRef.set({
         kind: isPrivateEvent ? 'privateEvent' : 'catering',
         name: get('name'),
         email: get('email'),
@@ -219,6 +230,27 @@ exports.pullCateringEnquiries = onSchedule(
       });
       created++;
 
+      // That location's GM, Catering & Events person and chefs. One with no
+      // recognised location goes to admins to place, rather than vanishing.
+      const who = get('name') || 'Someone';
+      const what = (isPrivateEvent ? 'Private event' : 'Catering') + (get('guests') ? ' for ' + get('guests') : '');
+      const team = place ? await R.cateringTeam(users, place.locationId) : R.admins(users);
+      await notifyPeople(
+        team.filter(R.notGhost),
+        place ? 'New ' + (isPrivateEvent ? 'private event' : 'catering') + ' enquiry · ' + place.locationName : 'Catering enquiry needs a location',
+        who + ' · ' + what,
+        {
+          speed: ACTION,
+          topic: 'catering',
+          ref: 'catering/' + docRef.id,
+          path: '/catering',
+          details: [['Name', who], ['When', get('preferredDate') ?? ''], ['Guests', get('guests') ?? ''], ['Occasion', get('occasion') ?? '']].filter(([, v]) => v),
+          button: place ? 'Claim it' : 'Choose its location',
+          why: place ? 'You got this because you look after catering at ' + place.locationName + '.' : 'You got this because you are an admin and nobody else could be told.',
+          locationId: place?.locationId ?? null,
+        }
+      );
+
       // Filed, so it does not come round again.
       await gmail.users.messages.modify({
         userId: 'me',
@@ -229,21 +261,13 @@ exports.pullCateringEnquiries = onSchedule(
 
     console.log('Catering enquiries created: ' + created);
 
-    // Whoever looks after that location hears about it.
-    if (created > 0) {
-      const users = await db.collection('users').get();
-      const TITLES = ['General Manager', 'Assistant Manager', 'Executive Chef', 'Sous Chef', 'Catering & Events'];
-      const people = users.docs
-        .map((d) => ({ uid: d.id, ...d.data() }))
-        .filter((u) => u.active !== false && u.isGhost !== true)
-        .filter((u) => u.role === 'admin' || u.role === 'executive' || TITLES.includes(u.job));
-
-      await notifyPeople(
-        people,
-        created === 1 ? 'A new enquiry' : created + ' new enquiries',
-        'Someone has asked about catering or a private event.',
-        { speed: ACTION, path: '/catering', kind: 'catering' }
-      );
-    }
   }
 );
+
+// Claimed - it is no longer waiting on the rest of the location's team.
+exports.onCateringEnquiryUpdated = onDocumentUpdated({ document: 'cateringEnquiries/{id}' }, async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return;
+  if (!before.ownerUid && after.ownerUid) await resolveRef('catering/' + event.params.id, after.ownerName || null);
+});
