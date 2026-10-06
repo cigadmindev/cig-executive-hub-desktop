@@ -12,6 +12,9 @@ import { useEventRequests } from '../context/EventRequestsContext';
 import RequestAccessModal from '../components/RequestAccessModal';
 import { useHomeSummary } from '../hooks/useHomeSummary';
 import { nike } from '../theme/nike';
+import { useBrandAnnouncements } from '../context/BrandAnnouncementsContext';
+import PostCard from '../components/PostCard';
+import { brandIdForTarget } from '../data/mockData';
 
 export default function HomeScreen() {
   const isNarrow = useIsNarrow();
@@ -25,6 +28,20 @@ export default function HomeScreen() {
   const [hoveredId, setHoveredId] = useState(null);
   const [requestTarget, setRequestTarget] = useState(null);
   const summary = useHomeSummary();
+  const { announcements, toggleLike, addComment, toggleCommentLike, deletePost, deleteComment, unpin } = useBrandAnnouncements();
+  // Pinned announcements this person should see, newest first. Location
+  // narrowing is applied here, the same as everywhere else in the app.
+  const pinned = announcements
+    .filter((a) => a.pinnedUntil === 'forever' || (typeof a.pinnedUntil === 'number' && a.pinnedUntil > Date.now()))
+    .filter((a) => {
+      if (a.targetId === 'all' || user?.role === 'admin' || user?.role === 'executive') return true;
+      const bid = a.brandId ?? brandIdForTarget(a.targetId);
+      if (!(user?.permissions?.brandIds ?? []).includes(bid)) return false;
+      if (a.targetId === bid) return true;
+      const only = user?.permissions?.locationsByBrand?.[bid];
+      return !Array.isArray(only) || only.length === 0 || only.includes(a.targetId);
+    })
+    .sort((x, y) => (y.timestamp ?? 0) - (x.timestamp ?? 0));
 
   const handleCardClick = (item, allowed) => {
     if (allowed) {
@@ -116,6 +133,36 @@ export default function HomeScreen() {
             </div>
         </div>
       </header>
+
+      {pinned.length > 0 ? (
+        <div style={{ marginBottom: 22 }}>
+          <p style={styles.zoneLabel}>Announcements</p>
+          {pinned.map((post) => (
+            <div key={post.id} style={{ marginBottom: 12 }}>
+              <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--neon)', margin: '0 0 6px' }}>
+                {post.targetId === 'all' ? 'Everyone' : post.targetName ?? ''}
+                {user?.role === 'admin' || post.authorUid === user?.uid ? (
+                  <button
+                    onClick={() => unpin(post.id)}
+                    style={{ marginLeft: 10, background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700, cursor: 'pointer', textTransform: 'none', letterSpacing: 0 }}
+                  >
+                    Remove from Home
+                  </button>
+                ) : null}
+              </p>
+              <PostCard
+                post={post}
+                isNewest={false}
+                onToggleLike={toggleLike}
+                onAddComment={addComment}
+                onToggleCommentLike={toggleCommentLike}
+                onDeletePost={deletePost}
+                onDeleteComment={deleteComment}
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* What needs you, before where you want to go. The brand grid alone
           answered navigation but not "what should I be doing", which is the

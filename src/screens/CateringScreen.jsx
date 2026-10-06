@@ -238,6 +238,13 @@ export default function CateringScreen() {
     <div style={styles.page}>
       <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Catering &amp; Events</h1>
       <p style={styles.subtitle}>Everything that has come in, and where each one stands.</p>
+      <div style={styles.howNote}>
+        <strong>How enquiries get here:</strong> forward any catering or private event enquiry to{' '}
+        <a href="mailto:catering@cigconcepts.com" style={{ color: 'var(--neon)', fontWeight: 700 }}>
+          catering@cigconcepts.com
+        </a>
+        . It shows up below within five minutes, and that location's GM, catering lead and chefs are emailed.
+      </div>
 
       {open.length === 0 ? <p style={styles.empty}>Nothing outstanding.</p> : null}
 
@@ -345,6 +352,7 @@ const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 820 },
   title: { fontSize: 22, fontWeight: 700, margin: 0 },
   subtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 20px' },
+  howNote: { fontSize: 14, lineHeight: 1.5, color: 'var(--text-primary)', background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', marginBottom: 20 },
   empty: { fontSize: 13, color: 'var(--text-tertiary)' },
 
   group: { marginBottom: 20 },

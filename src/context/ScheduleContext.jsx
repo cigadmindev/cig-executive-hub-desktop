@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { recordDid } from './NotificationsContext';
-import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, writeBatch , query, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, writeBatch, query, where, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { brandOfLocation } from '../data/brandOfLocation';
 import { useAuth } from './AuthContext';
@@ -134,13 +134,18 @@ export function ScheduleProvider({ children }) {
   // calendar entry, this is the exact same action whether triggered from
   // the Checklist screen or the Calendar screen.
   const toggleOpeningItemDone = async (id, done, doneByName) => {
+    const at = Date.now();
     await updateDoc(doc(db, COLLECTION, id), {
       done,
       doneBy: done ? doneByName : null,
-      doneAt: done ? Date.now() : null,
+      doneAt: done ? at : null,
+      // Every tick and untick, kept on the item itself, so who signed it off
+      // and when can always be answered - even if it is later unticked.
+      signOffHistory: arrayUnion({ done, by: doneByName ?? 'Unknown', at }),
     });
-    // So "did I tick that off" has an answer.
-    if (done) recordDid('You signed off a checklist item', doneByName ?? '', '/calendar');
+    // So "did I tick that off" has an answer - naming the item this time.
+    const item = entries.find((e) => e.id === id);
+    if (done) recordDid('You signed off: ' + (item?.title ?? 'a checklist item'), item?.locationId ?? '', '/calendar');
   };
 
   const getByLocation = (locationId) =>

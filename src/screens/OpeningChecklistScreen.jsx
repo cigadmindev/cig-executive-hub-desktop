@@ -335,12 +335,7 @@ export default function OpeningChecklistScreen() {
         <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Opening Checklist</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={searchSuggestions} placeholder="Search tasks…" />
-          {isAdmin ? (
-            <button style={{ ...styles.regenerateButton, display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setConfirmingRegenerate(true)}>
-              <Icon name="refresh" size={13} color="currentColor" />
-              Regenerate
-            </button>
-          ) : null}
+          {/* Regenerate removed 6 Oct 2026 - items can be added directly now. */}
         </div>
       </div>
       {q ? <p style={styles.searchHint}>Showing results for "{searchQuery}" across Initial Set-Up and Timeline.</p> : null}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UnderRepairControls } from '../components/UnderRepair';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
@@ -44,6 +45,7 @@ const blankDraft = () => ({
 
 export default function AdminUsersScreen() {
   const { dialogNode, confirm, notify } = useDialog();
+  const navigate = useNavigate();
   const {
     users,
     addUser,
@@ -406,8 +408,12 @@ export default function AdminUsersScreen() {
         </div>
       ) : null}
 
+      <button style={styles.repairRow} onClick={() => navigate('/admin/email-preview')}>
+        <span>✉️ Email preview — every email the Hub sends</span>
+        <span style={styles.chevron}>›</span>
+      </button>
       <button style={styles.repairRow} onClick={() => setRepairOpen((v) => !v)}>
-        <span>🚧 Pages under repair</span>
+        <span>⚙ Pages being improved</span>
         <span style={styles.chevron}>{repairOpen ? '▾' : '▸'}</span>
       </button>
       {repairOpen ? <UnderRepairControls /> : null}

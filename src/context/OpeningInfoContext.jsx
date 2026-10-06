@@ -116,22 +116,19 @@ export function OpeningInfoProvider({ children }) {
       where('openingItem', '==', true)
     );
     const existingSnap = await getDocs(existingQuery);
+    // Existing items, by type and key ('setup:llc', 'timeline:menu'). Nothing
+    // is deleted up front. On 5 October 2026 a date change here deleted every
+    // item at Heritage, signed off or not, because this list was keyed with
+    // the type in front and the "still on the template" check below was not -
+    // so nothing ever matched. Items people added themselves (no setupKey)
+    // are never touched at all.
     const existingSetupByKey = {};
-    const deleteBatch = writeBatch(db);
     existingSnap.docs.forEach((d) => {
       const data = d.data();
-      // Both setup and timeline items are kept and merged by key. Timeline
-      // items used to be deleted here, on the reasoning that they were
-      // generic labels with no state worth keeping - but they carry sign-offs
-      // and adjusted dates like anything else, and a date change was silently
-      // throwing that away.
       if (data.setupKey) {
         existingSetupByKey[(data.openingItemType ?? 'setup') + ':' + data.setupKey] = { ref: d.ref, data };
-      } else {
-        deleteBatch.delete(d.ref);
       }
     });
-    await deleteBatch.commit();
 
     // Also clear out any previously-generated renewal-linked calendar tasks
     // (not the renewal records themselves — those hold real approved
@@ -142,10 +139,14 @@ export function OpeningInfoProvider({ children }) {
       where('locationId', '==', locationId),
       where('renewalItem', '==', true)
     );
+    // Kept and moved, not deleted and recreated - they carry sign-offs too.
     const existingRenewalTasksSnap = await getDocs(existingRenewalTasksQuery);
-    const deleteRenewalTasksBatch = writeBatch(db);
-    existingRenewalTasksSnap.docs.forEach((d) => deleteRenewalTasksBatch.delete(d.ref));
-    await deleteRenewalTasksBatch.commit();
+    const existingRenewalTaskByType = {};
+    existingRenewalTasksSnap.docs.forEach((d) => {
+      const t = d.data().renewalType;
+      // Duplicates from older rebuilds: keep the signed-off one if any.
+      if (!existingRenewalTaskByType[t] || d.data().done) existingRenewalTaskByType[t] = { ref: d.ref, data: d.data() };
+    });
 
     // Make sure every renewal type has a record for this location —
     // transaction-guarded per type, so this never overwrites a renewal
@@ -178,12 +179,15 @@ export function OpeningInfoProvider({ children }) {
     // of whether the location already opened.
     const isPastOpening = openingDate < Date.now();
 
+    // Keys the templates still list - same 'type:key' form as above.
+    const seenKeys = new Set();
     if (!isPastOpening) {
       TIMELINE_BUCKETS.forEach((bucket) => {
         const dates = spreadDatesInWindow(openingDate, bucket.windowStartDaysBefore, bucket.windowEndDaysBefore, bucket.items.length);
         bucket.items.forEach((tlItem, i) => {
           const label = tlItem.name;
           const existing = existingSetupByKey['timeline:' + tlItem.key];
+          seenKeys.add('timeline:' + tlItem.key);
           if (existing) {
             if (existing.data.done) return;
             createBatch.update(existing.ref, { dateTime: dates[i], openingSection: bucket.label });
@@ -222,9 +226,8 @@ export function OpeningInfoProvider({ children }) {
       // see computeInitialSetupDates.
       const template = getTemplateForLocation(locationId);
       const setupDatesByKey = computeInitialSetupDates(openingDate, template);
-      const seenKeys = new Set();
       template.items.forEach((item) => {
-        seenKeys.add(item.key);
+        seenKeys.add('setup:' + item.key);
         const existing = existingSetupByKey['setup:' + item.key];
 
         if (existing) {
@@ -271,8 +274,10 @@ export function OpeningInfoProvider({ children }) {
       // requirement that was removed, or an item from before this location
       // was mapped to the right city. Dropped so the checklist reflects
       // what actually applies rather than accumulating history.
+      // Only ever an item nobody has signed off: a signed-off item is a record
+      // of work done and is never deleted by a date change.
       Object.entries(existingSetupByKey).forEach(([key, entry]) => {
-        if (!seenKeys.has(key)) createBatch.delete(entry.ref);
+        if (!seenKeys.has(key) && !entry.data.done) createBatch.delete(entry.ref);
       });
     }
 
@@ -288,6 +293,11 @@ export function OpeningInfoProvider({ children }) {
     const renewalTaskBatch = writeBatch(db);
     const renewalTaskDates = computeRenewalOpeningTaskDates(openingDate, RENEWAL_TYPES_WITH_OPENING_TASK);
     RENEWAL_TYPES_WITH_OPENING_TASK.forEach((type) => {
+      const existing = existingRenewalTaskByType[type];
+      if (existing) {
+        if (!existing.data.done) renewalTaskBatch.update(existing.ref, { dateTime: renewalTaskDates[type] });
+        return;
+      }
       const ref = doc(collection(db, SCHEDULES_COLLECTION));
       renewalTaskBatch.set(ref, {
         locationId,

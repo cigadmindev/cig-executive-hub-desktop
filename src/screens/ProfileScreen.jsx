@@ -125,6 +125,31 @@ export default function ProfileScreen() {
         ))}
       </div>
 
+      {/* Help & policies. Support and Privacy are public pages, so they open
+          in a new tab; Systems Help is inside the Hub. */}
+      <div style={styles.menuCard}>
+        <p style={styles.helpLabel}>Help &amp; policies</p>
+        {[
+          { label: 'Support', sub: 'How to get help, and who to contact', href: '/support.html' },
+          { label: 'Privacy policy', sub: 'What the Hub keeps about you, and why', href: '/privacy.html' },
+        ].map((l) => (
+          <a key={l.label} href={l.href} target="_blank" rel="noreferrer" style={{ ...styles.menuItem, textDecoration: 'none' }}>
+            <span style={{ flex: 1 }}>
+              <span style={{ ...styles.menuItemText, display: 'block' }}>{l.label}</span>
+              <span style={styles.helpSub}>{l.sub}</span>
+            </span>
+            <span style={styles.helpArrow}>↗</span>
+          </a>
+        ))}
+        <button style={styles.menuItem} onClick={() => navigate('/integration-requests')}>
+          <span style={{ flex: 1, textAlign: 'left' }}>
+            <span style={{ ...styles.menuItemText, display: 'block' }}>Systems Help</span>
+            <span style={styles.helpSub}>Something not working? Raise it here</span>
+          </span>
+          <span style={styles.helpArrow}>›</span>
+        </button>
+      </div>
+
       <div style={styles.menuCard}>
         <button style={styles.menuItem} onClick={logout}>
           <Icon name="exit" color="#FFFFFF" />
@@ -257,6 +282,9 @@ export default function ProfileScreen() {
 }
 
 const styles = {
+  helpLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '14px 16px 4px' },
+  helpSub: { display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 },
+  helpArrow: { fontSize: 16, color: 'var(--text-secondary)', marginLeft: 10 },
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 480 },
   profileCard: {
     display: 'flex',

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, deleteDoc, runTransaction , query, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, deleteDoc, runTransaction, query, where, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { brands, brandIdForTarget } from '../data/mockData';
 import { useAuth } from './AuthContext';
@@ -16,33 +16,45 @@ export function BrandAnnouncementsProvider({ children }) {
       setRaw([]);
       return;
     }
-    // targetId is the restaurant, or 'all' for a company-wide post - which
-    // everyone keeps seeing.
+    // targetId is 'all', a restaurant, or a location. Admins and executives
+    // read everything. Everyone else reads two ways, because the database can
+    // only prove one thing per query: company-wide and restaurant posts by
+    // targetId, and location posts by the restaurant they belong to (brandId).
+    // Which location within a restaurant is narrowed in the app.
     const seesAll = user.role === 'admin' || user.role === 'executive';
-    const mine = user.permissions?.brandIds ?? [];
-    const source = seesAll
-      ? collection(db, COLLECTION)
-      : query(collection(db, COLLECTION), where('targetId', 'in', ['all', ...mine.slice(0, 29)]));
-
-    const unsubscribe = onSnapshot(source, (snapshot) => {
-      const list = snapshot.docs.map((d) => {
+    const mine = (user.permissions?.brandIds ?? []).slice(0, 29);
+    const map = (snapshot) =>
+      snapshot.docs.map((d) => {
         const data = d.data();
         return {
           id: d.id,
           targetId: data.targetId,
+          targetName: data.targetName ?? null,
+          brandId: data.brandId ?? null,
           message: data.message,
           authorName: data.authorName,
           authorUid: data.authorUid ?? null,
           timestamp: data.timestamp,
+          // Kept at the top of Home until this time; 'forever' until removed.
+          pinnedUntil: data.pinnedUntil ?? null,
           likedBy: data.likedBy ?? [],
           comments: data.comments ?? [],
         };
       });
-      setRaw(list);
-    },
-      (err) => console.error('[BrandAnnouncements listener] ' + err.code + ': ' + err.message)
-    );
-    return unsubscribe;
+    const onErr = (err) => console.error('[BrandAnnouncements listener] ' + err.code + ': ' + err.message);
+    if (seesAll) return onSnapshot(collection(db, COLLECTION), (s) => setRaw(map(s)), onErr);
+
+    let byTarget = [];
+    let byBrand = [];
+    const merge = () => {
+      const seen = new Set();
+      setRaw([...byTarget, ...byBrand].filter((p) => (seen.has(p.id) ? false : seen.add(p.id))));
+    };
+    const u1 = onSnapshot(query(collection(db, COLLECTION), where('targetId', 'in', ['all', ...mine])), (s) => { byTarget = map(s); merge(); }, onErr);
+    const u2 = mine.length
+      ? onSnapshot(query(collection(db, COLLECTION), where('brandId', 'in', mine)), (s) => { byBrand = map(s); merge(); }, onErr)
+      : () => {};
+    return () => { u1(); u2(); };
   }, [user]);
 
   const toShapedComment = (c) => {
@@ -69,10 +81,15 @@ export function BrandAnnouncementsProvider({ children }) {
       likes: a.likedBy.length,
       likedByMe: !!uid && a.likedBy.includes(uid),
       comments: a.comments.map(toShapedComment),
+      targetName: a.targetName,
+      brandId: a.brandId,
+      pinnedUntil: a.pinnedUntil,
     };
   };
 
-  const addAnnouncement = async (targetId, message, authorName, targetLabel) => {
+  // pinDays: how long it stays at the top of Home - a number of days, or
+  // 'forever' to keep it until someone removes it.
+  const addAnnouncement = async (targetId, message, authorName, targetLabel, pinDays = 7, brandIdOfTarget = null) => {
     // targetName is stored on the document so the push-notification function
     // can name the brand. Brands live in mockData inside the app, so the
     // server has no way to resolve an id like 'taste' on its own.
@@ -86,6 +103,10 @@ export function BrandAnnouncementsProvider({ children }) {
       authorName,
       authorUid: auth.currentUser?.uid ?? null,
       timestamp: Date.now(),
+      // The restaurant it belongs to, so people at that restaurant can read a
+      // post aimed at one of its locations. Null for company-wide posts.
+      brandId: targetId === 'all' ? null : brand ? brand.id : brandIdOfTarget,
+      pinnedUntil: pinDays === 'forever' ? 'forever' : Date.now() + pinDays * 24 * 60 * 60 * 1000,
       likedBy: [],
       comments: [],
     });
@@ -155,6 +176,7 @@ export function BrandAnnouncementsProvider({ children }) {
     <BrandAnnouncementsContext.Provider
       value={{
         announcements: raw.map(toShaped),
+        unpin: (id) => updateDoc(doc(db, COLLECTION, id), { pinnedUntil: null }),
         addAnnouncement,
         toggleLike,
         addComment,

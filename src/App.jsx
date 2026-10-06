@@ -38,6 +38,7 @@ import MessagesScreen from './screens/MessagesScreen';
 import CalendarScreen from './screens/CalendarScreen';
 import AvailabilityScreen from './screens/AvailabilityScreen';
 import EventRequestsScreen from './screens/EventRequestsScreen';
+import EmailPreviewScreen from './screens/EmailPreviewScreen';
 import RenewalsScreen from './screens/RenewalsScreen';
 import AdminUsersScreen from './screens/AdminUsersScreen';
 import PendingRequestsScreen from './screens/PendingRequestsScreen';
@@ -108,6 +109,7 @@ function Gate() {
         <Route path="/admin/users" element={<AdminUsersScreen />} />
         <Route path="/admin/offboarding" element={<RequireReviewer><OffboardingScreen /></RequireReviewer>} />
         <Route path="/admin/pending-requests" element={<PendingRequestsScreen />} />
+        <Route path="/admin/email-preview" element={<EmailPreviewScreen />} />
         <Route path="/brand/:brandId/location/:locationId/opening-checklist" element={<RequireBrand><RequireFeature feature="openingChecklist"><OpeningChecklistScreen /></RequireFeature></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<RequireBrand><RequireFeature feature="operationalPoc"><OperationalPOCScreen /></RequireFeature></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId/integrations" element={<RequireBrand><RequireFeature feature="integrations"><IntegrationsScreen /></RequireFeature></RequireBrand>} />

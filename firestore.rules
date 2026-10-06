@@ -240,8 +240,14 @@ service cloud.firestore {
 
     match /brandPosts/{postId} {
       // 'all' is a company-wide post; anything else is a restaurant.
-      allow read, update: if isAdminOrExecutive()
-        || (isSignedIn() && (resource.data.targetId == 'all' || resource.data.targetId in myBrands()));
+      // 'all' is company-wide; a restaurant id; or a location, whose
+      // restaurant is stored as brandId.
+      allow read: if isAdminOrExecutive()
+        || (isSignedIn() && (resource.data.targetId == 'all' || resource.data.targetId in myBrands()
+            || resource.data.get('brandId', null) in myBrands()));
+      // Likes and comments only - the post itself is the author's.
+      allow update: if isAdmin() || isOwner(resource)
+        || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'comments', 'timestamp']));
       allow create: if isSignedIn();
       allow delete: if isAdmin() || isOwner(resource);
     }
@@ -291,7 +297,7 @@ service cloud.firestore {
       ) || (
         isSignedIn() &&
         resource.data.openingItem == true &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'openingFields', 'dateTime', 'document'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document'])
       );
       allow delete: if canEditChecklists() || (
         isSignedIn() &&

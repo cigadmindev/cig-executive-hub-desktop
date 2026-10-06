@@ -39,56 +39,70 @@ export const REPAIRABLE_PAGES = [
 // can write - so the rule that protects it already exists.
 const SETTINGS_DOC = doc(db, 'appSettings', 'underRepair');
 
+// keys: the pages closed. notes: per page, what is being done, when it is
+// back, and what to do meanwhile - all optional.
 function useUnderRepair() {
-  const [keys, setKeys] = useState([]);
+  const [state, setState] = useState({ keys: [], notes: {} });
   useEffect(
     () =>
       onSnapshot(
         SETTINGS_DOC,
-        (snap) => setKeys(snap.exists() ? snap.data().keys ?? [] : []),
+        (snap) => setState({ keys: snap.exists() ? snap.data().keys ?? [] : [], notes: snap.exists() ? snap.data().notes ?? {} : {} }),
         (err) => console.error('[UnderRepair] ' + err.code + ': ' + err.message)
       ),
     []
   );
-  return keys;
+  return state;
+}
+
+function prettyDate(key) {
+  if (!key) return '';
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 /**
- * Wraps the routes. Shows the notice in place of any page switched off,
- * unless the person is an admin.
+ * Wraps the routes. A closed page shows everyone except admins a short
+ * "being improved" notice; admins get the page with a banner on top.
  */
 export function UnderRepairGate({ children }) {
   const { user } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const keys = useUnderRepair();
+  const { keys, notes } = useUnderRepair();
 
   const closed = REPAIRABLE_PAGES.find((p) => keys.includes(p.key) && p.test.test(pathname));
-
-  if (!user) return children;
+  if (!user || !closed) return children;
+  const note = notes[closed.key] ?? {};
 
   if (user.role === 'admin') {
-    if (!closed) return children;
     return (
       <>
         <div style={styles.adminBanner}>
-          🚧 {closed.label} is under repair — everyone but admins sees a notice here.
+          <strong>Admin only:</strong> {closed.label} is closed for everyone else
+          {note.backBy ? ' until ' + prettyDate(note.backBy) : ''}. You can still use it.
         </div>
         {children}
       </>
     );
   }
 
-  if (!closed) return children;
-
   return (
     <div style={styles.wrap}>
       <div style={styles.card}>
-        <div style={styles.icon}>🚧</div>
-        <h1 style={styles.title}>Under repair</h1>
+        <div style={styles.icon}>⚙</div>
+        <p style={styles.kicker}>Being improved</p>
+        <h1 style={styles.title}>{closed.label} is closed for a moment</h1>
         <p style={styles.body}>
-          {closed.label} is being worked on and will be open again soon.
+          {note.reason || 'It is being worked on so it is easier to use.'}
+          {note.backBy ? (
+            <>
+              <br />
+              Back by <strong style={{ color: 'var(--text-primary)' }}>{prettyDate(note.backBy)}</strong>.
+            </>
+          ) : null}
         </p>
+        {note.meanwhile ? <div style={styles.meanwhile}>{note.meanwhile}</div> : null}
         <button style={styles.button} onClick={() => navigate('/')}>
           Back to Home
         </button>
@@ -98,62 +112,100 @@ export function UnderRepairGate({ children }) {
 }
 
 /**
- * The admin switches. Lives in Manage Logins with the other admin tools.
+ * The admin controls. Lives in Manage Logins with the other admin tools.
  */
 export function UnderRepairControls() {
-  const keys = useUnderRepair();
+  const { keys, notes } = useUnderRepair();
   const [saving, setSaving] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
-  const toggle = async (key) => {
+  const save = async (patch) => {
     setSaving(true);
     try {
-      const next = keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key];
-      await setDoc(SETTINGS_DOC, { keys: next, updatedAt: Date.now() }, { merge: true });
+      await setDoc(SETTINGS_DOC, { ...patch, updatedAt: Date.now() }, { merge: true });
     } finally {
       setSaving(false);
     }
   };
+  const toggle = (key) => save({ keys: keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key] });
+  const setNote = (key, field, value) => save({ notes: { ...notes, [key]: { ...(notes[key] ?? {}), [field]: value } } });
+
+  // Closed pages first, so what is switched off is never hidden in a list.
+  const ordered = [...REPAIRABLE_PAGES].sort((a, b) => keys.includes(b.key) - keys.includes(a.key));
+  const shown = showAll ? ordered : ordered.filter((p, i) => keys.includes(p.key) || i < keys.length + 3);
 
   return (
     <div style={styles.panel}>
-      <p style={styles.panelTitle}>Pages under repair</p>
+      <p style={styles.panelTitle}>Pages being improved</p>
       <p style={styles.panelNote}>
-        Switched-on pages show an "under repair" notice to everyone except admins. Use it while a
-        page is being worked on, so nobody runs into something half-finished.
+        Close a page while it is being worked on. Everyone except admins sees a short notice instead; admins still get
+        in, with a banner saying it is closed for everyone else.
       </p>
-      <div style={styles.chips}>
-        {REPAIRABLE_PAGES.map((p) => {
-          const on = keys.includes(p.key);
-          return (
-            <button
-              key={p.key}
-              disabled={saving}
-              onClick={() => toggle(p.key)}
-              style={{ ...styles.chip, ...(on ? styles.chipOn : {}) }}
-            >
-              {on ? '🚧 ' : ''}
-              {p.label}
-            </button>
-          );
-        })}
-      </div>
+      {shown.map((p) => {
+        const on = keys.includes(p.key);
+        const n = notes[p.key] ?? {};
+        return (
+          <div key={p.key} style={styles.pageRow}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ flex: 1, fontWeight: 700 }}>
+                {p.label} {on ? <span style={styles.closedPill}>Closed</span> : null}
+              </span>
+              <button style={styles.rowButton} disabled={saving} onClick={() => toggle(p.key)}>
+                {on ? 'Open it' : 'Close it'}
+              </button>
+            </div>
+            {on ? (
+              <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                <input
+                  style={styles.input}
+                  defaultValue={n.reason ?? ''}
+                  placeholder="What is being done - e.g. Rebuilding how time off works"
+                  onBlur={(e) => setNote(p.key, 'reason', e.target.value.trim())}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8 }}>
+                  <input
+                    type="date"
+                    style={styles.input}
+                    defaultValue={n.backBy ?? ''}
+                    onBlur={(e) => setNote(p.key, 'backBy', e.target.value)}
+                  />
+                  <input
+                    style={styles.input}
+                    defaultValue={n.meanwhile ?? ''}
+                    placeholder="Meanwhile - e.g. Need time off? Message Ronnie."
+                    onBlur={(e) => setNote(p.key, 'meanwhile', e.target.value.trim())}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+      {!showAll ? (
+        <button style={styles.moreButton} onClick={() => setShowAll(true)}>
+          Show all {REPAIRABLE_PAGES.length} pages
+        </button>
+      ) : null}
     </div>
   );
 }
 
 const styles = {
-  adminBanner: { background: 'rgba(201,162,39,0.16)', color: '#C9A227', fontSize: 12, fontWeight: 600, padding: '8px 16px', textAlign: 'center' },
+  adminBanner: { background: 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 10, padding: '10px 14px', margin: '16px 24px 0', fontSize: 13 },
   wrap: { minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  card: { maxWidth: 420, textAlign: 'center', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: '32px 28px' },
-  icon: { fontSize: 40, marginBottom: 8 },
-  title: { fontSize: 24, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.4, margin: '0 0 8px', color: 'var(--text-primary)' },
-  body: { fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 20px' },
-  button: { padding: '11px 20px', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer' },
-
-  panel: { background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 22 },
-  panelTitle: { fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 6px' },
-  panelNote: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 12px' },
-  chips: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  chip: { padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  chipOn: { background: 'rgba(201,162,39,0.16)', borderColor: '#C9A227', color: '#C9A227' },
+  card: { maxWidth: 480, width: '100%', textAlign: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '40px 30px' },
+  icon: { width: 54, height: 54, borderRadius: 14, background: '#3A2A0E', color: '#E8B93B', fontSize: 26, lineHeight: '54px', margin: '0 auto 16px' },
+  kicker: { fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: '#E8B93B', margin: 0 },
+  title: { fontSize: 24, fontWeight: 800, margin: '8px 0', color: 'var(--text-primary)' },
+  body: { fontSize: 15, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '0 0 18px' },
+  meanwhile: { textAlign: 'left', background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', fontSize: 14, lineHeight: 1.5, color: 'var(--text-primary)', marginBottom: 20 },
+  button: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '11px 20px', fontWeight: 800, fontSize: 14, cursor: 'pointer' },
+  panel: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 20 },
+  panelTitle: { fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--text-primary)' },
+  panelNote: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 12px', lineHeight: 1.5 },
+  pageRow: { borderTop: '1px solid var(--border)', padding: '12px 0', color: 'var(--text-primary)', fontSize: 14 },
+  closedPill: { marginLeft: 6, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: '#E8B93B', background: '#3A2A0E', borderRadius: 5, padding: '3px 7px' },
+  rowButton: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  input: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: 'var(--text-primary)', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' },
+  moreButton: { background: 'none', border: 'none', color: 'var(--neon)', fontWeight: 700, fontSize: 13, padding: '10px 0 0', cursor: 'pointer' },
 };

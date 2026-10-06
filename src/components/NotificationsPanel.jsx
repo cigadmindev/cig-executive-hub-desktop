@@ -140,17 +140,24 @@ export default function NotificationsPanel({ onClose }) {
                 <div key={g.label}>
                   <p style={styles.dayLabel}>{g.label}</p>
                   {g.items.map((item) => {
-                    const unread = tab === 'forYou' && !item.readAt;
+                    const unread = tab === 'forYou' && !item.readAt && !item.resolvedAt;
+                    const handled = tab === 'forYou' && item.resolvedAt;
                     return (
                       <button
                         key={item.id}
                         data-row=""
-                        style={{ ...styles.row, ...(unread ? styles.rowUnread : {}) }}
+                        style={{ ...styles.row, ...(unread ? styles.rowUnread : {}), ...(handled ? { opacity: 0.55 } : {}) }}
                         onClick={() => open(item)}
                       >
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ ...styles.rowTitle, ...(unread ? {} : styles.rowTitleRead) }}>{item.title}</p>
                           {item.body ? <p style={styles.rowBody}>{item.body}</p> : null}
+                          {handled ? (
+                            <span style={styles.handledPill}>
+                              {(item.topic === 'catering' ? 'Claimed' : 'Handled') +
+                                (item.resolvedByName ? ' by ' + item.resolvedByName.split(' ')[0] : '')}
+                            </span>
+                          ) : null}
                         </div>
                         <span style={styles.rowTime}>{timeLabel(item.createdAt)}</span>
                       </button>
@@ -187,6 +194,11 @@ export function NotificationsBell({ onClick, floating = false }) {
 }
 
 const styles = {
+  handledPill: {
+    display: 'inline-block', marginTop: 6, fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
+    textTransform: 'uppercase', color: 'var(--text-secondary)', background: 'var(--bg-inset)',
+    borderRadius: 5, padding: '3px 7px',
+  },
   backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 300, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '10vh 16px 16px' },
   panel: { width: 'min(460px, 100%)', maxHeight: '76vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: 'var(--shadow-lg)', overflow: 'hidden' },
 

@@ -42,6 +42,11 @@ export function NotificationsProvider({ children }) {
               source: x.source === 'did' ? 'did' : 'sent',
               createdAt: x.createdAt ?? 0,
               readAt: x.readAt ?? null,
+              // Someone dealt with the thing it was about (approved it,
+              // claimed it). Shown greyed, with who.
+              resolvedAt: x.resolvedAt ?? null,
+              resolvedByName: x.resolvedByName ?? null,
+              topic: x.topic ?? null,
             };
           })
         ),
