@@ -98,7 +98,6 @@ export default function ProfileScreen() {
     ...(isAdmin
       ? [{ key: 'offboarding', icon: 'archive', label: 'Offboarding', badge: offboardingOutstanding(), onClick: () => navigate('/admin/offboarding') }]
       : []),
-    ...(isAdmin ? [{ key: 'resetData', icon: 'warning', label: 'Reset App Data', danger: true, onClick: () => navigate('/reset-app-data') }] : []),
   ];
 
   return (

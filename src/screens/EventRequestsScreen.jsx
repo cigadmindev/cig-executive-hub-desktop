@@ -9,6 +9,7 @@ import DatePickerField from '../components/DatePickerField';
 import TimePickerField from '../components/TimePickerField';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
+import { pageHeader, pageAction } from '../theme/pageHeader';
 import { atLeast } from '../data/accessMatrix';
 
 const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
@@ -62,7 +63,19 @@ export default function EventRequestsScreen() {
   const [denyReason, setDenyReason] = useState('');
 
   const requests = getByLocation(locationId);
-  const sortedRequests = [...requests].sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1));
+  // Who sees what: the COO and admins see every request; everyone else sees
+  // the ones they asked for, and ones they are named or needed on. Approved
+  // events still show on the calendar for everyone.
+  const seesAllRequests = user?.role === 'admin' || atLeast(user, 'eventRequests', 'approve');
+  const visibleRequests = seesAllRequests
+    ? requests
+    : requests.filter(
+        (r) =>
+          r.requestedByUid === user?.uid ||
+          (r.notifyUids ?? []).includes(user?.uid) ||
+          (!!user?.job && (r.needs ?? []).map(cleanNeed).includes(cleanNeed(user.job)))
+      );
+  const sortedRequests = [...visibleRequests].sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1));
 
   const openNewForm = () => {
     setEditingRequest(null);
@@ -180,9 +193,9 @@ export default function EventRequestsScreen() {
       <Link to={`/brand/${brand.id}/location/${location.id}`} style={styles.backLink}>
         ‹ {location.name}
       </Link>
-      <header style={styles.header}>
+      <header style={pageHeader}>
         <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Event / Promo Requests</h1>
-        <button style={styles.addButton} onClick={openNewForm}>
+        <button style={pageAction} onClick={openNewForm}>
           + Request an Event
         </button>
       </header>

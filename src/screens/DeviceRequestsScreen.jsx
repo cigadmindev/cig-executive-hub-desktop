@@ -6,6 +6,7 @@ import { brands } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
 import DatePickerField from '../components/DatePickerField';
 import { nike } from '../theme/nike';
+import { pageHeader, pageAction } from '../theme/pageHeader';
 
 // Asking for a new company device, and following it through to arriving.
 //
@@ -166,9 +167,9 @@ export default function DeviceRequestsScreen() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.headRow}>
+      <div style={pageHeader}>
         <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Device Requests</h1>
-        <button style={styles.newButton} onClick={() => setFormOpen(true)}>
+        <button style={pageAction} onClick={() => setFormOpen(true)}>
           + Request a device
         </button>
       </div>

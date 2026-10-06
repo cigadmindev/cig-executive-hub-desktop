@@ -7,6 +7,7 @@ import TimePickerField from '../components/TimePickerField';
 import { PTO_ALLOWANCE_DAYS } from '../context/AvailabilityContext';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
+import { pageHeader, pageAction } from '../theme/pageHeader';
 import { atLeast } from '../data/accessMatrix';
 
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -188,7 +189,12 @@ export default function AvailabilityScreen() {
   return (
     <div style={styles.page}>
       <header style={styles.header}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Availability</h1>
+        <div style={pageHeader}>
+          <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Availability</h1>
+          <button style={pageAction} onClick={() => setFormOpen(true)}>
+            + Request Time Off
+          </button>
+        </div>
         <div style={styles.tabRow}>
           {/* Everyone can ask for their own time off, executives included. */}
           <button style={{ ...styles.tab, ...(tab === 'mine' ? styles.tabActive : {}) }} onClick={() => setTab('mine')}>
@@ -236,9 +242,6 @@ export default function AvailabilityScreen() {
                 </div>
               ))
             )}
-            <button style={styles.addButton} onClick={() => setFormOpen(true)}>
-              + Request Time Off
-            </button>
           </>
         ) : null}
 

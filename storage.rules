@@ -57,8 +57,11 @@ service firebase.storage {
     // so there's no message id to key on yet. The conversation is enough for
     // the sweep to find everything it needs.
     match /chatAttachments/{conversationId}/{fileName} {
-      allow read: if request.auth != null;
+      // Members of that conversation only - read from the conversation itself.
+      allow read: if request.auth != null
+        && request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(conversationId)).data.memberUids;
       allow create: if request.auth != null
+        && request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(conversationId)).data.memberUids
         && request.resource.size < 25 * 1024 * 1024
         && (request.resource.contentType.matches('image/.*')
             || request.resource.contentType.matches('video/.*')

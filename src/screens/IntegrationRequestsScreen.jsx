@@ -1,3 +1,4 @@
+import { pageHeader, pageAction } from '../theme/pageHeader';
 import React, { useEffect, useState } from 'react';
 import Icon from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
@@ -174,7 +175,7 @@ export default function IntegrationRequestsScreen() {
 
   return (
     <div style={styles.wrap}>
-      <div style={styles.header}>
+      <div style={pageHeader}>
         <div>
           <h1 style={styles.title}>Systems Help</h1>
           <p style={styles.subtitle}>
@@ -183,7 +184,7 @@ export default function IntegrationRequestsScreen() {
               : 'Something that needs changing in Toast, R365 or OpenTable — or help with any of them.'}
           </p>
         </div>
-        <button style={styles.newButton} onClick={() => setFormOpen(true)}>
+        <button style={pageAction} onClick={() => setFormOpen(true)}>
           + New Request
         </button>
       </div>

@@ -15,6 +15,7 @@ import {
 } from '../context/ExpensesContext';
 import { useBudgetTargets } from '../context/BudgetTargetsContext';
 import { nike } from '../theme/nike';
+import { pageHeader, pageAction } from '../theme/pageHeader';
 import { useDialog } from '../hooks/useDialog';
 
 export default function ExpensesScreen() {
@@ -273,9 +274,9 @@ export default function ExpensesScreen() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.headerRow}>
+      <div style={pageHeader}>
         <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Expenses</h1>
-        <button style={styles.addButton} onClick={() => setFormOpen(true)}>
+        <button style={pageAction} onClick={() => setFormOpen(true)}>
           + Add Receipt
         </button>
       </div>

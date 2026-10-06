@@ -4,6 +4,7 @@ import { useWorkOrders } from '../context/WorkOrdersContext';
 import SignaturePad from '../components/SignaturePad';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
+import { pageHeader, pageAction } from '../theme/pageHeader';
 
 function formatDateTime(ts) {
   const d = new Date(ts);
@@ -97,9 +98,9 @@ export default function WorkOrdersScreen() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.headerRow}>
+      <div style={pageHeader}>
         <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Signature Directory</h1>
-        <button style={styles.newButton} onClick={() => setCreateOpen(true)}>
+        <button style={pageAction} onClick={() => setCreateOpen(true)}>
           + New Work Order
         </button>
       </div>

@@ -64,7 +64,6 @@ import OperationalPOCScreen from './screens/OperationalPOCScreen';
 import IntegrationsScreen from './screens/IntegrationsScreen';
 import ExecutiveNotesScreen from './screens/ExecutiveNotesScreen';
 import WorkOrdersScreen from './screens/WorkOrdersScreen';
-import ResetAppDataScreen from './screens/ResetAppDataScreen';
 import ExpensesScreen from './screens/ExpensesScreen';
 
 function Gate() {
@@ -126,7 +125,6 @@ function Gate() {
         <Route path="/catering" element={<RequireColumn column="catering" level="read"><CateringScreen /></RequireColumn>} />
         <Route path="/emergency" element={<RequireColumn column="hr" level="read"><EmergencyScreen /></RequireColumn>} />
         <Route path="/hr" element={<RequireColumn column="hr" level="read"><HRScreen /></RequireColumn>} />
-        <Route path="/reset-app-data" element={<ResetAppDataScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </UnderRepairGate>

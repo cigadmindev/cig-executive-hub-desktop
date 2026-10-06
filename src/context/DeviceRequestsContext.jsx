@@ -1,3 +1,4 @@
+import { atLeast } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, addDoc, doc, updateDoc, query, orderBy , where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -28,15 +29,12 @@ export function DeviceRequestsProvider({ children }) {
       setRequests([]);
       return;
     }
-    const seesAll = user.role === 'admin' || user.role === 'executive';
-    const mine = user.permissions?.brandIds ?? [];
-    if (!seesAll && mine.length === 0) {
-      setRequests([]);
-      return;
-    }
+    // Who sees what: "View" (IT & Training) and "Approve" (the COO, admins)
+    // see every request; everyone else sees only the ones they raised.
+    const seesAll = user.role === 'admin' || atLeast(user, 'deviceRequests', 'view');
     const source = seesAll
       ? query(collection(db, COLLECTION), orderBy('createdAt', 'desc'))
-      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)), orderBy('createdAt', 'desc'));
+      : query(collection(db, COLLECTION), where('requestedByUid', '==', user.uid));
 
     return onSnapshot(
       source,
@@ -75,6 +73,9 @@ export function DeviceRequestsProvider({ children }) {
               arrivedByName: x.arrivedByName ?? '',
             };
           })
+          // Newest first - the "your own" query cannot sort on the server
+          // without an extra index.
+          .sort((a, b) => b.createdAt - a.createdAt)
         ),
       (err) => console.error('[DeviceRequests] ' + err.code + ': ' + err.message)
     );

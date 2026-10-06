@@ -48,7 +48,7 @@ const ROUTE_GROUPS = {
     '/executive-notes',
     '/admin/pending-requests',
   ],
-  profile: ['/profile', '/support', '/admin/users', '/reset-app-data'],
+  profile: ['/profile', '/support', '/admin/users'],
 };
 
 function isActive(key, pathname) {
