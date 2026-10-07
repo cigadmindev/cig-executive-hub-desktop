@@ -7,6 +7,7 @@ import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useAuth } from '../context/AuthContext';
 import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
 import { RENEWAL_WARNING_WINDOW_DAYS } from '../data/renewalTypes';
+import { useWaitingOnYou } from './useWaitingOnYou';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -23,6 +24,8 @@ export function useHomeSummary() {
   const { getByBrand } = useCustomLocations();
   const { user, users, hasBrandAccess, hasLocationAccess } = useAuth();
   const { getByLocation: contactsFor } = useOpeningOngoingContacts();
+  // Decisions, signatures, claims and deadlines waiting on this person.
+  const waiting = useWaitingOnYou();
 
   return useMemo(() => {
     const now = Date.now();
@@ -226,6 +229,16 @@ export function useHomeSummary() {
         );
       }
     }
+    // Waiting on you goes first: things only this person (or their job) can
+    // move forward, each clearing as soon as it is dealt with.
+    if (waiting.length > 0) {
+      const rest = attention.length > 0;
+      attention.unshift(
+        { level: 'header', text: 'Waiting on you', sort: -Infinity },
+        ...waiting,
+        ...(rest && attention[0]?.level !== 'header' ? [{ level: 'header', text: 'Everything else', sort: -Infinity }] : [])
+      );
+    }
     const weekEnd = now + 7 * DAY;
 
     // Everything landing in the next seven days, across every location. The
@@ -303,5 +316,5 @@ export function useHomeSummary() {
     };
     // user is a dependency: without it, someone whose permissions change
     // would keep seeing the old summary until they reloaded the app.
-  }, [entries, getByBrand, getInfo, renewalsFor, contactsFor, users, user]);
+  }, [entries, getByBrand, getInfo, renewalsFor, contactsFor, users, user, waiting]);
 }
