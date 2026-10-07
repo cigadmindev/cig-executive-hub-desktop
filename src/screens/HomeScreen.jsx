@@ -197,6 +197,7 @@ export default function HomeScreen() {
               <button
                 key={i}
                 data-row=""
+                data-marked={a.mine ? '' : undefined}
                 style={{ ...styles.attentionRow, ...(a.mine ? styles.attentionRowMine : {}) }}
                 onClick={() => navigate(a.to)}
               >
@@ -296,6 +297,7 @@ export default function HomeScreen() {
                 <button
                   key={e.id}
                   data-row=""
+                  data-marked={e.mine ? '' : undefined}
                   style={{ ...styles.attentionRow, ...(e.mine ? styles.attentionRowMine : {}) }}
                   onClick={() => navigate(e.to)}
                 >

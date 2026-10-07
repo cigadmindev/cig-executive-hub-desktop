@@ -112,8 +112,10 @@ button:disabled {
 }
 
 
+/* Rows that already carry a left border (yours, on Home) don't get a second
+   bar on hover - the background lift is enough. */
 @media (hover: hover) {
-  [data-row]:hover::before {
+  [data-row]:not([data-marked]):hover::before {
     content: '';
     position: absolute;
     left: 0;
