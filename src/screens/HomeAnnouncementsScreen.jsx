@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { nike } from '../theme/nike';
 import { accessLevel } from '../data/accessMatrix';
+import PostCard from '../components/PostCard';
 import { useDialog } from '../hooks/useDialog';
 
 // New announcement, in three steps: who it is for, what it says, and how long
@@ -31,6 +32,7 @@ export default function HomeAnnouncementsScreen() {
   const [brandId, setBrandId] = useState(brands[0].id);
   const [locationId, setLocationId] = useState(null);
   const [message, setMessage] = useState('');
+  const [toHome, setToHome] = useState(true);
   const [pinDays, setPinDays] = useState(7);
   const [posting, setPosting] = useState(false);
 
@@ -76,7 +78,7 @@ export default function HomeAnnouncementsScreen() {
     if (!target || !message.trim()) return;
     setPosting(true);
     try {
-      await addAnnouncement(target.id, message.trim(), user?.name ?? 'Unknown', target.label, pinDays, brandId);
+      await addAnnouncement(target.id, message.trim(), user?.name ?? 'Unknown', target.label, toHome ? pinDays : null, brandId);
       navigate('/');
     } catch (err) {
       notify('Could not post', err?.message ?? 'Your announcement was not posted. Try again.');
@@ -99,8 +101,8 @@ export default function HomeAnnouncementsScreen() {
         <div style={{ flex: '1 1 460px', minWidth: 0 }}>
           <h1 style={{ ...styles.title, ...nike.pageTitleSm, fontSize: 26 }}>New announcement</h1>
           <p style={styles.subtitle}>
-            Posts to the top of Home for everyone you choose, and goes in their morning summary. People can like and
-            comment on it.
+            Goes to the restaurant or location page you choose, and into people's morning summary. Turn on "Post to Home"
+            to also pin it at the top of their Home. People can like and comment.
           </p>
 
           <p style={styles.step}>1 · Who is it for?</p>
@@ -135,13 +137,36 @@ export default function HomeAnnouncementsScreen() {
             placeholder="Type your announcement…"
           />
 
-          <p style={styles.step}>3 · Keep it at the top of Home for</p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {PIN.map((p) => (
-              <button key={p.key} style={{ ...styles.pin, ...(pinDays === p.key ? styles.pinOn : {}) }} onClick={() => setPinDays(p.key)}>
-                {p.label}
+          <p style={styles.step}>3 · Where should it show?</p>
+          <div style={styles.whereCard}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14 }}>Post to Home</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Pinned at the top of Home for the people above</div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={toHome}
+                onClick={() => setToHome((v) => !v)}
+                style={{ ...styles.switch, ...(toHome ? styles.switchOn : {}) }}
+              >
+                <span style={{ ...styles.knob, ...(toHome ? { left: 19 } : {}) }} />
               </button>
-            ))}
+            </div>
+            {toHome ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Keep it on Home for</span>
+                {PIN.map((p) => (
+                  <button key={p.key} style={{ ...styles.pin, ...(pinDays === p.key ? styles.pinOn : {}) }} onClick={() => setPinDays(p.key)}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '10px 0 0' }}>
+                Off: it appears only on {scope === 'all' ? 'every restaurant page' : "the restaurant's page"}, and in people's morning summary.
+              </p>
+            )}
           </div>
 
           <button
@@ -153,13 +178,25 @@ export default function HomeAnnouncementsScreen() {
           </button>
         </div>
 
-        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-          <p style={{ ...styles.step, marginTop: 64 }}>How it will look on Home</p>
-          <div style={styles.preview}>
-            <p style={styles.previewKicker}>Announcement · {target ? target.label : '—'}</p>
-            <p style={styles.previewText}>{message.trim() || 'Your message appears here.'}</p>
-            <p style={styles.previewMeta}>{user?.name ?? ''} · just now · Like · Comment</p>
+        <div style={{ flex: '1 1 340px', minWidth: 0 }}>
+          {/* Exactly how it will look, in each place it will show, before it is posted. */}
+          <p style={{ ...styles.step, marginTop: 64 }}>Here's how it will look</p>
+          {toHome ? (
+            <>
+              <p style={styles.where}>On Home{pinDays === 'forever' ? ' · until you remove it' : ' · for ' + (pinDays === 7 ? '1 week' : '2 weeks')}</p>
+              <p style={styles.previewKicker}>{target ? (target.id === 'all' ? 'Everyone' : target.label) : '—'} · pinned to Home</p>
+              <div style={styles.previewFrame}>
+                <PostCard post={{ id: 'preview', authorName: user?.name ?? '', authorUid: user?.uid, message: message.trim() || 'Your message appears here.', timestamp: Date.now(), likes: 0, likedByMe: false, comments: [] }} isNewest={false} />
+              </div>
+            </>
+          ) : null}
+          <p style={styles.where}>
+            {scope === 'all' ? 'On every restaurant page' : scope === 'brand' ? 'On the ' + (brand?.name ?? '') + ' page' : location ? 'On the ' + brand?.name + ' page, for ' + location.name + ' only' : 'On the restaurant page'}
+          </p>
+          <div style={styles.previewFrame}>
+            <PostCard post={{ id: 'preview', authorName: user?.name ?? '', authorUid: user?.uid, message: message.trim() || 'Your message appears here.', timestamp: Date.now(), likes: 0, likedByMe: false, comments: [] }} isNewest />
           </div>
+          <p style={styles.previewMeta}>Likes and comments work once it is posted.</p>
         </div>
       </div>
       {dialogNode}
@@ -185,6 +222,12 @@ const styles = {
   pin: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   pinOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
   postButton: { marginTop: 24, background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '11px 20px', fontWeight: 800, fontSize: 14, cursor: 'pointer' },
+  whereCard: { background: '#16161A', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' },
+  switch: { position: 'relative', width: 40, height: 23, borderRadius: 12, border: 'none', background: 'var(--border-strong)', cursor: 'pointer', flexShrink: 0 },
+  switchOn: { background: 'var(--neon)' },
+  knob: { position: 'absolute', top: 3, left: 3, width: 17, height: 17, borderRadius: 9, background: '#0A0A0B', transition: 'left .15s' },
+  where: { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', margin: '14px 0 6px' },
+  previewFrame: { pointerEvents: 'none' },
   preview: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: '3px solid var(--neon)', borderRadius: 12, padding: 18 },
   previewKicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--neon)', margin: 0 },
   previewText: { fontSize: 15, lineHeight: 1.5, color: 'var(--text-primary)', margin: '8px 0', whiteSpace: 'pre-wrap' },

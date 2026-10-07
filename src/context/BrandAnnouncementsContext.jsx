@@ -106,7 +106,8 @@ export function BrandAnnouncementsProvider({ children }) {
       // The restaurant it belongs to, so people at that restaurant can read a
       // post aimed at one of its locations. Null for company-wide posts.
       brandId: targetId === 'all' ? null : brand ? brand.id : brandIdOfTarget,
-      pinnedUntil: pinDays === 'forever' ? 'forever' : Date.now() + pinDays * 24 * 60 * 60 * 1000,
+      // null: not on Home - only on its restaurant or location page.
+      pinnedUntil: pinDays == null ? null : pinDays === 'forever' ? 'forever' : Date.now() + pinDays * 24 * 60 * 60 * 1000,
       likedBy: [],
       comments: [],
     });
