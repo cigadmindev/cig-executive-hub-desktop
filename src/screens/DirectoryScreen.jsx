@@ -165,7 +165,6 @@ export default function DirectoryScreen() {
               emergency: 'hr',
               executiveNotes: 'executiveNotes',
             }[item.key];
-            if (item.key === 'waresInventory') return user?.role === 'admin';
             if (!column) return true;
             return accessLevel(user, column) !== 'none';
           });
