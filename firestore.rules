@@ -30,6 +30,20 @@ service cloud.firestore {
     function isSignedIn() {
       return isLive();
     }
+    // The rows that may post announcements in Who sees what (Announcements:
+    // Post). Mirrors the table's defaults; changing which rows post needs a
+    // rules deploy (S5/S8, 8 Oct).
+    function canPost() {
+      return isLive() && (me().role == 'admin' || me().job in ['Owner', 'CEO', 'COO', 'Financials',
+        'Culinary Director', 'Culinary Manager', 'Beverage Manager', 'IT & Training']);
+    }
+    // The rows whose folders include Financials, plus anyone given the folder
+    // by an approved access request.
+    function seesFinancials() {
+      return isLive() && ((me().role == 'admin' || me().job in ['Owner', 'CEO', 'COO', 'Financials',
+        'Culinary Director', 'Culinary Manager', 'Beverage Manager', 'General Manager', 'IT & Training']
+        || 'financials' in me().get('permissions', {}).get('extraFolders', [])));
+    }
     function isOwner(resource) {
       return isSignedIn() && resource.data.authorUid == request.auth.uid;
     }
@@ -282,11 +296,13 @@ service cloud.firestore {
     }
 
     match /categoryPosts/{postId} {
-      allow read: if isSignedIn();
-      // The post is the author's; everyone else can like and comment.
-      allow update: if isAdmin() || isOwner(resource)
-        || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'comments', 'timestamp']));
-      allow create: if isSignedIn() && request.resource.data.authorUid == request.auth.uid;
+      // Financials folder posts only for people with Financials (S5).
+      allow read: if isSignedIn() && (resource.data.categoryId != 'financials' || seesFinancials());
+      // The post is the author's. Likes and comments go through the server
+      // (reactToPost), so nobody can change someone else's (S5).
+      allow update: if isAdmin() || isOwner(resource);
+      allow create: if canPost() && request.resource.data.authorUid == request.auth.uid
+        && (request.resource.data.categoryId != 'financials' || seesFinancials());
       allow delete: if isAdmin() || isOwner(resource);
     }
 
@@ -297,10 +313,10 @@ service cloud.firestore {
       allow read: if isAdminOrExecutive()
         || (isSignedIn() && (resource.data.targetId == 'all' || resource.data.targetId in myBrands()
             || resource.data.get('brandId', null) in myBrands()));
-      // Likes and comments only - the post itself is the author's.
-      allow update: if isAdmin() || isOwner(resource)
-        || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'comments', 'timestamp']));
-      allow create: if isSignedIn();
+      // The post is the author's; likes and comments go through the server.
+      allow update: if isAdmin() || isOwner(resource);
+      // Only the rows that post, and always as yourself (S5).
+      allow create: if canPost() && request.resource.data.authorUid == request.auth.uid;
       allow delete: if isAdmin() || isOwner(resource);
     }
 
@@ -407,15 +423,19 @@ service cloud.firestore {
     // to their own location.
     function seesTeam() {
       let p = me();
-      return isLive() && (p.role == 'admin' || p.role == 'executive' || p.job == 'General Manager' || p.job == 'IT & Training');
+      // The rows marked Team or Approve for Availability in Who sees what (S6/S8).
+      return isLive() && (p.role == 'admin' || p.job in ['Owner', 'CEO', 'COO', 'Financials', 'Culinary Director', 'Culinary Manager', 'Beverage Manager', 'General Manager', 'IT & Training', 'HR']);
     }
 
     match /timeOffRequests/{requestId} {
       allow read: if seesTeam() || (isSignedIn() && resource.data.uid == request.auth.uid);
       // Filed as yourself, and pending. It could be created already approved.
+      // The reason goes in timeOffReasons, not here, where the team grid
+      // would show it (S6).
       allow create: if isSignedIn()
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && request.resource.data.get('reason', '') == '';
       // Decided by an admin, or an executive who is not the one asking.
       // The requester can edit their own, but the status can only ever be
       // pending in their hands and the decision fields stay untouched.
@@ -425,8 +445,18 @@ service cloud.firestore {
         || (isSignedIn() && resource.data.uid == request.auth.uid
             && request.resource.data.uid == request.auth.uid
             && request.resource.data.status == 'pending'
+            && request.resource.data.get('reason', '') == ''
             && !touchesReview());
       allow delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'denied');
+    }
+
+    // Why someone is off: them, the COO and admins only (S6, 8 Oct). GMs and
+    // the rest of the Team rows see the dates in timeOffRequests.
+    match /timeOffReasons/{requestId} {
+      allow read: if isAdmin() || isCoo() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid
+        && (resource == null || resource.data.uid == request.auth.uid);
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
     }
 
     match /weeklyAvailability/{uid} {
@@ -443,7 +473,9 @@ service cloud.firestore {
     }
 
     match /eventRequests/{requestId} {
-      allow read: if isSignedIn();
+      // Private (S6, 8 Oct): whoever asked, and the COO and admins who decide.
+      allow read: if isAdmin() || isCoo()
+        || (isSignedIn() && resource.data.requestedByUid == request.auth.uid);
       allow create: if isSignedIn()
         && request.resource.data.requestedByUid == request.auth.uid
         && request.resource.data.status == 'pending';
@@ -502,9 +534,8 @@ service cloud.firestore {
     match /supportAnnouncements/{id} {
       allow read: if isSignedIn();
       allow create: if isAdmin();
-      // Likes and comments only, unless you are an admin.
-      allow update: if isAdmin()
-        || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'comments']));
+      // Admins only; likes and replies go through the server (S5).
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 

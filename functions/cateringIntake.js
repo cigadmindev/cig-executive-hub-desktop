@@ -11,6 +11,7 @@
 // created twice.
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 const { google } = require('googleapis');
 const { notifyPeople, resolveRef, ACTION } = require('./notify');
 const R = require('./routing');
@@ -158,105 +159,144 @@ exports.pullCateringEnquiries = onSchedule(
     const users = await R.activeUsers();
     let created = 0;
 
-    for (const ref of messages) {
-      const res = await gmail.users.messages.get({ userId: 'me', id: ref.id, format: 'full' });
-      const message = res.data;
-
-      const subject = headerOf(message, 'Subject');
-      const from = headerOf(message, 'From').toLowerCase();
-      const forwardedBy = Object.keys(FORWARDER_LOCATIONS).find((addr) => from.includes(addr));
-      let place = forwardedBy ? FORWARDER_LOCATIONS[forwardedBy] : null;
-
-      const body = textOf(message.payload);
-      const lines = body.split('\n');
-      const named = valueFor(lines, FIELDS.locationText);
-      if (named) {
-        const match = Object.values(FORWARDER_LOCATIONS).find(
-          (l) => l.locationName.toLowerCase() === named.trim().toLowerCase()
-        );
-        // The catering form says where it is for, which beats guessing from
-        // whoever happened to forward it.
-        if (match) place = match;
-      }
-      const get = (key) => valueFor(lines, FIELDS[key]);
-
-      // The only difference between the two: a private event says so.
-      const isPrivateEvent = /private\s*(dining|event)/i.test(subject);
-
-      // Filed under the email's own id, so the same email can never become two
-      // enquiries - even if taking its label off below fails and it comes
-      // round again in five minutes.
-      const docRef = db.collection('cateringEnquiries').doc('gmail-' + ref.id);
-      if ((await docRef.get()).exists) {
-        await gmail.users.messages.modify({ userId: 'me', id: ref.id, requestBody: { removeLabelIds: [label.id] } });
-        continue;
-      }
-      await docRef.set({
-        kind: isPrivateEvent ? 'privateEvent' : 'catering',
-        name: get('name'),
-        email: get('email'),
-        phone: get('phone'),
-        organisation: get('organisation'),
-        space: get('space'),
-        style: get('style'),
-        about: valueFor(lines, FIELDS.about, true),
-        fulfilment: get('fulfilment'),
-        address: get('address'),
-        occasion: get('occasion'),
-        guests: get('guests'),
-        preferredDate: parseDate(get('preferredDate')),
-        preferredDateText: get('preferredDate'),
-        preferredTime: get('preferredTime'),
-
-        locationId: place?.locationId ?? null,
-        locationName: place?.locationName ?? '',
-        brandId: place?.brandId ?? null,
-        brandName: place?.brandName ?? '',
-        // Kept so an unrecognised forwarder can be put right by hand rather
-        // than the enquiry being lost.
-        forwardedBy: forwardedBy ?? from,
-        subject,
-
-        status: 'new',
-        ownerUid: null,
-        ownerName: '',
-        minimum: '',
-        finalGuests: '',
-        details: '',
-        invoicedAt: null,
-        paidAt: null,
-        calendarEntryId: null,
-        createdAt: Date.now(),
-      });
-      created++;
-
-      // That location's GM, Catering & Events person and chefs. One with no
-      // recognised location goes to admins to place, rather than vanishing.
-      const who = get('name') || 'Someone';
-      const what = (isPrivateEvent ? 'Private event' : 'Catering') + (get('guests') ? ' for ' + get('guests') : '');
-      const team = place ? await R.cateringTeam(users, place.locationId) : R.admins(users);
+    // Tells the right people about one enquiry, and records that it did, so
+    // a crash between saving and telling is caught on the next run (S12).
+    const announce = async (docRef, e) => {
+      const isPrivateEvent = e.kind === 'privateEvent';
+      const who = e.name || 'Someone';
+      const what = (isPrivateEvent ? 'Private event' : 'Catering') + (e.guests ? ' for ' + e.guests : '');
+      let team = e.locationId ? await R.cateringTeam(users, e.locationId) : [];
+      const placed = e.locationId && team.length > 0;
+      // No location, or nobody at that location to tell: admins, rather than
+      // everyone or no one.
+      if (!placed) team = R.admins(users);
       await notifyPeople(
-        team.filter(R.notGhost),
-        place ? 'New ' + (isPrivateEvent ? 'private event' : 'catering') + ' enquiry · ' + place.locationName : 'Catering enquiry needs a location',
+        team,
+        e.locationId
+          ? 'New ' + (isPrivateEvent ? 'private event' : 'catering') + ' enquiry · ' + e.locationName
+          : 'Catering enquiry needs a location',
         who + ' · ' + what,
         {
           speed: ACTION,
           topic: 'catering',
           ref: 'catering/' + docRef.id,
           path: '/catering',
-          details: [['Name', who], ['When', get('preferredDate') ?? ''], ['Guests', get('guests') ?? ''], ['Occasion', get('occasion') ?? '']].filter(([, v]) => v),
-          button: place ? 'Claim it' : 'Choose its location',
-          why: place ? 'You got this because you look after catering at ' + place.locationName + '.' : 'You got this because you are an admin and nobody else could be told.',
-          locationId: place?.locationId ?? null,
+          details: [['Name', who], ['When', e.preferredDateText ?? ''], ['Guests', e.guests ?? ''], ['Occasion', e.occasion ?? '']].filter(([, v]) => v),
+          button: e.locationId ? 'Claim it' : 'Choose its location',
+          why: placed
+            ? 'You got this because you look after catering at ' + e.locationName + '.'
+            : e.locationId
+              ? 'You got this because you are an admin and nobody looks after catering at ' + e.locationName + ' in the Hub.'
+              : 'You got this because you are an admin and nobody else could be told.',
+          locationId: e.locationId ?? null,
         }
       );
+      await docRef.update({ notifiedAt: Date.now() });
+    };
 
-      // Filed, so it does not come round again.
-      await gmail.users.messages.modify({
-        userId: 'me',
-        id: ref.id,
-        requestBody: { removeLabelIds: [label.id] },
-      });
+    const unlabel = (id) => gmail.users.messages.modify({ userId: 'me', id, requestBody: { removeLabelIds: [label.id] } });
+
+    for (const ref of messages) {
+      // One email that keeps failing no longer stops every email after it.
+      try {
+        const res = await gmail.users.messages.get({ userId: 'me', id: ref.id, format: 'full' });
+        const message = res.data;
+
+        const subject = headerOf(message, 'Subject');
+        const from = headerOf(message, 'From').toLowerCase();
+        const forwardedBy = Object.keys(FORWARDER_LOCATIONS).find((addr) => from.includes(addr));
+        let place = forwardedBy ? FORWARDER_LOCATIONS[forwardedBy] : null;
+
+        const body = textOf(message.payload);
+        const lines = body.split('\n');
+        const named = valueFor(lines, FIELDS.locationText);
+        if (named) {
+          const match = Object.values(FORWARDER_LOCATIONS).find(
+            (l) => l.locationName.toLowerCase() === named.trim().toLowerCase()
+          );
+          // The catering form says where it is for, which beats guessing from
+          // whoever happened to forward it.
+          if (match) place = match;
+        }
+        const get = (key) => valueFor(lines, FIELDS[key]);
+
+        // The only difference between the two: a private event says so.
+        const isPrivateEvent = /private\s*(dining|event)/i.test(subject);
+
+        // Filed under the email's own id, so the same email can never become
+        // two enquiries - even if taking its label off fails.
+        const docRef = db.collection('cateringEnquiries').doc('gmail-' + ref.id);
+        const existing = await docRef.get();
+        if (existing.exists) {
+          if (!existing.data().notifiedAt) await announce(docRef, existing.data());
+          await unlabel(ref.id);
+          continue;
+        }
+
+        // The same form forwarded by both Sarah and Ann Marie arrives as two
+        // emails with different ids. What the customer typed is the same, so
+        // that is what identifies it (S12).
+        const norm = (x) => String(x ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const fingerprint = crypto
+          .createHash('sha256')
+          .update([isPrivateEvent ? 'p' : 'c', norm(get('email')) || norm(get('phone')), norm(get('name')), norm(get('preferredDate')), norm(get('guests')), norm(valueFor(lines, FIELDS.about, true)).slice(0, 300)].join('|'))
+          .digest('hex');
+        const twin = await db.collection('cateringEnquiries').where('fingerprint', '==', fingerprint).limit(1).get();
+        if (!twin.empty) {
+          await twin.docs[0].ref.update({ alsoForwardedBy: admin.firestore.FieldValue.arrayUnion(forwardedBy ?? from) });
+          console.log('Same enquiry forwarded again by ' + (forwardedBy ?? from) + ' - kept as one.');
+          await unlabel(ref.id);
+          continue;
+        }
+
+        const data = {
+          kind: isPrivateEvent ? 'privateEvent' : 'catering',
+          name: get('name'),
+          email: get('email'),
+          phone: get('phone'),
+          organisation: get('organisation'),
+          space: get('space'),
+          style: get('style'),
+          about: valueFor(lines, FIELDS.about, true),
+          fulfilment: get('fulfilment'),
+          address: get('address'),
+          occasion: get('occasion'),
+          guests: get('guests'),
+          preferredDate: parseDate(get('preferredDate')),
+          preferredDateText: get('preferredDate'),
+          preferredTime: get('preferredTime'),
+
+          locationId: place?.locationId ?? null,
+          locationName: place?.locationName ?? '',
+          brandId: place?.brandId ?? null,
+          brandName: place?.brandName ?? '',
+          // Kept so an unrecognised forwarder can be put right by hand rather
+          // than the enquiry being lost.
+          forwardedBy: forwardedBy ?? from,
+          subject,
+          fingerprint,
+
+          status: 'new',
+          ownerUid: null,
+          ownerName: '',
+          minimum: '',
+          finalGuests: '',
+          details: '',
+          invoicedAt: null,
+          paidAt: null,
+          calendarEntryId: null,
+          createdAt: Date.now(),
+          notifiedAt: null,
+        };
+        await docRef.set(data);
+        created++;
+        await announce(docRef, data);
+
+        // Filed, so it does not come round again.
+        await unlabel(ref.id);
+      } catch (err) {
+        console.error('Catering email ' + ref.id + ' could not be filed: ' + err.message);
+      }
     }
 
     console.log('Catering enquiries created: ' + created);
@@ -276,9 +316,11 @@ exports.onCateringEnquiryUpdated = onDocumentUpdated({ document: 'cateringEnquir
 
   if (after.statusChangedAt && after.statusChangedAt !== before.statusChangedAt) {
     const users = await R.activeUsers();
-    const people = after.ownerUid
-      ? users.filter((u) => u.uid === after.ownerUid)
-      : await R.cateringTeam(users, after.locationId);
+    // Whoever claimed it; if nobody, the location's team; with no location
+    // or nobody there, admins (S12) - never everyone.
+    let people = after.ownerUid ? users.filter((u) => u.uid === after.ownerUid) : [];
+    if (!people.length && after.locationId) people = await R.cateringTeam(users, after.locationId);
+    if (!people.length) people = R.admins(users);
     await notifyPeople(
       people,
       'Catering enquiry changed · ' + (after.name || 'No name'),

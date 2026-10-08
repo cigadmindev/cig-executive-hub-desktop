@@ -24,6 +24,15 @@ export function AvailabilityProvider({ children }) {
       return;
     }
 
+    let latestRequests = [];
+    let reasons = {};
+    function mergeReasons() {
+      setTimeOffRequests(
+        latestRequests
+          .map((r) => ({ ...r, reason: reasons[r.id] ?? r.reason ?? '' }))
+          .sort((a, b) => a.startDate - b.startDate)
+      );
+    }
     // Rules are not filters: an unfiltered query is rejected outright for
     // anyone the rule would not let read every document. Reviewers read the
     // collection; everyone else must ask only for their own.
@@ -42,6 +51,8 @@ export function AvailabilityProvider({ children }) {
           name: data.name,
           startDate: data.startDate,
           endDate: data.endDate,
+          // Older records still carry it here; new ones keep it in
+          // timeOffReasons, merged in below.
           reason: data.reason ?? '',
           status: data.status,
           denialReason: data.denialReason ?? '',
@@ -51,6 +62,8 @@ export function AvailabilityProvider({ children }) {
         };
       });
       setTimeOffRequests(list.sort((a, b) => a.startDate - b.startDate));
+      latestRequests = list;
+      mergeReasons();
 
       // Same reactive sweep pattern as mobile: denied requests clear a week
       // after resolution, approved ones clear once the time off has passed.
@@ -111,9 +124,26 @@ export function AvailabilityProvider({ children }) {
       (err) => console.error('[Availability listener] ' + err.code + ': ' + err.message)
     );
 
+    // Why someone is off is between them, the COO and admins (8 Oct, S6).
+    // GMs and the rest of "Team" see the dates on the grid, not the reason.
+    // Reasons live in their own collection, which the rule can lock.
+    const decides = user.role === 'admin' || user.job === 'COO';
+    const reasonsSource = decides
+      ? collection(db, 'timeOffReasons')
+      : query(collection(db, 'timeOffReasons'), where('uid', '==', user.uid));
+    const unsubReasons = onSnapshot(
+      reasonsSource,
+      (snap) => {
+        reasons = Object.fromEntries(snap.docs.map((d) => [d.id, d.data().reason ?? '']));
+        mergeReasons();
+      },
+      (err) => console.error('[TimeOff reasons] ' + err.code + ': ' + err.message)
+    );
+
     return () => {
       unsubTimeOff();
       unsubAvailability();
+      unsubReasons();
     };
   }, [user]);
 
@@ -132,12 +162,16 @@ export function AvailabilityProvider({ children }) {
 
   const submitTimeOff = async (startDate, endDate, reason) => {
     if (!user) return;
-    await addDoc(collection(db, 'timeOffRequests'), {
+    // The reason first, under the same id, so the email to the COO and
+    // admins can include it the moment the request appears.
+    const reqRef = doc(collection(db, 'timeOffRequests'));
+    if (reason) await setDoc(doc(db, 'timeOffReasons', reqRef.id), { uid: user.uid, reason });
+    await setDoc(reqRef, {
       uid: user.uid,
       name: user.name,
       startDate,
       endDate,
-      reason,
+      reason: '',
       status: 'pending',
       timestamp: Date.now(),
       resolvedAt: null,

@@ -12,8 +12,7 @@
 // each item as it happened; "urgent only" and "nothing" asked not to.
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
-const { Resend } = require('resend');
-const { everyone, FROM, WEB_URL } = require('./notify');
+const { everyone, sendEmail, WEB_URL } = require('./notify');
 const T = require('./emailTemplate');
 
 const ZONE = 'America/Chicago';
@@ -80,7 +79,6 @@ exports.sendDailyDigest = onSchedule(
   async () => {
     const db = admin.firestore();
     const people = await everyone();
-    const resend = new Resend(process.env.RESEND_API_KEY);
     const now = Date.now();
     const dateLabel = new Date(now).toLocaleDateString('en-US', { timeZone: ZONE, weekday: 'short', month: 'short', day: 'numeric' });
     let sent = 0;
@@ -93,24 +91,21 @@ exports.sendDailyDigest = onSchedule(
       if (!waiting.length && !groups.length) continue;
 
       const count = waiting.length + groups.reduce((s, g) => s + g.items.length, 0);
-      try {
-        await resend.emails.send({
-          from: FROM,
-          to: [person.email],
-          subject: waiting.length
-            ? waiting.length + ' waiting on you · morning summary'
-            : 'Morning summary · ' + count + ' thing' + (count === 1 ? '' : 's') + ' since yesterday',
-          html: T.morningSummary({ name: person.name, dateLabel, waiting, groups }),
-        });
-        for (let i = 0; i < newsDocs.length; i += 400) {
-          const batch = db.batch();
-          newsDocs.slice(i, i + 400).forEach((d) => batch.update(d.ref, { emailedAt: now }));
-          await batch.commit();
-        }
-        sent++;
-      } catch (err) {
-        console.error('summary to ' + person.email + ' failed: ' + err.message);
+      const res = await sendEmail({
+        to: [person.email],
+        subject: waiting.length
+          ? waiting.length + ' waiting on you · morning summary'
+          : 'Morning summary · ' + count + ' thing' + (count === 1 ? '' : 's') + ' since yesterday',
+        html: T.morningSummary({ name: person.name, dateLabel, waiting, groups }),
+      });
+      // Only stamped when it went, so a failed summary's news comes round again.
+      if (!res.ok) continue;
+      for (let i = 0; i < newsDocs.length; i += 400) {
+        const batch = db.batch();
+        newsDocs.slice(i, i + 400).forEach((d) => batch.update(d.ref, { emailedAt: now }));
+        await batch.commit();
       }
+      sent++;
     }
     console.log('Morning summary sent to ' + sent + ' of ' + people.length + '.');
   }

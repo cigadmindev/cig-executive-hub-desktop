@@ -71,7 +71,8 @@ const notGhost = (u) => u.isGhost !== true;
 
 async function activeUsers() {
   const snap = await admin.firestore().collection('users').get();
-  return snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((u) => u.active !== false);
+  // Leavers and ghost accounts are nobody's audience (S11).
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((u) => u.active !== false && u.isGhost !== true);
 }
 
 async function brandForLocation(locationId) {
@@ -144,9 +145,14 @@ async function renewalTeam(users, locationId) {
   return dedupe([...users.filter((u) => isAdmin(u) || isCoo(u)), ...gms]);
 }
 
+// A company, restaurant or location post (S5, 8 Oct): narrowed to the
+// location when it is aimed at one, and never to the agency and video logins,
+// which are for marketing material and opening dates only.
 async function postAudience(users, post) {
   const brandId = await brandForTarget(post.targetId);
-  return users.filter((u) => u.uid !== post.authorUid && notGhost(u) && seesLocation(u, brandId));
+  const locationId = post.targetId && post.targetId !== 'all' && !BRAND_IDS.includes(post.targetId) ? post.targetId : null;
+  const marketingOnly = (u) => u.role !== 'admin' && ['marketing', 'video'].includes(M.rowForJob(u.job)?.id);
+  return users.filter((u) => u.uid !== post.authorUid && notGhost(u) && !marketingOnly(u) && seesLocation(u, brandId, locationId));
 }
 
 async function folderPostAudience(users, post) {

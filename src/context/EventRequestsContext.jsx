@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, runTransaction, query, where } from 'firebase/firestore';
+import { atLeast } from '../data/accessMatrix';
 import { db, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 
@@ -48,7 +49,13 @@ export function EventRequestsProvider({ children }) {
       setRequests([]);
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
+    // Private (S6, 8 Oct): the people who decide them see every request;
+    // everyone else sees their own. The rule matches, so the query must too.
+    const decides = user.role === 'admin' || atLeast(user, 'eventRequests', 'approve');
+    const source = decides
+      ? collection(db, COLLECTION)
+      : query(collection(db, COLLECTION), where('requestedByUid', '==', user.uid));
+    const unsubscribe = onSnapshot(source, (snapshot) => {
       const list = snapshot.docs.map((d) => {
         const data = d.data();
         return {
@@ -151,6 +158,7 @@ export function EventRequestsProvider({ children }) {
         });
         tx.set(scheduleRef, {
           ...scheduleEntry,
+          brandId: scheduleEntry.brandId ?? snap.data().brandId ?? null,
           authorUid: auth.currentUser?.uid ?? null,
           timestamp: Date.now(),
         });

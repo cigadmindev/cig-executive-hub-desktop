@@ -153,6 +153,8 @@ export function OpeningOngoingContactsProvider({ children }) {
         if (keptItems.has(`${section.label}::${item}`)) return;
         addBatch.set(doc(collection(db, COLLECTION)), {
           locationId,
+          // Without it, only admins could see these (S13).
+          brandId: brandOfLocation(locationId),
           section: section.label,
           item,
           who: '',

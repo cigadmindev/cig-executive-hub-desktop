@@ -5,6 +5,7 @@ const { google } = require('googleapis');
 const { Resend } = require('resend');
 const { welcomeHtml } = require('./welcomeEmail');
 const { issueSetupToken } = require('./accountSetup');
+const { sendEmail } = require('./notify');
 const { requireLive } = require('./caller');
 
 admin.initializeApp();
@@ -315,17 +316,12 @@ exports.requestPasswordReset = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
     return ok;
   }
 
-  try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
-      from: 'CIG Executive Hub <no-reply@cigconcepts.com>',
-      to: [email],
-      subject: 'Reset your CIG Executive Hub password',
-      html: inviteHtml({ name: profile.name, link, isReset: true }),
-    });
-  } catch (err) {
-    console.error('Self-serve reset email failed: ' + err.message);
-  }
+  // Checked (S11): Resend reports a failure rather than throwing it.
+  await sendEmail({
+    to: [email],
+    subject: 'Reset your CIG Executive Hub password',
+    html: inviteHtml({ name: profile.name, link, isReset: true }),
+  });
 
   return ok;
 });
@@ -339,6 +335,10 @@ Object.assign(exports, require('./accountSetup'));
 Object.assign(exports, require('./driveAccess'));
 // Leavers lose sign-in, setup links and Drive the moment they are deactivated.
 Object.assign(exports, require('./leavers'));
+// Deleting a request, enquiry or renewal clears its waiting items (S13).
+Object.assign(exports, require('./clearOnDelete'));
+// Likes and comments go through the server, so nobody can edit someone else's (S5).
+Object.assign(exports, require('./postReactions'));
 
 Object.assign(exports, require('./dailyDigest'));
 

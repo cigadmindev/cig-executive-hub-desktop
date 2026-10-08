@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { reactToPost } from '../lib/reactToPost';
 import { useAuth } from './AuthContext';
 import { isSupportAdmin } from './SupportRequestsContext';
 
@@ -65,32 +66,14 @@ export function SupportAnnouncementsProvider({ children }) {
   };
 
   const toggleLike = async (id) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, COLLECTION, id);
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const likedBy = snap.data().likedBy ?? [];
-      const next = likedBy.includes(uid) ? likedBy.filter((x) => x !== uid) : [...likedBy, uid];
-      tx.update(ref, { likedBy: next });
-    });
+    await reactToPost('supportAnnouncements', id, 'like');
   };
 
   // Adding a comment is really "replying privately to Brenner" — the
   // person only ever sees their own thread, never anyone else's, even
   // though it's stored in the same document.
   const addComment = async (postId, text) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, COLLECTION, postId);
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const comments = snap.data().comments ?? [];
-      const newComment = { id: Date.now().toString(), uid, authorName: user?.name ?? 'Unknown', text, timestamp: Date.now() };
-      tx.update(ref, { comments: [...comments, newComment] });
-    });
+    await reactToPost('supportAnnouncements', postId, 'comment', { text });
   };
 
   return (

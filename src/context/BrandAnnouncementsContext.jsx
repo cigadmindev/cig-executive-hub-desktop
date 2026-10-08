@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, deleteDoc, runTransaction, query, where, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, deleteDoc, query, where, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { brands, brandIdForTarget } from '../data/mockData';
+import { reactToPost } from '../lib/reactToPost';
 import { useAuth } from './AuthContext';
 
 const BrandAnnouncementsContext = createContext(undefined);
@@ -114,44 +115,17 @@ export function BrandAnnouncementsProvider({ children }) {
   };
 
   const toggleLike = async (id) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, COLLECTION, id);
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const likedBy = snap.data().likedBy ?? [];
-      const next = likedBy.includes(uid) ? likedBy.filter((x) => x !== uid) : [...likedBy, uid];
-      tx.update(ref, { likedBy: next });
-    });
+    await reactToPost('brandPosts', id, 'like');
   };
 
-  const addComment = async (announcementId, text, authorName) => {
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, COLLECTION, announcementId);
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const comments = snap.data().comments ?? [];
-      const newComment = { id: Date.now().toString(), text, authorName, timestamp: Date.now(), likedBy: [] };
-      tx.update(ref, { comments: [...comments, newComment], timestamp: Date.now() });
-    });
+  // The server stamps who wrote it; authorName is kept in the signature for
+  // the screens that pass it.
+  const addComment = async (announcementId, text, _authorName) => {
+    await reactToPost('brandPosts', announcementId, 'comment', { text });
   };
 
   const toggleCommentLike = async (announcementId, commentId) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, COLLECTION, announcementId);
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const comments = snap.data().comments ?? [];
-      const updated = comments.map((c) =>
-        c.id === commentId
-          ? { ...c, likedBy: c.likedBy.includes(uid) ? c.likedBy.filter((x) => x !== uid) : [...c.likedBy, uid] }
-          : c
-      );
-      tx.update(ref, { comments: updated });
-    });
+    await reactToPost('brandPosts', announcementId, 'commentLike', { commentId });
   };
 
   // A brand page shows posts aimed at the whole brand, "everywhere" posts,
@@ -164,13 +138,7 @@ export function BrandAnnouncementsProvider({ children }) {
   };
 
   const deleteComment = async (announcementId, commentId) => {
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, COLLECTION, announcementId);
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const comments = snap.data().comments ?? [];
-      tx.update(ref, { comments: comments.filter((c) => c.id !== commentId) });
-    });
+    await reactToPost('brandPosts', announcementId, 'deleteComment', { commentId });
   };
 
   return (

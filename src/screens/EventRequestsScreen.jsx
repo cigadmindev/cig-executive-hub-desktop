@@ -154,6 +154,8 @@ export default function EventRequestsScreen() {
     try {
       ok = await approveAndSchedule(r.id, {
         locationId: r.locationId,
+        // Without its restaurant, managers' calendars never showed it (S13).
+        brandId: r.brandId ?? brandId ?? null,
         title: r.title,
         dateTime: r.dateTime,
         note: `${r.details}${r.expectedAttendees ? ` — Expected: ${r.expectedAttendees}` : ''}`,

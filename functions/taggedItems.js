@@ -18,6 +18,11 @@ const R = require('./routing');
 // at every restaurant. Particular people tagged by name are told wherever they are.
 async function taggedPeople({ needs = [], notifyUids = [], brandId = null, locationId = null }, exceptUid) {
   if (needs.length === 0 && notifyUids.length === 0) return [];
+  // An entry with no restaurant: work it out from the location. If neither
+  // is known, a job tag reaches nobody - it used to reach that job at every
+  // location (S13). People tagged by name are still told.
+  if (!brandId && locationId) brandId = await brandForLocation(locationId);
+  if (!brandId) needs = [];
   const snap = await admin.firestore().collection('users').get();
   return snap.docs
     .map((d) => ({ uid: d.id, ...d.data() }))
@@ -29,7 +34,8 @@ async function taggedPeople({ needs = [], notifyUids = [], brandId = null, locat
 // Straight to the day it is on, rather than to today.
 function dayPath(dateTime) {
   if (!dateTime) return '/calendar';
-  return '/calendar?date=' + new Date(dateTime).toISOString().slice(0, 10);
+  // The Chicago date - the UTC one is tomorrow for anything after 6-7pm (S13).
+  return '/calendar?date=' + new Date(dateTime).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
 }
 
 function whenText(dateTime) {

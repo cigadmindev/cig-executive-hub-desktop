@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, deleteDoc, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, deleteDoc, query, where } from 'firebase/firestore';
+import { ALL_FOLDERS, canSeeFolder } from '../data/accessMatrix';
 import { db, auth } from '../firebaseConfig';
 import { categories } from '../data/mockData';
+import { reactToPost } from '../lib/reactToPost';
 import { useAuth } from './AuthContext';
 
 const AnnouncementsContext = createContext(undefined);
@@ -16,7 +18,18 @@ export function AnnouncementsProvider({ children }) {
       setRaw([]);
       return;
     }
-    const unsubscribe = onSnapshot(collection(db, COLLECTION), (snapshot) => {
+    // Financials folder posts are readable only by people who have Financials
+    // (S5). Everyone else asks for the folders they can open, which is what
+    // the rule allows - a query the rule cannot prove is refused whole.
+    const folders = ALL_FOLDERS.filter((f) => canSeeFolder(user, f));
+    if (folders.length === 0) {
+      setRaw([]);
+      return undefined;
+    }
+    const source = user.role === 'admin' || folders.includes('financials')
+      ? collection(db, COLLECTION)
+      : query(collection(db, COLLECTION), where('categoryId', 'in', folders));
+    const unsubscribe = onSnapshot(source, (snapshot) => {
       const list = snapshot.docs.map((d) => {
         const data = d.data();
         return {
@@ -84,44 +97,17 @@ export function AnnouncementsProvider({ children }) {
   };
 
   const toggleLike = async (id) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, COLLECTION, id);
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const likedBy = snap.data().likedBy ?? [];
-      const next = likedBy.includes(uid) ? likedBy.filter((x) => x !== uid) : [...likedBy, uid];
-      tx.update(ref, { likedBy: next });
-    });
+    await reactToPost('categoryPosts', id, 'like');
   };
 
-  const addComment = async (announcementId, text, authorName) => {
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, COLLECTION, announcementId);
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const comments = snap.data().comments ?? [];
-      const newComment = { id: Date.now().toString(), text, authorName, timestamp: Date.now(), likedBy: [] };
-      tx.update(ref, { comments: [...comments, newComment], timestamp: Date.now() });
-    });
+  // The server stamps who wrote it; authorName is kept in the signature for
+  // the screens that pass it.
+  const addComment = async (announcementId, text, _authorName) => {
+    await reactToPost('categoryPosts', announcementId, 'comment', { text });
   };
 
   const toggleCommentLike = async (announcementId, commentId) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, COLLECTION, announcementId);
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const comments = snap.data().comments ?? [];
-      const updated = comments.map((c) =>
-        c.id === commentId
-          ? { ...c, likedBy: c.likedBy.includes(uid) ? c.likedBy.filter((x) => x !== uid) : [...c.likedBy, uid] }
-          : c
-      );
-      tx.update(ref, { comments: updated });
-    });
+    await reactToPost('categoryPosts', announcementId, 'commentLike', { commentId });
   };
 
   const getByCategory = (categoryId, locationId) =>
@@ -132,13 +118,7 @@ export function AnnouncementsProvider({ children }) {
   };
 
   const deleteComment = async (announcementId, commentId) => {
-    await runTransaction(db, async (tx) => {
-      const ref = doc(db, COLLECTION, announcementId);
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const comments = snap.data().comments ?? [];
-      tx.update(ref, { comments: comments.filter((c) => c.id !== commentId) });
-    });
+    await reactToPost('categoryPosts', announcementId, 'deleteComment', { commentId });
   };
 
   return (

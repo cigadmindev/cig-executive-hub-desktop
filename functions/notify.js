@@ -39,9 +39,49 @@ async function push(tokens, title, body, data = {}) {
   }
 }
 
+// Leavers and ghost accounts hear nothing, from anywhere (S11).
+const reachable = (u) => !!u && u.active !== false && u.isGhost !== true;
+
 async function everyone() {
   const snap = await admin.firestore().collection('users').get();
-  return snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((u) => u.active !== false);
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter(reachable);
+}
+
+// The one way the Hub sends an email (S11, 8 Oct).
+//
+// Resend does not throw when a send fails - it returns { error }. Nothing
+// checked it, so a failed email was recorded as sent and dropped out of the
+// morning summary. This checks the result, waits and tries once more when
+// Resend says "too many at once", and paces sends to stay under its limit
+// (about two a second). Returns { ok, error }.
+let lastSendAt = 0;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function sendEmail(message) {
+  if (!process.env.RESEND_API_KEY) {
+    console.error('Email not sent - RESEND_API_KEY is missing from this function. "' + message.subject + '"');
+    return { ok: false, error: 'no API key' };
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const wait = lastSendAt + 600 - Date.now();
+    if (wait > 0) await sleep(wait);
+    lastSendAt = Date.now();
+    let result;
+    try {
+      result = await resend.emails.send({ from: FROM, ...message });
+    } catch (err) {
+      result = { error: { message: err.message, name: 'exception' } };
+    }
+    if (!result?.error) return { ok: true, id: result?.data?.id ?? null };
+    const tooMany = result.error.statusCode === 429 || /rate/i.test(result.error.name ?? '') || /rate/i.test(result.error.message ?? '');
+    if (tooMany && attempt === 1) {
+      await sleep(1500);
+      continue;
+    }
+    console.error('Email to ' + [].concat(message.to).join(', ') + ' failed: ' + (result.error.message ?? JSON.stringify(result.error)));
+    return { ok: false, error: result.error.message ?? 'failed' };
+  }
+  return { ok: false, error: 'failed' };
 }
 
 // Whether this person is emailed straight away for this notification.
@@ -124,7 +164,9 @@ async function notifyPeople(people, title, body, opts = {}) {
     ref = null, details = null, button = null, why = null, ...data
   } = opts;
   const topic = topicIn ?? legacyTopic ?? null;
-  const wanted = (people ?? []).filter((p) => p && p.uid);
+  // The one backstop: whatever list a caller worked out, nobody inactive or
+  // ghost is told anything.
+  const wanted = (people ?? []).filter((p) => p && p.uid && reachable(p));
   if (wanted.length === 0) return { sent: 0 };
 
   const db = admin.firestore();
@@ -162,30 +204,24 @@ async function notifyPeople(people, title, body, opts = {}) {
 
   await push(wanted.map((p) => p.pushToken).filter(Boolean), title, body, { path });
 
-  if (process.env.RESEND_API_KEY) {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    for (const p of wanted) {
-      if (!p.email || !emailsNow(p, speed) || throttled.has(p.uid)) continue;
-      try {
-        await resend.emails.send({
-          from: FROM,
-          to: [p.email],
-          subject: (speed === ACTION ? 'Needs you: ' : '') + title,
-          html: layout({
-            urgent: speed === ACTION,
-            kicker: TOPIC_LABEL[topic] ?? 'Update',
-            title,
-            intro: body,
-            details,
-            button: { label: button ?? 'Open in the Hub', url: WEB_URL + path },
-            footer: why,
-          }),
-        });
-        await markEmailed(db, p.uid, throttleKey, Date.now(), now);
-      } catch (err) {
-        console.error('email to ' + p.email + ' failed: ' + err.message);
-      }
-    }
+  for (const p of wanted) {
+    if (!p.email || !emailsNow(p, speed) || throttled.has(p.uid)) continue;
+    const res = await sendEmail({
+      to: [p.email],
+      subject: (speed === ACTION ? 'Needs you: ' : '') + title,
+      html: layout({
+        urgent: speed === ACTION,
+        kicker: TOPIC_LABEL[topic] ?? 'Update',
+        title,
+        intro: body,
+        details,
+        button: { label: button ?? 'Open in the Hub', url: WEB_URL + path },
+        footer: why,
+      }),
+    });
+    // Only marked emailed when it really went - otherwise it stays for the
+    // morning summary.
+    if (res.ok) await markEmailed(db, p.uid, throttleKey, Date.now(), now);
   }
 
   console.log('notify "' + title + '" to ' + wanted.length + ' (' + speed + (topic ? ', ' + topic : '') + ')');
@@ -213,4 +249,4 @@ async function resolveRef(ref, byName = null) {
   return snap.size;
 }
 
-module.exports = { notifyPeople, resolveRef, push, everyone, emailsNow, ACTION, AMBIENT, FROM, WEB_URL, TOPIC_LABEL };
+module.exports = { notifyPeople, resolveRef, push, everyone, emailsNow, sendEmail, reachable, ACTION, AMBIENT, FROM, WEB_URL, TOPIC_LABEL };

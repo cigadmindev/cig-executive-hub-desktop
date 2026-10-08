@@ -107,6 +107,11 @@ exports.onWorkOrderCompleted = onDocumentUpdated(
 // ---------------------------------------------------------------------------
 // Time off - the COO and admins decide
 // ---------------------------------------------------------------------------
+async function reasonFor(id, req) {
+  const snap = await admin.firestore().collection('timeOffReasons').doc(id).get();
+  return snap.exists ? snap.data().reason ?? '' : req.reason ?? '';
+}
+
 exports.onTimeOffCreated = onDocumentCreated(
   { document: 'timeOffRequests/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
@@ -118,7 +123,9 @@ exports.onTimeOffCreated = onDocumentCreated(
     const dates = req.startDate ? fmtDate(req.startDate) + (req.endDate && req.endDate !== req.startDate ? ' – ' + fmtDate(req.endDate) : '') : '';
     await notifyPeople(people, (req.name ?? 'Someone') + ' asked for time off', [asker?.job, dates].filter(Boolean).join(' · ') || 'Time off request', {
       speed: ACTION, topic: 'timeOff', path: '/availability', ref: 'timeOff/' + event.params.id,
-      details: [['Dates', dates], ['Reason', clip(req.reason, 200)]].filter(([, v]) => v),
+      // The reason is kept privately (timeOffReasons) - the COO and admins
+      // are the people allowed to read it.
+      details: [['Dates', dates], ['Reason', clip(await reasonFor(event.params.id, req), 200)]].filter(([, v]) => v),
       button: 'Approve or deny', why: 'You got this because you approve time off.',
     });
   }

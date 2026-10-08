@@ -171,7 +171,7 @@ exports.onEventRequestResolved = onDocumentUpdated(
       R.atLocation(users, after.needs ?? [], brandId, after.locationId).forEach((u) => uids.add(u.uid));
     }
     const people = users.filter((u) => uids.has(u.uid));
-    const day = after.dateTime ? new Date(after.dateTime).toISOString().slice(0, 10) : null;
+    const day = after.dateTime ? new Date(after.dateTime).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }) : null;
     await notifyPeople(
       people,
       (approved ? 'Approved: ' : 'Denied: ') + (after.title ?? 'event request'),

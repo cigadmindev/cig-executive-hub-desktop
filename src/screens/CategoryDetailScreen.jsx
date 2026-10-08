@@ -1,3 +1,4 @@
+import { atLeast } from '../data/accessMatrix';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { categories, brands } from '../data/mockData';
@@ -83,7 +84,7 @@ export default function CategoryDetailScreen() {
       </Link>
       <div style={styles.header}>
         <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>{category.label}</h1>
-        {user?.role === 'admin' || user?.role === 'executive' ? (
+        {atLeast(user, 'announcements', 'post') ? (
           <button
             style={{ ...styles.postButton, ...nike.primaryButton }}
             onClick={() => navigate(`/brand/${brand.id}/location/${location.id}/category/${categoryId}/announcements`)}
