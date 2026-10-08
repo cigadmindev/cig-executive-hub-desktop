@@ -1,6 +1,6 @@
 import { accessLevel } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, updateDoc, addDoc, query, orderBy, where } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 
@@ -85,6 +85,21 @@ export function CateringProvider({ children }) {
               calendarEntryId: x.calendarEntryId ?? null,
               asReceived: x.asReceived ?? null,
               correctedByName: x.correctedByName ?? '',
+              correctedAt: x.correctedAt ?? null,
+              addedByHand: x.addedByHand === true,
+              addedByName: x.addedByName ?? '',
+              // When each step happened and who did it - the History list.
+              claimedAt: x.claimedAt ?? null,
+              confirmedAt: x.confirmedAt ?? null,
+              confirmedByName: x.confirmedByName ?? '',
+              doneAt: x.doneAt ?? null,
+              doneByName: x.doneByName ?? '',
+              lostAt: x.lostAt ?? null,
+              lostByName: x.lostByName ?? '',
+              lostReason: x.lostReason ?? '',
+              statusChangedByName: x.statusChangedByName ?? '',
+              statusChangedAt: x.statusChangedAt ?? null,
+              statusChangeReason: x.statusChangeReason ?? '',
             };
           })
         ),
@@ -107,6 +122,7 @@ export function CateringProvider({ children }) {
       paidAt: null,
       createdAt: Date.now(),
       addedByHand: true,
+      addedByName: user?.name ?? '',
     });
   };
 
@@ -144,12 +160,32 @@ export function CateringProvider({ children }) {
   };
 
   const claim = async (id) =>
-    update(id, { ownerUid: auth.currentUser?.uid ?? null, ownerName: user?.name ?? '', status: 'talking' });
+    update(id, { ownerUid: auth.currentUser?.uid ?? null, ownerName: user?.name ?? '', status: 'talking', claimedAt: Date.now() });
 
-  const setStatus = async (id, status) => {
+  // Moves it to a step, and writes down when and by whom. Confirmed puts it
+  // on the calendar, which tells the location's GM, AGMs and chefs; leaving
+  // Confirmed takes it back off. Returns a note if the calendar entry could
+  // not be removed, so the screen can say so.
+  const setStatus = async (id, status, extra = {}) => {
     const e = enquiries.find((x) => x.id === id);
-    await update(id, { status });
-    if (status !== 'confirmed' || !e || e.calendarEntryId) return;
+    const stamp = {
+      confirmed: { confirmedAt: Date.now(), confirmedByName: user?.name ?? '' },
+      done: { doneAt: Date.now(), doneByName: user?.name ?? '' },
+      lost: { lostAt: Date.now(), lostByName: user?.name ?? '' },
+    }[status] ?? {};
+    await update(id, { status, ...stamp, ...extra });
+    if (!e) return null;
+
+    if (status !== 'confirmed' && status !== 'done' && e.calendarEntryId) {
+      try {
+        await deleteDoc(doc(db, 'schedules', e.calendarEntryId));
+        await update(id, { calendarEntryId: null });
+      } catch {
+        return 'It is still on the calendar - remove that entry by hand.';
+      }
+      return null;
+    }
+    if (status !== 'confirmed' || e.calendarEntryId) return null;
 
     // Everything someone working the event would otherwise have to ask for.
     const lines = [
@@ -173,7 +209,7 @@ export function CateringProvider({ children }) {
       authorUid: auth.currentUser?.uid ?? null,
       timestamp: Date.now(),
       // The people who need to know it is happening.
-      needs: ['General Manager', 'Assistant Manager', 'Executive Chef', 'Sous Chef'],
+      needs: ['General Manager', 'Assistant Manager', 'Executive Chef', 'Sous Chef', 'Catering & Events'],
       notifyUids: [],
       done: false,
       doneBy: null,
@@ -181,6 +217,24 @@ export function CateringProvider({ children }) {
       attentionFlag: false,
     });
     await update(id, { calendarEntryId: entry.id });
+    return null;
+  };
+
+  const lose = async (id, reason) => {
+    if (!reason?.trim()) throw new Error('Say why they are not going ahead.');
+    return setStatus(id, 'lost', { lostReason: reason.trim() });
+  };
+
+  // Admins can move one to any step. The person on it - or, if nobody has
+  // claimed it, the location's catering team - is emailed what changed.
+  const adminSetStatus = async (id, status, reason) => {
+    if (!reason?.trim()) throw new Error('Give a reason - whoever is on it will see it.');
+    return setStatus(id, status, {
+      statusChangedByName: user?.name ?? '',
+      statusChangedAt: Date.now(),
+      statusChangeReason: reason.trim(),
+      ...(status === 'lost' ? { lostReason: reason.trim() } : {}),
+    });
   };
 
   const markInvoiced = async (id) => update(id, { invoicedAt: Date.now() });
@@ -204,7 +258,7 @@ export function CateringProvider({ children }) {
 
   return (
     <CateringContext.Provider
-      value={{ enquiries: visible, addEnquiry, update, correct, claim, setStatus, markInvoiced, markPaid }}
+      value={{ enquiries: visible, addEnquiry, update, correct, claim, setStatus, lose, adminSetStatus, markInvoiced, markPaid }}
     >
       {children}
     </CateringContext.Provider>

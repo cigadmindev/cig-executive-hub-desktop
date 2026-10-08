@@ -255,12 +255,10 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isAdmin();
       allow update: if isAdmin()
-        || (isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pushToken', 'notifyEmail']))
-        // Approving a request grants access, which is a permissions write.
-        // Executives approve requests, so they may change a manager's
-        // permissions - nothing else on the profile, and nobody else's.
-        || (isAdminOrExecutive() && resource.data.role == 'manager'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['permissions']));
+        || (isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pushToken', 'notifyEmail']));
+      // Executives used to be able to change a manager's permissions, because
+      // they approved access requests. Admins alone decide those now, so the
+      // door is closed.
       allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
     }
 
@@ -290,14 +288,14 @@ service cloud.firestore {
     match /accessRequests/{requestId} {
       // Yours, and the people who review them. A request carries the reason
       // someone gave for wanting access.
-      allow read: if isAdminOrExecutive()
+      // Admins decide access requests (5 Oct 2026); executives no longer do.
+      allow read: if isAdmin()
         || (isSignedIn() && resource.data.userEmail.lower() == request.auth.token.email.lower());
       allow create: if isSignedIn()
         && request.resource.data.userEmail.lower() == request.auth.token.email.lower()
         && request.resource.data.status == 'pending';
-      // Only reviewers change these at all - a requester never edits one.
-      allow update: if isAdmin()
-        || (isAdminOrExecutive() && resource.data.userEmail.lower() != request.auth.token.email.lower());
+      // Only admins change these at all - a requester never edits one.
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 

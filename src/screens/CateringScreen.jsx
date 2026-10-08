@@ -1,341 +1,357 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useCatering } from '../context/CateringContext';
+import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useDialog } from '../hooks/useDialog';
-import { nike } from '../theme/nike';
 import { atLeast } from '../data/accessMatrix';
+import { brands } from '../data/mockData';
+import DatePickerField from '../components/DatePickerField';
+import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 
-// Catering orders and private event bookings.
+// Catering orders and private event bookings, on the same layout as every
+// other request page: status filters, a table, the selected one on the right.
 //
 // The conversation stays in email - that is the right tool for gathering
 // details. What lives here is where each one stands, what was agreed on the
 // phone, and who is handling it, so nobody has to ask.
 const MENU_URL = 'https://drive.google.com/drive/u/1/folders/1pynbcFvlkT0bymTd-HTrcFTzp72TjTqc';
 
-const dateText = (t, fallback) => {
-  if (!t) return fallback || 'No date';
-  return new Date(t).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-};
+const dateText = (t) => (t ? new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+const longDate = (t, fallback) =>
+  t ? new Date(t).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : fallback || 'No date';
 
-const GROUPS = [
-  { key: 'new', label: 'Needs a first reply', tone: 'danger' },
-  { key: 'talking', label: 'Talking to them', tone: 'warning' },
-  { key: 'confirmed', label: 'Confirmed', tone: 'accent' },
-];
+const STEP = {
+  new: ['New', 'amber'],
+  talking: ['Talking', 'cyan'],
+  confirmed: ['Confirmed', 'green'],
+  done: ['Done', 'grey'],
+  lost: ['Lost', 'grey'],
+};
+const FILTERS = Object.entries(STEP).map(([k, [l]]) => [k, l]);
+
+const BLANK = { kind: 'catering', locationId: '', name: '', email: '', phone: '', organisation: '', occasion: '', guests: '', date: '', preferredTime: '', fulfilment: '', address: '', about: '' };
 
 export default function CateringScreen() {
-  const { user } = useAuth();
-  const { enquiries, claim, setStatus, update, correct, markInvoiced, markPaid } = useCatering();
-  const [editing, setEditing] = useState(null);
-  const [fix, setFix] = useState({});
-  const { dialogNode, confirm, notify } = useDialog();
-  const [openId, setOpenId] = useState(null);
-  const [showDone, setShowDone] = useState(false);
+  const { user, hasLocationAccess } = useAuth();
+  const { getByBrand } = useCustomLocations();
+  const { enquiries, addEnquiry, claim, setStatus, lose, adminSetStatus, update, correct, markInvoiced, markPaid } = useCatering();
+  const { dialogNode, notify } = useDialog();
+  const isAdmin = user?.role === 'admin';
+  const canAct = atLeast(user, 'catering', 'claim');
+
+  const firstWithItems = ['new', 'talking', 'confirmed'].find((k) => enquiries.some((e) => e.status === k)) ?? 'new';
+  const [filter, setFilter] = useState(null);
+  const shown = filter ?? firstWithItems;
+  const [selectedId, setSelectedId] = useState(null);
   const [draft, setDraft] = useState({});
+  const [losing, setLosing] = useState(null);
+  const [changing, setChanging] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [adding, setAdding] = useState(null);
+  const [busy, setBusy] = useState(false);
 
-  const open = enquiries.filter((e) => ['new', 'talking', 'confirmed'].includes(e.status));
-  const finished = enquiries.filter((e) => ['done', 'lost'].includes(e.status));
+  // Every location this person can reach - where a phoned-in enquiry can go.
+  const locationOptions = [];
+  for (const b of brands) {
+    for (const l of [...(b.locations ?? []), ...(getByBrand(b.id) ?? [])]) {
+      if (hasLocationAccess(user, b.id, l.id)) locationOptions.push({ id: l.id, name: l.name, brandId: b.id, brandName: b.name });
+    }
+  }
 
-  const saveDetails = async (e) => {
-    const d = draft[e.id] ?? {};
-    await update(e.id, {
-      minimum: d.minimum ?? e.minimum,
-      finalGuests: d.finalGuests ?? e.finalGuests,
-      details: d.details ?? e.details,
-    });
-    notify('Saved', 'Everyone looking after this location can see it.');
+  const run = async (fn, after) => {
+    setBusy(true);
+    try {
+      const note = await fn();
+      after?.();
+      if (typeof note === 'string') notify('Done, with one thing left', note);
+    } catch (err) {
+      notify('Nothing was changed', err?.message ?? 'Try again.');
+    } finally {
+      setBusy(false);
+    }
   };
+
+  const reset = () => { setLosing(null); setChanging(null); };
+  const rows = enquiries
+    .filter((e) => e.status === shown)
+    .sort((a, b) => (['new', 'talking', 'confirmed'].includes(shown) ? (a.preferredDate ?? 9e15) - (b.preferredDate ?? 9e15) : b.createdAt - a.createdAt));
+  const selected = enquiries.find((e) => e.id === selectedId) ?? rows[0] ?? null;
+  const manyLocations = new Set(enquiries.map((e) => e.locationId)).size > 1;
 
   // Opens a reply in Gmail with the address filled in - the thread belongs in
   // email, not here.
   const mailto = (e, subject, body) =>
-    'https://mail.google.com/mail/?view=cm&fs=1' +
-    '&to=' + encodeURIComponent(e.email) +
-    '&su=' + encodeURIComponent(subject) +
-    '&body=' + encodeURIComponent(body);
+    'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(e.email) +
+    '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
 
-  const card = (e) => {
-    const isOpen = openId === e.id;
-    const d = draft[e.id] ?? {};
+  const history = (e) =>
+    [
+      [e.addedByHand ? 'Added by hand' : 'Arrived by email', e.createdAt, e.addedByHand ? e.addedByName : ''],
+      ['Claimed', e.claimedAt, e.ownerName],
+      ['Confirmed', e.confirmedAt, e.confirmedByName],
+      ['Invoiced', e.invoicedAt, ''],
+      ['Paid', e.paidAt, ''],
+      ['Done', e.doneAt, e.doneByName],
+      ['Marked lost', e.lostAt, e.lostByName],
+      ['Details corrected', e.correctedAt, e.correctedByName],
+      ['Changed by hand', e.statusChangedAt, e.statusChangedByName],
+    ]
+      .filter(([, t]) => t)
+      .sort((a, b) => a[1] - b[1]);
+
+  const detail = (() => {
+    if (!selected) return <div style={d.placeholder}>Pick an enquiry to see it here.</div>;
+    const e = selected;
     const isCatering = e.kind === 'catering';
-
+    const dr = draft[e.id] ?? {};
+    const first = (e.name || '').split(' ')[0];
+    const label = e.status === 'new' ? 'Arrived ' + dateText(e.createdAt) : e.ownerName ? e.ownerName + ' is on it' : 'Nobody has claimed it';
     return (
-      <div key={e.id} style={{ ...styles.card, ...(e.status === 'new' ? styles.cardNew : {}) }}>
-        <button style={styles.head} onClick={() => setOpenId(isOpen ? null : e.id)}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={styles.name}>
-              {e.name || 'No name'}
-              {e.organisation ? <span style={styles.org}> · {e.organisation}</span> : null}
-            </p>
-            <p style={styles.meta}>
-              {isCatering ? e.fulfilment || 'Catering' : e.occasion || 'Private event'} ·{' '}
-              {dateText(e.preferredDate, e.preferredDateText)}
-              {e.preferredTime ? ', ' + e.preferredTime : ''} · {e.locationName || 'No location'}
-            </p>
-            <p style={styles.meta}>
-              {e.guests ? e.guests + ' guests' : 'Guest count not given'}
-              {e.ownerName ? ' · ' + e.ownerName + ' is on it' : ''}
-              {e.minimum ? ' · ' + e.minimum + ' minimum' : ''}
-              {e.paidAt ? ' · paid' : e.invoicedAt ? ' · invoiced' : ''}
-            </p>
-          </div>
-          <span style={{ ...styles.pill, ...(isCatering ? styles.pillCatering : styles.pillEvent) }}>
-            {isCatering ? 'Catering' : 'Private event'}
+      <div style={d.card}>
+        <p style={d.kicker}>{STEP[e.status]?.[0]} · {label}</p>
+        <p style={d.title}>{e.name || 'No name'}{e.organisation ? <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}> · {e.organisation}</span> : null}</p>
+        <div style={d.row}><span style={d.k}>{isCatering ? 'Catering' : 'Event'}</span><span style={d.v}>{isCatering ? [e.fulfilment || 'Not said', e.address].filter(Boolean).join(' to ') : e.occasion || 'Private event'}</span></div>
+        <div style={d.row}><span style={d.k}>When</span><span style={d.v}>{longDate(e.preferredDate, e.preferredDateText)}{e.preferredTime ? ' · ' + e.preferredTime : ''}</span></div>
+        <div style={d.row}><span style={d.k}>Guests</span><span style={d.v}>{e.guests || 'Not given'}</span></div>
+        <div style={d.row}><span style={d.k}>Where</span><span style={d.v}>{e.locationName ? (e.brandName ? e.brandName + ' · ' : '') + e.locationName : 'No location'}</span></div>
+        <div style={d.row}>
+          <span style={d.k}>Contact</span>
+          <span style={d.v}>
+            {e.email ? <a href={'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(e.email)} target="_blank" rel="noreferrer" style={styles.link}>{e.email}</a> : null}
+            {e.email && e.phone ? <br /> : null}
+            {e.phone ? <a href={'tel:' + e.phone.replace(/[^\d+]/g, '')} style={styles.link}>{e.phone}</a> : null}
+            {!e.email && !e.phone ? 'None given' : null}
           </span>
-        </button>
+        </div>
+        {!isCatering && (e.space || e.style) ? <div style={d.row}><span style={d.k}>Asked for</span><span style={d.v}>{[e.space, e.style].filter(Boolean).join(' · ')}</span></div> : null}
+        {e.about ? <div style={d.row}><span style={d.k}>They wrote</span><span style={{ ...d.v, whiteSpace: 'pre-wrap' }}>{e.about}</span></div> : null}
+        {e.status === 'lost' && e.lostReason ? <div style={d.row}><span style={d.k}>Why lost</span><span style={d.v}>{e.lostReason}</span></div> : null}
 
-        {isOpen ? (
-          <div style={styles.body}>
-            <p style={styles.sectionLabel}>Them</p>
-            <div style={styles.contactRow}>
-              {e.email ? (
-                <a
-                  href={'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(e.email)}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={styles.contact}
-                >
-                  {e.email}
-                </a>
-              ) : null}
-              {e.phone ? (
-                <a href={'tel:' + e.phone.replace(/[^\d+]/g, '')} style={styles.contact}>
-                  {e.phone}
-                </a>
-              ) : null}
+        {canAct ? (
+          <>
+            {losing === e.id ? (
+              <div style={{ marginTop: 14 }}>
+                <input style={d.input} autoFocus placeholder="Why they are not going ahead" value={changing?.reason ?? ''} onChange={(ev) => setChanging({ reason: ev.target.value })} />
+                <div style={{ ...d.actions, marginTop: 0 }}>
+                  <button style={d.primary} disabled={busy || !(changing?.reason ?? '').trim()} onClick={() => run(() => lose(e.id, changing.reason), () => { reset(); setFilter('lost'); })}>Mark lost</button>
+                  <button style={d.ghost} onClick={reset}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div style={d.actions}>
+                {!e.ownerUid && ['new', 'talking'].includes(e.status) ? <button style={d.primary} disabled={busy} onClick={() => run(() => claim(e.id), () => setFilter('talking'))}>Claim</button> : null}
+                {e.status === 'new' && e.ownerUid ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'talking'), () => setFilter('talking'))}>Talking</button> : null}
+                {['new', 'talking'].includes(e.status) ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'confirmed'), () => setFilter('confirmed'))}>Confirmed</button> : null}
+                {e.status === 'confirmed' ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'done'), () => setFilter('done'))}>Done</button> : null}
+                {['new', 'talking', 'confirmed'].includes(e.status) ? <button style={d.ghost} onClick={() => { setChanging({ reason: '' }); setLosing(e.id); }}>Lost…</button> : null}
+              </div>
+            )}
+            {isCatering && e.status === 'confirmed' ? (
+              <div style={d.actions}>
+                {!e.invoicedAt ? <button style={d.ghost} disabled={busy} onClick={() => run(() => markInvoiced(e.id))}>Invoiced</button> : <span style={styles.done}>Invoiced {dateText(e.invoicedAt)}</span>}
+                {e.invoicedAt && !e.paidAt ? <button style={d.ghost} disabled={busy} onClick={() => run(() => markPaid(e.id))}>Paid</button> : null}
+                {e.paidAt ? <span style={styles.done}>Paid {dateText(e.paidAt)}</span> : null}
+              </div>
+            ) : null}
+            {['new', 'talking'].includes(e.status) ? (
+              <p style={styles.hint}>Confirmed puts it on the calendar and tells the location's GM, AGMs, chefs and Catering &amp; Events.{isCatering ? ' Invoiced and Paid appear once it is confirmed.' : ''}</p>
+            ) : null}
+
+            {e.email ? (
+              <div style={d.actions}>
+                <a style={styles.linkButton} target="_blank" rel="noreferrer" href={mailto(e, `Your ${isCatering ? 'catering order' : 'event'} at ${e.brandName || 'Taste'} ${e.locationName}`, `Hi ${first},\n\n`)}>Reply by email</a>
+                {isCatering ? (
+                  <a style={styles.linkButton} target="_blank" rel="noreferrer" href={mailto(e, (e.brandName || 'Taste Italian Kitchen') + ' — catering menu', `Hi ${first},\n\nThanks for getting in touch. Have you had a chance to look at our catering menu? You can see it here:\n\n${MENU_URL}\n\nLet me know what you would like and I will take it from there.\n\n`)}>Send the menu</a>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div style={d.section}>
+              <p style={d.sectionLabel}>WHAT YOU HAVE AGREED</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input style={d.input} placeholder={isCatering ? 'Order total' : 'F&B minimum'} value={dr.minimum ?? e.minimum} onChange={(ev) => setDraft({ ...draft, [e.id]: { ...dr, minimum: ev.target.value } })} />
+                <input style={d.input} placeholder="Final headcount" value={dr.finalGuests ?? e.finalGuests} onChange={(ev) => setDraft({ ...draft, [e.id]: { ...dr, finalGuests: ev.target.value } })} />
+              </div>
+              <textarea style={{ ...d.input, minHeight: 60, resize: 'vertical' }} placeholder="Menu, room, timings, anything agreed on the phone" value={dr.details ?? e.details} onChange={(ev) => setDraft({ ...draft, [e.id]: { ...dr, details: ev.target.value } })} />
+              <button style={d.ghost} disabled={busy} onClick={() => run(() => update(e.id, { minimum: dr.minimum ?? e.minimum, finalGuests: dr.finalGuests ?? e.finalGuests, details: dr.details ?? e.details }), () => notify('Saved', 'Everyone looking after this location can see it.'))}>Save</button>
             </div>
+          </>
+        ) : (
+          <>
+            {e.minimum || e.finalGuests || e.details ? (
+              <div style={d.section}>
+                <p style={d.sectionLabel}>WHAT HAS BEEN AGREED</p>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{[e.minimum && (isCatering ? 'Order ' : 'Minimum ') + e.minimum, e.finalGuests && e.finalGuests + ' guests', e.details].filter(Boolean).join('\n')}</div>
+              </div>
+            ) : null}
+          </>
+        )}
 
-            {isCatering ? (
+        {isAdmin ? (
+          <div style={d.section}>
+            <p style={d.sectionLabel}>ADMIN</p>
+            {changing && changing.status ? (
               <>
-                <p style={styles.sectionLabel}>The order</p>
-                <p style={styles.detail}>
-                  {e.fulfilment || 'Not said'}
-                  {e.address ? ' to ' + e.address : ''}
-                  {e.preferredTime ? ' at ' + e.preferredTime : ''}
-                </p>
+                <select style={d.input} value={changing.status} onChange={(ev) => setChanging({ ...changing, status: ev.target.value })}>
+                  {FILTERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+                <input style={d.input} autoFocus placeholder={e.ownerName ? 'Reason - emailed to ' + e.ownerName : "Reason - emailed to the location's catering team"} value={changing.reason} onChange={(ev) => setChanging({ ...changing, reason: ev.target.value })} />
+                <div style={{ ...d.actions, marginTop: 0 }}>
+                  <button style={d.primary} disabled={busy || changing.status === e.status || !changing.reason.trim()} onClick={() => run(() => adminSetStatus(e.id, changing.status, changing.reason), () => { setFilter(changing.status); reset(); })}>Change status</button>
+                  <button style={d.ghost} onClick={reset}>Cancel</button>
+                </div>
               </>
             ) : (
-              <>
-                <p style={styles.sectionLabel}>What they asked for</p>
-                <p style={styles.detail}>
-                  {[e.space, e.style].filter(Boolean).join(' · ') || 'Nothing specified'}
-                </p>
-                {e.about ? <p style={styles.detail}>{e.about}</p> : null}
-              </>
+              <div style={{ ...d.actions, marginTop: 0 }}>
+                <button style={d.ghost} onClick={() => setEditing({ ...e })}>Edit details</button>
+                <button style={d.ghost} onClick={() => { setLosing(null); setChanging({ status: e.status, reason: '' }); }}>Change status…</button>
+              </div>
             )}
-
-            <p style={styles.sectionLabel}>What you have agreed</p>
-            <div style={styles.twoCol}>
-              <input
-                style={styles.input}
-                placeholder={isCatering ? 'Order total' : 'Food & beverage minimum'}
-                value={d.minimum ?? e.minimum}
-                onChange={(ev) => setDraft({ ...draft, [e.id]: { ...d, minimum: ev.target.value } })}
-              />
-              <input
-                style={styles.input}
-                placeholder="Final headcount"
-                value={d.finalGuests ?? e.finalGuests}
-                onChange={(ev) => setDraft({ ...draft, [e.id]: { ...d, finalGuests: ev.target.value } })}
-              />
-            </div>
-            <textarea
-              style={{ ...styles.input, ...styles.textarea }}
-              placeholder="Menu, room, timings, anything agreed on the phone"
-              value={d.details ?? e.details}
-              onChange={(ev) => setDraft({ ...draft, [e.id]: { ...d, details: ev.target.value } })}
-            />
-            <button style={styles.quiet} onClick={() => saveDetails(e)}>
-              Save
-            </button>
-
-            <p style={styles.sectionLabel}>Do</p>
-            <div style={styles.actions}>
-              <a
-                href={mailto(e, `Your ${isCatering ? 'catering order' : 'event'} at Taste ${e.locationName}`, `Hi ${(e.name || '').split(' ')[0]},\n\n`)}
-                target="_blank"
-                rel="noreferrer"
-                style={styles.button}
-              >
-                Reply
-              </a>
-
-              {isCatering ? (
-                <a
-                  href={mailto(
-                    e,
-                    'Taste Italian Kitchen — catering menu',
-                    `Hi ${(e.name || '').split(' ')[0]},\n\nThanks for getting in touch. Have you had a chance to look at our catering menu? You can see it here:\n\n${MENU_URL}\n\nLet me know what you would like and I will take it from there.\n\n`
-                  )}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={styles.button}
-                >
-                  Send the menu
-                </a>
-              ) : null}
-
-              {!e.ownerUid && atLeast(user, 'catering', 'claim') ? (
-                <button style={styles.button} onClick={() => claim(e.id)}>
-                  I'm on it
-                </button>
-              ) : null}
-
-              {e.status !== 'confirmed' ? (
-                <button style={styles.button} onClick={() => setStatus(e.id, 'confirmed')}>
-                  Confirmed
-                </button>
-              ) : null}
-
-              {isCatering && e.status === 'confirmed' && !e.invoicedAt ? (
-                <button style={styles.button} onClick={() => markInvoiced(e.id)}>
-                  Invoiced
-                </button>
-              ) : null}
-
-              {isCatering && e.invoicedAt && !e.paidAt ? (
-                <button style={styles.button} onClick={() => markPaid(e.id)}>
-                  Paid
-                </button>
-              ) : null}
-
-              {e.status === 'confirmed' ? (
-                <button style={styles.quiet} onClick={() => setStatus(e.id, 'done')}>
-                  Done
-                </button>
-              ) : null}
-
-              <button
-                style={styles.quiet}
-                onClick={() => {
-                  setFix({ ...e });
-                  setEditing(e.id);
-                }}
-              >
-                Correct the details
-              </button>
-
-              <button
-                style={styles.quiet}
-                onClick={() =>
-                  confirm({
-                    title: 'They are not going ahead?',
-                    body: 'It moves out of the way but stays on the record.',
-                    confirmLabel: 'Not going ahead',
-                    onConfirm: () => setStatus(e.id, 'lost'),
-                  })
-                }
-              >
-                Not going ahead
-              </button>
-            </div>
           </div>
         ) : null}
+
+        <div style={d.section}>
+          <p style={d.sectionLabel}>HISTORY</p>
+          <div style={d.history}>
+            {history(e).map(([what, t, who], i) => (
+              <div key={i}>{dateText(t)} · {what}{who ? ' by ' + who : ''}</div>
+            ))}
+            {e.statusChangeReason ? <div>“{e.statusChangeReason}”</div> : null}
+          </div>
+        </div>
       </div>
     );
+  })();
+
+  const saveNew = async () => {
+    const place = locationOptions.find((l) => l.id === adding.locationId);
+    if (!place) throw new Error('Choose the location it is for.');
+    if (!adding.name.trim()) throw new Error('Add their name.');
+    if (!adding.email.trim() && !adding.phone.trim()) throw new Error('Add an email or a phone number, so someone can get back to them.');
+    const when = adding.date ? new Date(adding.date + 'T12:00:00').getTime() : null;
+    const isCatering = adding.kind === 'catering';
+    await addEnquiry({
+      kind: adding.kind,
+      name: adding.name.trim(), email: adding.email.trim(), phone: adding.phone.trim(),
+      organisation: adding.organisation.trim(), occasion: adding.occasion.trim(), guests: adding.guests.trim(),
+      preferredDate: when, preferredDateText: when ? longDate(when) : '', preferredTime: adding.preferredTime.trim(),
+      fulfilment: isCatering ? adding.fulfilment : '', address: isCatering ? adding.address.trim() : '',
+      space: '', style: '', about: adding.about.trim(),
+      locationId: place.id, locationName: place.name, brandId: place.brandId, brandName: place.brandName,
+    });
   };
 
   return (
-    <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Catering &amp; Events</h1>
-      <p style={styles.subtitle}>Everything that has come in, and where each one stands.</p>
-      <div style={styles.howNote}>
-        <strong>How enquiries get here:</strong> forward any catering or private event enquiry to{' '}
-        <a href="mailto:catering@cigconcepts.com" style={{ color: 'var(--neon)', fontWeight: 700 }}>
-          catering@cigconcepts.com
-        </a>
-        . It shows up below within five minutes, and that location's GM, catering lead and chefs are emailed.
-      </div>
+    <div>
+      <RequestPage
+        title="Catering"
+        subtitle="Catering orders and private events. The GM, Catering & Events or a chef claims each one."
+        actionLabel={canAct ? '+ Add enquiry' : null}
+        onAction={() => setAdding({ ...BLANK, locationId: locationOptions.length === 1 ? locationOptions[0].id : '' })}
+        filters={FILTERS.map(([k, l]) => ({ key: k, label: l, count: ['done', 'lost'].includes(k) ? null : enquiries.filter((e) => e.status === k).length }))}
+        filter={shown}
+        onFilter={(k) => { setFilter(k); setSelectedId(null); reset(); }}
+        columns={[
+          { key: 'who', label: 'Enquiry', render: (e) => <><strong>{e.name || 'No name'}</strong><div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{e.kind === 'catering' ? 'Catering' + (e.fulfilment ? ' · ' + e.fulfilment.toLowerCase() : '') : e.occasion || 'Private event'}</div></> },
+          ...(manyLocations ? [{ key: 'where', label: 'Location', render: (e) => e.locationName || '—' }] : []),
+          { key: 'when', label: 'Date', render: (e) => (e.preferredDate ? dateText(e.preferredDate) : e.preferredDateText || '—') },
+          { key: 'guests', label: 'Guests', render: (e) => e.finalGuests || e.guests || '—' },
+          { key: 'owner', label: 'Owner', render: (e) => (e.ownerName ? e.ownerName : <span style={{ color: 'var(--text-tertiary)' }}>Unclaimed</span>) },
+          { key: 'status', label: 'Status', render: (e) => <Pill tone={STEP[e.status]?.[1]}>{STEP[e.status]?.[0]}</Pill> },
+        ]}
+        rows={rows}
+        selectedId={selected?.id}
+        onSelect={(id) => { setSelectedId(id); reset(); }}
+        detail={detail}
+        empty="Nothing in this list."
+        note={canAct ? null : 'You can see these but not change them. The GM, Catering & Events and chefs handle them.'}
+      >
+        <div style={styles.howNote}>
+          <strong>How enquiries get here:</strong> forward any catering or private event enquiry to{' '}
+          <a href="mailto:catering@cigconcepts.com" style={{ color: 'var(--neon)', fontWeight: 700 }}>catering@cigconcepts.com</a>
+          . It shows up here within five minutes, and that location's GM, catering lead and chefs are emailed. One that came in by phone? Use + Add enquiry.
+        </div>
+      </RequestPage>
 
-      {open.length === 0 ? <p style={styles.empty}>Nothing outstanding.</p> : null}
-
-      {GROUPS.map((g) => {
-        const items = open.filter((e) => e.status === g.key);
-        if (items.length === 0) return null;
-        return (
-          <div key={g.key} style={styles.group}>
-            <p style={{ ...styles.groupLabel, color: `var(--${g.tone === 'accent' ? 'neon' : g.tone})` }}>
-              {g.label} — {items.length}
-            </p>
-            {items.map(card)}
+      {adding ? (
+        <div style={styles.backdrop} onClick={() => !busy && setAdding(null)}>
+          <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Add enquiry</h2>
+            <p style={styles.hint}>For one that came in by phone, in person or another way. It lands in New, like the emailed ones.</p>
+            <label style={styles.fieldLabel}>What kind</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[['catering', 'Catering'], ['privateEvent', 'Private event']].map(([k, l]) => (
+                <button key={k} style={{ ...styles.kind, ...(adding.kind === k ? styles.kindOn : {}) }} onClick={() => setAdding({ ...adding, kind: k })}>{l}</button>
+              ))}
+            </div>
+            <label style={styles.fieldLabel}>Location</label>
+            <select style={d.input} value={adding.locationId} onChange={(ev) => setAdding({ ...adding, locationId: ev.target.value })}>
+              <option value="">Choose one</option>
+              {locationOptions.map((l) => <option key={l.id} value={l.id}>{l.brandName} · {l.name}</option>)}
+            </select>
+            {[
+              ['name', 'Name'], ['email', 'Email'], ['phone', 'Phone'], ['organisation', 'Organisation (optional)'],
+              ...(adding.kind === 'catering' ? [] : [['occasion', 'Occasion']]),
+              ['guests', 'Guests'],
+            ].map(([k, l]) => (
+              <React.Fragment key={k}>
+                <label style={styles.fieldLabel}>{l}</label>
+                <input style={d.input} value={adding[k]} onChange={(ev) => setAdding({ ...adding, [k]: ev.target.value })} />
+              </React.Fragment>
+            ))}
+            <label style={styles.fieldLabel}>Date</label>
+            <DatePickerField value={adding.date} onChange={(v) => setAdding({ ...adding, date: v })} placeholder="Choose a date" />
+            <label style={styles.fieldLabel}>Time</label>
+            <input style={d.input} placeholder="6:30pm" value={adding.preferredTime} onChange={(ev) => setAdding({ ...adding, preferredTime: ev.target.value })} />
+            {adding.kind === 'catering' ? (
+              <>
+                <label style={styles.fieldLabel}>Pick-up or delivery</label>
+                <select style={d.input} value={adding.fulfilment} onChange={(ev) => setAdding({ ...adding, fulfilment: ev.target.value })}>
+                  <option value="">Not said yet</option>
+                  <option value="Pick-up">Pick-up</option>
+                  <option value="Delivery">Delivery</option>
+                </select>
+                {adding.fulfilment === 'Delivery' ? (
+                  <>
+                    <label style={styles.fieldLabel}>Address</label>
+                    <input style={d.input} value={adding.address} onChange={(ev) => setAdding({ ...adding, address: ev.target.value })} />
+                  </>
+                ) : null}
+              </>
+            ) : null}
+            <label style={styles.fieldLabel}>What they asked for</label>
+            <textarea style={{ ...d.input, minHeight: 70, resize: 'vertical' }} value={adding.about} onChange={(ev) => setAdding({ ...adding, about: ev.target.value })} />
+            <div style={styles.modalButtons}>
+              <button style={d.ghost} onClick={() => setAdding(null)}>Cancel</button>
+              <button style={d.primary} disabled={busy} onClick={() => run(saveNew, () => { setAdding(null); setFilter('new'); })}>Add enquiry</button>
+            </div>
           </div>
-        );
-      })}
-
-      {finished.length > 0 ? (
-        <>
-          <button style={styles.showDone} onClick={() => setShowDone((v) => !v)}>
-            {showDone ? 'Hide' : 'Show'} finished ({finished.length})
-          </button>
-          {showDone ? finished.slice(0, 40).map(card) : null}
-        </>
+        </div>
       ) : null}
 
       {editing ? (
         <div style={styles.backdrop} onClick={() => setEditing(null)}>
           <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Correct the details</h2>
-            <p style={styles.hint}>
-              What the form collected is whatever they typed. Fix anything that came through wrong — what they
-              originally sent is kept on the record.
-            </p>
-
+            <h2 style={styles.modalTitle}>Edit details</h2>
+            <p style={styles.hint}>Fix anything that came through wrong. What they originally sent is kept on the record.</p>
             {[
-              ['name', 'Name'],
-              ['email', 'Email'],
-              ['phone', 'Phone'],
-              ['organisation', 'Organisation'],
-              ['occasion', 'Occasion'],
-              ['guests', 'Guests'],
-              ['preferredDateText', 'Date'],
-              ['preferredTime', 'Time'],
-              ['space', 'Space'],
-              ['style', 'Style'],
-              ['fulfilment', 'Pick-up or delivery'],
-              ['address', 'Address'],
+              ['name', 'Name'], ['email', 'Email'], ['phone', 'Phone'], ['organisation', 'Organisation'], ['occasion', 'Occasion'],
+              ['guests', 'Guests'], ['preferredDateText', 'Date'], ['preferredTime', 'Time'], ['space', 'Space'], ['style', 'Style'],
+              ['fulfilment', 'Pick-up or delivery'], ['address', 'Address'],
             ].map(([key, label]) => (
               <React.Fragment key={key}>
                 <label style={styles.fieldLabel}>{label}</label>
-                <input
-                  style={styles.input}
-                  value={fix[key] ?? ''}
-                  onChange={(ev) => setFix({ ...fix, [key]: ev.target.value })}
-                />
+                <input style={d.input} value={editing[key] ?? ''} onChange={(ev) => setEditing({ ...editing, [key]: ev.target.value })} />
               </React.Fragment>
             ))}
-
             <label style={styles.fieldLabel}>What they wrote</label>
-            <textarea
-              style={{ ...styles.input, ...styles.textarea }}
-              value={fix.about ?? ''}
-              onChange={(ev) => setFix({ ...fix, about: ev.target.value })}
-            />
-
+            <textarea style={{ ...d.input, minHeight: 60, resize: 'vertical' }} value={editing.about ?? ''} onChange={(ev) => setEditing({ ...editing, about: ev.target.value })} />
             <div style={styles.modalButtons}>
-              <button style={styles.quiet} onClick={() => setEditing(null)}>
-                Cancel
-              </button>
+              <button style={d.ghost} onClick={() => setEditing(null)}>Cancel</button>
               <button
-                style={styles.button}
-                onClick={async () => {
-                  const { id, ...fields } = fix;
-                  await correct(editing, {
-                    name: fields.name ?? '',
-                    email: fields.email ?? '',
-                    phone: fields.phone ?? '',
-                    organisation: fields.organisation ?? '',
-                    occasion: fields.occasion ?? '',
-                    guests: fields.guests ?? '',
-                    preferredDateText: fields.preferredDateText ?? '',
-                    preferredTime: fields.preferredTime ?? '',
-                    space: fields.space ?? '',
-                    style: fields.style ?? '',
-                    about: fields.about ?? '',
-                    fulfilment: fields.fulfilment ?? '',
-                    address: fields.address ?? '',
-                  });
-                  setEditing(null);
-                }}
+                style={d.primary}
+                disabled={busy}
+                onClick={() => run(() => correct(editing.id, Object.fromEntries(['name', 'email', 'phone', 'organisation', 'occasion', 'guests', 'preferredDateText', 'preferredTime', 'space', 'style', 'about', 'fulfilment', 'address'].map((k) => [k, editing[k] ?? '']))), () => setEditing(null))}
               >
                 Save
               </button>
@@ -350,43 +366,16 @@ export default function CateringScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 820 },
-  title: { fontSize: 22, fontWeight: 700, margin: 0 },
-  subtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 20px' },
-  howNote: { fontSize: 14, lineHeight: 1.5, color: 'var(--text-primary)', background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', marginBottom: 20 },
-  empty: { fontSize: 13, color: 'var(--text-tertiary)' },
-
-  group: { marginBottom: 20 },
-  groupLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', margin: '0 0 8px' },
-
-  card: { background: 'var(--bg-card)', borderRadius: 12, marginBottom: 10, overflow: 'hidden' },
-  cardNew: { border: '1px solid rgba(232,82,75,0.4)' },
-  head: { display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '13px 15px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' },
-  name: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 },
-  org: { fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)' },
-  meta: { fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' },
-  pill: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap' },
-  pillCatering: { background: 'rgba(201,162,39,0.16)', color: '#C9A227' },
-  pillEvent: { background: 'rgba(34,211,238,0.14)', color: 'var(--neon)' },
-
-  body: { padding: '0 15px 15px' },
-  sectionLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '14px 0 6px' },
-  contactRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  contact: { fontSize: 12, padding: '7px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', color: 'var(--neon)', textDecoration: 'none' },
-  detail: { fontSize: 13, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '0 0 6px' },
-
-  twoCol: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8, marginBottom: 8 },
-  input: { width: '100%', boxSizing: 'border-box', minHeight: 38, padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
-  textarea: { minHeight: 60, resize: 'vertical', marginBottom: 8 },
-
-  actions: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  button: { display: 'inline-block', padding: '7px 12px', borderRadius: 9, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'none' },
+  howNote: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-primary)', background: '#16161A', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 },
+  link: { color: 'var(--neon)', textDecoration: 'none' },
+  linkButton: { display: 'inline-block', background: 'none', border: '1px solid var(--border-strong)', color: 'var(--neon)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, textDecoration: 'none' },
+  done: { fontSize: 12, color: '#4ADE80', alignSelf: 'center' },
+  hint: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '8px 0 0' },
   backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 },
-  modal: { width: 'min(420px, 100%)', maxHeight: '86vh', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 },
+  modal: { width: 'min(440px, 100%)', maxHeight: '86vh', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 },
   modalTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
-  fieldLabel: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, marginTop: 10 },
-  hint: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '0 0 6px' },
+  fieldLabel: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', margin: '10px 0 4px' },
   modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
-  quiet: { padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  showDone: { background: 'none', border: 'none', padding: '8px 0', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' },
+  kind: { flex: 1, padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  kindOn: { background: 'var(--neon)', color: '#0A0A0B', borderColor: 'var(--neon)' },
 };

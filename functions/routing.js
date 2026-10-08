@@ -12,12 +12,16 @@
 // eventRequest    it is approved or denied            the person who asked; if approved, the people    urgent
 //                                                     named on it and the chosen jobs at that location
 // accessRequest   a request is made                   admins                                           urgent
-// accessRequest   it is decided                       the person who asked                             urgent
+// accessRequest   it is decided (reason if declined)  the person who asked                             urgent
+// accessRequest   an admin changes the answer         the person who asked (access follows the answer) urgent
 // deviceRequest   a request is made                   the COO and admins                               urgent
 // deviceRequest   approved, declined, ordered         the person who asked                             urgent
 // systemsHelp     a request is made                   IT & Training and admins                         urgent
 // systemsHelp     answered or done                    the person who asked                             urgent
 // catering        a new enquiry                       that location's GM, Catering & Events and chefs  urgent
+// catering        confirmed (via its calendar entry)  that location's GM, AGMs, chefs, Catering & Ev.  urgent
+// catering        an admin changes its status         whoever claimed it; if nobody, the catering team urgent
+// tagged          a job is tagged on a calendar entry that job at that entry's location only           urgent
 // renewal         60, 30, 7 days out, and expiry      admins, the COO, and that location's GM          urgent
 // signature       a document is sent                  each person who must sign                        urgent
 // signature       everyone has signed                 the person who sent it                           urgent

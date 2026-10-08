@@ -265,9 +265,28 @@ exports.pullCateringEnquiries = onSchedule(
 );
 
 // Claimed - it is no longer waiting on the rest of the location's team.
-exports.onCateringEnquiryUpdated = onDocumentUpdated({ document: 'cateringEnquiries/{id}' }, async (event) => {
+// Moved by an admin - whoever is on it is told what changed and why; if
+// nobody has claimed it, the location's catering team is.
+const STEP = { new: 'New', talking: 'Talking', confirmed: 'Confirmed', done: 'Done', lost: 'Lost' };
+exports.onCateringEnquiryUpdated = onDocumentUpdated({ document: 'cateringEnquiries/{id}', secrets: ['RESEND_API_KEY'] }, async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after) return;
   if (!before.ownerUid && after.ownerUid) await resolveRef('catering/' + event.params.id, after.ownerName || null);
+
+  if (after.statusChangedAt && after.statusChangedAt !== before.statusChangedAt) {
+    const users = await R.activeUsers();
+    const people = after.ownerUid
+      ? users.filter((u) => u.uid === after.ownerUid)
+      : await R.cateringTeam(users, after.locationId);
+    await notifyPeople(
+      people,
+      'Catering enquiry changed · ' + (after.name || 'No name'),
+      (after.statusChangedByName || 'An admin') + ' changed it from ' + (STEP[before.status] ?? before.status) + ' to ' + (STEP[after.status] ?? after.status) + '. ' + (after.statusChangeReason || ''),
+      {
+        speed: ACTION, topic: 'catering', path: '/catering', button: 'Open Catering', locationId: after.locationId ?? null,
+        why: after.ownerUid ? 'You got this because you are handling this enquiry.' : 'You got this because you look after catering at ' + (after.locationName || 'this location') + '.',
+      }
+    );
+  }
 });

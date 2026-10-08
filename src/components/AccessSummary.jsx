@@ -56,7 +56,13 @@ export function describeAccess(person) {
     lv('expenses') === 'all' && 'expense reports',
     'things they are tagged on, documents to sign, and answers to their own requests',
   ].filter(Boolean).join(', ');
-  return { where, can, cant, folders, emails, row: row.label };
+  // Given to this one person on top of their row, by approved access requests.
+  const FEATURE_NAMES = { openingChecklist: 'the pre-opening checklist', operationalPoc: 'Operational POC', renewals: 'renewals', eventRequests: 'event requests', availability: 'availability', expenses: 'Expenses' };
+  const extras = [
+    ...(person.permissions?.extraFolders ?? []).filter((x) => !list.includes(x)).map((x) => (categories.find((c) => c.id === x)?.label ?? x) + ' folder'),
+    ...(person.permissions?.extraFeatures ?? []).map((x) => FEATURE_NAMES[x] ?? x),
+  ];
+  return { where, can, cant, folders, emails, extras, row: row.label };
 }
 
 export default function AccessSummary({ person }) {
@@ -73,6 +79,7 @@ export default function AccessSummary({ person }) {
           </p>
           <p style={styles.text}><span style={styles.muted}>Can open:</span> {d.can.join(', ')}.</p>
           <p style={styles.text}><span style={styles.muted}>Folders:</span> {d.folders}.</p>
+          {d.extras?.length ? <p style={styles.text}><span style={styles.muted}>Also given:</span> {d.extras.join(', ')} — from approved access requests.</p> : null}
           {d.cant.length ? <p style={styles.text}><span style={styles.muted}>Can't see:</span> {d.cant.join(', ')}.</p> : null}
           <p style={styles.text}><span style={styles.muted}>Emailed about:</span> {d.emails}.</p>
           {d.row ? <p style={styles.foot}>From the {d.row} row in Who sees what. Change the row, and this changes for everyone with that job.</p> : null}

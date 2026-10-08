@@ -53,7 +53,7 @@ export function useWaitingOnYou() {
     if (isAdmin) {
       (accessRequests ?? [])
         .filter((r) => r.status === 'pending')
-        .forEach((r) => add('Access', (r.userName ?? 'Someone') + ' · ' + (r.targetLabel ?? ''), 'Decide', '/admin/pending-requests', r.createdAt ?? 0));
+        .forEach((r) => add('Access', (r.userName ?? 'Someone') + ' · ' + (r.targetLabel ?? ''), 'Decide', '/access-requests', r.timestamp ?? 0));
     }
     (getMyQueue?.() ?? []).forEach((o) => add('Signature', o.title, 'Sign · from ' + (o.uploadedByName ?? ''), '/work-orders', o.createdAt ?? 0));
     if (handlesRequests) {

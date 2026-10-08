@@ -106,6 +106,8 @@ export default function LocationScreen() {
       type: 'category',
       targetId: requestTarget.id,
       targetLabel: requestTarget.label,
+      // Where they were when they asked - context for the admin deciding.
+      locationName: `${brand.name} · ${location.name}`,
       reason,
     });
     setRequestTarget(null);

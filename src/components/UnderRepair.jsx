@@ -35,7 +35,7 @@ export const REPAIRABLE_PAGES = [
   { key: 'emergency', label: 'Emergency Procedures', test: /^\/emergency/ },
   { key: 'executiveNotes', label: 'Executive Notes', test: /^\/executive-notes/ },
   { key: 'announcements', label: 'New Announcement', test: /^\/announcements/ },
-  { key: 'pendingRequests', label: 'Pending Requests', test: /^\/admin\/pending-requests/ },
+  { key: 'pendingRequests', label: 'Access requests', test: /^\/(access-requests|admin\/pending-requests)/ },
   { key: 'profile', label: 'Profile', test: /^\/profile/ },
 ];
 

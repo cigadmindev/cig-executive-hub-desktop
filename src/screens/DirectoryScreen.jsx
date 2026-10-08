@@ -126,13 +126,18 @@ export default function DirectoryScreen() {
             subtitle: 'Post an update to the team',
             onClick: () => navigate('/announcements/new'),
           },
+        ]
+      : []),
+    // Admins decide access requests (5 Oct) - executives no longer do.
+    ...(user?.role === 'admin'
+      ? [
           {
-            key: 'pendingRequests',
+            key: 'accessRequests',
             icon: 'checkCircle',
-            title: 'Pending Requests',
-            subtitle: 'Approve or deny access requests',
+            title: 'Access Requests',
+            subtitle: 'Approve or decline access requests',
             badge: anyPendingAccessRequests,
-            onClick: () => navigate('/admin/pending-requests'),
+            onClick: () => navigate('/access-requests'),
           },
         ]
       : []),

@@ -61,7 +61,7 @@ export default function AppLayout({ children }) {
   // Directory carried its own badge, but nothing told you to open Directory
   // in the first place. A dot has to lead the whole way to the thing.
   const anyPendingAccess =
-    (isAdmin || isExecutive) && accessRequests.some((r) => r.status === 'pending');
+    isAdmin && accessRequests.some((r) => r.status === 'pending');
   const directoryNeedsAttention =
     myWeeklyIsStale ||
     hasUnseenTimeOff() ||

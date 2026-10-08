@@ -89,9 +89,13 @@ export function atLeast(user, column, level) {
   return (RANK[accessLevel(user, column)] ?? 0) >= (RANK[level] ?? 0);
 }
 
+// A person's job row decides their folders. On top of that, an admin can
+// give one person one extra folder by approving an access request - stored
+// as permissions.extraFolders, and listed in Manage Logins under "Also given".
 export function canSeeFolder(user, folderId) {
   const f = accessLevel(user, 'folders');
-  return f === 'all' || (Array.isArray(f) && f.includes(folderId));
+  if (f === 'all' || (Array.isArray(f) && f.includes(folderId))) return true;
+  return (user?.permissions?.extraFolders ?? []).includes(folderId);
 }
 
 // The old feature switches, answered by the table.
@@ -109,6 +113,8 @@ export function featureAllowed(user, key) {
   if (!user) return false;
   if (user.role === 'admin') return true;
   if (key === 'support') return true;
+  // One extra part of the Hub given to one person by an approved request.
+  if ((user.permissions?.extraFeatures ?? []).includes(key)) return true;
   const col = FEATURE_COLUMN[key];
   return col ? accessLevel(user, col) !== 'none' : true;
 }

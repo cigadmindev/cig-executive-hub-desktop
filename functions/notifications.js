@@ -154,7 +154,7 @@ exports.onAccessRequestCreated = onDocumentCreated(
     if (!req) return;
     const people = R.admins(await R.activeUsers()).filter((u) => u.email !== req.userEmail);
     await notifyPeople(people, (req.userName ?? 'Someone') + ' asked for access', 'To ' + (req.targetLabel ?? 'something'), {
-      speed: ACTION, topic: 'accessRequest', path: '/admin/pending-requests', ref: 'accessRequest/' + event.params.id,
+      speed: ACTION, topic: 'accessRequest', path: '/access-requests', ref: 'accessRequest/' + event.params.id,
       button: 'Review the request', why: 'You got this because you are an admin.',
     });
   }
@@ -166,17 +166,32 @@ exports.onAccessRequestResolved = onDocumentUpdated(
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
     if (!before || !after) return;
-    if (before.status !== 'pending' || after.status === 'pending') return;
-    await resolveRef('accessRequest/' + event.params.id, after.resolvedByName ?? null);
+    if (before.status === after.status) return;
+    if (before.status === 'pending') await resolveRef('accessRequest/' + event.params.id, after.resolvedByName ?? null);
     // Found by email, with the uid kept - the old version dropped it, and
     // then dropped anyone without the iPhone app, so nobody was ever told.
     const people = (await R.activeUsers()).filter((u) => u.email && u.email === after.userEmail);
+    const what = after.targetLabel ?? 'that area';
+    const word = { pending: 'Waiting', approved: 'Approved', denied: 'Declined' };
+    const opts = { speed: ACTION, topic: 'accessRequest', path: '/directory', button: 'Open the Directory', why: 'You got this because you asked for access.' };
+
+    // An admin moved it by hand - say what changed and why.
+    if (after.statusChangedAt && after.statusChangedAt !== before.statusChangedAt) {
+      const title = after.status === 'approved' ? 'You now have access to ' + what
+        : before.status === 'approved' ? 'Your access to ' + what + ' was removed'
+        : 'Your access request changed';
+      await notifyPeople(people, title,
+        (after.statusChangedByName || 'An admin') + ' changed it from ' + (word[before.status] ?? before.status) + ' to ' + (word[after.status] ?? after.status) + '. ' + (after.statusChangeReason || ''),
+        opts);
+      return;
+    }
+    if (before.status !== 'pending') return;
     const approved = after.status === 'approved';
     await notifyPeople(
       people,
-      approved ? 'You now have access to ' + (after.targetLabel ?? 'a new area') : 'Your access request was denied',
-      approved ? 'It is in your Directory now.' : 'For ' + (after.targetLabel ?? 'that area') + '.',
-      { speed: ACTION, topic: 'accessRequest', path: '/directory', button: 'Open the Directory', why: 'You got this because you asked for access.' }
+      approved ? 'You now have access to ' + what : 'Your access request was declined',
+      approved ? 'It is in your Directory now.' : 'For ' + what + '. ' + (after.declineReason ? 'Reason: ' + after.declineReason : 'No reason was given.'),
+      opts
     );
   }
 );

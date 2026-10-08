@@ -10,16 +10,20 @@
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 const { notifyPeople, resolveRef, ACTION, AMBIENT } = require('./notify');
+const R = require('./routing');
 
 /** The people behind a set of titles and uids, without duplicates. */
-async function taggedPeople({ needs = [], notifyUids = [] }, exceptUid) {
+// A job tag means that job at this entry's location. It used to mean that job
+// everywhere - a catering confirmation at Starkville emailed every GM and chef
+// at every restaurant. Particular people tagged by name are told wherever they are.
+async function taggedPeople({ needs = [], notifyUids = [], brandId = null, locationId = null }, exceptUid) {
   if (needs.length === 0 && notifyUids.length === 0) return [];
   const snap = await admin.firestore().collection('users').get();
   return snap.docs
     .map((d) => ({ uid: d.id, ...d.data() }))
     .filter((u) => u.active !== false)
     .filter((u) => u.uid !== exceptUid)
-    .filter((u) => notifyUids.includes(u.uid) || (u.job && needs.includes(u.job)));
+    .filter((u) => notifyUids.includes(u.uid) || (u.job && needs.includes(u.job) && R.seesLocation(u, brandId, locationId)));
 }
 
 // Straight to the day it is on, rather than to today.
@@ -81,8 +85,8 @@ exports.onTaggedEntryUpdated = onDocumentUpdated(
   // Only the newly tagged - unless the date moved, in which case everyone
   // tagged needs telling, because the thing they were told about has changed.
   const audience = movedDate
-    ? { needs: after.needs ?? [], notifyUids: after.notifyUids ?? [] }
-    : { needs: addedNeeds, notifyUids: addedUids };
+    ? { needs: after.needs ?? [], notifyUids: after.notifyUids ?? [], brandId: after.brandId ?? null, locationId: after.locationId ?? null }
+    : { needs: addedNeeds, notifyUids: addedUids, brandId: after.brandId ?? null, locationId: after.locationId ?? null };
 
   const people = await taggedPeople(audience, after.authorUid);
   if (people.length === 0) return;

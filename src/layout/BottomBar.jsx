@@ -46,7 +46,9 @@ const ROUTE_GROUPS = {
     '/work-orders',
     '/announcements',
     '/executive-notes',
-    '/admin/pending-requests',
+    '/access-requests',
+    '/device-requests',
+    '/catering',
   ],
   profile: ['/profile', '/support', '/admin/users'],
 };

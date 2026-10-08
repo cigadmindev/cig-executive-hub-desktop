@@ -45,7 +45,7 @@ import { AccessMatrixProvider } from './context/AccessMatrixContext';
 import { atLeast } from './data/accessMatrix';
 import RenewalsScreen from './screens/RenewalsScreen';
 import AdminUsersScreen from './screens/AdminUsersScreen';
-import PendingRequestsScreen from './screens/PendingRequestsScreen';
+import AccessRequestsScreen from './screens/AccessRequestsScreen';
 import SupportScreen from './screens/SupportScreen';
 import IntegrationRequestsScreen from './screens/IntegrationRequestsScreen';
 import OpeningSoonScreen from './screens/OpeningSoonScreen';
@@ -113,7 +113,9 @@ function Gate() {
         <Route path="/availability" element={<RequireFeature feature="availability"><AvailabilityScreen /></RequireFeature>} />
         <Route path="/admin/users" element={<AdminUsersScreen />} />
         <Route path="/admin/offboarding" element={<RequireReviewer><OffboardingScreen /></RequireReviewer>} />
-        <Route path="/admin/pending-requests" element={<PendingRequestsScreen />} />
+        <Route path="/access-requests" element={<AccessRequestsScreen />} />
+        {/* Emails sent before 8 October link here. */}
+        <Route path="/admin/pending-requests" element={<Navigate to="/access-requests" replace />} />
         <Route path="/admin/email-preview" element={<EmailPreviewScreen />} />
         <Route path="/brand/:brandId/location/:locationId/opening-checklist" element={<RequireBrand><RequireFeature feature="openingChecklist"><OpeningChecklistScreen /></RequireFeature></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<RequireBrand><RequireFeature feature="operationalPoc"><OperationalPOCScreen /></RequireFeature></RequireBrand>} />
