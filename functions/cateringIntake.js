@@ -162,6 +162,16 @@ exports.pullCateringEnquiries = onSchedule(
     // Tells the right people about one enquiry, and records that it did, so
     // a crash between saving and telling is caught on the next run (S12).
     const announce = async (docRef, e) => {
+      // Claimed first, so if something after the emails fails, the next run
+      // (5 minutes later) does not send them all again. A claim older than
+      // 30 minutes means that attempt died before sending, so it is retried.
+      const claimed = await db.runTransaction(async (tx) => {
+        const now = (await tx.get(docRef)).data() ?? {};
+        if (now.notifiedAt || (now.announcingAt && Date.now() - now.announcingAt < 30 * 60 * 1000)) return false;
+        tx.update(docRef, { announcingAt: Date.now() });
+        return true;
+      });
+      if (!claimed) return;
       const isPrivateEvent = e.kind === 'privateEvent';
       const who = e.name || 'Someone';
       const what = (isPrivateEvent ? 'Private event' : 'Catering') + (e.guests ? ' for ' + e.guests : '');
@@ -241,7 +251,13 @@ exports.pullCateringEnquiries = onSchedule(
           .createHash('sha256')
           .update([isPrivateEvent ? 'p' : 'c', norm(get('email')) || norm(get('phone')), norm(get('name')), norm(get('preferredDate')), norm(get('guests')), norm(valueFor(lines, FIELDS.about, true)).slice(0, 300)].join('|'))
           .digest('hex');
-        const twin = await db.collection('cateringEnquiries').where('fingerprint', '==', fingerprint).limit(1).get();
+        // Only when the email names who is asking. A form that did not read
+        // (all blank) would otherwise look the same as every other blank one,
+        // and the second would be dropped as a "copy".
+        const identifiable = Boolean((norm(get('email')) || norm(get('phone'))) && norm(get('name')));
+        const twin = identifiable
+          ? await db.collection('cateringEnquiries').where('fingerprint', '==', fingerprint).limit(1).get()
+          : { empty: true };
         if (!twin.empty) {
           await twin.docs[0].ref.update({ alsoForwardedBy: admin.firestore.FieldValue.arrayUnion(forwardedBy ?? from) });
           console.log('Same enquiry forwarded again by ' + (forwardedBy ?? from) + ' - kept as one.');

@@ -214,7 +214,7 @@ const names = (ls) => ls.map(([, n]) => n).join(', ');
 const daysAgo = (n) => centralKey(new Date(Date.now() - n * 24 * 60 * 60 * 1000));
 
 exports.dailyChecklistWatch = onSchedule(
-  { schedule: '0 22 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'] },
+  { schedule: '0 22 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
   async () => {
     const db = admin.firestore();
     const users = await R.activeUsers();
@@ -247,7 +247,7 @@ exports.dailyChecklistWatch = onSchedule(
 );
 
 exports.dailyClosingWatch = onSchedule(
-  { schedule: '0 10 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'] },
+  { schedule: '0 10 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
   async () => {
     const db = admin.firestore();
     const users = await R.activeUsers();

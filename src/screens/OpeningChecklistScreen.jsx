@@ -31,6 +31,10 @@ export default function OpeningChecklistScreen() {
   // Admins, the COO and the beverage manager can restructure the list itself -
   // add an item, remove one, or put someone's name against it.
   const canEdit = canEditChecklists(user);
+  // Tick or Edit can change dates, notes and documents. View rows (Financials,
+  // Real Estate) only read - the database refuses their saves, so the screen
+  // doesn't offer them (8 Oct 2026).
+  const canTick = atLeast(user, 'openingChecklist', 'tick');
 
   // Adding items in the app is what removes the need for a per-city template.
   // Birmingham adds its own permits rather than someone writing a checklist
@@ -286,6 +290,7 @@ export default function OpeningChecklistScreen() {
   // everything). This just nudges one task. It's the same document the
   // Calendar reads, so the move shows up there automatically too.
   const startEditItemDate = (item) => {
+    if (!canTick) return;
     setEditingDateItemId(item.id);
     setItemDateDraft(new Date(item.dateTime).toISOString().slice(0, 10));
   };
@@ -293,26 +298,40 @@ export default function OpeningChecklistScreen() {
     if (!itemDateDraft) return;
     setConfirmingItemDate({ item, newDate: new Date(itemDateDraft).getTime() });
   };
-  const confirmItemDateChange = () => {
-    updateEntry(confirmingItemDate.item.id, { dateTime: confirmingItemDate.newDate });
+  // Waited for, so a refused or failed save says so instead of showing the
+  // new date and quietly going back (8 Oct 2026).
+  const confirmItemDateChange = async () => {
+    const { item, newDate } = confirmingItemDate;
     setConfirmingItemDate(null);
     setEditingDateItemId(null);
+    try {
+      await updateEntry(item.id, { dateTime: newDate });
+    } catch (err) {
+      notify('Could not change the date', err?.message ?? 'Nothing was changed. Try again.');
+    }
   };
 
-  const updateSetupField = (item, field, value) => {
-    // The document sits at the top level rather than inside openingFields —
-    // it's a file reference, not a text field, and the renewal record reads
-    // it from there when a permit is signed off.
-    if (field === '__document') {
-      updateEntry(item.id, { document: value });
-      // Both places hold the same permit, so attaching it once should be
-      // enough. Waiting for sign-off meant a document could sit on the
-      // checklist for weeks while the renewal record showed nothing.
-      const type = RENEWAL_TYPE_BY_KEY[item.setupKey];
-      if (type) setRenewalDocument(renewalDocId(locationId, type), value);
-      return;
+  const updateSetupField = async (item, field, value) => {
+    if (!canTick) return;
+    try {
+      // The document sits at the top level rather than inside openingFields —
+      // it's a file reference, not a text field, and the renewal record reads
+      // it from there when a permit is signed off.
+      if (field === '__document') {
+        // The checklist first: if that is refused, the renewal record is not
+        // changed either, so the two never disagree.
+        await updateEntry(item.id, { document: value });
+        // Both places hold the same permit, so attaching it once should be
+        // enough. Waiting for sign-off meant a document could sit on the
+        // checklist for weeks while the renewal record showed nothing.
+        const type = RENEWAL_TYPE_BY_KEY[item.setupKey];
+        if (type) await setRenewalDocument(renewalDocId(locationId, type), value);
+        return;
+      }
+      await updateEntry(item.id, { openingFields: { ...item.openingFields, [field]: value } });
+    } catch (err) {
+      notify('Could not save', err?.message ?? 'Nothing was changed. Try again.');
     }
-    updateEntry(item.id, { openingFields: { ...item.openingFields, [field]: value } });
   };
 
   const renderUrgencyBadge = (item, urgency, onClick) => {
@@ -519,6 +538,10 @@ export default function OpeningChecklistScreen() {
                           <span style={styles.rowMeta}>{item.doneBy || 'Done'}</span>
                         ) : overdue ? (
                           <span style={styles.rowOverdueLabel}>Overdue</span>
+                        ) : !canTick ? (
+                          <span style={styles.rowMeta}>
+                            {new Date(item.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                          </span>
                         ) : (
                           <button
                             style={styles.rowDateButton}
@@ -563,6 +586,7 @@ export default function OpeningChecklistScreen() {
                           <ItemDetails
                             item={item}
                             onSave={updateSetupField}
+                            readOnly={!canTick}
                             locationId={locationId}
                             userName={user?.name}
                             assignableUsers={canEdit ? assignableUsers : null}
@@ -647,6 +671,10 @@ export default function OpeningChecklistScreen() {
                         <span style={styles.rowMeta}>{item.doneBy || 'Done'}</span>
                       ) : overdue ? (
                         <span style={styles.rowOverdueLabel}>Overdue</span>
+                      ) : !canTick ? (
+                        <span style={styles.rowMeta}>
+                          {new Date(item.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        </span>
                       ) : (
                         <button
                           style={styles.rowDateButton}
@@ -675,6 +703,7 @@ export default function OpeningChecklistScreen() {
                         <ItemDetails
                           item={item}
                           onSave={updateSetupField}
+                          readOnly={!canTick}
                           locationId={locationId}
                           userName={user?.name}
                           assignableUsers={canEdit ? assignableUsers : null}

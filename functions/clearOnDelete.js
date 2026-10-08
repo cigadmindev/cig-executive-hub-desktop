@@ -41,6 +41,11 @@ for (const [collection, prefix] of Object.entries(PREFIX)) {
   const name = 'onDeleted_' + collection;
   exports[name] = onDocumentDeleted({ document: collection + '/{id}' }, async (event) => {
     const n = await clearRef(prefix + '/' + event.params.id);
+    // Why someone was off is kept apart from the request (S6); when the
+    // request goes, so does the reason, rather than lingering on its own.
+    if (collection === 'timeOffRequests') {
+      await admin.firestore().collection('timeOffReasons').doc(event.params.id).delete().catch(() => {});
+    }
     if (n) console.log('Cleared ' + n + ' notification(s) for deleted ' + collection + '/' + event.params.id);
   });
 }

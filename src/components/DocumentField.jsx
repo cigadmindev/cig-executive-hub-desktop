@@ -13,7 +13,7 @@ import { useDialog } from '../hooks/useDialog';
 //
 // Replaces rather than accumulates: there's one current version of a permit,
 // and keeping every superseded copy makes finding the live one harder.
-export default function DocumentField({ locationId, itemKey, value, onChange, userName }) {
+export default function DocumentField({ locationId, itemKey, value, onChange, userName, readOnly = false }) {
   const { dialogNode, confirm } = useDialog();
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -114,13 +114,19 @@ export default function DocumentField({ locationId, itemKey, value, onChange, us
           <button style={styles.fileLink} onClick={openDocument} disabled={busy}>
             {value.name}
           </button>
-          <button style={styles.smallBtn} onClick={pick} disabled={busy}>
-            Replace
-          </button>
-          <button style={styles.smallBtn} onClick={remove} disabled={busy}>
-            Remove
-          </button>
+          {readOnly ? null : (
+            <>
+              <button style={styles.smallBtn} onClick={pick} disabled={busy}>
+                Replace
+              </button>
+              <button style={styles.smallBtn} onClick={remove} disabled={busy}>
+                Remove
+              </button>
+            </>
+          )}
         </div>
+      ) : readOnly ? (
+        <span style={styles.label}>None attached yet</span>
       ) : (
         <button style={styles.uploadBtn} onClick={pick} disabled={busy}>
           {busy ? 'Uploading…' : '+ Attach document'}

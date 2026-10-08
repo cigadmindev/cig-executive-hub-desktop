@@ -278,7 +278,7 @@ exports.moveReceiptPeriod = onCall(async (request) => {
 // 07:00 - yesterday's receipts to the COO
 // ---------------------------------------------------------------------------
 exports.expenseDailyToCoo = onSchedule(
-  { schedule: '0 7 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'] },
+  { schedule: '0 7 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
   async () => {
     const db = admin.firestore();
     const yesterday = addDays(centralDateKey(new Date()), -1);
@@ -353,7 +353,7 @@ exports.expenseDailyToCoo = onSchedule(
 // 08:00 - reminders, and a warning before the calendar runs out
 // ---------------------------------------------------------------------------
 exports.expensePeriodJobs = onSchedule(
-  { schedule: '0 8 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'] },
+  { schedule: '0 8 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
   async () => {
     const { notifyPeople, ACTION } = require('./notify');
     const db = admin.firestore();

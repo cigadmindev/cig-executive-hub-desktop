@@ -520,8 +520,13 @@ service cloud.firestore {
     // the rest of the Team rows see the dates in timeOffRequests.
     match /timeOffReasons/{requestId} {
       allow read: if isAdmin() || isCoo() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      // Your own reason, on your own request. The reason is saved just before
+      // the request (so the email about it can include it), so a request
+      // that doesn't exist yet is fine; one that exists must be yours.
       allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid
-        && (resource == null || resource.data.uid == request.auth.uid);
+        && (resource == null || resource.data.uid == request.auth.uid)
+        && (!exists(/databases/$(database)/documents/timeOffRequests/$(requestId))
+          || get(/databases/$(database)/documents/timeOffRequests/$(requestId)).data.uid == request.auth.uid);
       allow delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
     }
 

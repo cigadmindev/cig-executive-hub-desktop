@@ -35,6 +35,8 @@ export default function ItemDetails({
   dependencyOptions = null,
   onChangeDependencies = null,
   templateDependencyIds = null,
+  // View-only people see what has been filled in, with nothing to change.
+  readOnly = false,
 }) {
   const { dialogNode, confirm } = useDialog();
   // Fields added this session but not yet saved — without this they'd vanish
@@ -71,20 +73,29 @@ export default function ItemDetails({
         <div style={styles.fieldRow}>
           {visible.map((f) => (
             <div key={f.key} style={f.wide ? styles.fieldWide : styles.field}>
-              <button
-                style={styles.remove}
-                onClick={() => removeField(f.key, f.label)}
-                title={`Remove ${f.label}`}
-              >
-                ×
-              </button>
-              <ConfirmEditField
-                label={f.label}
-                type={f.type}
-                multiline={f.multiline}
-                value={item.openingFields?.[f.key]}
-                onSave={(v) => onSave(item, f.key, v)}
-              />
+              {readOnly ? (
+                <p style={styles.readOnlyField}>
+                  <span style={styles.readOnlyLabel}>{f.label}</span>
+                  {item.openingFields?.[f.key]}
+                </p>
+              ) : (
+                <>
+                  <button
+                    style={styles.remove}
+                    onClick={() => removeField(f.key, f.label)}
+                    title={`Remove ${f.label}`}
+                  >
+                    ×
+                  </button>
+                  <ConfirmEditField
+                    label={f.label}
+                    type={f.type}
+                    multiline={f.multiline}
+                    value={item.openingFields?.[f.key]}
+                    onSave={(v) => onSave(item, f.key, v)}
+                  />
+                </>
+              )}
             </div>
           ))}
         </div>
@@ -171,11 +182,12 @@ export default function ItemDetails({
           itemKey={item.setupKey}
           value={item.document ?? null}
           userName={userName}
+          readOnly={readOnly}
           onChange={(doc) => onSave(item, '__document', doc)}
         />
       ) : null}
 
-      {available.length > 0 ? (
+      {!readOnly && available.length > 0 ? (
         <div style={styles.pickerWrap}>
         <span style={styles.pickerLabel}>Add a field</span>
         <select
@@ -208,6 +220,8 @@ export default function ItemDetails({
 }
 
 const styles = {
+  readOnlyField: { margin: '4px 0', fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' },
+  readOnlyLabel: { display: 'block', fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 2 },
   wrap: { padding: '10px 16px 14px 46px' },
   // Stacked rather than side by side — a row of narrow boxes reads as a form
   // to fill out; a short vertical list reads as the few things this item

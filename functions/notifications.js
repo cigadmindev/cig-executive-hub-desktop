@@ -211,7 +211,7 @@ exports.onAccessRequestResolved = onDocumentUpdated(
 const STEPS = [60, 30, 7, 0];
 
 exports.renewalWarnings = onSchedule(
-  { schedule: '30 7 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'] },
+  { schedule: '30 7 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
   async () => {
     const db = admin.firestore();
     const users = await R.activeUsers();
