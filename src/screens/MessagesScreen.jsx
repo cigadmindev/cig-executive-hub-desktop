@@ -3,7 +3,7 @@ import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import MessageReactions, { ReactionPicker } from '../components/MessageReactions';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref as storageRef, uploadBytes } from 'firebase/storage';
 import { storage } from '../firebaseConfig';
 import ChatAttachment from '../components/ChatAttachment';
 import { useDialog } from '../hooks/useDialog';
@@ -96,9 +96,10 @@ export default function MessagesScreen() {
       const path = `chatAttachments/${activeId}/${stamp}`;
       const fileRefStorage = storageRef(storage, path);
       await uploadBytes(fileRefStorage, file);
-      const url = await getDownloadURL(fileRefStorage);
+      // Where the file is, not a link to it: a link works for anyone who has
+      // it. People in the conversation open it through a short link the
+      // server checks (8 Oct).
       await sendMessage(activeId, '', {
-        url,
         path,
         name: file.name,
         contentType: file.type,
@@ -365,6 +366,7 @@ export default function MessagesScreen() {
                         {m.text ? <div>{m.text}</div> : null}
                         {m.attachment ? (
                           <ChatAttachment
+                            messageId={m.id}
                             attachment={m.attachment}
                             onView={() => markAttachmentViewed(m.id, m.attachment)}
                           />

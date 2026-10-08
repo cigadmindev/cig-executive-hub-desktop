@@ -399,6 +399,14 @@ service cloud.firestore {
       allow delete: if isAdmin() || (isSignedIn() && resource.data.get('createdBy', null) == request.auth.uid);
     }
 
+    // A file on a message is stored as where it is, never as a download link -
+    // a link works for anyone who has it (8 Oct 2026).
+    function noFileLink() {
+      return request.resource.data.get('attachment', null) == null
+        || !('url' in request.resource.data.attachment)
+        || request.resource.data.attachment.url == null;
+    }
+
     match /messages/{messageId} {
       allow read: if isSignedIn() && request.auth.uid in resource.data.memberUids;
       // As yourself, into a conversation you are really in - checked against
@@ -408,7 +416,8 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.senderUid == request.auth.uid
         && request.auth.uid in convo(request.resource.data.conversationId).memberUids
-        && request.resource.data.memberUids == convo(request.resource.data.conversationId).memberUids;
+        && request.resource.data.memberUids == convo(request.resource.data.conversationId).memberUids
+        && noFileLink();
       // The sender can edit their own message. Everyone in the conversation can
       // react and mark an attachment viewed — but only those fields, so a
       // member can't rewrite someone else's words on their way to adding a
@@ -422,7 +431,7 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(['reactions', 'attachment'])
         )
-      );
+      ) && noFileLink();
       // Your own message, or every message when whoever started the chat
       // deletes the whole conversation. Not anyone's in the group (S3).
       allow delete: if isAdmin() || (isSignedIn() && (request.auth.uid == resource.data.senderUid

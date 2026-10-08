@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // A file on a message. Transient by design: the scheduled sweep deletes it
 // from Storage once everyone in the thread has viewed it, so anyone who needs
@@ -6,8 +7,30 @@ import React from 'react';
 //
 // The lifecycle is stated on the row rather than left as a surprise — a file
 // quietly disappearing is worse than one that told you it would.
-export default function ChatAttachment({ attachment, onView }) {
+// Opened through a ten-minute link the server hands out only to people in the
+// conversation - never a stored link that works for anyone who has it.
+export default function ChatAttachment({ messageId, attachment, onView }) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState('');
   if (!attachment) return null;
+
+  const open = async () => {
+    setBusy(true);
+    setFailed('');
+    const tab = window.open('', '_blank');
+    try {
+      const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'getChatAttachmentUrl');
+      const res = await fn({ messageId });
+      if (tab) tab.location.href = res.data.url;
+      else window.location.assign(res.data.url);
+      onView?.();
+    } catch (err) {
+      if (tab) tab.close();
+      setFailed(err?.message ?? 'Could not open it.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (attachment.removed) {
     return (
@@ -29,18 +52,11 @@ export default function ChatAttachment({ attachment, onView }) {
       <div style={styles.badge}>{kind}</div>
       <div style={styles.meta}>
         <div style={styles.name}>{attachment.name}</div>
-        <div style={styles.note}>Removed once everyone has seen it</div>
+        <div style={styles.note}>{failed || 'Removed once everyone has seen it'}</div>
       </div>
-      <a
-        href={attachment.url}
-        download={attachment.name}
-        target="_blank"
-        rel="noreferrer"
-        style={styles.download}
-        onClick={onView}
-      >
-        DOWNLOAD
-      </a>
+      <button type="button" style={{ ...styles.download, background: 'none', cursor: 'pointer', fontFamily: 'inherit' }} onClick={open} disabled={busy}>
+        {busy ? 'OPENING…' : 'DOWNLOAD'}
+      </button>
     </div>
   );
 }

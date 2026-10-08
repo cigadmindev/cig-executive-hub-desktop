@@ -339,6 +339,8 @@ Object.assign(exports, require('./leavers'));
 Object.assign(exports, require('./clearOnDelete'));
 // Likes and comments go through the server, so nobody can edit someone else's (S5).
 Object.assign(exports, require('./postReactions'));
+// Chat files open through a short link checked against the conversation.
+Object.assign(exports, require('./chatAttachments'));
 
 Object.assign(exports, require('./dailyDigest'));
 
