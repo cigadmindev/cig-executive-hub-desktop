@@ -238,10 +238,17 @@ export default function OpeningChecklistScreen() {
     if (!atLeast(user, 'openingChecklist', 'tick')) return;
     setConfirmingItem(item);
   };
-  const confirmToggleDone = () => {
+  const confirmToggleDone = async () => {
     const item = confirmingItem;
-    toggleOpeningItemDone(item.id, !item.done, user?.name ?? 'Unknown');
     setConfirmingItem(null);
+    // Waited for, so a refused or failed save says so instead of looking
+    // ticked and quietly not being (8 Oct 2026).
+    try {
+      await toggleOpeningItemDone(item.id, !item.done, user?.name ?? 'Unknown');
+    } catch (err) {
+      notify(item.done ? 'Could not un-tick it' : 'Could not sign it off', err?.message ?? 'Nothing was changed. Try again.');
+      return;
+    }
 
     // Permits and licenses have a second life after they're obtained. Rather
     // than making someone re-enter the same dates on the Renewals screen —

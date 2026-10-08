@@ -49,16 +49,16 @@ service cloud.firestore {
     }
     // Restructuring a checklist - adding an item, deleting one, or putting
     // someone's name against it - belongs to the people responsible for what
-    // is on the list: admins, the COO, and the beverage manager. Being an
-    // executive is not the same as owning the checklist.
+    // is on the list: admins, and the rows marked Edit in Who sees what - the
+    // COO, Culinary Director / Manager and Beverage Manager. Culinary was
+    // missing here, so the page showed them the controls and then refused
+    // the save (8 Oct 2026). Being an executive is not the same as owning the
+    // checklist.
     //
     // Mirrors canEditChecklists in the app. If one changes, change both.
     function canEditChecklists() {
-      return isLive() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'COO' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'Beverage Manager'
-      );
+      return isLive() && (me().role == 'admin'
+        || me().job in ['COO', 'Culinary Director', 'Culinary Manager', 'Beverage Manager']);
     }
 
     // Finance is a job, not a role - Sam is an executive whose job is
