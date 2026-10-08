@@ -9,6 +9,7 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   writeBatch,
 } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -185,7 +186,15 @@ export function ChatProvider({ children }) {
 
   const sendMessage = async (conversationId, text, attachment = null) => {
     if (!user) return;
-    const convo = allConversationsRaw.find((c) => c.id === conversationId);
+    // The member list must match the conversation exactly - the rule checks
+    // it (S3). A conversation just created may not be in the list yet, so
+    // read it rather than guess.
+    let convo = allConversationsRaw.find((c) => c.id === conversationId);
+    if (!convo) {
+      const snap = await getDoc(doc(db, 'conversations', conversationId));
+      convo = snap.exists() ? snap.data() : null;
+    }
+    if (!convo) throw new Error('That conversation no longer exists.');
     await addDoc(collection(db, 'messages'), {
       conversationId,
       senderUid: user.uid,
@@ -194,7 +203,7 @@ export function ChatProvider({ children }) {
       reactions: [],
       attachment,
       timestamp: Date.now(),
-      memberUids: convo?.memberUids ?? [user.uid],
+      memberUids: convo.memberUids,
       edited: false,
     });
     await updateDoc(doc(db, 'conversations', conversationId), {
@@ -234,6 +243,12 @@ export function ChatProvider({ children }) {
   const unreadCount = user ? conversations.reduce((sum, c) => sum + getUnreadCountForConversation(c.id), 0) : 0;
 
   const deleteConversation = async (conversationId) => {
+    // Only whoever started it (or an admin) can delete a whole conversation -
+    // it removes everyone's messages (S3).
+    const convoToDelete = conversations.find((c) => c.id === conversationId);
+    if (user?.role !== 'admin' && convoToDelete && convoToDelete.createdBy && convoToDelete.createdBy !== user?.uid) {
+      throw new Error('Only the person who started this conversation can delete it.');
+    }
     // Chat is private to its members now, admins included, so there is no
     // wider read to branch on - everyone deletes only what they can see.
     const messagesQuery = query(

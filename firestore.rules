@@ -378,32 +378,55 @@ service cloud.firestore {
     // conversation, which is why the app used to warn people their messages
     // were not private. Both the oversight screens and that warning are gone,
     // so the rule matches what people are now told: only members can read.
+    // A conversation, read from the database rather than trusted from the
+    // message (S3, 8 Oct 2026).
+    function convo(id) {
+      return get(/databases/$(database)/documents/conversations/$(id)).data;
+    }
+
     match /conversations/{conversationId} {
       allow read: if isSignedIn() && request.auth.uid in resource.data.memberUids;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && request.auth.uid in resource.data.memberUids;
-      allow delete: if isSignedIn() && request.auth.uid in resource.data.memberUids;
+      // Started by you, with you in it.
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.memberUids
+        && request.resource.data.createdBy == request.auth.uid;
+      // Members only move the "last message" line and their own read marker -
+      // nobody can add people, remove them, or rename it behind their backs.
+      allow update: if isSignedIn() && request.auth.uid in resource.data.memberUids
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['lastMessageText', 'lastMessageTimestamp', 'lastMessageSenderUid', 'lastReadTimestamps']);
+      // Deleting it (and everyone's messages) is for whoever started it, or an admin.
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.get('createdBy', null) == request.auth.uid);
     }
 
     match /messages/{messageId} {
       allow read: if isSignedIn() && request.auth.uid in resource.data.memberUids;
-      // As yourself, into a conversation you are in.
+      // As yourself, into a conversation you are really in - checked against
+      // the conversation itself. The message used to say who was in it, so
+      // anyone could send into any chat, and anyone could be "told" about it
+      // (S3, 8 Oct 2026).
       allow create: if isSignedIn()
         && request.resource.data.senderUid == request.auth.uid
-        && request.auth.uid in request.resource.data.memberUids;
+        && request.auth.uid in convo(request.resource.data.conversationId).memberUids
+        && request.resource.data.memberUids == convo(request.resource.data.conversationId).memberUids;
       // The sender can edit their own message. Everyone in the conversation can
       // react and mark an attachment viewed — but only those fields, so a
       // member can't rewrite someone else's words on their way to adding a
       // thumbs up.
       allow update: if isSignedIn() && (
-        request.auth.uid == resource.data.senderUid
+        (request.auth.uid == resource.data.senderUid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['text', 'edited', 'reactions', 'attachment']))
         || (
           request.auth.uid in resource.data.memberUids
           && request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(['reactions', 'attachment'])
         )
       );
-      allow delete: if isSignedIn() && (request.auth.uid == resource.data.senderUid || request.auth.uid in resource.data.memberUids || isAdmin());
+      // Your own message, or every message when whoever started the chat
+      // deletes the whole conversation. Not anyone's in the group (S3).
+      allow delete: if isAdmin() || (isSignedIn() && (request.auth.uid == resource.data.senderUid
+        || convo(resource.data.conversationId).get('createdBy', null) == request.auth.uid));
     }
 
     // Time off carries reasons - "medical appointment", "funeral" - so it is

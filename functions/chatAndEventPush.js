@@ -102,11 +102,20 @@ exports.onChatMessageCreated = onDocumentCreated(
   { document: 'messages/{id}', secrets: ['RESEND_API_KEY'] },
   async (event) => {
     const msg = event.data?.data();
-    if (!msg) return;
-    const recipients = (msg.memberUids ?? []).filter((uid) => uid !== msg.senderUid);
+    if (!msg || !msg.conversationId) return;
+    // Who is told comes from the conversation itself, never from the message
+    // - a message could name anyone (S3, 8 Oct 2026).
+    const convo = await admin.firestore().collection('conversations').doc(msg.conversationId).get();
+    if (!convo.exists) return;
+    const members = convo.data().memberUids ?? [];
+    if (!members.includes(msg.senderUid)) return;
+    const recipients = members.filter((uid) => uid !== msg.senderUid);
     if (recipients.length === 0) return;
     const people = await peopleForUids(recipients);
-    await notifyPeople(people, 'Message from ' + (msg.senderName ?? 'someone'), clip(msg.text, 160) || 'Sent you something in the Hub.', {
+    // Never the words of the message: not in the bell, the email or a phone's
+    // lock screen. Messages are read in the Hub, where only the people in the
+    // conversation can see them (8 Oct 2026).
+    await notifyPeople(people, 'New message from ' + (msg.senderName ?? 'someone'), 'Open Messages in the Hub to read it.', {
       speed: ACTION,
       topic: 'message',
       path: '/messages',

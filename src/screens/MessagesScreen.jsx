@@ -131,7 +131,12 @@ export default function MessagesScreen() {
 
   const handleSend = () => {
     if (!text.trim() || !activeId) return;
-    sendMessage(activeId, text.trim());
+    const sent = text.trim();
+    // If it does not go, say so and put the words back rather than losing them.
+    sendMessage(activeId, sent).catch((err) => {
+      setText(sent);
+      notify('Message not sent', err?.message ?? 'Try again.');
+    });
     setText('');
     if (inputRef.current) inputRef.current.style.height = 'auto';
   };
@@ -168,9 +173,13 @@ export default function MessagesScreen() {
       body: 'All its messages will be permanently removed for everyone. This cannot be undone.',
       confirmLabel: 'Delete',
       tone: 'danger',
-      onConfirm: () => {
-        deleteConversation(id);
-        if (activeId === id) setActiveId(null);
+      onConfirm: async () => {
+        try {
+          await deleteConversation(id);
+          if (activeId === id) setActiveId(null);
+        } catch (err) {
+          notify('Could not delete it', err?.message ?? 'Try again.');
+        }
       },
     });
   };
