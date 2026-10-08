@@ -31,7 +31,8 @@
 // expenses        catch-up week Monday / Thursday     everyone who can submit receipts                 urgent
 // expenses        calendar about to run out           admins and finance                               urgent
 // post            a restaurant or company post        everyone who can see it                          summary
-// folderPost      a post in a location's folder       everyone who can open that folder there          summary
+// folderPost      a post in a location's folder       everyone whose Who sees what row (or an approved summary
+//                                                     request) opens that folder, at that location
 //
 // "Urgent" emails straight away. "Summary" waits for the 8am email.
 // Finance (job: Financials) hears about expenses, Financials folder posts,
@@ -97,13 +98,25 @@ function seesLocation(u, brandId, locationId = null) {
   return !Array.isArray(only) || only.length === 0 || only.includes(locationId);
 }
 
-// Should this person be told about a post in this folder?
-function hearsFolder(u, categoryId) {
+// The live Who sees what table: the approved defaults plus any cell an admin
+// changed in Manage Logins (accessMatrix/{row}). Read once per send.
+const M = require('./accessMatrix.gen');
+async function liveMatrix() {
+  const snap = await admin.firestore().collection('accessMatrix').get();
+  const overrides = Object.fromEntries(snap.docs.map((d) => [d.id, d.data()]));
+  return Object.fromEntries(M.ROWS.map((row) => [row.id, { ...row.d, ...(overrides[row.id] ?? {}) }]));
+}
+
+// Should this person be told about a post in this folder? The same answer
+// the screens give: their job's folders in Who sees what, plus any folder an
+// admin gave them by approving a request. It used to read the old per-person
+// folder list, which nothing else reads any more - so someone without
+// Financials could be emailed a Financials post.
+function hearsFolder(u, categoryId, matrix) {
   if (isAdmin(u)) return true;
-  if (isFinance(u)) return categoryId === 'financials';
-  if (u.role === 'executive') return true;
-  const ids = u.permissions?.categoryIds;
-  return !Array.isArray(ids) || ids.includes(categoryId);
+  const f = M.accessLevel(u, 'folders', matrix);
+  if (f === 'all' || (Array.isArray(f) && f.includes(categoryId))) return true;
+  return (u.permissions?.extraFolders ?? []).includes(categoryId);
 }
 
 // The people with these jobs who work at this location.
@@ -138,8 +151,9 @@ async function postAudience(users, post) {
 
 async function folderPostAudience(users, post) {
   const brandId = await brandForLocation(post.locationId);
+  const matrix = await liveMatrix();
   return users.filter(
-    (u) => u.uid !== post.authorUid && notGhost(u) && seesLocation(u, brandId, post.locationId) && hearsFolder(u, post.categoryId)
+    (u) => u.uid !== post.authorUid && notGhost(u) && seesLocation(u, brandId, post.locationId) && hearsFolder(u, post.categoryId, matrix)
   );
 }
 

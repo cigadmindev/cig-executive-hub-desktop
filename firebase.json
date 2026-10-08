@@ -10,6 +10,9 @@
         "firebase-debug.log",
         "firebase-debug.*.log",
         "*.local"
+      ],
+      "predeploy": [
+        "node \"$RESOURCE_DIR/../sync-access-matrix.cjs\""
       ]
     }
   ],
