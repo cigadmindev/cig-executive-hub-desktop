@@ -176,10 +176,12 @@ export default function ItemDetails({
       {/* The permit itself. Kept out of the field picker because it isn't
           one of several optional notes — it's the artifact the task exists
           to produce, and it travels into the renewal record afterwards. */}
-      {locationId && item.setupKey ? (
+      {/* Every item can hold its document - items added in the Hub (no
+          setupKey) too, filed under the item's own id (8 Oct 2026). */}
+      {locationId ? (
         <DocumentField
           locationId={locationId}
-          itemKey={item.setupKey}
+          itemKey={item.setupKey || item.id}
           value={item.document ?? null}
           userName={userName}
           readOnly={readOnly}
