@@ -22,7 +22,9 @@ async function liveMatrix() {
 
 // Can this person see this post at all? The same answer the rules give.
 async function canSee(me, collection, post) {
-  if (me.role === 'admin' || collection === 'supportAnnouncements') return true;
+  if (me.role === 'admin') return true;
+  // A Support update: sent to everyone, or to this person by name.
+  if (collection === 'supportAnnouncements') return post.visibleToAll === true || (post.visibleToUids ?? []).includes(me.uid);
   if (collection === 'brandPosts') {
     if (me.role === 'executive' || post.targetId === 'all') return true;
     const mine = me.permissions?.brandIds ?? [];
@@ -61,10 +63,16 @@ exports.reactToPost = onCall(async (request) => {
       if (!body) throw new HttpsError('invalid-argument', 'Write something first.');
       if (body.length > 2000) throw new HttpsError('invalid-argument', 'That comment is too long.');
       const comment = { id: Date.now().toString() + '-' + uid.slice(0, 6), uid, authorName: me.name ?? 'Unknown', text: body, timestamp: Date.now() };
-      if (collection !== 'supportAnnouncements') comment.likedBy = [];
-      // A new comment brings the post back up, as it always has - except on
-      // Support, where replies are private to the person and admins.
-      tx.update(ref, { comments: [...comments, comment], ...(collection === 'supportAnnouncements' ? {} : { timestamp: Date.now() }) });
+      // A reply on Support is private to the person and admins, so it gets
+      // its own record (B1.1) instead of going inside the update, which
+      // everyone it was sent to can read.
+      if (collection === 'supportAnnouncements') {
+        tx.set(db.collection('supportReplies').doc(postId + '_' + comment.id), { postId: String(postId), ...comment });
+        return;
+      }
+      comment.likedBy = [];
+      // A new comment brings the post back up, as it always has.
+      tx.update(ref, { comments: [...comments, comment], timestamp: Date.now() });
       return;
     }
     if (action === 'commentLike') {

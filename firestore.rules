@@ -603,11 +603,23 @@ service cloud.firestore {
 
     // Posting a support announcement is an admin action, not one person's.
     match /supportAnnouncements/{id} {
-      allow read: if isSignedIn();
+      // An update sent to everyone, or to you by name; admins see them all.
+      // It used to be readable by anyone signed in, whoever it was for (B1.1).
+      allow read: if isAdmin() || (isSignedIn() && (resource.data.visibleToAll == true
+        || request.auth.uid in resource.data.visibleToUids));
       allow create: if isAdmin();
       // Admins only; likes and replies go through the server (S5).
       allow update: if isAdmin();
       allow delete: if isAdmin();
+    }
+
+    // Your private reply to an update on the Support page: you and admins
+    // only. Replies used to sit inside the update itself, where anyone who
+    // could read the update could read every reply (B1.1, 8 Oct 2026).
+    // Written only by the server (reactToPost).
+    match /supportReplies/{id} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow write: if false;
     }
 
     match /openingLocationInfo/{locationId} {
