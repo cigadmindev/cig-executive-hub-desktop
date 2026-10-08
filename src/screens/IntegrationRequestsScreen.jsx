@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
+import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import {
   useIntegrationRequests,
   SYSTEMS,
@@ -30,6 +31,7 @@ export default function IntegrationRequestsScreen() {
   const [saving, setSaving] = useState(false);
 
   const [openId, setOpenId] = useState(null);
+  const [filter, setFilter] = useState('open');
   const [draftResponse, setDraftResponse] = useState('');
 
   // Every location this person can reach, so a request can say where it
@@ -83,10 +85,9 @@ export default function IntegrationRequestsScreen() {
   const handleRespond = async (r, status) => {
     try {
       await respond(r.id, { response: draftResponse, status });
-      setOpenId(null);
-      setDraftResponse('');
+      setFilter(status);
       notify(
-        status === 'done' ? 'Marked done' : 'Marked in progress',
+        status === 'done' ? 'Marked done' : status === 'open' ? 'Reopened' : 'Marked in progress',
         draftResponse.trim() ? 'They will see your reply.' : 'No reply was sent.'
       );
     } catch (err) {
@@ -173,38 +174,70 @@ export default function IntegrationRequestsScreen() {
     );
   };
 
-  return (
-    <div style={styles.wrap}>
-      <div style={pageHeader}>
-        <div>
-          <h1 style={styles.title}>Systems Help</h1>
-          <p style={styles.subtitle}>
-            {handlesRequests
-              ? 'Everything anyone has asked about Toast, R365 and OpenTable.'
-              : 'Something that needs changing in Toast, R365 or OpenTable — or help with any of them.'}
-          </p>
-        </div>
-        <button style={pageAction} onClick={() => setFormOpen(true)}>
-          + New Request
-        </button>
-      </div>
+  const STATUS = { open: ['Waiting', 'amber'], in_progress: ['Being worked on', 'cyan'], done: ['Done', 'green'] };
+  const rows = requests.filter((r) => r.status === filter).sort((a, b) => b.createdAt - a.createdAt);
+  const selected = requests.find((r) => r.id === openId) ?? rows[0] ?? null;
+  const isAdmin = user?.role === 'admin';
 
-      {open.length === 0 && working.length === 0 && done.length === 0 ? (
-        <p style={styles.empty}>Nothing yet.</p>
-      ) : (
-        <>
-          {open.length > 0 ? <p style={styles.sectionLabel}>Waiting</p> : null}
-          {open.map(renderRequest)}
-          {working.length > 0 ? <p style={styles.sectionLabel}>Being worked on</p> : null}
-          {working.map(renderRequest)}
-          {done.length > 0 ? (
-            <>
-              <p style={styles.sectionLabel}>Done</p>
-              {done.map(renderRequest)}
-            </>
-          ) : null}
-        </>
-      )}
+  const detailPanel = !selected ? (
+    <div style={d.placeholder}>Pick a request to see it here.</div>
+  ) : (
+    <div style={d.card}>
+      <p style={d.kicker}>{STATUS[selected.status]?.[0]} · {selected.kind === 'help' ? 'Help' : 'Change'}</p>
+      <p style={d.title}>{selected.system}</p>
+      <div style={d.row}><span style={d.k}>From</span><span style={d.v}>{selected.createdByName}</span></div>
+      {selected.locationName ? <div style={d.row}><span style={d.k}>Where</span><span style={d.v}>{selected.locationName}</span></div> : null}
+      <div style={d.row}><span style={d.k}>Asked</span><span style={d.v}>{when(selected.createdAt)}</span></div>
+      <div style={d.row}><span style={d.k}>Details</span><span style={{ ...d.v, whiteSpace: 'pre-wrap' }}>{selected.detail}</span></div>
+      {selected.response ? (
+        <div style={d.section}>
+          <p style={d.sectionLabel}>REPLY · {selected.respondedByName} · {when(selected.respondedAt)}</p>
+          <p style={{ fontSize: 13, color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap' }}>{selected.response}</p>
+        </div>
+      ) : null}
+      {handlesRequests ? (
+        <div style={d.section}>
+          <p style={d.sectionLabel}>{selected.status === 'done' && !isAdmin ? 'UPDATE THE REPLY' : 'REPLY'}</p>
+          {selected.createdByUid === user?.uid ? <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 8px' }}>You raised this one; you can answer it because you also handle these.</p> : null}
+          <textarea
+            style={{ ...d.input, minHeight: 80, resize: 'vertical' }}
+            value={draftResponse}
+            onChange={(e) => setDraftResponse(e.target.value)}
+            placeholder={selected.kind === 'help' ? 'How to do it…' : 'What you changed, and where…'}
+          />
+          <div style={{ ...d.actions, marginTop: 4 }}>
+            {selected.status !== 'in_progress' ? <button style={d.ghost} onClick={() => handleRespond(selected, 'in_progress')}>Being worked on</button> : null}
+            {selected.status !== 'done' ? <button style={d.primary} onClick={() => handleRespond(selected, 'done')}>Mark as done</button> : null}
+            {selected.status === 'done' ? <button style={d.ghost} onClick={() => handleRespond(selected, 'open')}>Reopen</button> : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <div>
+      <RequestPage
+        title="Systems Help"
+        subtitle={handlesRequests ? 'Everything anyone has asked about Toast, R365 and OpenTable.' : 'Something that needs changing in Toast, R365 or OpenTable — or help with any of them.'}
+        actionLabel="+ New Request"
+        onAction={() => setFormOpen(true)}
+        filters={Object.entries(STATUS).map(([k, [l]]) => ({ key: k, label: l, count: requests.filter((r) => r.status === k).length }))}
+        filter={filter}
+        onFilter={(k) => { setFilter(k); setOpenId(null); }}
+        columns={[
+          { key: 'what', label: 'Request', render: (r) => <><strong>{r.system}</strong><div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{r.kind === 'help' ? 'Help' : 'Change'}{r.locationName ? ' · ' + r.locationName : ''}</div></> },
+          ...(handlesRequests ? [{ key: 'who', label: 'From', render: (r) => r.createdByName }] : []),
+          { key: 'when', label: 'Asked', render: (r) => when(r.createdAt) },
+          { key: 'status', label: 'Status', render: (r) => <Pill tone={STATUS[r.status]?.[1]}>{STATUS[r.status]?.[0]}</Pill> },
+        ]}
+        rows={rows}
+        selectedId={selected?.id}
+        onSelect={(id) => { setOpenId(id); setDraftResponse(requests.find((r) => r.id === id)?.response ?? ''); }}
+        detail={detailPanel}
+        empty="Nothing in this list."
+        note={handlesRequests ? null : 'You see only your own requests. IT & Training answers them, and you are emailed the reply.'}
+      />
 
       {formOpen ? (
         <div style={styles.backdrop} onClick={() => !saving && setFormOpen(false)}>

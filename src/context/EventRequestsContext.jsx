@@ -68,7 +68,6 @@ export function EventRequestsProvider({ children }) {
           statusChangedByName: data.statusChangedByName ?? '',
           statusChangedAt: data.statusChangedAt ?? null,
           statusChangeReason: data.statusChangeReason ?? '',
-          resolvedAt: data.resolvedAt ?? null,
           createdAt: data.createdAt ?? null,
           denialReason: data.denialReason ?? '',
           timestamp: data.timestamp,
