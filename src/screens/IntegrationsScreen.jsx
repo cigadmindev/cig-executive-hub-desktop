@@ -1,8 +1,8 @@
 import React from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { brands } from '../data/mockData';
-import Icon from '../components/Icon';
 import { useCustomLocations } from '../context/CustomLocationsContext';
+import PageHeader from '../components/PageHeader';
 
 const INTEGRATIONS = [
   { key: 'toast', label: 'Toast POS', blurb: 'Sales, labor, and shift data pulled in from Toast.' },
@@ -22,14 +22,11 @@ export default function IntegrationsScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to={`/brand/${brand.id}/location/${location.id}`} style={styles.backLink}>
-        ‹ {location.name}
-      </Link>
-      <h1 style={{ ...styles.title, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Icon name="plug" size={22} color="#FFFFFF" />
-        Integrations
-      </h1>
-      <p style={styles.subtitle}>Connections specific to this location — these will be connected soon.</p>
+      <PageHeader
+        back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
+        title="Integrations"
+        subtitle="The systems this location uses. Not connected to the Hub yet."
+      />
 
       <div style={styles.grid}>
         {INTEGRATIONS.map((i) => (
@@ -48,9 +45,6 @@ export default function IntegrationsScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 760 },
-  backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
-  title: { fontSize: 22, fontWeight: 700, margin: '0 0 6px' },
-  subtitle: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 22px', lineHeight: 1.5 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 },
   card: {
     background: 'var(--bg-card)',
@@ -59,7 +53,6 @@ const styles = {
     padding: 20,
     textAlign: 'center',
   },
-  cardIcon: { fontSize: 28, margin: '0 0 8px' },
   cardTitle: { fontSize: 14, fontWeight: 700, margin: '0 0 8px' },
   cardBlurb: { fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px', minHeight: 34 },
   connectButton: {

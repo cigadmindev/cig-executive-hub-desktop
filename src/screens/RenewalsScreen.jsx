@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRenewals, isRenewalDueSoon } from '../context/RenewalsContext';
 import { brands , canEditChecklists } from '../data/mockData';
@@ -9,7 +9,7 @@ import { useSchedule } from '../context/ScheduleContext';
 import { useDialog } from '../hooks/useDialog';
 import DocumentField from '../components/DocumentField';
 import { RENEWAL_TYPE_BY_KEY } from '../data/checklists';
-import { nike } from '../theme/nike';
+import PageHeader from '../components/PageHeader';
 
 function formatDate(ts) {
   if (!ts) return 'Not set';
@@ -114,10 +114,13 @@ export default function RenewalsScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to={`/brand/${brand.id}/location/${location.id}`} style={styles.backLink}>
-        ‹ {location.name}
-      </Link>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>License & Lease Renewals</h1>
+      <PageHeader
+        back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
+        title="License & Lease Renewals"
+        subtitle="Every permit and lease for this location, and when each one needs renewing."
+        actionLabel={canEdit && !addOpen ? '+ Add permit' : null}
+        onAction={() => setAddOpen(true)}
+      />
 
       {/* Per location: a permit added here is on this location's list and
           nowhere else, and one removed here is still on everyone else's. */}
@@ -151,11 +154,7 @@ export default function RenewalsScreen() {
                 Cancel
               </button>
             </>
-          ) : (
-            <button style={styles.addCancel} onClick={() => setAddOpen(true)}>
-              + Add permit
-            </button>
-          )}
+          ) : null}
           <div style={{ flex: 1 }} />
           <button style={styles.addCancel} onClick={() => setShowHidden((v) => !v)}>
             {showHidden ? 'Hide removed' : 'Show removed'}
@@ -336,8 +335,6 @@ const styles = {
   actionRow: { display: 'flex', gap: 10, marginBottom: 10 },
 
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 640 },
-  backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
-  title: { fontSize: 22, fontWeight: 700, margin: '0 0 20px' },
   body: {},
   // Only visible with Show removed on, and it needs to read as removed
   // rather than as another permit in the list.

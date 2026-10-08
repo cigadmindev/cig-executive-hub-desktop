@@ -11,7 +11,6 @@ import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useEventRequests } from '../context/EventRequestsContext';
 import RequestAccessModal from '../components/RequestAccessModal';
 import { useHomeSummary } from '../hooks/useHomeSummary';
-import { nike } from '../theme/nike';
 import { useBrandAnnouncements } from '../context/BrandAnnouncementsContext';
 import PostCard from '../components/PostCard';
 import { accessLevel } from '../data/accessMatrix';
@@ -95,7 +94,7 @@ export default function HomeScreen() {
           <p style={{ ...styles.eyebrow, color: 'var(--neon)' }}>
             {new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
-          <h1 style={{ ...styles.title, ...nike.pageTitle, fontSize: 32 }}>Welcome back, {user?.name?.split(' ')[0]}</h1>
+          <h1 className="hub-page-title" style={{ margin: 0, textTransform: 'none' }}>Welcome back, {user?.name?.split(' ')[0]}</h1>
         </div>
         {/* The shape of the day in three numbers, before reading anything. */}
         {/* Always shown, zeros included. A number that disappears when it
@@ -486,7 +485,6 @@ const styles = {
   page: { padding: '36px max(22px, min(44px, 4vw))', maxWidth: 1040 },
   header: { marginBottom: 32 },
   eyebrow: { fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.7, margin: '0 0 6px' },
-  title: { fontSize: 26, fontWeight: 700, letterSpacing: -0.4, margin: 0 },
   gridNarrow: { display: 'grid', gridTemplateColumns: '1fr', gap: 9 },
   grid: {
     display: 'grid',

@@ -13,9 +13,8 @@ import MonthCalendar from '../components/MonthCalendar';
 import TimePickerField from '../components/TimePickerField';
 import DatePickerField from '../components/DatePickerField';
 import { useViewTracking } from '../context/ViewTrackingContext';
-import { getOpeningItemUrgency } from '../data/openingChecklistData';
 import { useDialog } from '../hooks/useDialog';
-import { nike } from '../theme/nike';
+import PageHeader from '../components/PageHeader';
 
 function dayKey(d) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -258,7 +257,15 @@ export default function CalendarScreen() {
   return (
     <div style={styles.page}>
       <header style={styles.header}>
-        <h1 style={styles.title}>Calendar</h1>
+        <PageHeader
+          title="Calendar"
+          subtitle="What's scheduled across your restaurants: events, permits, checklists and time off."
+          actionLabel="+ Add event"
+          onAction={() => {
+            if (!selectedDate) setSelectedDate(new Date());
+            openNewForm();
+          }}
+        />
         <div style={styles.filterRow}>
           <button
             style={{ ...styles.filterChip, ...(filterBrandId === 'all' ? styles.filterChipActive : {}) }}
@@ -304,11 +311,6 @@ export default function CalendarScreen() {
                   <p style={styles.detailEyebrow}>{selectedDate.toLocaleDateString([], { weekday: 'long' })}</p>
                   <h2 style={styles.detailTitle}>{selectedDate.toLocaleDateString([], { month: 'long', day: 'numeric' })}</h2>
                 </div>
-                {true ? (
-                  <button style={styles.addButton} onClick={openNewForm}>
-                    + Add Event
-                  </button>
-                ) : null}
               </div>
 
               {selectedEntries.length === 0 ? (
@@ -636,7 +638,6 @@ const styles = {
 
   page: { padding: '32px max(22px, min(40px, 4vw))', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
   header: { marginBottom: 24 },
-  title: { fontSize: 30, fontWeight: 900, letterSpacing: -0.7, textTransform: 'uppercase', color: '#FFFFFF', margin: '0 0 14px' },
   filterRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   filterChip: {
     display: 'flex',
@@ -674,15 +675,6 @@ const styles = {
   detailHeaderRow: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18 },
   detailEyebrow: { fontSize: 11, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 2px' },
   detailTitle: { fontSize: 24, fontWeight: 900, letterSpacing: -0.5, margin: 0, textTransform: 'uppercase', color: '#FFFFFF' },
-  addButton: {
-    padding: '8px 16px',
-    borderRadius: 10,
-    background: 'var(--neon)',
-    color: 'var(--neon-text)',
-    fontSize: 12,
-    fontWeight: 900,
-    textTransform: 'uppercase',
-  },
   confirmOpeningBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 },
   linkButton: { fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 },
 

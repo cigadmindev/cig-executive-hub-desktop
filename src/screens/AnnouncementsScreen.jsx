@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { categories, brands } from '../data/mockData';
 import { useAnnouncements } from '../context/AnnouncementsContext';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
-import { nike } from '../theme/nike';
 import { useDialog } from '../hooks/useDialog';
+import PageHeader from '../components/PageHeader';
 
 export default function AnnouncementsScreen() {
   const { dialogNode, notify } = useDialog();
@@ -46,11 +46,7 @@ export default function AnnouncementsScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to={backPath} style={styles.backLink}>
-        ‹ {category.label}
-      </Link>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm, fontSize: 24 }}>New Post — {category.label}</h1>
-      <p style={styles.note}>Posting for: {location.name}</p>
+      <PageHeader back={{ to: backPath, label: category.label }} title={`New post · ${category.label}`} subtitle={`Posting for ${location.name}.`} />
 
       <textarea
         style={styles.textarea}
@@ -80,8 +76,6 @@ export default function AnnouncementsScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 560 },
-  backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
-  title: { fontSize: 20, fontWeight: 700, margin: '0 0 4px' },
   note: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 14px' },
   textarea: {
     width: '100%',

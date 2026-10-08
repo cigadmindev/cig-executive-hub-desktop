@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useDialog } from '../hooks/useDialog';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { brands , canEditChecklists } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
@@ -9,7 +9,7 @@ import { ALL_CONTACT_SECTIONS } from '../data/openingChecklistData';
 import ConfirmEditField from '../components/ConfirmEditField';
 import SearchBar from '../components/SearchBar';
 import { useState } from 'react';
-import { nike } from '../theme/nike';
+import PageHeader from '../components/PageHeader';
 
 export default function OperationalPOCScreen() {
   const { brandId, locationId } = useParams();
@@ -42,22 +42,18 @@ export default function OperationalPOCScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to={`/brand/${brand.id}/location/${location.id}`} style={styles.backLink}>
-        ‹ {location.name}
-      </Link>
-      <div style={styles.titleRow}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Operational POC</h1>
-        <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={contacts.map((c) => c.item)} placeholder="Search contacts…" />
-      </div>
-      <p style={styles.subtitle}>
-        Permanent point-of-contact reference — vendor relationships and opening/operational orders, not tied to
-        the calendar. Initial Set-Up items and licenses/permits now live on the Opening Checklist and License &
-        Lease Renewals screens instead.
-      </p>
+      <PageHeader
+        back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
+        title="Operational POC"
+        subtitle="Who to call for this location: vendors, service companies and suppliers."
+        extras={<SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={contacts.map((c) => c.item)} placeholder="Search contacts…" />}
+        actionLabel={canEdit && !addOpen ? '+ Add contact' : null}
+        onAction={() => setAddOpen(true)}
+      />
 
       {q ? <p style={styles.searchHint}>Showing results for "{searchQuery}".</p> : null}
 
-      {canEdit ? (
+      {canEdit && addOpen ? (
         <div style={styles.addRow}>
           {addOpen ? (
             <>
@@ -102,11 +98,7 @@ export default function OperationalPOCScreen() {
                 Cancel
               </button>
             </>
-          ) : (
-            <button style={styles.addCancel} onClick={() => setAddOpen(true)}>
-              + Add contact
-            </button>
-          )}
+          ) : null}
         </div>
       ) : null}
 
@@ -181,11 +173,7 @@ export default function OperationalPOCScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(40px, 4vw))' },
-  backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
-  title: { fontSize: 22, fontWeight: 700, margin: 0 },
-  titleRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
   searchHint: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 14px' },
-  subtitle: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 20px', lineHeight: 1.5 },
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
   sectionHead: {
     display: 'flex',

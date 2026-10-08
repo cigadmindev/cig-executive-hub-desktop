@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
-import { nike } from '../theme/nike';
 import { useDialog } from '../hooks/useDialog';
+import PageHeader from '../components/PageHeader';
 
 // Admin only. Every email the Hub sends, drawn by the real template with
 // sample content, with who gets it and what triggers it - and a button to
@@ -52,11 +52,7 @@ export default function EmailPreviewScreen() {
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Email preview</h1>
-      <p style={styles.subtitle}>
-        Every email the Hub sends, exactly as it arrives. Pick one to see who gets it and what triggers it, or send
-        yourself a copy.
-      </p>
+      <PageHeader title="Email preview" subtitle="Every email the Hub sends, exactly as it arrives. Pick one to see who gets it, or send yourself a copy." />
       <div style={styles.columns}>
         <div style={styles.listCard}>
           {groups.map((g) => (
@@ -97,8 +93,6 @@ export default function EmailPreviewScreen() {
 
 const styles = {
   page: { padding: '24px 28px 60px', maxWidth: 1200 },
-  title: { margin: '0 0 6px', color: 'var(--text-primary)' },
-  subtitle: { fontSize: 14, color: 'var(--text-secondary)', margin: '0 0 20px', lineHeight: 1.5 },
   columns: { display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' },
   listCard: { flex: '0 0 300px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '6px 0 10px' },
   group: { fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '14px 16px 4px' },

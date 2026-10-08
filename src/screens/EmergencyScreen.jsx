@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
-import { nike } from '../theme/nike';
+import PageHeader from '../components/PageHeader';
 
 // What to do when something happens at a restaurant.
 //
@@ -192,10 +192,7 @@ export default function EmergencyScreen() {
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Emergency Procedures</h1>
-      <p style={styles.subtitle}>
-        In every situation the safety of guests and staff comes first — and always call your direct supervisor.
-      </p>
+      <PageHeader title="Emergency Procedures" subtitle="Guests and staff come first, every time. Always call your direct supervisor." />
 
       <div style={styles.list}>
         {SITUATIONS.map((s) => {
@@ -264,8 +261,6 @@ export default function EmergencyScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 820 },
-  title: { fontSize: 22, fontWeight: 700, margin: 0 },
-  subtitle: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)', margin: '6px 0 20px' },
 
   list: { background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden' },
   item: { borderBottom: '1px solid var(--border)' },

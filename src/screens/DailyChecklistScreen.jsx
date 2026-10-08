@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDailyRecord, todayKey, isManagerOnDuty } from '../hooks/useDailyChecklists';
 import { useDialog } from '../hooks/useDialog';
+import { backLink } from '../theme/pageHeader';
 
 // One daily checklist, laid out like the printed sheet. The manager on duty
 // ticks each task once it's verified; every GM or assistant manager who
@@ -51,7 +52,7 @@ export default function DailyChecklistScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to={`/brand/${brandId}/location/${locationId}/daily-checklists?date=${dateKey}`} style={styles.back}>‹ Daily checklists</Link>
+      <Link to={`/brand/${brandId}/location/${locationId}/daily-checklists?date=${dateKey}`} style={backLink}>‹ Daily checklists</Link>
       <div style={styles.columns}>
         <div style={styles.sheet}>
           <p style={styles.brand}>TASTE ITALIAN KITCHEN — STARKVILLE</p>
@@ -153,7 +154,6 @@ export default function DailyChecklistScreen() {
 
 const styles = {
   page: { padding: '24px 28px 60px', maxWidth: 1200 },
-  back: { color: 'var(--text-secondary)', textDecoration: 'none', fontSize: 13 },
   columns: { display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start', marginTop: 10 },
   sheet: { flex: '1 1 600px', minWidth: 0, background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 22px' },
   side: { flex: '0 1 320px', minWidth: 260, display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 16 },

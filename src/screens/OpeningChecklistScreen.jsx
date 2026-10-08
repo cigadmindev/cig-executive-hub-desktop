@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { brands, canEditChecklists , hasFeature } from '../data/mockData';
-import Icon from '../components/Icon';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useSchedule } from '../context/ScheduleContext';
 import { useOpeningInfo } from '../context/OpeningInfoContext';
@@ -14,9 +13,9 @@ import ConfirmEditField from '../components/ConfirmEditField';
 import ItemDetails from '../components/ItemDetails';
 import DatePickerField from '../components/DatePickerField';
 import SearchBar from '../components/SearchBar';
-import { nike } from '../theme/nike';
 import { atLeast } from '../data/accessMatrix';
 import { useDialog } from '../hooks/useDialog';
+import PageHeader from '../components/PageHeader';
 
 function formatDate(ts) {
   if (!ts) return null;
@@ -360,16 +359,14 @@ export default function OpeningChecklistScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to={`/brand/${brand.id}/location/${location.id}`} style={styles.backLink}>
-        ‹ {location.name}
-      </Link>
-      <div style={styles.titleRow}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Opening Checklist</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={searchSuggestions} placeholder="Search tasks…" />
-          {/* Regenerate removed 6 Oct 2026 - items can be added directly now. */}
-        </div>
-      </div>
+      <PageHeader
+        back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
+        title="Opening Checklist"
+        subtitle="Everything that has to happen before this location opens, and who is doing it."
+        extras={<SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={searchSuggestions} placeholder="Search tasks…" />}
+        actionLabel={canEdit && info.openingDate ? '+ Add item' : null}
+        onAction={() => openAddForm('setup')}
+      />
       {q ? <p style={styles.searchHint}>Showing results for "{searchQuery}" across Initial Set-Up and Timeline.</p> : null}
 
       <div style={styles.section}>
@@ -450,11 +447,6 @@ export default function OpeningChecklistScreen() {
       <div style={styles.section}>
         <div style={styles.sectionHeaderRow}>
           <h2 style={styles.sectionHeader}>Initial Set-Up POC</h2>
-          {canEdit && info.openingDate ? (
-            <button style={styles.addItemButton} onClick={() => openAddForm('setup')}>
-              + Add item
-            </button>
-          ) : null}
         </div>
         {setupItems.length === 0 ? (
           <p style={styles.hint}>Set an opening date above to generate this checklist.</p>
@@ -611,11 +603,6 @@ export default function OpeningChecklistScreen() {
       <div style={styles.section}>
         <div style={styles.sectionHeaderRow}>
           <h2 style={styles.sectionHeader}>Opening Timeline</h2>
-          {canEdit && info.openingDate ? (
-            <button style={styles.addItemButton} onClick={() => openAddForm('timeline')}>
-              + Add item
-            </button>
-          ) : null}
         </div>
         {q && visibleTimelineItems.length === 0 && openingItems.some((i) => i.openingItemType === 'timeline') ? (
           <p style={styles.hint}>No Timeline items match "{searchQuery}".</p>
@@ -859,9 +846,25 @@ export default function OpeningChecklistScreen() {
         <div style={styles.modalBackdrop} onClick={() => !savingNew && setAddingToList(null)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Add a checklist item</h2>
-            <p style={styles.modalSubtitle}>
-              {addingToList === 'setup' ? 'Initial Set-Up POC' : 'Opening Timeline'}
-            </p>
+            {/* One "+ Add item" at the top of the page (V1); which list it
+                goes on is chosen here. */}
+            <p style={styles.modalFieldLabel}>Which list</p>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+              {[['setup', 'Initial Set-Up POC'], ['timeline', 'Opening Timeline']].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  style={{ ...styles.listChoice, ...(addingToList === key ? styles.listChoiceOn : {}) }}
+                  onClick={() => {
+                    setAddingToList(key);
+                    setNewSection('');
+                    setNewSectionCustom('');
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
             <p style={styles.modalFieldLabel}>What is it</p>
             <input
@@ -925,32 +928,19 @@ export default function OpeningChecklistScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(40px, 4vw))' },
-  backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
-  title: { fontSize: 22, fontWeight: 700, margin: 0 },
-  titleRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
-  regenerateButton: { padding: '8px 14px', borderRadius: 10, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' },
   searchHint: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' },
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   modalCard: { width: 'min(420px, calc(100vw - 32px))', maxHeight: '82vh', overflowY: 'auto', background: 'var(--bg-elevated)', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 4px' },
-  modalSubtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 18px' },
   modalFieldLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 5px' },
   modalInput: { width: '100%', boxSizing: 'border-box', height: 36, padding: '0 11px', marginBottom: 14, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
   modalNote: { fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.6, margin: '4px 0 0' },
   addConfirmButton: { width: '100%', marginTop: 18, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer' },
   sectionHeaderRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 0 14px' },
   sectionHeader: { fontSize: 15, fontWeight: 700, margin: 0 },
-  addItemButton: {
-    background: 'none',
-    border: '1px solid var(--border-strong)',
-    borderRadius: 8,
-    color: 'var(--text-secondary)',
-    fontSize: 12,
-    fontWeight: 600,
-    padding: '6px 12px',
-    cursor: 'pointer',
-  },
+  listChoice: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 16, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  listChoiceOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
   label: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: '14px 0 8px' },
   provisionalNote: {

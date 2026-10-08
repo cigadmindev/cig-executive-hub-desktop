@@ -3,7 +3,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../hooks/useDialog';
-import { nike } from '../theme/nike';
+import PageHeader from '../components/PageHeader';
 
 // HR, in one place.
 //
@@ -77,21 +77,23 @@ export default function HRScreen() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.headRow}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>HR</h1>
-        {isAdmin ? (
-          <button
-            style={styles.editButton}
-            onClick={() => {
-              setDraft(settings);
-              setEditing(true);
-            }}
-          >
-            Edit
-          </button>
-        ) : null}
-      </div>
-      <p style={styles.subtitle}>The same for every restaurant. Forms, and who to talk to.</p>
+      <PageHeader
+        title="HR"
+        subtitle="The same for every restaurant. Forms, and who to talk to."
+        extras={
+          isAdmin ? (
+            <button
+              style={styles.editButton}
+              onClick={() => {
+                setDraft(settings);
+                setEditing(true);
+              }}
+            >
+              Edit
+            </button>
+          ) : null
+        }
+      />
 
       <p style={styles.sectionLabel}>Forms</p>
 
@@ -210,9 +212,6 @@ export default function HRScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 820 },
-  headRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  title: { fontSize: 22, fontWeight: 700, margin: 0 },
-  subtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 20px' },
   editButton: { padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
 
   sectionLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '18px 0 8px' },

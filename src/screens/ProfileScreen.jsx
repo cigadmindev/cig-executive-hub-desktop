@@ -5,6 +5,7 @@ import { useOffboarding } from '../context/OffboardingContext';
 import { useSupportRequests } from '../context/SupportRequestsContext';
 import { useTheme } from '../context/ThemeContext';
 import Icon from '../components/Icon';
+import PageHeader from '../components/PageHeader';
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
@@ -102,6 +103,7 @@ export default function ProfileScreen() {
 
   return (
     <div style={styles.page}>
+      <PageHeader title="Profile" subtitle="Your details, and how the Hub emails you." />
       <div style={styles.profileCard}>
         <button style={styles.avatarWrap} onClick={openProfileEdit}>
           <div style={styles.avatarPlaceholder}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
@@ -288,7 +290,6 @@ const styles = {
     marginBottom: 18,
   },
   avatarWrap: { position: 'relative', marginBottom: 12, border: 'none', background: 'none', padding: 0, cursor: 'pointer' },
-  avatarImage: { width: 76, height: 76, borderRadius: 38, objectFit: 'cover' },
   avatarPlaceholder: {
     width: 76,
     height: 76,
@@ -362,29 +363,6 @@ const styles = {
   errorText: { color: 'var(--danger)', fontSize: 12, marginTop: 8 },
   cancelButton: { flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
   dangerButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--danger)', color: '#FFFFFF', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
-  profilePhotoRow: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 },
-  profilePhotoPreviewImg: { width: 56, height: 56, borderRadius: 28, objectFit: 'cover' },
-  profilePhotoPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    background: 'var(--accent)',
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 700,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoPickButton: {
-    padding: '8px 14px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)',
-    color: 'var(--text-primary)',
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
   prefWrap: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 },
   prefRow: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', textAlign: 'left' },
   prefRowOn: { borderColor: 'var(--neon)', background: 'rgba(34,211,238,0.08)' },

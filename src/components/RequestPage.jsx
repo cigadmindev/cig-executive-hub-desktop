@@ -1,6 +1,5 @@
 import React from 'react';
-import { nike } from '../theme/nike';
-import { pageHeader, pageAction } from '../theme/pageHeader';
+import PageHeader from './PageHeader';
 
 // The one layout every request page uses:
 //   title + one line on how it works, "+ New" top right
@@ -10,14 +9,7 @@ import { pageHeader, pageAction } from '../theme/pageHeader';
 export default function RequestPage({ back, title, subtitle, actionLabel, onAction, filters, filter, onFilter, columns, rows, selectedId, onSelect, detail, empty, note, children }) {
   return (
     <div style={styles.page}>
-      {back}
-      <div style={pageHeader}>
-        <div>
-          <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>{title}</h1>
-          {subtitle ? <p style={styles.subtitle}>{subtitle}</p> : null}
-        </div>
-        {actionLabel ? <button style={pageAction} onClick={onAction}>{actionLabel}</button> : null}
-      </div>
+      <PageHeader back={back} title={title} subtitle={subtitle} actionLabel={actionLabel} onAction={onAction} />
       {children}
       <div style={styles.filters}>
         {filters.map((f) => (
@@ -80,8 +72,6 @@ export const detailStyles = {
 
 const styles = {
   page: { padding: '24px 28px 60px', maxWidth: 1200 },
-  title: { margin: 0, color: 'var(--text-primary)' },
-  subtitle: { fontSize: 14, color: 'var(--text-secondary)', margin: '6px 0 0' },
   filters: { display: 'flex', gap: 6, flexWrap: 'wrap', margin: '4px 0 12px' },
   filter: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 16, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   filterOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },

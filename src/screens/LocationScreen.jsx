@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { brands, categories, hasFeature } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useRenewals, isRenewalDueSoon } from '../context/RenewalsContext';
@@ -13,6 +13,7 @@ import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
 import { iconName } from '../utils/iconGlyphs';
 import { DAILY_LOCATIONS } from '../data/dailyChecklists';
+import PageHeader from '../components/PageHeader';
 
 // Same directory-card language as mobile's LocationScreen: icon circle,
 // title, subtitle, badge, chevron.
@@ -116,10 +117,11 @@ export default function LocationScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to={`/brand/${brand.id}`} style={styles.backLink}>
-        ‹ {brand.name}
-      </Link>
-      <h1 style={{ ...styles.title, ...nike.pageTitle }}>{location.name}</h1>
+      <PageHeader
+        back={{ to: `/brand/${brand.id}`, label: brand.name }}
+        title={location.name}
+        subtitle="Everything for this location: operations, folders and requests."
+      />
 
       <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel }}>Operations</h3>
       <div style={styles.grid}>
@@ -208,8 +210,6 @@ export default function LocationScreen() {
 
 const styles = {
   page: { padding: '32px max(22px, min(40px, 4vw))', maxWidth: 760 },
-  backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 20 },
-  title: { margin: '4px 0 32px' },
   directoryHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 22, marginBottom: 10 },
   setupButton: { padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   sectionHeader: { margin: '32px 0 12px' },

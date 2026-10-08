@@ -5,9 +5,8 @@ import { brands } from '../data/mockData';
 import { atLeast } from '../data/accessMatrix';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import DatePickerField from '../components/DatePickerField';
-import { nike } from '../theme/nike';
-import { pageHeader, pageAction } from '../theme/pageHeader';
 import { useDialog } from '../hooks/useDialog';
+import PageHeader from '../components/PageHeader';
 
 // Availability - one page, the same for everyone:
 //   Waiting on you  (the COO and admins) time off to approve or deny
@@ -159,13 +158,12 @@ export default function AvailabilityScreen() {
 
   return (
     <div style={styles.page}>
-      <div style={pageHeader}>
-        <div>
-          <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Availability</h1>
-          <p style={styles.subtitle}>Your usual hours, your time off{seesTeam ? ', and your team' : ''} — one page for everyone.</p>
-        </div>
-        <button style={pageAction} onClick={() => setFormOpen(true)}>+ Request Time Off</button>
-      </div>
+      <PageHeader
+        title="Availability"
+        subtitle={`Your usual hours and your time off${seesTeam ? ', and your team\'s' : ''}.`}
+        actionLabel="+ Request time off"
+        onAction={() => setFormOpen(true)}
+      />
 
       {formOpen ? (
         <div style={styles.card}>
@@ -309,8 +307,6 @@ export default function AvailabilityScreen() {
 
 const styles = {
   page: { padding: '24px 28px 60px', maxWidth: 1100 },
-  title: { margin: 0, color: 'var(--text-primary)' },
-  subtitle: { fontSize: 14, color: 'var(--text-secondary)', margin: '6px 0 0' },
   card: { background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 16 },
   cardTitle: { fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' },
   note: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.5 },

@@ -3,8 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWorkOrders } from '../context/WorkOrdersContext';
 import SignaturePad from '../components/SignaturePad';
 import { useDialog } from '../hooks/useDialog';
-import { nike } from '../theme/nike';
-import { pageHeader, pageAction } from '../theme/pageHeader';
+import PageHeader from '../components/PageHeader';
 
 function formatDateTime(ts) {
   const d = new Date(ts);
@@ -99,12 +98,12 @@ export default function WorkOrdersScreen() {
 
   return (
     <div style={styles.page}>
-      <div style={pageHeader}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Signature Directory</h1>
-        <button style={pageAction} onClick={() => setCreateOpen(true)}>
-          + New Work Order
-        </button>
-      </div>
+      <PageHeader
+        title="Signature Directory"
+        subtitle="Documents that need signatures: the ones waiting for you, and the ones you sent."
+        actionLabel="+ New document"
+        onAction={() => setCreateOpen(true)}
+      />
 
       <div style={styles.tabRow}>
         <button style={{ ...styles.tab, ...(tab === 'queue' ? styles.tabActive : {}) }} onClick={() => setTab('queue')}>
@@ -443,9 +442,6 @@ const styles = {
   signerMeta: { fontSize: 11, color: 'var(--text-tertiary)' },
 
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 680 },
-  headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: 700, margin: 0 },
-  newButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
   tabRow: { display: 'flex', gap: 8, marginBottom: 20 },
   tab: { padding: '7px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' },
   tabActive: { background: 'var(--neon)', color: 'var(--neon-text)' },
@@ -470,8 +466,6 @@ const styles = {
   errorBlock: { background: 'rgba(232,82,75,0.1)', border: '1px solid rgba(232,82,75,0.35)', borderRadius: 'var(--radius-sm)', padding: 12, marginBottom: 10 },
   errorText: { fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5, margin: '0 0 8px' },
   retryButton: { padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 600 },
-  fileInput: { width: '100%', fontSize: 12, color: 'var(--text-primary)' },
-  fileSelectedNote: { fontSize: 11, color: 'var(--success)', margin: '6px 0 0' },
   progressNote: { fontSize: 11, color: 'var(--text-tertiary)', margin: '4px 0 10px' },
   signButton: { padding: '9px 18px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
   statusBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px' },
@@ -499,9 +493,6 @@ const styles = {
     boxSizing: 'border-box',
     fontFamily: 'inherit',
   },
-  chipWrap: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  chip: { padding: '6px 12px', borderRadius: 16, border: '1px solid var(--border)', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12 },
-  chipActive: { background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, borderColor: 'var(--neon)' },
   modalButtonsRow: { display: 'flex', gap: 10, marginTop: 20 },
   cancelButton: { flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
   saveButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },

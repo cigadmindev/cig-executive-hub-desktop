@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { hasFeature } from '../data/mockData';
 import { accessLevel } from '../data/accessMatrix';
 import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
@@ -10,8 +9,9 @@ import { useWorkOrders } from '../context/WorkOrdersContext';
 import { useExpenses } from '../context/ExpensesContext';
 import { useIntegrationRequests } from '../context/IntegrationRequestsContext';
 import { useDialog } from '../hooks/useDialog';
-import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
+import PageHeader from '../components/PageHeader';
+import { nike } from '../theme/nike';
 
 // Everything that used to be scattered loose in the sidebar now lives
 // here as one consolidated list, matching mobile's Directory tab exactly
@@ -145,7 +145,7 @@ export default function DirectoryScreen() {
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitle }}>Directory</h1>
+      <PageHeader title="Directory" subtitle="Company-wide pages: people, requests, expenses and policies." />
       <div>
         {/* Filtered once here rather than at each tile - the array is built
             with conditional pushes, so one filter at the render is the only
@@ -216,7 +216,6 @@ export default function DirectoryScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 720 },
-  title: { fontSize: 24, fontWeight: 700, margin: '0 0 20px' },
   group: { marginBottom: 24 },
   groupLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 10px' },
   grid: { display: 'flex', flexDirection: 'column', gap: 12 },

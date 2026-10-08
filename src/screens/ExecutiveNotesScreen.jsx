@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { useExecutiveNotes } from '../context/ExecutiveNotesContext';
-import Icon from '../components/Icon';
-import { nike } from '../theme/nike';
+import PageHeader from '../components/PageHeader';
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -45,11 +44,7 @@ export default function ExecutiveNotesScreen() {
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Icon name="document" size={22} color="#FFFFFF" />
-        Executive Notes
-      </h1>
-      <p style={styles.subtitle}>Documented notes from executive meetings — an overview, not tied to any one location.</p>
+      <PageHeader title="Executive Notes" subtitle="Notes from executive meetings, for the whole company." />
 
       {driveUrl && !editing ? (
         <div style={styles.card}>
@@ -125,8 +120,6 @@ export default function ExecutiveNotesScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 560 },
-  title: { fontSize: 22, fontWeight: 700, margin: '0 0 6px' },
-  subtitle: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 20px', lineHeight: 1.5 },
   card: { background: 'var(--bg-card)', border: 'none', borderRadius: 14, padding: 20 },
   cardText: { fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 },
@@ -146,7 +139,6 @@ const styles = {
   cancelButton: { padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
   previewBlock: { marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' },
   previewLabel: { fontSize: 11, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 10px' },
-  previewError: { fontSize: 12, color: 'var(--danger)', lineHeight: 1.5, margin: 0 },
   previewCard: {
     display: 'flex',
     alignItems: 'center',

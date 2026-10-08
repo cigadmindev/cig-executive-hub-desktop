@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { brands } from '../data/mockData';
 import { useBrandAnnouncements } from '../context/BrandAnnouncementsContext';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
-import { nike } from '../theme/nike';
 import { accessLevel } from '../data/accessMatrix';
 import PostCard from '../components/PostCard';
 import { useDialog } from '../hooks/useDialog';
+import PageHeader from '../components/PageHeader';
 
 // New announcement, in three steps: who it is for, what it says, and how long
 // it stays at the top of Home. The preview on the right is the card people
@@ -96,14 +96,9 @@ export default function HomeAnnouncementsScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to="/" style={styles.backLink}>‹ Home</Link>
+      <PageHeader back={{ to: '/', label: 'Home' }} title="New announcement" subtitle={'Goes to the restaurant or location you choose and into people\'s morning summary. Turn on "Post to Home" to pin it on their Home too.'} />
       <div style={styles.columns}>
         <div style={{ flex: '1 1 460px', minWidth: 0 }}>
-          <h1 style={{ ...styles.title, ...nike.pageTitleSm, fontSize: 26 }}>New announcement</h1>
-          <p style={styles.subtitle}>
-            Goes to the restaurant or location page you choose, and into people's morning summary. Turn on "Post to Home"
-            to also pin it at the top of their Home. People can like and comment.
-          </p>
 
           <p style={styles.step}>1 · Who is it for?</p>
           <div style={styles.scopes}>
@@ -206,10 +201,7 @@ export default function HomeAnnouncementsScreen() {
 
 const styles = {
   page: { padding: '24px 28px 60px', maxWidth: 1000 },
-  backLink: { color: 'var(--text-secondary)', textDecoration: 'none', fontSize: 13 },
   columns: { display: 'flex', gap: 28, flexWrap: 'wrap', marginTop: 12 },
-  title: { margin: '0 0 6px', color: 'var(--text-primary)' },
-  subtitle: { fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 22px' },
   step: { fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '20px 0 8px' },
   scopes: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 },
   scope: { textAlign: 'left', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 2 },
@@ -228,8 +220,6 @@ const styles = {
   knob: { position: 'absolute', top: 3, left: 3, width: 17, height: 17, borderRadius: 9, background: '#0A0A0B', transition: 'left .15s' },
   where: { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', margin: '14px 0 6px' },
   previewFrame: { pointerEvents: 'none' },
-  preview: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: '3px solid var(--neon)', borderRadius: 12, padding: 18 },
   previewKicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--neon)', margin: 0 },
-  previewText: { fontSize: 15, lineHeight: 1.5, color: 'var(--text-primary)', margin: '8px 0', whiteSpace: 'pre-wrap' },
   previewMeta: { fontSize: 12, color: 'var(--text-tertiary)', margin: 0 },
 };

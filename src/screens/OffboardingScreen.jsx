@@ -3,7 +3,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { useOffboarding, OFFBOARDING_STEPS, driveRemovalDone } from '../context/OffboardingContext';
 import { useDialog } from '../hooks/useDialog';
-import { nike } from '../theme/nike';
+import PageHeader from '../components/PageHeader';
 
 const when = (t) => (t ? new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '');
 
@@ -63,8 +63,7 @@ export default function OffboardingScreen() {
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Offboarding</h1>
-      <p style={styles.subtitle}>What to revoke outside the Hub when someone leaves.</p>
+      <PageHeader title="Offboarding" subtitle="What to turn off outside the Hub when someone leaves." />
 
       {records.length === 0 ? (
         <p style={styles.hint}>Nobody has been deactivated.</p>
@@ -161,8 +160,6 @@ export default function OffboardingScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 680 },
-  title: { fontSize: 22, fontWeight: 700, margin: '0 0 4px' },
-  subtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 20px' },
   hint: { fontSize: 13, color: 'var(--text-tertiary)' },
 
   card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 12, overflow: 'hidden' },

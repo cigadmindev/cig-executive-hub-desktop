@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSupportRequests, SUPPORT_AREAS, SUPPORT_ERROR_TYPES, isSupportAdmin } from '../context/SupportRequestsContext';
 import { useSupportAnnouncements } from '../context/SupportAnnouncementsContext';
-import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
 import { useDialog } from '../hooks/useDialog';
+import PageHeader from '../components/PageHeader';
 
 function formatDateTime(ts) {
   const d = new Date(ts);
@@ -61,7 +61,7 @@ function RegularSupportView() {
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Support</h1>
+      <PageHeader title="Support" subtitle="Ask Brenner for help, and see what's new in the Hub." />
       <div style={styles.tabRow}>
         <button style={{ ...styles.tab, ...(tab === 'submit' ? styles.tabActive : {}) }} onClick={() => setTab('submit')}>
           Submit a Request
@@ -218,7 +218,7 @@ function AdminSupportView() {
 
   return (
     <div style={styles.page}>
-      <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Support</h1>
+      <PageHeader title="Support" subtitle="Ask Brenner for help, and see what's new in the Hub." />
       <div style={styles.tabRow}>
         <button style={{ ...styles.tab, ...(tab === 'requests' ? styles.tabActive : {}) }} onClick={() => setTab('requests')}>
           Requests {requests.filter((r) => r.status !== 'completed').length > 0 ? `(${requests.filter((r) => r.status !== 'completed').length})` : ''}
@@ -339,7 +339,6 @@ function AdminSupportView() {
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 680 },
-  title: { fontSize: 22, fontWeight: 700, margin: '0 0 16px' },
   tabRow: { display: 'flex', gap: 8, marginBottom: 20 },
   tab: { padding: '7px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' },
   tabActive: { background: 'var(--neon)', color: 'var(--neon-text)' },

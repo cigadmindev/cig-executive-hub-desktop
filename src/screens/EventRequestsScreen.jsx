@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useEventRequests, EVENT_NEEDS_OPTIONS } from '../context/EventRequestsContext';
 import { brands } from '../data/mockData';
@@ -8,9 +8,7 @@ import { useViewTracking } from '../context/ViewTrackingContext';
 import DatePickerField from '../components/DatePickerField';
 import TimePickerField from '../components/TimePickerField';
 import { useDialog } from '../hooks/useDialog';
-import { nike } from '../theme/nike';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
-import { pageHeader, pageAction } from '../theme/pageHeader';
 import { atLeast } from '../data/accessMatrix';
 
 const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
@@ -268,7 +266,7 @@ export default function EventRequestsScreen() {
   return (
     <div>
       <RequestPage
-        back={<Link to={`/brand/${brand.id}/location/${location.id}`} style={styles.backLink}>‹ {location.name}</Link>}
+        back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
         title="Event / Promo Requests"
         subtitle={location.name + ' · ask for an event or promotion. The COO decides, and approved events go on the calendar.'}
         actionLabel="+ Request an Event"
@@ -454,38 +452,10 @@ const styles = {
     padding: 0,
   },
 
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 700 },
-  backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: 700, margin: 0 },
-  addButton: { padding: '9px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
-  body: {},
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
-  card: { background: 'var(--bg-card)', border: '2px solid transparent', borderRadius: 12, padding: 16, marginBottom: 10 },
-  cardHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { fontSize: 15, fontWeight: 700 },
-  statusBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px' },
-  cardMeta: { fontSize: 12, color: 'var(--accent)', fontWeight: 600, margin: '4px 0 0' },
-  cardDetails: { fontSize: 13, margin: '6px 0 0', lineHeight: 1.5 },
-  needsRow: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  needChip: {
-    fontSize: 10,
-    fontWeight: 600,
-    color: 'var(--text-secondary)',
-    background: 'var(--bg-inset)',
-    border: '1px solid var(--border)',
-    borderRadius: 12,
-    padding: '3px 9px',
-  },
-  needChipMine: { background: 'var(--neon)', color: 'var(--neon-text)', borderColor: 'var(--neon)', fontWeight: 900 },
-  cardNeedsMe: { borderColor: 'var(--neon)' },
   needsMeBadge: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', margin: '0 0 8px' },
-  cardRequestedBy: { fontSize: 11, color: 'var(--text-secondary)', margin: '8px 0 0' },
-  denialReason: { fontSize: 12, color: 'var(--danger)', fontStyle: 'italic', margin: '6px 0 0' },
   saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
   cancelButton: { padding: '8px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 },
-  linkButton: { fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 },
-  linkButtonDanger: { fontSize: 12, color: 'var(--danger)', fontWeight: 600 },
 
   modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   modalCard: { width: 'min(380px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, maxHeight: '85vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' },
@@ -502,19 +472,4 @@ const styles = {
     outline: 'none',
     boxSizing: 'border-box',
   },
-  chipWrap: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  needOption: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    textAlign: 'left',
-    padding: '10px 12px',
-    borderRadius: 12,
-    border: '1px solid var(--border)',
-    background: 'rgba(255,255,255,0.04)',
-    color: 'var(--text-secondary)',
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  needOptionActive: { background: 'rgba(223,255,79,0.10)', color: 'var(--neon)', fontWeight: 900, borderColor: 'var(--neon)' },
 };

@@ -6,6 +6,7 @@ import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useDialog } from '../hooks/useDialog';
 import { hasFeature } from '../data/mockData';
 import RequestAccessModal from '../components/RequestAccessModal';
+import PageHeader from '../components/PageHeader';
 
 // Every restaurant with an opening date set, soonest first.
 //
@@ -63,12 +64,14 @@ export default function OpeningSoonScreen() {
 
   return (
     <div style={styles.wrap}>
-      <h1 style={styles.title}>Opening Soon</h1>
-      <p style={styles.subtitle}>
-        {openings.length === 0
-          ? 'Nothing with an opening date set.'
-          : `${openings.length} restaurant${openings.length === 1 ? '' : 's'} opening.`}
-      </p>
+      <PageHeader
+        title="Opening Soon"
+        subtitle={
+          openings.length === 0
+            ? 'No restaurant has an opening date set.'
+            : `${openings.length} restaurant${openings.length === 1 ? '' : 's'} opening, soonest first.`
+        }
+      />
 
       <div style={styles.grid}>
         {openings.map((loc) => (
@@ -134,8 +137,6 @@ export default function OpeningSoonScreen() {
 
 const styles = {
   wrap: { padding: '28px 32px 60px' },
-  title: { fontSize: 30, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.6, margin: '0 0 6px' },
-  subtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 22px' },
 
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 },
   card: {

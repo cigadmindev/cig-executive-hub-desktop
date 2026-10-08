@@ -302,3 +302,34 @@ button:disabled {
     font-size: 16px !important;
   }
 }
+
+/* Every page title (V1, 8 Oct 2026). One size everywhere; a little smaller
+   on a phone so long titles fit on two lines instead of four. */
+.hub-page-title {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  text-transform: uppercase;
+  color: #FFFFFF;
+  line-height: 1.15;
+}
+@media (max-width: 640px) {
+  .hub-page-title {
+    font-size: 22px;
+    letter-spacing: -0.4px;
+  }
+}
+
+/* Filled (main) buttons keep their colour on hover and press - the general
+   button rule above turned them grey, so "+ Add" looked switched off the
+   moment you pointed at it. */
+@media (hover: hover) {
+  button[data-primary]:hover:not(:disabled) {
+    background-color: var(--neon) !important;
+    filter: brightness(1.1);
+  }
+}
+button[data-primary]:active:not(:disabled) {
+  background-color: var(--neon) !important;
+  filter: brightness(0.95);
+}

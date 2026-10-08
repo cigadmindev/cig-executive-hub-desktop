@@ -1,9 +1,9 @@
 import React from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { brands } from '../data/mockData';
 import { DAILY_CHECKLISTS, tasksFor, dayName } from '../data/dailyChecklists';
 import { useDailyRecords, todayKey } from '../hooks/useDailyChecklists';
-import { nike } from '../theme/nike';
+import PageHeader from '../components/PageHeader';
 
 // Taste Starkville › Daily checklists - every opening and closing list for a
 // day, with where each one stands.
@@ -54,18 +54,18 @@ export default function DailyChecklistsScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to={`/brand/${brandId}/location/${locationId}`} style={styles.back}>‹ {location?.name ?? 'Location'}</Link>
-      <div style={styles.head}>
-        <div>
-          <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Daily checklists</h1>
-          <p style={styles.sub}>The manager on duty ticks each task once it's verified. Signed-off lists are filed to Drive as the usual printed sheet.</p>
-        </div>
-        <div style={styles.dateBar}>
-          <button style={styles.dateBtn} onClick={() => setParams({ date: shift(dateKey, -1) })}>‹</button>
-          <span style={styles.date}>{pretty(dateKey)}</span>
-          <button style={styles.dateBtn} disabled={isToday} onClick={() => setParams({ date: shift(dateKey, 1) })}>›</button>
-        </div>
-      </div>
+      <PageHeader
+        back={{ to: `/brand/${brandId}/location/${locationId}`, label: location?.name ?? 'Location' }}
+        title="Daily checklists"
+        subtitle="The manager on duty ticks each task once it's checked. Signed-off lists are filed to Drive as the usual printed sheet."
+        extras={
+          <div style={styles.dateBar}>
+            <button style={styles.dateBtn} aria-label="Day before" onClick={() => setParams({ date: shift(dateKey, -1) })}>‹</button>
+            <span style={styles.date}>{pretty(dateKey)}</span>
+            <button style={styles.dateBtn} aria-label="Day after" disabled={isToday} onClick={() => setParams({ date: shift(dateKey, 1) })}>›</button>
+          </div>
+        }
+      />
       <p style={styles.label}>Opening</p>
       <div style={styles.grid}>{DAILY_CHECKLISTS.filter((l) => l.kind === 'opening').map(card)}</div>
       <p style={styles.label}>Closing</p>
@@ -77,10 +77,6 @@ export default function DailyChecklistsScreen() {
 
 const styles = {
   page: { padding: '24px 28px 60px', maxWidth: 1200 },
-  back: { color: 'var(--text-secondary)', textDecoration: 'none', fontSize: 13 },
-  head: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginTop: 8 },
-  title: { margin: 0, color: 'var(--text-primary)' },
-  sub: { fontSize: 14, color: 'var(--text-secondary)', margin: '6px 0 0' },
   dateBar: { display: 'flex', gap: 6, alignItems: 'center' },
   dateBtn: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', cursor: 'pointer' },
   date: { border: '1px solid var(--border-strong)', borderRadius: 8, padding: '7px 14px', color: 'var(--text-primary)', fontWeight: 700, fontSize: 13 },

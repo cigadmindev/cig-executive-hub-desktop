@@ -14,9 +14,8 @@ import {
   prettyDay,
 } from '../context/ExpensesContext';
 import { useBudgetTargets } from '../context/BudgetTargetsContext';
-import { nike } from '../theme/nike';
-import { pageHeader, pageAction } from '../theme/pageHeader';
 import { useDialog } from '../hooks/useDialog';
+import PageHeader from '../components/PageHeader';
 
 export default function ExpensesScreen() {
   const { dialogNode, confirm, notify } = useDialog();
@@ -274,17 +273,12 @@ export default function ExpensesScreen() {
 
   return (
     <div style={styles.page}>
-      <div style={pageHeader}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Expenses</h1>
-        <button style={pageAction} onClick={() => setFormOpen(true)}>
-          + Add Receipt
-        </button>
-      </div>
-      <p style={styles.subtitle}>
-        {seesAll
-          ? "This period's report, and the receipts submitted today."
-          : 'Your receipts, grouped by the day you spent the money.'}
-      </p>
+      <PageHeader
+        title="Expenses"
+        subtitle={seesAll ? "This period's report, and the receipts submitted today." : 'Your receipts, grouped by the day you spent the money.'}
+        actionLabel="+ Add receipt"
+        onAction={() => setFormOpen(true)}
+      />
 
       {currentPeriod ? (
         <div style={styles.periodBar}>
@@ -770,20 +764,6 @@ export default function ExpensesScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 820 },
-  headerRow: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 },
-  title: { margin: 0, flex: 1 },
-  addButton: {
-    background: 'var(--neon)',
-    color: 'var(--neon-text)',
-    border: 'none',
-    borderRadius: 9,
-    padding: '10px 16px',
-    fontWeight: 900,
-    fontSize: 12,
-    textTransform: 'uppercase',
-    cursor: 'pointer',
-  },
-  subtitle: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 22px' },
   hint: { fontSize: 13, color: 'var(--text-tertiary)', padding: '12px 0' },
 
   budgetAddRow: { display: 'flex', gap: 8, marginLeft: 20, marginBottom: 10, alignItems: 'center' },
@@ -792,7 +772,6 @@ const styles = {
   folderLabel: { flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' },
   folderCount: { fontSize: 12, color: 'var(--text-tertiary)' },
   reportRowNested: { marginLeft: 20, marginTop: 10, marginBottom: 10 },
-  reportActions: { display: 'flex', gap: 8, alignItems: 'center' },
   reportButtonQuiet: { background: 'none', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-secondary)', padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 },
   reportsSection: { marginBottom: 8 },
   monthlyCard: { background: 'var(--bg-card)', border: '1px solid rgba(34,211,238,0.35)', borderRadius: 12, padding: '16px 18px', marginBottom: 24 },
@@ -810,11 +789,9 @@ const styles = {
   formPeriod: { fontSize: 13, color: 'var(--text-secondary)', margin: '8px 0 0' },
   monthlyStale: { fontSize: 12, fontWeight: 700, color: 'var(--danger)', marginTop: 8, lineHeight: 1.45 },
   noPhotos: { fontSize: 12, color: 'var(--text-tertiary)', alignSelf: 'center' },
-  dailyNote: { fontSize: 12, lineHeight: 1.55, color: 'var(--text-tertiary)', margin: '12px 0 0' },
   zoneLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.7, color: 'var(--text-tertiary)', textTransform: 'uppercase', margin: '26px 0 10px' },
   reportRow: { display: 'flex', alignItems: 'center', gap: 14, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 8 },
   reportLabel: { display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' },
-  reportDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--danger)' },
   reportMeta: { fontSize: 12, color: 'var(--text-tertiary)', marginTop: 3 },
   reportButton: { background: 'var(--neon)', color: 'var(--neon-text)', border: 'none', borderRadius: 8, padding: '9px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer', flexShrink: 0 },
   group: { marginBottom: 26 },

@@ -1,6 +1,6 @@
 import { atLeast } from '../data/accessMatrix';
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { categories, brands } from '../data/mockData';
 import { useAnnouncements } from '../context/AnnouncementsContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ import { useCategoryDriveLinks } from '../context/CategoryDriveLinksContext';
 import { useDialog } from '../hooks/useDialog';
 import PostCard from '../components/PostCard';
 import { nike } from '../theme/nike';
+import PageHeader from '../components/PageHeader';
 
 export default function CategoryDetailScreen() {
   const { dialogNode, notify } = useDialog();
@@ -79,25 +80,13 @@ export default function CategoryDetailScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to={`/brand/${brand.id}/location/${location.id}`} style={styles.backLink}>
-        ‹ {location.name}
-      </Link>
-      <div style={styles.header}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>{category.label}</h1>
-        {atLeast(user, 'announcements', 'post') ? (
-          <button
-            style={{ ...styles.postButton, ...nike.primaryButton }}
-            onClick={() => navigate(`/brand/${brand.id}/location/${location.id}/category/${categoryId}/announcements`)}
-          >
-            + New Post
-          </button>
-        ) : null}
-      </div>
-      <p style={styles.note}>
-        {isAdmin
-          ? 'Tap an item to open its Drive folder — or connect one if it isn\'t linked yet.'
-          : 'Tap an item to open its Drive folder.'}
-      </p>
+      <PageHeader
+        back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
+        title={category.label}
+        subtitle={isAdmin ? 'Tap an item to open its Drive folder, or connect one if it isn\'t linked yet.' : 'Tap an item to open its Drive folder.'}
+        actionLabel={atLeast(user, 'announcements', 'post') ? '+ New post' : null}
+        onAction={() => navigate(`/brand/${brand.id}/location/${location.id}/category/${categoryId}/announcements`)}
+      />
 
       <div style={styles.itemsList}>
         {category.items.map((item) => {
@@ -188,11 +177,6 @@ export default function CategoryDetailScreen() {
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 640 },
-  backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: 700, margin: 0 },
-  postButton: { padding: '8px 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
-  note: { fontSize: 12, color: 'var(--text-secondary)', margin: '6px 0 16px' },
   itemsList: {},
   row: {
     width: '100%',
@@ -203,7 +187,6 @@ const styles = {
     marginBottom: 6,
   },
   itemName: { fontSize: 13 },
-  chevron: { color: 'var(--text-tertiary)', fontSize: 14 },
   connectedBadge: { fontSize: 11, fontWeight: 600, color: 'var(--success)' },
   connectHint: { fontSize: 11, fontWeight: 600, color: 'var(--accent)' },
   connectRow: { display: 'flex', gap: 8, marginBottom: 8, marginTop: 4 },

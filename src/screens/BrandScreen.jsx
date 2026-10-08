@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { brands } from '../data/mockData';
 import Icon from '../components/Icon';
 import { useCustomLocations } from '../context/CustomLocationsContext';
@@ -12,6 +12,7 @@ import { useAccessRequests } from '../context/AccessRequestsContext';
 import RequestAccessModal from '../components/RequestAccessModal';
 import { nike } from '../theme/nike';
 import { SEC_CITIES, SEC_STATE_NAMES } from '../data/secCities';
+import PageHeader from '../components/PageHeader';
 
 export default function BrandScreen() {
   const { dialogNode, confirm, notify } = useDialog();
@@ -125,10 +126,13 @@ export default function BrandScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to="/" style={styles.backLink}>
-        ‹ All Restaurants
-      </Link>
-      <h1 style={{ ...styles.title, ...nike.pageTitle }}>{brand.name}</h1>
+      <PageHeader
+        back={{ to: '/', label: 'All Restaurants' }}
+        title={brand.name}
+        subtitle="Pick a location to open its operations, folders and requests."
+        actionLabel={user?.role === 'admin' && !addOpen ? '+ Add location' : null}
+        onAction={() => setAddOpen(true)}
+      />
 
       {user?.role === 'admin' ? (
         addOpen ? (
@@ -198,11 +202,7 @@ export default function BrandScreen() {
               </button>
             </div>
           </div>
-        ) : (
-          <button style={{ ...styles.addButton, ...nike.secondaryButton }} onClick={() => setAddOpen(true)}>
-            + Add Location
-          </button>
-        )
+        ) : null
       ) : null}
 
       {allLocations.length === 0 ? (
@@ -278,19 +278,6 @@ export default function BrandScreen() {
 
 const styles = {
   page: { padding: '32px max(22px, min(40px, 4vw))', maxWidth: 800 },
-  backLink: { fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: 14 },
-  title: { fontSize: 24, fontWeight: 700, margin: '0 0 16px' },
-  addButton: {
-    width: '100%',
-    padding: '12px 0',
-    borderRadius: 10,
-    background: 'rgba(255,255,255,0.1)',
-    border: '1px solid var(--border)',
-    color: 'var(--text-primary)',
-    fontWeight: 600,
-    fontSize: 13,
-    marginBottom: 16,
-  },
   addForm: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 16 },
   input: {
     width: '100%',
@@ -336,8 +323,6 @@ const styles = {
     justifyContent: 'space-between',
     textAlign: 'left',
   },
-  cardName: { fontSize: 15, fontWeight: 600 },
-  chevron: { color: 'var(--text-secondary)', fontSize: 18 },
   deleteLink: { position: 'absolute', top: 10, right: 10, fontSize: 12, color: 'var(--danger)', background: 'var(--bg-window)', borderRadius: 4, padding: '2px 6px' },
   postsSection: { marginTop: 32 },
   postsHeaderRow: { display: 'flex', alignItems: 'center', gap: 10 },

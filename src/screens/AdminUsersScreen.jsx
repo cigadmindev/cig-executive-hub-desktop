@@ -11,7 +11,7 @@ import { useOffboarding } from '../context/OffboardingContext';
 import { brands, categories, FEATURES } from '../data/mockData';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
 import { useDialog } from '../hooks/useDialog';
-import { nike } from '../theme/nike';
+import PageHeader from '../components/PageHeader';
 
 function toggleInArray(arr, id) {
   return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
@@ -277,12 +277,12 @@ export default function AdminUsersScreen() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.headerRow}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Manage Logins</h1>
-        <button style={styles.newButton} onClick={openCreate}>
-          + New login
-        </button>
-      </div>
+      <PageHeader
+        title="Manage Logins"
+        subtitle="Everyone with a Hub login, what they can see, and turning access on or off."
+        actionLabel="+ New login"
+        onAction={openCreate}
+      />
 
       <div style={styles.list}>
         {users.map((item) => {
@@ -632,9 +632,6 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, presets, savePreset,
 
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 760 },
-  headerRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18 },
-  title: { fontSize: 22, fontWeight: 700, margin: 0 },
-  newButton: { padding: '9px 14px', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer' },
 
   list: { background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 },
   row: { borderBottom: '1px solid var(--border)' },
@@ -660,17 +657,14 @@ const styles = {
   panel: { width: 'min(560px, calc(100vw - 32px))', maxHeight: '86vh', overflowY: 'auto', background: 'var(--bg-elevated)', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
   panelTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: 'var(--text-primary)', margin: '0 0 6px' },
   sectionLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '16px 0 6px' },
-  sectionLabelInline: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', flex: 1 },
   twoCol: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8, marginBottom: 8 },
   input: { width: '100%', boxSizing: 'border-box', height: 38, padding: '0 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13 },
   readOnly: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 8px' },
   box: { border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 8 },
-  boxHead: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 },
   brandBlock: { padding: '2px 0' },
   checkRow: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', padding: '4px 0', cursor: 'pointer' },
   nested: { paddingLeft: 26, marginBottom: 4 },
   locGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', columnGap: 12 },
-  summaryBox: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', minHeight: 38, padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 12, textAlign: 'left', cursor: 'pointer' },
   linkButton: { background: 'none', border: 'none', padding: 0, color: 'var(--neon)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   note: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, margin: '6px 0 0' },
   panelFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 20, flexWrap: 'wrap' },
