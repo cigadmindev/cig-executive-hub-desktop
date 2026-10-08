@@ -10,13 +10,14 @@ import { useCatering } from '../context/CateringContext';
 import { useExpenses } from '../context/ExpensesContext';
 import { atLeast, accessLevel } from '../data/accessMatrix';
 import { brandIdForTarget } from '../data/mockData';
+import { fmtDay } from '../lib/dates';
 
 // Everything waiting on this person specifically, for "Needs you" on Home:
 // decisions their job makes, documents they must sign, enquiries they can
 // claim, requests they answer, and their own expense deadline. Each line
 // disappears the moment the thing is dealt with - by them or anyone else -
 // because it is read live from the same data the request pages use.
-const fmt = (ms) => (ms ? new Date(ms).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '');
+const fmt = (ms) => fmtDay(ms);
 
 export function useWaitingOnYou() {
   const { user } = useAuth();

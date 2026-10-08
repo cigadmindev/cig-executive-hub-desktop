@@ -7,6 +7,7 @@ import { useDialog } from '../hooks/useDialog';
 import { hasFeature } from '../data/mockData';
 import RequestAccessModal from '../components/RequestAccessModal';
 import PageHeader from '../components/PageHeader';
+import { fmtDay } from '../lib/dates';
 
 // Every restaurant with an opening date set, soonest first.
 //
@@ -83,7 +84,7 @@ export default function OpeningSoonScreen() {
           >
             <span style={styles.name}>{loc.brandName}</span>
             <span style={styles.meta}>
-              {loc.name} · {new Date(loc.openingDate).toLocaleDateString([], { month: 'short', day: 'numeric' })} ·{' '}
+              {loc.name} · {fmtDay(loc.openingDate)} ·{' '}
               {loc.daysOut} days out
             </span>
 

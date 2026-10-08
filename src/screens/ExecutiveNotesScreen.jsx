@@ -3,10 +3,9 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { useExecutiveNotes } from '../context/ExecutiveNotesContext';
 import PageHeader from '../components/PageHeader';
+import { fmtDayTime } from '../lib/dates';
 
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
+const formatDate = (iso) => fmtDayTime(iso);
 
 export default function ExecutiveNotesScreen() {
   const { user } = useAuth();

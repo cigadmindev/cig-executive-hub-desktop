@@ -4,6 +4,8 @@ import { brands } from '../data/mockData';
 import { DAILY_CHECKLISTS, tasksFor, dayName } from '../data/dailyChecklists';
 import { useDailyRecords, todayKey } from '../hooks/useDailyChecklists';
 import PageHeader from '../components/PageHeader';
+import { fmtTime, fmtDayKey } from '../lib/dates';
+import Pill from '../components/Pill';
 
 // Taste Starkville › Daily checklists - every opening and closing list for a
 // day, with where each one stands.
@@ -12,11 +14,8 @@ const shift = (key, n) => {
   const t = new Date(y, m - 1, d + n);
   return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
 };
-const pretty = (key) => {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-};
-const time = (t) => (t ? new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '');
+const pretty = (key) => fmtDayKey(key);
+const time = (t) => fmtTime(t);
 
 export default function DailyChecklistsScreen() {
   const { brandId, locationId } = useParams();
@@ -34,10 +33,10 @@ export default function DailyChecklistsScreen() {
     const real = tasks.filter((t) => !t.group);
     const done = real.filter((t) => t.done).length;
     const dayTasks = tasksFor(list, dateKey).filter((t) => t.day !== undefined);
-    let pill = ['Not started', styles.pillGrey];
-    if (r?.status === 'filed') pill = ['Done · filed to Drive', styles.pillDone];
-    else if (done > 0) pill = ['In progress', styles.pillAmber];
-    else if (list.kind === 'closing' && isToday) pill = ['Tonight', styles.pillGrey];
+    let pill = ['Not started', 'amber'];
+    if (r?.status === 'filed') pill = ['Done · filed to Drive', 'grey'];
+    else if (done > 0) pill = ['In progress', 'cyan'];
+    else if (list.kind === 'closing' && isToday) pill = ['Tonight', 'grey'];
     return (
       <button key={list.id} style={styles.card} onClick={() => navigate(`/brand/${brandId}/location/${locationId}/daily-checklists/${list.id}?date=${dateKey}`)}>
         <span style={styles.cardTitle}>{list.title.replace(' Checklist', '')}</span>
@@ -47,7 +46,7 @@ export default function DailyChecklistsScreen() {
             : real.length + ' tasks' + (done ? ' · ' + done + ' ticked' : '') + (dayTasks.length ? ' · incl. ' + dayName(dayTasks[0].day) + ': ' + dayTasks.map((t) => t.title.toLowerCase()).join(', ') : '')}
         </span>
         <span style={styles.bar}><span style={{ ...styles.fill, width: (real.length ? (done / real.length) * 100 : 0) + '%' }} /></span>
-        <span style={{ ...styles.pill, ...pill[1] }}>{pill[0]}</span>
+        <span style={{ alignSelf: 'flex-start' }}><Pill tone={pill[1]}>{pill[0]}</Pill></span>
       </button>
     );
   };
@@ -87,9 +86,5 @@ const styles = {
   cardMeta: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 },
   bar: { height: 4, background: 'var(--border)', borderRadius: 2, display: 'block', marginTop: 'auto' },
   fill: { height: 4, background: 'var(--neon)', borderRadius: 2, display: 'block' },
-  pill: { alignSelf: 'flex-start', fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', borderRadius: 5, padding: '3px 8px' },
-  pillGrey: { background: '#24242B', color: '#9A9AA6' },
-  pillAmber: { background: '#3A2A0E', color: '#E8B93B' },
-  pillDone: { background: '#0E2E22', color: '#4ADE80' },
   note: { fontSize: 12, color: 'var(--text-tertiary)', marginTop: 16 },
 };

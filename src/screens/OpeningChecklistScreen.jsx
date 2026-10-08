@@ -16,11 +16,9 @@ import SearchBar from '../components/SearchBar';
 import { atLeast } from '../data/accessMatrix';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { fmtDay } from '../lib/dates';
 
-function formatDate(ts) {
-  if (!ts) return null;
-  return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-}
+const formatDate = (ts) => (ts ? fmtDay(ts) : null);
 
 export default function OpeningChecklistScreen() {
   const { dialogNode, notify, confirm } = useDialog();
@@ -532,7 +530,7 @@ export default function OpeningChecklistScreen() {
                           <span style={styles.rowOverdueLabel}>Overdue</span>
                         ) : !canTick ? (
                           <span style={styles.rowMeta}>
-                            {new Date(item.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            {fmtDay(item.dateTime)}
                           </span>
                         ) : (
                           <button
@@ -542,7 +540,7 @@ export default function OpeningChecklistScreen() {
                               startEditItemDate(item);
                             }}
                           >
-                            {new Date(item.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            {fmtDay(item.dateTime)}
                           </button>
                         )}
 
@@ -660,7 +658,7 @@ export default function OpeningChecklistScreen() {
                         <span style={styles.rowOverdueLabel}>Overdue</span>
                       ) : !canTick ? (
                         <span style={styles.rowMeta}>
-                          {new Date(item.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                          {fmtDay(item.dateTime)}
                         </span>
                       ) : (
                         <button
@@ -670,7 +668,7 @@ export default function OpeningChecklistScreen() {
                             startEditItemDate(item);
                           }}
                         >
-                          {new Date(item.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                          {fmtDay(item.dateTime)}
                         </button>
                       )}
 

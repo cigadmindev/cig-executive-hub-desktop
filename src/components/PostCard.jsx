@@ -2,11 +2,9 @@ import React, { useState } from 'react';
 import { useDialog } from '../hooks/useDialog';
 import { useAuth } from '../context/AuthContext';
 import Icon from './Icon';
+import { fmtDayTime } from '../lib/dates';
 
-function formatDateTime(ts) {
-  const d = new Date(ts);
-  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
-}
+const formatDateTime = (ts) => fmtDayTime(ts);
 
 function initials(name) {
   return (name || '?').trim().charAt(0).toUpperCase();

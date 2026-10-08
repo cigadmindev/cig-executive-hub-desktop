@@ -7,20 +7,21 @@ import { atLeast } from '../data/accessMatrix';
 import { useDialog } from '../hooks/useDialog';
 import DatePickerField from '../components/DatePickerField';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
+import { fmtDay } from '../lib/dates';
 
 // Asking for a new company device, and following it through to arriving.
 // Different from Systems Help (a till behaving oddly) and from repairs
 // (something broken): this is "a new assistant manager starts Monday and
 // needs an iPad". The COO and admins decide and order; the person who asked
 // confirms it arrived. Everyone else sees only their own requests.
-const dateText = (t) => (t ? new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+const dateText = (t) => fmtDay(t);
 const ymd = (t) => (t ? new Date(t).toISOString().slice(0, 10) : '');
 const STEP = {
   requested: ['Waiting', 'amber'],
-  approved: ['Approved', 'cyan'],
+  approved: ['Approved', 'green'],
   ordered: ['Ordered', 'cyan'],
-  arrived: ['Done', 'green'],
-  declined: ['Declined', 'grey'],
+  arrived: ['Done', 'grey'],
+  declined: ['Declined', 'red'],
 };
 const FILTERS = [
   ['requested', 'Waiting'],

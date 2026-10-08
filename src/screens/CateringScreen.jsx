@@ -7,6 +7,7 @@ import { atLeast } from '../data/accessMatrix';
 import { brands } from '../data/mockData';
 import DatePickerField from '../components/DatePickerField';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
+import { fmtDay } from '../lib/dates';
 
 // Catering orders and private event bookings, on the same layout as every
 // other request page: status filters, a table, the selected one on the right.
@@ -16,16 +17,16 @@ import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage'
 // phone, and who is handling it, so nobody has to ask.
 const MENU_URL = 'https://drive.google.com/drive/u/1/folders/1pynbcFvlkT0bymTd-HTrcFTzp72TjTqc';
 
-const dateText = (t) => (t ? new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+const dateText = (t) => fmtDay(t);
 const longDate = (t, fallback) =>
-  t ? new Date(t).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : fallback || 'No date';
+  t ? fmtDay(t) : fallback || 'No date';
 
 const STEP = {
   new: ['New', 'amber'],
   talking: ['Talking', 'cyan'],
   confirmed: ['Confirmed', 'green'],
   done: ['Done', 'grey'],
-  lost: ['Lost', 'grey'],
+  lost: ['Lost', 'red'],
 };
 const FILTERS = Object.entries(STEP).map(([k, [l]]) => [k, l]);
 

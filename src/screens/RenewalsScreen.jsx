@@ -10,11 +10,10 @@ import { useDialog } from '../hooks/useDialog';
 import DocumentField from '../components/DocumentField';
 import { RENEWAL_TYPE_BY_KEY } from '../data/checklists';
 import PageHeader from '../components/PageHeader';
+import { fmtDay } from '../lib/dates';
+import Pill from '../components/Pill';
 
-function formatDate(ts) {
-  if (!ts) return 'Not set';
-  return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-}
+const formatDate = (ts) => (ts ? fmtDay(ts) : 'Not set');
 
 export default function RenewalsScreen() {
   const { brandId, locationId } = useParams();
@@ -200,7 +199,7 @@ export default function RenewalsScreen() {
                     {days != null && days >= 0 ? <span style={styles.daysNote}> · {days}d</span> : null}
                   </span>
                   <span style={styles.headStatus}>
-                    {dueSoon ? <span style={styles.dueBadge}>DUE SOON</span> : null}
+                    {dueSoon ? (days != null && days < 0 ? <Pill tone="red">Overdue</Pill> : <Pill tone="amber">Due soon</Pill>) : null}
                   </span>
                   <span style={styles.headChevron}>{isOpen ? '▾' : '▸'}</span>
                 </div>
@@ -330,7 +329,6 @@ const styles = {
   rowName: { flex: 1, fontSize: 14, color: 'var(--text-primary)' },
   rowCol: { width: 130, fontSize: 13, color: 'var(--text-secondary)' },
   daysNote: { color: 'var(--text-tertiary)' },
-  dueBadge: { fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: 'var(--danger)' },
   rowBody: { padding: '4px 14px 16px' },
   actionRow: { display: 'flex', gap: 10, marginBottom: 10 },
 

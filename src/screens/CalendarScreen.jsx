@@ -15,13 +15,12 @@ import DatePickerField from '../components/DatePickerField';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { fmtDay, fmtTime } from '../lib/dates';
 
 function dayKey(d) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
-function formatTime(dateTime) {
-  return new Date(dateTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
+const formatTime = (dateTime) => fmtTime(dateTime);
 
 export default function CalendarScreen() {
   const isNarrow = useIsNarrow();
@@ -390,7 +389,7 @@ export default function CalendarScreen() {
                           <span style={styles.rowMeta}>
                             {e.source === 'renewal'
                               ? (e.dateTime < Date.now() ? 'Expired' : 'All day')
-                              : new Date(e.dateTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                              : fmtTime(e.dateTime)}
                           </span>
                         )}
                         <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
@@ -584,7 +583,7 @@ export default function CalendarScreen() {
             <h2 style={styles.modalTitle}>Change this due date?</h2>
             <p style={styles.confirmOpeningBody}>
               <strong>{confirmingOpeningDate.entry.title}</strong> will move to{' '}
-              <strong>{new Date(confirmingOpeningDate.newDate).toLocaleDateString()}</strong> — updated on
+              <strong>{fmtDay(confirmingOpeningDate.newDate)}</strong> — updated on
               the Opening Checklist automatically, since it's the same entry.
             </p>
             <div style={styles.modalButtonsRow}>

@@ -48,10 +48,9 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
   );
 }
 
-export function Pill({ tone = 'grey', children }) {
-  const t = { amber: ['#3A2A0E', '#E8B93B'], cyan: ['#0D3640', '#22D3EE'], grey: ['#24242B', '#9A9AA6'], green: ['#0E2E22', '#4ADE80'] }[tone];
-  return <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', borderRadius: 5, padding: '3px 8px', background: t[0], color: t[1], whiteSpace: 'nowrap' }}>{children}</span>;
-}
+// The status label lives in its own file now (V2); still offered here so the
+// request pages keep one import.
+export { default as Pill } from './Pill';
 
 export const detailStyles = {
   card: { background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: 18, position: 'sticky', top: 16 },

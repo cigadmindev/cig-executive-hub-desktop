@@ -4,15 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import { useDailyRecord, todayKey, isManagerOnDuty } from '../hooks/useDailyChecklists';
 import { useDialog } from '../hooks/useDialog';
 import { backLink } from '../theme/pageHeader';
+import { fmtTime, fmtDayKey } from '../lib/dates';
 
 // One daily checklist, laid out like the printed sheet. The manager on duty
 // ticks each task once it's verified; every GM or assistant manager who
 // opens it before it is filed is signed onto it as a manager on duty.
-const time = (t) => (t ? new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '');
-const pretty = (key) => {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-};
+const time = (t) => fmtTime(t);
+const pretty = (key) => fmtDayKey(key);
 
 export default function DailyChecklistScreen() {
   const { brandId, locationId, listId } = useParams();

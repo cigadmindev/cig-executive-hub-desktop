@@ -6,6 +6,7 @@ import { useNotifications } from '../context/NotificationsContext';
 import { useSchedule } from '../context/ScheduleContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
+import { fmtTime } from '../lib/dates';
 
 // Everything you have been told, everything you have done, and what everyone
 // else has been up to.
@@ -30,7 +31,7 @@ const dayLabel = (t) => {
   return d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
 };
 
-const timeLabel = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const timeLabel = (t) => fmtTime(t);
 
 export default function NotificationsPanel({ onClose }) {
   const navigate = useNavigate();

@@ -5,11 +5,9 @@ import { useSupportAnnouncements } from '../context/SupportAnnouncementsContext'
 import Icon from '../components/Icon';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { fmtDayTime } from '../lib/dates';
 
-function formatDateTime(ts) {
-  const d = new Date(ts);
-  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
-}
+const formatDateTime = (ts) => fmtDayTime(ts);
 
 // Live urgency coloring — green for plenty of time left, ramping to red as
 // the 48-hour window closes in. Once completed, urgency no longer applies.

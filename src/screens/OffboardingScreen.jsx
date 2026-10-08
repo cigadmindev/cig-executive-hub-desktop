@@ -4,8 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { useOffboarding, OFFBOARDING_STEPS, driveRemovalDone } from '../context/OffboardingContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { fmtDay } from '../lib/dates';
+import Pill from '../components/Pill';
 
-const when = (t) => (t ? new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '');
+const when = (t) => fmtDay(t);
 
 // What to revoke when someone leaves, and what to put back if they return.
 //
@@ -87,9 +89,9 @@ export default function OffboardingScreen() {
                     {stepsLeft > 0 ? ` · ${stepsLeft} left` : ' · all done'}
                   </p>
                 </div>
-                <span style={stepsLeft > 0 ? styles.pillOpen : styles.pillDone}>
+                <Pill tone={stepsLeft > 0 ? 'cyan' : 'grey'}>
                   {stepsLeft > 0 ? (returning ? 'Restoring' : 'In progress') : 'Done'}
-                </span>
+                </Pill>
               </div>
 
               <div style={styles.steps}>
@@ -167,8 +169,6 @@ const styles = {
   cardHead: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)' },
   name: { fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0 },
   meta: { fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' },
-  pillOpen: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'rgba(201,162,39,0.16)', color: '#C9A227' },
-  pillDone: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'var(--bg-inset)', color: 'var(--text-tertiary)' },
 
   steps: { padding: '4px 14px 12px' },
   stepRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 0', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' },

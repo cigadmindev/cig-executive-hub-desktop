@@ -5,16 +5,17 @@ import { useDialog } from '../hooks/useDialog';
 import { brands } from '../data/mockData';
 import { rowForJob, featureAllowed, canSeeFolder } from '../data/accessMatrix';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
+import { fmtDay } from '../lib/dates';
 
 // Someone asked to see something their login can't reach. Admins decide
 // (5 October 2026). Approve gives that one thing to that one person - never
 // their whole job row - and they are emailed either way.
-const dateText = (t) => (t ? new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+const dateText = (t) => fmtDay(t);
 
 const STEP = {
   pending: ['Waiting', 'amber'],
-  approved: ['Approved', 'cyan'],
-  denied: ['Declined', 'grey'],
+  approved: ['Approved', 'green'],
+  denied: ['Declined', 'red'],
 };
 const FILTERS = [
   ['pending', 'Waiting'],

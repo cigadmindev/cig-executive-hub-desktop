@@ -10,13 +10,11 @@ import TimePickerField from '../components/TimePickerField';
 import { useDialog } from '../hooks/useDialog';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import { atLeast } from '../data/accessMatrix';
+import { fmtDayTime } from '../lib/dates';
 
 const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
 
-function formatDateTime(dt) {
-  const d = new Date(dt);
-  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
-}
+const formatDateTime = (dt) => fmtDayTime(dt);
 
 
 // Older records stored needs/jobs with a leading emoji — normalize for
@@ -192,7 +190,7 @@ export default function EventRequestsScreen() {
 
   if (!brand || !location) return null;
 
-  const STATUS = { pending: ['Waiting', 'amber'], approved: ['Approved', 'cyan'], denied: ['Denied', 'grey'] };
+  const STATUS = { pending: ['Waiting', 'amber'], approved: ['Approved', 'green'], denied: ['Declined', 'red'] };
   const rows = sortedRequests.filter((r) => r.status === filter);
   const selected = sortedRequests.find((r) => r.id === selectedId) ?? rows[0] ?? null;
   const approvesHere = isAdmin || atLeast(user, 'eventRequests', 'approve');
@@ -230,7 +228,7 @@ export default function EventRequestsScreen() {
                 <select style={d.input} value={changing.status} onChange={(e) => setChanging({ ...changing, status: e.target.value })}>
                   <option value="pending">Waiting</option>
                   <option value="approved">Approved</option>
-                  <option value="denied">Denied</option>
+                  <option value="denied">Declined</option>
                 </select>
                 <input style={d.input} autoFocus placeholder="Reason - emailed to the person who asked" value={changing.reason} onChange={(e) => setChanging({ ...changing, reason: e.target.value })} />
                 {changing.status === 'approved' && r.status !== 'approved' ? <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 8px' }}>To put it on the calendar too, set it to Waiting and use Approve.</p> : null}
@@ -255,7 +253,7 @@ export default function EventRequestsScreen() {
           <p style={d.sectionLabel}>HISTORY</p>
           <div style={d.history}>
             {r.createdAt ? <div>{formatDateTime(r.createdAt)} · asked by {r.requestedBy}</div> : <div>Asked by {r.requestedBy}</div>}
-            {r.resolvedAt ? <div>{formatDateTime(r.resolvedAt)} · {r.status === 'denied' ? 'denied' : 'decided'}</div> : null}
+            {r.resolvedAt ? <div>{formatDateTime(r.resolvedAt)} · {r.status === 'denied' ? 'declined' : 'decided'}</div> : null}
             {r.statusChangedAt ? <div>{formatDateTime(r.statusChangedAt)} · changed by {r.statusChangedByName} — “{r.statusChangeReason}”</div> : null}
           </div>
         </div>

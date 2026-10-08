@@ -7,6 +7,8 @@ import { useCustomLocations } from '../context/CustomLocationsContext';
 import DatePickerField from '../components/DatePickerField';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { fmtDay } from '../lib/dates';
+import Pill from '../components/Pill';
 
 // Availability - one page, the same for everyone:
 //   Waiting on you  (the COO and admins) time off to approve or deny
@@ -32,7 +34,7 @@ const fmt = (t) => {
   return hh + (m ? ':' + String(m).padStart(2, '0') : '') + (h < 12 ? 'a' : 'p');
 };
 const span = (d) => (!d || d.off ? null : fmt(d.start) + '–' + fmt(d.end));
-const shortDate = (ms) => new Date(ms).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+const shortDate = (ms) => fmtDay(ms);
 const range = (r) => (r.endDate && r.endDate !== r.startDate ? shortDate(r.startDate) + ' – ' + shortDate(r.endDate) : shortDate(r.startDate));
 
 // What someone is working on a given week: that week's override, or the usual.
@@ -192,7 +194,7 @@ export default function AvailabilityScreen() {
                 {denying === r.id ? (
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                     <input style={{ ...styles.input, flex: 1 }} autoFocus value={denyReason} onChange={(e) => setDenyReason(e.target.value)} placeholder="Reason - they will see this" />
-                    <button style={styles.ghost} onClick={async () => { await resolveTimeOff(r.id, 'denied', denyReason.trim()); setDenying(null); setDenyReason(''); }}>Deny</button>
+                    <button style={styles.ghost} onClick={async () => { await resolveTimeOff(r.id, 'denied', denyReason.trim()); setDenying(null); setDenyReason(''); }}>Decline</button>
                   </div>
                 ) : null}
               </div>
@@ -241,9 +243,9 @@ export default function AvailabilityScreen() {
                 {r.reason ? <span style={styles.muted}> · {r.reason}</span> : null}
                 {r.status === 'denied' && r.denialReason ? <div style={styles.muted}>“{r.denialReason}”</div> : null}
               </div>
-              <span style={{ ...styles.pill, ...(r.status === 'approved' ? styles.pillOk : r.status === 'denied' ? styles.pillNo : styles.pillWait) }}>
-                {r.status === 'pending' ? 'Waiting' : r.status === 'approved' ? 'Approved' : 'Denied'}
-              </span>
+              <Pill tone={r.status === 'approved' ? 'green' : r.status === 'denied' ? 'red' : 'amber'}>
+                {r.status === 'pending' ? 'Waiting' : r.status === 'approved' ? 'Approved' : 'Declined'}
+              </Pill>
               {r.status === 'pending' ? (
                 <button style={styles.linkDanger} onClick={() => confirm({ title: 'Withdraw this request?', confirmLabel: 'Withdraw', onConfirm: () => deleteTimeOffRequest(r.id) })}>Withdraw</button>
               ) : null}
@@ -316,10 +318,6 @@ const styles = {
   strong: { color: 'var(--text-primary)', fontWeight: 700 },
   muted: { color: 'var(--text-tertiary)', fontSize: 13 },
   badge: { display: 'inline-block', fontSize: 11, fontWeight: 800, color: '#E8B93B', background: '#3A2A0E', borderRadius: 5, padding: '3px 8px', margin: '0 0 8px' },
-  pill: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', borderRadius: 5, padding: '3px 8px', flexShrink: 0 },
-  pillWait: { background: '#3A2A0E', color: '#E8B93B' },
-  pillOk: { background: '#0D3640', color: '#22D3EE' },
-  pillNo: { background: '#24242B', color: '#9A9AA6' },
   primary: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '9px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
   primarySmall: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 7, padding: '6px 12px', fontWeight: 800, fontSize: 12, cursor: 'pointer' },
   ghost: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer' },

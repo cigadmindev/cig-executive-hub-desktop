@@ -4,11 +4,10 @@ import { useWorkOrders } from '../context/WorkOrdersContext';
 import SignaturePad from '../components/SignaturePad';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { fmtDayTime } from '../lib/dates';
+import Pill from '../components/Pill';
 
-function formatDateTime(ts) {
-  const d = new Date(ts);
-  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
-}
+const formatDateTime = (ts) => fmtDayTime(ts);
 
 export default function WorkOrdersScreen() {
   const { dialogNode, confirm, notify } = useDialog();
@@ -157,9 +156,9 @@ export default function WorkOrdersScreen() {
               <div key={o.id} style={styles.card}>
                 <div style={styles.cardHeaderRow}>
                   <span style={styles.cardTitle}>{o.title}</span>
-                  <span style={{ ...styles.statusBadge, background: o.status === 'completed' ? 'var(--success)' : '#C9A227' }}>
-                    {o.status === 'completed' ? '✓ Completed' : 'Pending'}
-                  </span>
+                  <Pill tone={o.status === 'completed' ? 'grey' : 'amber'}>
+                    {o.status === 'completed' ? 'Done' : 'Waiting'}
+                  </Pill>
                 </div>
                 {o.description ? <p style={styles.cardDescription}>{o.description}</p> : null}
                 {o.status === 'completed' && o.filesDeleted ? (
@@ -468,7 +467,6 @@ const styles = {
   retryButton: { padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 600 },
   progressNote: { fontSize: 11, color: 'var(--text-tertiary)', margin: '4px 0 10px' },
   signButton: { padding: '9px 18px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
-  statusBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px' },
   signaturesBlock: { marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' },
   signatureLine: { fontSize: 12, color: 'var(--text-primary)', margin: '3px 0' },
   signatureRow: { marginBottom: 6 },

@@ -1,6 +1,4 @@
-import { pageHeader, pageAction } from '../theme/pageHeader';
 import React, { useEffect, useState } from 'react';
-import Icon from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
@@ -11,11 +9,9 @@ import {
   SYSTEMS,
   KINDS,
 } from '../context/IntegrationRequestsContext';
+import { fmtDay } from '../lib/dates';
 
-function when(ts) {
-  if (!ts) return '';
-  return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
+const when = (ts) => fmtDay(ts);
 
 export default function IntegrationRequestsScreen() {
   const { user, hasBrandAccess } = useAuth();
@@ -115,8 +111,8 @@ export default function IntegrationRequestsScreen() {
               <span style={r.kind === 'help' ? styles.pillHelp : styles.pillChange}>
                 {r.kind === 'help' ? 'Help' : 'Change'}
               </span>
-              {r.status === 'in_progress' ? <span style={styles.pillWorking}>Being worked on</span> : null}
-              {r.status === 'done' ? <span style={styles.pillDone}>Done</span> : null}
+              {r.status === 'in_progress' ? <Pill tone="cyan">In progress</Pill> : null}
+              {r.status === 'done' ? <Pill tone="grey">Done</Pill> : null}
               {r.system}
               {r.locationName ? <span style={styles.cardWhere}> · {r.locationName}</span> : null}
             </div>
@@ -174,7 +170,7 @@ export default function IntegrationRequestsScreen() {
     );
   };
 
-  const STATUS = { open: ['Waiting', 'amber'], in_progress: ['Being worked on', 'cyan'], done: ['Done', 'green'] };
+  const STATUS = { open: ['Waiting', 'amber'], in_progress: ['In progress', 'cyan'], done: ['Done', 'grey'] };
   const rows = requests.filter((r) => r.status === filter).sort((a, b) => b.createdAt - a.createdAt);
   const selected = requests.find((r) => r.id === openId) ?? rows[0] ?? null;
   const isAdmin = user?.role === 'admin';
@@ -302,13 +298,6 @@ export default function IntegrationRequestsScreen() {
 }
 
 const styles = {
-  wrap: { padding: '28px 32px 60px' },
-  header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 22 },
-  title: { fontSize: 30, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.6, margin: '0 0 6px' },
-  subtitle: { fontSize: 13, color: 'var(--text-secondary)', margin: 0, maxWidth: 520 },
-  newButton: { background: 'var(--neon)', color: 'var(--neon-text)', border: 'none', borderRadius: 10, padding: '11px 18px', fontSize: 13, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0 },
-  empty: { fontSize: 13, color: 'var(--text-tertiary)' },
-  sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '24px 0 10px' },
 
   card: { background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 10, overflow: 'hidden' },
   cardHead: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', background: 'none', border: 'none', padding: '14px 16px', cursor: 'pointer', textAlign: 'left' },
@@ -320,8 +309,6 @@ const styles = {
   detail: { fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 12px', whiteSpace: 'pre-wrap' },
 
   pillChange: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(34,211,238,0.14)', color: 'var(--neon)' },
-  pillWorking: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(201,162,39,0.16)', color: '#C9A227' },
-  pillDone: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(120,200,140,0.16)', color: '#5FBF7F' },
   pillHelp: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(201,162,39,0.16)', color: '#C9A227' },
 
   responseBlock: { borderLeft: '2px solid var(--border-strong)', paddingLeft: 12, margin: '0 0 12px' },

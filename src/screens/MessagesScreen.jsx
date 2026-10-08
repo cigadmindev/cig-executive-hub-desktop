@@ -8,15 +8,12 @@ import { storage } from '../firebaseConfig';
 import ChatAttachment from '../components/ChatAttachment';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
+import { fmtDay, fmtTime, fmtDayTime } from '../lib/dates';
 
+// Today: the time. Before today: the day.
 function formatTime(ts) {
   if (!ts) return '';
-  const d = new Date(ts);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  return sameDay
-    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return fmtDayTime(ts).startsWith('Today') ? fmtTime(ts) : fmtDay(ts);
 }
 
 // Every sender in a group chat gets a consistent color derived from their
@@ -568,7 +565,6 @@ const styles = {
   thread: { flex: 1, display: 'flex', flexDirection: 'column' },
   threadEmpty: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 14 },
   threadHeader: { padding: '16px 20px 4px', fontSize: 16, fontWeight: 700 },
-  disclaimer: { padding: '0 20px 10px', fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic' },
   // Top padding leaves room for a reaction pill on the first message — it
   // overlaps the bubble's top corner, so a flush start clips it.
   threadScroll: { flex: 1, overflowY: 'auto', padding: '18px 20px 0' },

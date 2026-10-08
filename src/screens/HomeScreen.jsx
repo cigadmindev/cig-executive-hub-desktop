@@ -15,6 +15,7 @@ import { useBrandAnnouncements } from '../context/BrandAnnouncementsContext';
 import PostCard from '../components/PostCard';
 import { accessLevel } from '../data/accessMatrix';
 import { brandIdForTarget } from '../data/mockData';
+import { fmtDay } from '../lib/dates';
 
 export default function HomeScreen() {
   const isNarrow = useIsNarrow();
@@ -243,7 +244,7 @@ export default function HomeScreen() {
               >
                 <span style={styles.openingName}>{loc.brandName}</span>
                 <span style={styles.openingMeta}>
-                  {loc.name} · {new Date(loc.openingDate).toLocaleDateString([], { month: 'short', day: 'numeric' })} ·{' '}
+                  {loc.name} · {fmtDay(loc.openingDate)} ·{' '}
                   {loc.daysOut} days out
                 </span>
                 {hasFeature(user, 'openingChecklist') ? (
@@ -321,7 +322,7 @@ export default function HomeScreen() {
                 <div key={r.id} style={styles.recentRow}>
                   <span style={styles.recentText}>{r.text}</span>
                   <span style={styles.attentionWhere}>
-                    {new Date(r.at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                    {fmtDay(r.at)}
                   </span>
                 </div>
               ))
