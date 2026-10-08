@@ -216,12 +216,29 @@ exports.sendInviteEmail = onCall({ secrets: ['RESEND_API_KEY'] }, async (request
     throw new HttpsError('internal', err.message);
   }
 
+  // Their job and where they work, for "You've been set up as..." and the
+  // "What you'll use" list in the welcome email.
+  let job = null;
+  let where = null;
+  if (!isReset) {
+    const R = require('./routing');
+    const found = await admin.firestore().collection('users').where('email', '==', email.trim()).limit(1).get();
+    const p = found.empty ? null : found.docs[0].data();
+    job = p?.job ?? null;
+    const brands = p?.permissions?.brandIds ?? [];
+    const own = ['General Manager', 'Assistant Manager', 'Kitchen Manager', 'Executive Chef', 'Sous Chef', 'Catering & Events'].includes(job);
+    if (own && brands.length === 1) {
+      const locs = p?.permissions?.locationsByBrand?.[brands[0]] ?? [];
+      where = locs.length === 1 ? await R.locationName(locs[0]) : null;
+    }
+  }
+
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error } = await resend.emails.send({
     from: 'CIG Executive Hub <no-reply@cigconcepts.com>',
     to: [email.trim()],
     subject: isReset ? 'Reset your CIG Executive Hub password' : 'Set up your CIG Executive Hub account',
-    html: isReset ? inviteHtml({ name, link, isReset: true }) : welcomeHtml({ name, link }),
+    html: isReset ? inviteHtml({ name, link, isReset: true }) : welcomeHtml({ name, link, job, where }),
   });
 
   if (error) {

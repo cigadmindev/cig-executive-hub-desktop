@@ -7,9 +7,10 @@ import { pageHeader, pageAction } from '../theme/pageHeader';
 //   status filters with counts
 //   a compact table on the left, the selected request's detail on the right
 // Each page supplies its own columns, filters and detail panel.
-export default function RequestPage({ title, subtitle, actionLabel, onAction, filters, filter, onFilter, columns, rows, selectedId, onSelect, detail, empty, note, children }) {
+export default function RequestPage({ back, title, subtitle, actionLabel, onAction, filters, filter, onFilter, columns, rows, selectedId, onSelect, detail, empty, note, children }) {
   return (
     <div style={styles.page}>
+      {back}
       <div style={pageHeader}>
         <div>
           <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>{title}</h1>

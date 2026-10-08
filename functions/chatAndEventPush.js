@@ -150,6 +150,15 @@ exports.onEventRequestResolved = onDocumentUpdated(
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
     if (!before || !after) return;
+    // An admin changed it by hand - tell the person who asked what and why.
+    if (after.statusChangedAt && after.statusChangedAt !== before.statusChangedAt) {
+      const word = { pending: 'waiting on a decision', approved: 'approved', denied: 'denied' };
+      const asker = (await R.activeUsers()).filter((u) => u.uid === after.requestedByUid);
+      await notifyPeople(asker, 'Update on your event request: ' + (after.title ?? ''),
+        (after.statusChangedByName || 'An admin') + ' changed it from ' + (word[before.status] ?? before.status) + ' to ' + (word[after.status] ?? after.status) + '. ' + (after.statusChangeReason || ''),
+        { speed: ACTION, topic: 'eventRequest', path: '/', why: 'You got this because you asked for this event.' });
+      return;
+    }
     if (before.status !== 'pending' || after.status === 'pending') return;
     const approved = after.status === 'approved';
     const users = await R.activeUsers();

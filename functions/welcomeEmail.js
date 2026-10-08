@@ -58,17 +58,63 @@ function eyebrow(text) {
   return `<div style="font-family:${F};font-size:11px;font-weight:bold;letter-spacing:1.2px;text-transform:uppercase;color:#22D3EE;padding-bottom:14px;">${text}</div>`;
 }
 
-function welcomeHtml({ name, link }) {
-  // The iPhone step is defined but not rendered until the app is through
-  // review. There is no Mac step: the desktop apps were dropped in September,
-  // and the Hub is the web and the iPhone app.
+// What each job uses, for "What you'll use". Plain-words mirror of the
+// Who sees what table's defaults (src/data/accessMatrix.js) - when that table
+// changes a lot, update this list so new people are told the truth.
+const FEATURES = {
+  _base: [['Calendar', 'Everything happening, in one place'], ['Messages', 'Chat with the team']],
+  approve: [['Approvals', 'Time off, events and devices waiting on you']],
+  team: [['Availability', 'Your hours, time off, and your team']],
+  own: [['Availability', 'Your usual hours and time off']],
+  expenses: [['Expenses', 'Photograph a receipt, done']],
+  financeAll: [['Expense reports', 'Each period, with every receipt photo']],
+  catering: [['Catering', 'Enquiries for your location — claim and run them']],
+  checklist: [['Opening checklists', 'Every task to open a new restaurant']],
+  renewals: [['Permits & renewals', 'Warned before anything lapses']],
+  signatures: [['Signature Directory', 'Documents to sign, signed in the Hub']],
+  systems: [['Systems Help', 'IT requests — you answer them']],
+  marketing: [['Marketing folders', 'Photos, menus and brand material']],
+  dates: [['Opening dates', 'When each new restaurant opens']],
+};
+const JOB_FEATURES = {
+  'Owner': ['team', 'checklist', 'renewals', 'signatures', 'expenses'], 'CEO': ['team', 'checklist', 'renewals', 'signatures', 'expenses'],
+  'COO': ['approve', 'checklist', 'renewals', 'signatures', 'expenses'], 'Financials': ['financeAll', 'team', 'dates', 'signatures'],
+  'Culinary Director': ['checklist', 'team', 'expenses', 'signatures'], 'Culinary Manager': ['checklist', 'team', 'expenses', 'signatures'],
+  'Beverage Manager': ['checklist', 'team', 'expenses', 'signatures'], 'General Manager': ['team', 'catering', 'renewals', 'expenses', 'signatures'],
+  'Assistant Manager': ['own', 'catering', 'expenses', 'signatures', 'dates'], 'Kitchen Manager': ['own', 'checklist', 'expenses', 'signatures'],
+  'Executive Chef': ['own', 'catering', 'expenses', 'signatures', 'dates'], 'Sous Chef': ['own', 'expenses', 'signatures', 'dates'],
+  'Catering & Events': ['own', 'catering', 'expenses', 'signatures', 'dates'], 'IT & Training': ['systems', 'team', 'renewals', 'signatures', 'catering'],
+  'Marketing': ['marketing', 'dates'], 'Communications': ['marketing', 'dates'], 'Videographer': ['marketing', 'dates', 'signatures'],
+  'HR': ['team', 'expenses', 'signatures'], 'Real Estate': ['dates', 'renewals', 'expenses'],
+};
+function featuresFor(job) {
+  const keys = JOB_FEATURES[job] ?? [];
+  return [...FEATURES._base, ...keys.flatMap((k) => FEATURES[k] ?? [])].slice(0, 8);
+}
+
+const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// job and where are optional: an invite re-sent from Manage Logins passes
+// them; without them the email is the general version.
+function welcomeHtml({ name, link, job = null, where = null }) {
+  const first = name ? esc(String(name).split(' ')[0]) : '';
   const webStep = step(2, false, 'Open it in your browser',
-    `<a href="${WEB_URL}" style="color:#22D3EE;text-decoration:none;">hub.cigconcepts.com</a> &mdash; nothing to install, works on any computer or phone.`);
+    `<a href="${WEB_URL}" style="color:#22D3EE;text-decoration:none;">hub.cigconcepts.com</a> &mdash; nothing to install, works on any computer or phone. On a phone, add it to your home screen.`);
+  const iosStep = step(3, false, 'Install on iPhone',
+    `<a href="${IOS_DOWNLOAD_URL}" style="color:#22D3EE;text-decoration:none;">Get it from the App Store</a> and sign in with the same email and password.`);
   const videoStep = step(3, false, 'Watch the walkthrough',
     `<a href="${TRAINING_VIDEO_URL}" style="color:#22D3EE;text-decoration:none;">See how it works</a> &mdash; about ten minutes, and worth it before you start.`);
-  const iosStep = IOS_DOWNLOAD_URL
-    ? step(4, false, 'Install on iPhone', `<a href="${IOS_DOWNLOAD_URL}" style="color:#22D3EE;text-decoration:none;">Get it from the App Store</a>`)
-    : step(4, false, 'Install on iPhone', 'Coming soon &mdash; we&rsquo;ll send the link once it&rsquo;s approved.');
+  const feats = featuresFor(job);
+  const rows = [];
+  for (let i = 0; i < feats.length; i += 2) {
+    rows.push('<tr>' + feature(feats[i][0], feats[i][1]) + (feats[i + 1] ? feature(feats[i + 1][0], feats[i + 1][1]) : '<td></td>') + '</tr>');
+  }
+  const tip = (title, detail) => `<tr><td style="padding-bottom:12px;font-family:${F};">
+      <div style="font-size:14px;font-weight:bold;color:#FFFFFF;padding-bottom:2px;">${title}</div>
+      <div style="font-size:13px;line-height:19px;color:#9A9AA6;">${detail}</div></td></tr>`;
+  const who = job
+    ? `You&rsquo;ve been set up as <span style="color:#FFFFFF;font-weight:bold;">${esc(job)}</span>${where ? ' at <span style="color:#FFFFFF;font-weight:bold;">' + esc(where) + '</span>' : ''}. `
+    : '';
   return `<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
@@ -87,7 +133,7 @@ function welcomeHtml({ name, link }) {
   ${card(`
     ${eyebrow('Welcome')}
     <div style="font-family:${F};font-size:22px;font-weight:bold;letter-spacing:-0.4px;text-transform:uppercase;color:#FFFFFF;padding-bottom:12px;">Your account is ready</div>
-    <div style="font-family:${F};font-size:14px;line-height:21px;color:#9A9AA6;padding-bottom:22px;">${name ? name + ',<br><br>' : ''}The CIG Executive Hub brings our operations into one place across every brand and location.</div>
+    <div style="font-family:${F};font-size:14px;line-height:21px;color:#9A9AA6;padding-bottom:22px;">${first ? 'Hi ' + first + ',<br><br>' : ''}${who}The CIG Executive Hub brings our operations into one place across every brand and location.</div>
     <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background-color:#22D3EE;border-radius:8px;">
       <a href="${link}" style="display:inline-block;padding:12px 24px;font-family:${F};font-size:14px;font-weight:bold;color:#0A0A0B;text-decoration:none;">Set your password</a>
     </td></tr></table>
@@ -98,22 +144,30 @@ function welcomeHtml({ name, link }) {
   ${card(`
     ${eyebrow('Getting started')}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-      ${step(1, true, 'Set your password', 'Use the button above. It stays valid until you use it.')}
+      ${step(1, true, 'Set your password', 'Use the button above. The link works until you use it.')}
       ${webStep}
       ${videoStep}
     </table>
   `)}
 
   ${card(`
-    ${eyebrow("What's inside")}
+    ${eyebrow(job ? "What you'll use" : "What's inside")}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-      <tr>${feature('Opening checklists', 'Every task, in order')}${feature('Master calendar', 'Across all locations')}</tr>
-      <tr>${feature('Permits &amp; renewals', 'Nothing lapses')}${feature('Work orders', 'Request and track')}</tr>
+      ${rows.join('')}
     </table>
   `)}
 
-  <tr><td style="border-top:1px solid #2A2A33;padding-top:18px;font-family:${F};font-size:13px;line-height:20px;color:#9A9AA6;">Something not working? Open <span style="color:#FFFFFF;font-weight:bold;">Support</span> in the app and submit a request &mdash; the team will pick it up.</td></tr>
-  <tr><td style="font-family:${F};font-size:11px;line-height:17px;color:#6A6A76;padding-top:12px;">This password link expires in one hour. If it lapses, request a new one from Support.</td></tr>
+  ${card(`
+    ${eyebrow('Your first week')}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      ${tip('Set your usual hours', 'In Availability. Do it once &mdash; it carries forward every week.')}
+      ${tip('Check &ldquo;Needs you&rdquo; on Home', 'Anything waiting on you shows up there, and clears when it&rsquo;s done.')}
+      ${tip('Choose your emails', 'Profile &rarr; Notifications: everything, urgent only, or a morning summary.')}
+    </table>
+  `)}
+
+  <tr><td style="border-top:1px solid #2A2A33;padding-top:18px;font-family:${F};font-size:13px;line-height:20px;color:#9A9AA6;">Something not working? Open <span style="color:#FFFFFF;font-weight:bold;">Systems Help</span> in the Directory, or email <a href="mailto:info@cigconcepts.com" style="color:#22D3EE;text-decoration:none;">info@cigconcepts.com</a>.</td></tr>
+  <tr><td style="font-family:${F};font-size:11px;line-height:17px;color:#6A6A76;padding-top:12px;">This link works until you use it. If you ever need a new password, use &ldquo;Forgot password&rdquo; on the sign-in page.</td></tr>
 
 </table>
 </td></tr>

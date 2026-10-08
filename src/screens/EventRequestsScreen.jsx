@@ -9,6 +9,7 @@ import DatePickerField from '../components/DatePickerField';
 import TimePickerField from '../components/TimePickerField';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
+import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import { pageHeader, pageAction } from '../theme/pageHeader';
 import { atLeast } from '../data/accessMatrix';
 
@@ -30,7 +31,10 @@ export default function EventRequestsScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const { brandId, locationId } = useParams();
   const { user, activeUsers: users } = useAuth();
-  const { getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest } = useEventRequests();
+  const { getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest, adminSetStatus } = useEventRequests();
+  const [filter, setFilter] = useState('pending');
+  const [selectedId, setSelectedId] = useState(null);
+  const [changing, setChanging] = useState(null);
   const { getByBrand } = useCustomLocations();
   const { markEventRequestsViewed } = useViewTracking();
   const isAdmin = user?.role === 'admin';
@@ -188,82 +192,101 @@ export default function EventRequestsScreen() {
 
   if (!brand || !location) return null;
 
-  return (
-    <div style={styles.page}>
-      <Link to={`/brand/${brand.id}/location/${location.id}`} style={styles.backLink}>
-        ‹ {location.name}
-      </Link>
-      <header style={pageHeader}>
-        <h1 style={{ ...styles.title, ...nike.pageTitleSm }}>Event / Promo Requests</h1>
-        <button style={pageAction} onClick={openNewForm}>
-          + Request an Event
-        </button>
-      </header>
+  const STATUS = { pending: ['Waiting', 'amber'], approved: ['Approved', 'cyan'], denied: ['Denied', 'grey'] };
+  const rows = sortedRequests.filter((r) => r.status === filter);
+  const selected = sortedRequests.find((r) => r.id === selectedId) ?? rows[0] ?? null;
+  const approvesHere = isAdmin || atLeast(user, 'eventRequests', 'approve');
 
-      <div style={styles.body}>
-        {sortedRequests.length === 0 ? (
-          <p style={styles.hint}>No event requests yet.</p>
-        ) : (
-          sortedRequests.map((r) => {
-            // The COO and admins decide (who-sees-what table: Approve).
-            const approves = atLeast(user, 'eventRequests', 'approve');
-            const isOwnRequest = r.requestedByUid === user?.uid;
-            const canResolve = (isAdmin || (approves && !isOwnRequest)) && r.status === 'pending';
-            const needsMe = !!user?.job && (r.needs ?? []).map(cleanNeed).includes(cleanNeed(user.job));
-            return (
-              <div key={r.id} style={{ ...styles.card, ...(needsMe ? styles.cardNeedsMe : {}) }}>
-                {needsMe ? <p style={styles.needsMeBadge}>This needs you — {cleanNeed(user.job)}</p> : null}
-                <div style={styles.cardHeaderRow}>
-                  <span style={styles.cardTitle}>{r.title}</span>
-                  <span style={{ ...styles.statusBadge, background: STATUS_COLORS[r.status] }}>{r.status.toUpperCase()}</span>
+  const detail = !selected ? (
+    <div style={d.placeholder}>Pick a request to see it here.</div>
+  ) : (() => {
+    const r = selected;
+    const isOwnRequest = r.requestedByUid === user?.uid;
+    const canResolve = (isAdmin || (approvesHere && !isOwnRequest)) && r.status === 'pending';
+    const needsMe = !!user?.job && (r.needs ?? []).map(cleanNeed).includes(cleanNeed(user.job));
+    return (
+      <div style={d.card}>
+        <p style={{ ...d.kicker, ...(r.status !== 'pending' ? { color: 'var(--neon)' } : {}) }}>{STATUS[r.status]?.[0]} · {location.name}</p>
+        <p style={d.title}>{r.title}</p>
+        {needsMe ? <p style={styles.needsMeBadge}>This needs you — {cleanNeed(user.job)}</p> : null}
+        <div style={d.row}><span style={d.k}>When</span><span style={d.v}>{formatDateTime(r.dateTime)}</span></div>
+        {r.expectedAttendees ? <div style={d.row}><span style={d.k}>Guests</span><span style={d.v}>{r.expectedAttendees}</span></div> : null}
+        <div style={d.row}><span style={d.k}>Asked by</span><span style={d.v}>{r.requestedBy}</span></div>
+        {r.details ? <div style={d.row}><span style={d.k}>Details</span><span style={{ ...d.v, whiteSpace: 'pre-wrap' }}>{r.details}</span></div> : null}
+        {r.needs && r.needs.length ? <div style={d.row}><span style={d.k}>Needs</span><span style={d.v}>{r.needs.map(cleanNeed).join(', ')}</span></div> : null}
+        {r.status === 'denied' && r.denialReason ? <div style={d.row}><span style={d.k}>Reason</span><span style={d.v}>{r.denialReason}</span></div> : null}
+        {approvesHere && !isAdmin && isOwnRequest && r.status === 'pending' ? <p style={{ ...styles.hint, marginTop: 10 }}>Your own request — the COO or an admin approves it.</p> : null}
+        {canResolve ? (
+          <div style={d.actions}>
+            <button style={d.primary} onClick={() => handleApprove(r)}>Approve</button>
+            <button style={d.ghost} onClick={() => openDeny(r.id)}>Deny…</button>
+          </div>
+        ) : null}
+        {isAdmin ? (
+          <div style={d.section}>
+            <p style={d.sectionLabel}>ADMIN</p>
+            {changing ? (
+              <>
+                <select style={d.input} value={changing.status} onChange={(e) => setChanging({ ...changing, status: e.target.value })}>
+                  <option value="pending">Waiting</option>
+                  <option value="approved">Approved</option>
+                  <option value="denied">Denied</option>
+                </select>
+                <input style={d.input} autoFocus placeholder="Reason - emailed to the person who asked" value={changing.reason} onChange={(e) => setChanging({ ...changing, reason: e.target.value })} />
+                {changing.status === 'approved' && r.status !== 'approved' ? <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 8px' }}>To put it on the calendar too, set it to Waiting and use Approve.</p> : null}
+                <div style={d.actions}>
+                  <button style={d.primary} disabled={changing.status === r.status || !changing.reason.trim()} onClick={async () => {
+                    try { await adminSetStatus(r.id, changing.status, changing.reason); setChanging(null); setFilter(changing.status); }
+                    catch (err) { notify('Could not change it', err?.message ?? 'Try again.'); }
+                  }}>Change status</button>
+                  <button style={d.ghost} onClick={() => setChanging(null)}>Cancel</button>
                 </div>
-                <p style={styles.cardMeta}>{formatDateTime(r.dateTime)}</p>
-                {r.expectedAttendees ? <p style={styles.cardMeta}>Expected attendees: {r.expectedAttendees}</p> : null}
-                <p style={styles.cardDetails}>{r.details}</p>
-                {r.needs && r.needs.length > 0 ? (
-                  <div style={styles.needsRow}>
-                    {r.needs.map((rawN) => cleanNeed(rawN)).map((n) => (
-                      <span key={n} style={{ ...styles.needChip, ...(n === user?.job ? styles.needChipMine : {}) }}>
-                        {n}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                <p style={styles.cardRequestedBy}>Requested by {r.requestedBy}</p>
-                {approves && !isAdmin && isOwnRequest && r.status === 'pending' ? (
-                  <p style={styles.hint}>This is your own request — the COO or an admin needs to approve it.</p>
-                ) : null}
-                {r.status === 'denied' && r.denialReason ? (
-                  <p style={styles.denialReason}>Reason for denial: {r.denialReason}</p>
-                ) : null}
-
-                <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-                  {canResolve ? (
-                    <>
-                      <button style={styles.saveButton} onClick={() => handleApprove(r)}>
-                        Approve
-                      </button>
-                      <button style={styles.cancelButton} onClick={() => openDeny(r.id)}>
-                        Deny
-                      </button>
-                    </>
-                  ) : null}
-                  {isAdmin ? (
-                    <>
-                      <button style={styles.linkButton} onClick={() => openEditForm(r)}>
-                        Edit
-                      </button>
-                      <button style={styles.linkButtonDanger} onClick={() => handleDelete(r)}>
-                        Delete
-                      </button>
-                    </>
-                  ) : null}
-                </div>
+              </>
+            ) : (
+              <div style={{ ...d.actions, marginTop: 0 }}>
+                <button style={d.ghost} onClick={() => openEditForm(r)}>Edit details</button>
+                <button style={d.ghost} onClick={() => setChanging({ status: r.status, reason: '' })}>Change status…</button>
+                <button style={{ ...d.ghost, color: 'var(--danger)' }} onClick={() => handleDelete(r)}>Delete</button>
               </div>
-            );
-          })
-        )}
+            )}
+          </div>
+        ) : null}
+        <div style={d.section}>
+          <p style={d.sectionLabel}>HISTORY</p>
+          <div style={d.history}>
+            {r.createdAt ? <div>{formatDateTime(r.createdAt)} · asked by {r.requestedBy}</div> : <div>Asked by {r.requestedBy}</div>}
+            {r.resolvedAt ? <div>{formatDateTime(r.resolvedAt)} · {r.status === 'denied' ? 'denied' : 'decided'}</div> : null}
+            {r.statusChangedAt ? <div>{formatDateTime(r.statusChangedAt)} · changed by {r.statusChangedByName} — “{r.statusChangeReason}”</div> : null}
+          </div>
+        </div>
       </div>
+    );
+  })();
+
+  return (
+    <div>
+      <RequestPage
+        back={<Link to={`/brand/${brand.id}/location/${location.id}`} style={styles.backLink}>‹ {location.name}</Link>}
+        title="Event / Promo Requests"
+        subtitle={location.name + ' · ask for an event or promotion. The COO decides, and approved events go on the calendar.'}
+        actionLabel="+ Request an Event"
+        onAction={openNewForm}
+        filters={Object.entries(STATUS).map(([k, [l]]) => ({ key: k, label: l, count: sortedRequests.filter((r) => r.status === k).length }))}
+        filter={filter}
+        onFilter={(k) => { setFilter(k); setSelectedId(null); setChanging(null); }}
+        columns={[
+          { key: 'what', label: 'Event', render: (r) => <strong>{r.title}</strong> },
+          { key: 'when', label: 'When', render: (r) => formatDateTime(r.dateTime) },
+          { key: 'who', label: 'Asked by', render: (r) => r.requestedBy },
+          { key: 'status', label: 'Status', render: (r) => <Pill tone={STATUS[r.status]?.[1]}>{STATUS[r.status]?.[0]}</Pill> },
+        ]}
+        rows={rows}
+        selectedId={selected?.id}
+        onSelect={(id) => { setSelectedId(id); setChanging(null); }}
+        detail={detail}
+        empty="Nothing in this list."
+        note={approvesHere ? null : 'You see your own requests, and ones that name you or need your job.'}
+      />
 
       {formOpen ? (
         <div style={styles.modalBackdrop} onClick={() => setFormOpen(false)}>

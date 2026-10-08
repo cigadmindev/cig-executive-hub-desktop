@@ -65,6 +65,11 @@ export function EventRequestsProvider({ children }) {
           requestedBy: data.requestedBy,
           requestedByUid: data.requestedByUid ?? null,
           status: data.status ?? 'pending',
+          statusChangedByName: data.statusChangedByName ?? '',
+          statusChangedAt: data.statusChangedAt ?? null,
+          statusChangeReason: data.statusChangeReason ?? '',
+          resolvedAt: data.resolvedAt ?? null,
+          createdAt: data.createdAt ?? null,
           denialReason: data.denialReason ?? '',
           timestamp: data.timestamp,
           resolvedAt: data.resolvedAt ?? null,
@@ -102,6 +107,19 @@ export function EventRequestsProvider({ children }) {
     });
     // Note: mobile also sends a push notification to admins here — not
     // wired up for desktop yet, same as Chat.
+  };
+
+  // Admins only: move a request to any status after the fact, with a reason
+  // the person who asked is emailed (onEventRequestResolved).
+  const adminSetStatus = async (id, status, reason) => {
+    if (!reason?.trim()) throw new Error('Give a reason - the person who asked will see it.');
+    await updateDoc(doc(db, COLLECTION, id), {
+      status,
+      statusChangedByName: user?.name ?? '',
+      statusChangedAt: Date.now(),
+      statusChangeReason: reason.trim(),
+      ...(status === 'denied' ? { denialReason: reason.trim() } : {}),
+    });
   };
 
   const resolveRequest = async (id, status, denialReason = '') => {
@@ -174,7 +192,7 @@ export function EventRequestsProvider({ children }) {
 
   return (
     <EventRequestsContext.Provider
-      value={{ requests, getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest, hasNeedMatchingJob }}
+      value={{ requests, getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest, hasNeedMatchingJob, adminSetStatus }}
     >
       {children}
     </EventRequestsContext.Provider>
