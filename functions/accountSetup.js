@@ -14,11 +14,30 @@ const crypto = require('crypto');
 
 const TOKENS = 'accountSetupTokens';
 
+// A link that keeps working forever is worse than one that expires (8 Oct, S1):
+// fourteen days is long enough for anyone who opens their email late.
+const LIFETIME_MS = 14 * 24 * 60 * 60 * 1000;
+const SPENT = 'This link has expired or has already been used. Use Forgot password on the sign-in page instead.';
+
+// Still usable: not spent, not expired, and the person is still active.
+async function usable(data) {
+  if (!data || data.usedAt) return false;
+  if (!data.createdAt || Date.now() - data.createdAt > LIFETIME_MS) return false;
+  const profile = await admin.firestore().collection('users').doc(data.uid).get();
+  if (!profile.exists) return false;
+  const p = profile.data();
+  return p.active !== false && p.isGhost !== true;
+}
+
 /**
  * Made when a login is created, and stored away from the profile so nobody
  * signed in can read someone else's.
  */
 async function issueSetupToken(uid, email) {
+  // Only the newest link works - an older email cannot be used once a new
+  // one has been sent.
+  const old = await admin.firestore().collection(TOKENS).where('uid', '==', uid).get();
+  await Promise.all(old.docs.map((d) => d.ref.delete()));
   const token = crypto.randomBytes(32).toString('hex');
   await admin.firestore().collection(TOKENS).doc(token).set({
     uid,
@@ -38,9 +57,7 @@ const describeAccountSetup = onCall(async (request) => {
   if (!token) throw new HttpsError('invalid-argument', 'No setup link.');
 
   const snap = await admin.firestore().collection(TOKENS).doc(token).get();
-  if (!snap.exists || snap.data().usedAt) {
-    throw new HttpsError('not-found', 'This link has already been used. Use Forgot password on the sign-in page instead.');
-  }
+  if (!snap.exists || !(await usable(snap.data()))) throw new HttpsError('not-found', SPENT);
 
   const { uid, email } = snap.data();
   const profile = await admin.firestore().collection('users').doc(uid).get();
@@ -69,8 +86,10 @@ const completeAccountSetup = onCall(async (request) => {
     return snap.data();
   });
 
-  if (!claimed) {
-    throw new HttpsError('not-found', 'This link has already been used. Use Forgot password on the sign-in page instead.');
+  if (!claimed) throw new HttpsError('not-found', SPENT);
+  if (!(await usable({ ...claimed, usedAt: null }))) {
+    await ref.update({ usedAt: null });
+    throw new HttpsError('not-found', SPENT);
   }
 
   try {

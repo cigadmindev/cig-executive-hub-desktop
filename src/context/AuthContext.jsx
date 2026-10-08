@@ -123,6 +123,8 @@ export function AuthProvider({ children }) {
       }
       return 'success';
     } catch (err) {
+      // Deactivating someone disables their sign-in on the server too.
+      if (err?.code === 'auth/user-disabled') return 'deactivated';
       return 'invalid-credentials';
     }
   };

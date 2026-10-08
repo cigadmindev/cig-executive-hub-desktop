@@ -39,12 +39,22 @@ exports.sweepViewedAttachments = onSchedule('every 24 hours', async () => {
 
     if (!everyoneSeen && !tooOld) continue;
 
+    // Only files in this conversation's own folder (S2): a message could
+    // otherwise name any file in Storage and have it deleted tonight.
+    const path = String(msg.attachment.path);
+    if (!msg.conversationId || !path.startsWith(`chatAttachments/${msg.conversationId}/`) || path.includes('..')) {
+      console.error('Skipped ' + path + ' - not in chatAttachments/' + msg.conversationId + '/');
+      continue;
+    }
     try {
-      await bucket.file(msg.attachment.path).delete();
+      await bucket.file(path).delete();
     } catch (err) {
-      // Already gone — still worth clearing the reference below so the message
-      // stops advertising a file that isn't there.
-      console.log('storage delete skipped', msg.attachment.path, err.message);
+      // Already gone - still clear the reference below. Anything else is
+      // retried tomorrow rather than leaving the file orphaned for good.
+      if (err.code !== 404) {
+        console.error('storage delete failed, will retry', path, err.message);
+        continue;
+      }
     }
 
     await docSnap.ref.update({

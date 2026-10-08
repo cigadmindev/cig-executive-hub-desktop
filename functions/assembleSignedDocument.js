@@ -15,6 +15,8 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+const { requireLive } = require('./caller');
+const { workOrderPath } = require('./documentUrls');
 
 const COLLECTION = 'workOrders';
 
@@ -98,6 +100,7 @@ async function embedSignatures(originalPdfBytes, title, signatures) {
 }
 
 exports.assembleSignedDocument = onCall({ timeoutSeconds: 120, memory: '512MiB' }, async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
 
   const { orderId } = request.data || {};
@@ -121,19 +124,18 @@ exports.assembleSignedDocument = onCall({ timeoutSeconds: 120, memory: '512MiB' 
     }
   }
 
-  if (!order.originalPath && !order.originalFileUrl) {
-    throw new HttpsError('failed-precondition', 'The original document is missing.');
+  // Only once everyone has signed - the server checks, not the button.
+  const signedUids = new Set((order.signatures ?? []).map((s) => s.uid));
+  if (!(order.assignedUids ?? []).length || !(order.assignedUids ?? []).every((u) => signedUids.has(u))) {
+    throw new HttpsError('failed-precondition', 'Not everyone has signed yet.');
   }
 
   const bucket = admin.storage().bucket();
 
-  // Path is the new shape; a stored URL is the old one, kept working until
-  // the migration has run everywhere.
-  const originalPath =
-    order.originalPath ??
-    decodeURIComponent(String(order.originalFileUrl).split('/o/')[1]?.split('?')[0] ?? '');
-
-  if (!originalPath) throw new HttpsError('failed-precondition', 'The original could not be located.');
+  // Worked out and checked here - a path outside this document's own folder
+  // is refused (S2).
+  const originalPath = workOrderPath(String(orderId), order, 'original');
+  if (!originalPath) throw new HttpsError('failed-precondition', 'The original document is missing.');
 
   try {
     const [originalBytes] = await bucket.file(originalPath).download();

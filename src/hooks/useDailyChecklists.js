@@ -11,24 +11,29 @@ import { DAILY_CHECKLISTS, tasksFor } from '../data/dailyChecklists';
 // so a later edit to the template never changes a day already started.
 const COLLECTION = 'dailyChecklists';
 export const recordId = (locationId, dateKey, listId) => `${locationId}_${dateKey}_${listId}`;
-export const todayKey = () => {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-};
+// The business day, in Chicago time, running 4am to 4am: a closing list
+// finished at 12:30am still belongs to the night before. It used to be the
+// device's calendar date, so a late close filed the next day's record and
+// the real one showed as missing (S10, 8 Oct). Same rule on the server.
+export const todayKey = () =>
+  new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
 
 // Managers on duty: the GMs and assistant managers who work a list.
 export const isManagerOnDuty = (user) => ['General Manager', 'Assistant Manager'].includes(user?.job);
 
-export function useDailyRecords(locationId, dateKey) {
+// Filtered on the restaurant as well: the rule only lets managers read their
+// own restaurant's records, and Firestore refuses a whole query the rule
+// cannot prove - which is why GMs and AGMs saw nothing (S10, 8 Oct).
+export function useDailyRecords(locationId, brandId, dateKey) {
   const [records, setRecords] = useState({});
   useEffect(() => {
-    if (!locationId || !dateKey) return undefined;
+    if (!locationId || !brandId || !dateKey) return undefined;
     return onSnapshot(
-      query(collection(db, COLLECTION), where('locationId', '==', locationId), where('dateKey', '==', dateKey)),
+      query(collection(db, COLLECTION), where('brandId', '==', brandId), where('locationId', '==', locationId), where('dateKey', '==', dateKey)),
       (snap) => setRecords(Object.fromEntries(snap.docs.map((d) => [d.data().listId, { id: d.id, ...d.data() }]))),
       (err) => console.error('[DailyChecklists] ' + err.code + ': ' + err.message)
     );
-  }, [locationId, dateKey]);
+  }, [locationId, brandId, dateKey]);
   return records;
 }
 

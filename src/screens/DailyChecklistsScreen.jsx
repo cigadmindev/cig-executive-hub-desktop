@@ -23,7 +23,7 @@ export default function DailyChecklistsScreen() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const dateKey = params.get('date') ?? todayKey();
-  const records = useDailyRecords(locationId, dateKey);
+  const records = useDailyRecords(locationId, brandId, dateKey);
   const brand = brands.find((b) => b.id === brandId);
   const location = brand?.locations?.find((l) => l.id === locationId);
   const isToday = dateKey === todayKey();

@@ -7,10 +7,28 @@
 // rules deny reads outright and the check happens here, where it can.
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
+const { requireLive } = require('./caller');
 
 // Long enough to click through and download, short enough that a leaked URL
 // is not a lasting problem.
 const URL_MINUTES = 10;
+
+// The Storage path of a work order's file, worked out here and never taken
+// on trust. A path that does not sit under this work order's own folder is
+// refused: otherwise anyone could create a work order pointing at someone
+// else's receipt and be handed a link to it (8 Oct 2026, S2).
+function workOrderPath(orderId, order, which) {
+  const fromUrl = (url) => (url ? decodeURIComponent(String(url).split('/o/')[1]?.split('?')[0] ?? '') : '');
+  const path = which === 'original'
+    ? order.originalPath || fromUrl(order.originalFileUrl)
+    : order.signedPath || fromUrl(order.signedFileUrl);
+  if (!path) return null;
+  if (!path.startsWith(`workOrders/${orderId}/`) || path.includes('..')) {
+    throw new HttpsError('permission-denied', 'That file does not belong to this document.');
+  }
+  return path;
+}
+exports.workOrderPath = workOrderPath;
 
 async function callerProfile(uid) {
   const snap = await admin.firestore().collection('users').doc(uid).get();
@@ -27,6 +45,7 @@ async function callerProfile(uid) {
  * there is no document nobody can retrieve after someone leaves.
  */
 exports.getWorkOrderFileUrl = onCall(async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
   const uid = request.auth.uid;
 
@@ -47,14 +66,11 @@ exports.getWorkOrderFileUrl = onCall(async (request) => {
   }
 
   // The assembled signed version by default; the original only if asked for.
-  const url = which === 'original' ? order.originalFileUrl : order.signedFileUrl;
-  if (!url) throw new HttpsError('failed-precondition', 'There is no file to download yet.');
-
-  // Stored as a full URL rather than a path, so the bucket prefix is trimmed
-  // back off to address the object.
+  // Reads the stored path (the signed copy has been saved as a path, not a
+  // URL, since September - reading only the URL broke every new download).
+  const path = workOrderPath(String(orderId), order, which === 'original' ? 'original' : 'signed');
+  if (!path) throw new HttpsError('failed-precondition', 'There is no file to download yet.');
   const bucket = admin.storage().bucket();
-  const path = decodeURIComponent(String(url).split('/o/')[1]?.split('?')[0] ?? '');
-  if (!path) throw new HttpsError('failed-precondition', 'That file could not be located.');
 
   const [signed] = await bucket.file(path).getSignedUrl({
     action: 'read',
@@ -70,6 +86,7 @@ exports.getWorkOrderFileUrl = onCall(async (request) => {
  * contract between named people.
  */
 exports.getPermitDocUrl = onCall(async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
   const uid = request.auth.uid;
 

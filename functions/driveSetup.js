@@ -14,6 +14,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { google } = require('googleapis');
+const { requireLive } = require('./caller');
 
 const FOLDER = 'application/vnd.google-apps.folder';
 
@@ -65,6 +66,7 @@ async function ensureChild(drive, parentId, name, created) {
 }
 
 exports.setUpLocationDrive = onCall({ timeoutSeconds: 540, memory: '512MiB' }, async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
 
   const db = admin.firestore();

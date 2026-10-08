@@ -233,7 +233,7 @@ export default function AdminUsersScreen() {
   const handleDeactivate = (uid, targetName) => {
     confirm({
       title: `Deactivate ${targetName}?`,
-      body: "They won't be able to sign in, and they'll drop out of every assignee picker and team list. Their account and everything they've entered stays put, and you can switch them back on here at any time.",
+      body: "Straight away: their sign-in stops working everywhere, any unused welcome link stops working, and they are removed from the shared Drive. They drop out of every picker and team list. Their account and everything they've entered stays put, and you can switch them back on here at any time (Drive is put back from Offboarding).",
       confirmLabel: 'Deactivate',
       tone: 'danger',
       onConfirm: async () => {

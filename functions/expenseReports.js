@@ -3,6 +3,7 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onCall, HttpsError } = require('firebase-functions/https');
 const admin = require('firebase-admin');
+const { requireLive } = require('./caller');
 
 const REPORTS = 'expenseReports';
 const ZONE = 'America/Chicago';
@@ -19,6 +20,7 @@ const ZONE = 'America/Chicago';
 // Downloading is what marks it collected - the same rule as the signed work
 // order documents.
 exports.getExpenseReportUrl = onCall(async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
 
   const db = admin.firestore();
@@ -71,6 +73,7 @@ exports.getExpenseReportUrl = onCall(async (request) => {
 // Now the file stays until it ages out, and each person's red dot clears when
 // they personally collect it.
 exports.confirmExpenseReportDownloaded = onCall(async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
 
   const db = admin.firestore();

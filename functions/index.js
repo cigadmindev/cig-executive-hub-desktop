@@ -5,6 +5,7 @@ const { google } = require('googleapis');
 const { Resend } = require('resend');
 const { welcomeHtml } = require('./welcomeEmail');
 const { issueSetupToken } = require('./accountSetup');
+const { requireLive } = require('./caller');
 
 admin.initializeApp();
 
@@ -23,6 +24,7 @@ setGlobalOptions({ maxInstances: 10, region: 'us-central1' });
 // document. A client-side role check would be trivially bypassed by calling
 // this endpoint directly.
 exports.createUser = onCall(async (request) => {
+  await requireLive(request);
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be signed in.');
   }
@@ -100,6 +102,7 @@ exports.createUser = onCall(async (request) => {
 // The role check runs server-side against the caller's own users document,
 // so it can't be bypassed by calling the endpoint directly.
 exports.getExecutiveNotesFile = onCall({ secrets: ['DRIVE_SA_KEY'] }, async (request) => {
+  await requireLive(request);
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be signed in.');
   }
@@ -184,6 +187,7 @@ function inviteHtml({ name, link, isReset }) {
 }
 
 exports.sendInviteEmail = onCall({ secrets: ['RESEND_API_KEY'] }, async (request) => {
+  await requireLive(request);
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be signed in.');
   }
@@ -333,6 +337,8 @@ Object.assign(exports, require('./driveSetup'));
 Object.assign(exports, require('./accountSetup'));
 
 Object.assign(exports, require('./driveAccess'));
+// Leavers lose sign-in, setup links and Drive the moment they are deactivated.
+Object.assign(exports, require('./leavers'));
 
 Object.assign(exports, require('./dailyDigest'));
 

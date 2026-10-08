@@ -53,14 +53,24 @@ exports.sweepSignedDocuments = onSchedule(
         if (path) paths.push(path);
       }
 
+      // Only files in this document's own folder. A record could otherwise
+      // name any file in Storage and have the sweep delete it (S2).
+      let allGone = true;
       for (const path of paths) {
+        if (!path.startsWith(`workOrders/${d.id}/`) || path.includes('..')) {
+          console.error('Skipped ' + path + ' - not in workOrders/' + d.id + '/');
+          continue;
+        }
         try {
           await bucket.file(path).delete({ ignoreNotFound: true });
         } catch (err) {
+          allGone = false;
           console.error('Could not remove ' + path + ': ' + err.message);
         }
       }
 
+      // Marked done only when every file went, so a failure is retried tomorrow.
+      if (!allGone) continue;
       await d.ref.update({ filesDeleted: true, signedPath: null, signedFileUrl: null });
       removed++;
     }

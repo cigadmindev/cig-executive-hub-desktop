@@ -1,6 +1,12 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // Signed in and still active. Uploads check it, so a leaver holding a
+    // token from before they were deactivated cannot add files (S1).
+    function live() {
+      return request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('active', true) != false;
+    }
     match /privacy-policy.html {
       allow read: if true;
       allow write: if false;
@@ -19,15 +25,16 @@ service firebase.storage {
     // Firestore, so the check goes where it can happen.
     match /workOrders/{orderId}/{fileName} {
       allow read: if false;
-      allow create: if request.auth != null
+      // Only a new "original-" file, never a replacement: a document must
+      // not change while people are signing it (S2). The signed copy is
+      // written by the server.
+      allow create: if live()
+        && resource == null
+        && fileName.matches('original-.+')
         && request.resource.size < 20 * 1024 * 1024
         && (request.resource.contentType.matches('image/.*')
             || request.resource.contentType == 'application/pdf');
-      allow update: if request.auth != null
-        && request.resource.size < 20 * 1024 * 1024
-        && (request.resource.contentType.matches('image/.*')
-            || request.resource.contentType == 'application/pdf');
-      allow delete: if false;
+      allow update, delete: if false;
     }
     // Permit and license documents, keyed by location and item so the
     // opening checklist and the renewal record can point at the same file —
@@ -40,7 +47,7 @@ service firebase.storage {
     // brand this location belongs to.
     match /permitDocs/{locationId}/{itemKey}/{fileName} {
       allow read: if false;
-      allow create, update: if request.auth != null
+      allow create, update: if live()
         && request.resource.size < 20 * 1024 * 1024
         && (request.resource.contentType.matches('image/.*')
             || request.resource.contentType == 'application/pdf');
@@ -58,9 +65,9 @@ service firebase.storage {
     // the sweep to find everything it needs.
     match /chatAttachments/{conversationId}/{fileName} {
       // Members of that conversation only - read from the conversation itself.
-      allow read: if request.auth != null
+      allow read: if live()
         && request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(conversationId)).data.memberUids;
-      allow create: if request.auth != null
+      allow create: if live()
         && request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(conversationId)).data.memberUids
         && request.resource.size < 25 * 1024 * 1024
         && (request.resource.contentType.matches('image/.*')
@@ -99,7 +106,7 @@ service firebase.storage {
     // ignores these rules.
     match /receipts/{uid}/{fileName} {
       allow read: if false;
-      allow create: if request.auth != null
+      allow create: if live()
         && request.auth.uid == uid
         && request.resource.size < 12 * 1024 * 1024
         && (request.resource.contentType.matches('image/.*')

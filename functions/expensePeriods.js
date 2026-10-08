@@ -19,6 +19,7 @@ const { Resend } = require('resend');
 const { buildReceiptArchive } = require('./receiptArchive');
 const T = require('./emailTemplate');
 const { ZONE, PERIODS, centralDateKey, addDays, weekday, loadPeriods, periodFor, periodRange } = require('./fiscal');
+const { requireLive } = require('./caller');
 
 const RECEIPTS = 'expenseReceipts';
 const REPORTS = 'expenseReports';
@@ -194,6 +195,7 @@ async function financeOrAdmin(uid) {
 }
 
 exports.rebuildPeriodReport = onCall({ memory: '1GiB', timeoutSeconds: 540 }, async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const me = await financeOrAdmin(request.auth.uid);
   if (!me || (me.role !== 'admin' && !isFinance(me))) throw new HttpsError('permission-denied', 'Finance and admins only.');
@@ -228,6 +230,7 @@ exports.rebuildPeriodReport = onCall({ memory: '1GiB', timeoutSeconds: 540 }, as
 // Finance moves a receipt between periods
 // ---------------------------------------------------------------------------
 exports.moveReceiptPeriod = onCall(async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const me = await financeOrAdmin(request.auth.uid);
   if (!me || !isFinance(me)) throw new HttpsError('permission-denied', 'Only finance can move a receipt between periods.');

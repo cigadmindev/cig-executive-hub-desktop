@@ -10,6 +10,7 @@ const admin = require('firebase-admin');
 
 const COLLECTION = 'expenseReceipts';
 const { loadPeriods, assignPeriod } = require('./fiscal');
+const { requireLive } = require('./caller');
 
 // The nine categories. Kept as stable keys with the label separate, the same
 // way checklist items work — renaming a label later must not orphan every
@@ -85,6 +86,7 @@ function canSeeEverything(profile) {
 //   3. submittedByUid is taken from the auth token, not the request body, so a
 //      receipt cannot be filed in someone else's name.
 exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
   const uid = request.auth.uid;
   const profile = await callerProfile(uid);
@@ -214,6 +216,7 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
 // functions, and without it getSignedUrl fails at runtime with a message that
 // does not mention the missing role.
 exports.getReceiptUrls = onCall(async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'You must be signed in.');
   const uid = request.auth.uid;
   const profile = await callerProfile(uid);

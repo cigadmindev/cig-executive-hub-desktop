@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, setDoc, runTransaction, updateDoc , query, where } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db, auth, storage } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
@@ -94,13 +94,17 @@ export function WorkOrdersProvider({ children }) {
   // reference something already in Drive instead of uploading a fresh copy.
   const createWorkOrder = async ({ title, description, documentUrl, file, assignedUids }) => {
     const orderRef = doc(collection(db, COLLECTION));
-    let originalFileUrl = null;
+    let originalPath = null;
     let originalFileName = null;
 
+    // Stored as a path, not a download link. Files here are never readable
+    // directly - asking for a link (getDownloadURL) was refused, which is why
+    // attaching a file failed. The server hands out a ten-minute link to the
+    // people on the document (S2, 8 Oct).
     if (file) {
-      const fileRef = ref(storage, `workOrders/${orderRef.id}/original-${file.name}`);
-      await uploadBytes(fileRef, file);
-      originalFileUrl = await getDownloadURL(fileRef);
+      const safeName = file.name.replace(/[\/#?]/g, '-');
+      originalPath = `workOrders/${orderRef.id}/original-${safeName}`;
+      await uploadBytes(ref(storage, originalPath), file);
       originalFileName = file.name;
     }
 
@@ -108,7 +112,8 @@ export function WorkOrdersProvider({ children }) {
       title,
       description,
       documentUrl: documentUrl ?? '',
-      originalFileUrl,
+      originalFileUrl: null,
+      originalPath,
       originalFileName,
       signedFileUrl: null,
       signedPdfError: null,
@@ -160,7 +165,7 @@ export function WorkOrdersProvider({ children }) {
         completedAt: allSigned ? Date.now() : null,
       });
       if (allSigned) {
-        justCompleted = { title: data.title, originalFileUrl: data.originalFileUrl, signatures: newSignatures };
+        justCompleted = { title: data.title, hasFile: !!(data.originalPath || data.originalFileUrl), signatures: newSignatures };
       }
     });
 
@@ -168,7 +173,7 @@ export function WorkOrdersProvider({ children }) {
     // reads/writes and pdf-lib work aren't allowed inside one, and it's
     // fine for this to happen a moment after the signature itself is
     // recorded, since the queue/status already updated live either way.
-    if (justCompleted && justCompleted.originalFileUrl) {
+    if (justCompleted && justCompleted.hasFile) {
       await assemble(id);
     }
   };
@@ -235,6 +240,26 @@ export function WorkOrdersProvider({ children }) {
     }
   };
 
+  // Opens the original in a new tab, through a ten-minute link from the
+  // server (only signers, the sender and admins get one). Older records kept
+  // a public link; those still open directly.
+  const openOriginal = async (order) => {
+    if (!order.originalPath && order.originalFileUrl) {
+      window.open(order.originalFileUrl, '_blank', 'noopener');
+      return;
+    }
+    const tab = window.open('', '_blank');
+    try {
+      const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'getWorkOrderFileUrl');
+      const res = await fn({ orderId: order.id, which: 'original' });
+      if (tab) tab.location.href = res.data.url;
+      else window.open(res.data.url, '_blank', 'noopener');
+    } catch (err) {
+      if (tab) tab.close();
+      throw err;
+    }
+  };
+
   // Anything you sent that is finished and you have not collected. Yours
   // clearing does not clear anyone else's.
   const hasUndownloadedComplete = () => {
@@ -258,6 +283,7 @@ export function WorkOrdersProvider({ children }) {
         retryPdfGeneration,
         markDownloadedAndCleanUp,
         hasUndownloadedComplete,
+        openOriginal,
       }}
     >
       {children}

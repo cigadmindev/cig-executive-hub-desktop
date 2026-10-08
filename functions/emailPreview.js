@@ -9,6 +9,7 @@ const admin = require('firebase-admin');
 const { Resend } = require('resend');
 const T = require('./emailTemplate');
 const { welcomeHtml } = require('./welcomeEmail');
+const { requireLive } = require('./caller');
 const W = T.WEB_URL;
 
 const n = (o) => T.layout({ ...o, button: { label: o.button, url: W }, urgent: o.urgent ?? true });
@@ -63,6 +64,7 @@ const CATALOG = [
 ];
 
 exports.emailPreview = onCall({ secrets: ['RESEND_API_KEY'] }, async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const me = await admin.firestore().collection('users').doc(request.auth.uid).get();
   if (!me.exists || me.data().role !== 'admin') throw new HttpsError('permission-denied', 'Admins only.');

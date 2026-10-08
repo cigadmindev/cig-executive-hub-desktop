@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
-import { useOffboarding, OFFBOARDING_STEPS } from '../context/OffboardingContext';
+import { useOffboarding, OFFBOARDING_STEPS, driveRemovalDone } from '../context/OffboardingContext';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 
@@ -72,7 +72,8 @@ export default function OffboardingScreen() {
         records.map((r) => {
           const returning = !!r.reactivatedAt;
           const which = returning ? 'restoreSteps' : 'steps';
-          const driveDone = returning ? !!r.driveRestoredAt : !!r.driveRemoved;
+          const driveDone = returning ? !!r.driveRestoredAt : driveRemovalDone(r);
+          const running = !returning && r.driveRemoved && r.driveRemoved.finished === false && !(r.driveRemoved.failures?.length > 0);
           const stepsLeft = OFFBOARDING_STEPS.filter((s) => !r[which]?.[s.key]?.done).length + (driveDone ? 0 : 1);
 
           return (
@@ -97,10 +98,20 @@ export default function OffboardingScreen() {
                   <span style={driveDone ? styles.tickDone : styles.tick}>{driveDone ? '☑' : '☐'}</span>
                   <div style={{ flex: 1 }}>
                     <p style={styles.stepLabel}>Drive access</p>
-                    {r.driveRemoved ? (
+                    {running ? (
+                      <p style={styles.stepMeta}>Removing now — started automatically when they were deactivated.</p>
+                    ) : r.driveRemoved ? (
                       <p style={styles.stepMeta}>
-                        Removed from {r.driveRemoved.entries?.length ?? 0} folders on {when(r.driveRemoved.at)}
+                        Removed from {r.driveRemoved.entries?.length ?? 0} place{(r.driveRemoved.entries?.length ?? 0) === 1 ? '' : 's'}
+                        {r.driveRemoved.at ? ` on ${when(r.driveRemoved.at)}` : ''}
                         {r.driveRestoredAt ? ` · restored ${when(r.driveRestoredAt)}` : ''}
+                      </p>
+                    ) : (
+                      <p style={styles.stepMeta}>Removed automatically when someone is deactivated.</p>
+                    )}
+                    {!returning && r.driveRemoved?.failures?.length ? (
+                      <p style={{ ...styles.stepMeta, color: '#E8B93B' }}>
+                        {r.driveRemoved.failures.length} place{r.driveRemoved.failures.length === 1 ? '' : 's'} could not be changed — run it again. First: {r.driveRemoved.failures[0].error}
                       </p>
                     ) : null}
                   </div>

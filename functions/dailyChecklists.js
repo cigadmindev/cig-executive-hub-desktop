@@ -4,9 +4,16 @@
 //                        a PDF in the layout of the printed sheet and filed to
 //                        the location's Drive, Operations › Opening & Closing
 //                        Checklists › YYYY-MM, then locked.
-//   dailyChecklistWatch  22:00 every night: any of today's lists not signed
-//                        off → that location's GM is emailed. Any of
-//                        yesterday's still not signed off → the COO and admins.
+//   dailyChecklistWatch  22:00: today's OPENING lists not signed off → that
+//                        location's GM. Anything from yesterday still not
+//                        signed off → the COO and admins.
+//   dailyClosingWatch    10:00: yesterday's CLOSING lists not signed off →
+//                        that location's GM. (At 10pm the closing lists are
+//                        never done yet, so checking them then emailed the GM
+//                        about all four every night - S10, 8 Oct.)
+//
+// A "day" runs 4am to 4am, so a closing list finished at 12:30am still
+// belongs to the night before. Same rule in src/hooks/useDailyChecklists.js.
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
@@ -15,6 +22,7 @@ const { Readable } = require('stream');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const { notifyPeople, ACTION } = require('./notify');
 const R = require('./routing');
+const { requireLive } = require('./caller');
 
 const ZONE = 'America/Chicago';
 const COLLECTION = 'dailyChecklists';
@@ -29,6 +37,7 @@ const LISTS = {
     ['host-closing', 'Host Closing'], ['server-closing', 'Server / Food Runner Closing'], ['bar-closing', 'Bar Closing'], ['boh-closing', 'Kitchen Closing'],
   ],
 };
+const isClosing = (listId) => listId.endsWith('-closing');
 
 const centralKey = (d) => {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
@@ -130,6 +139,7 @@ async function drawPdf(r, locationName) {
 }
 
 exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, async (request) => {
+  await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = admin.firestore();
   const me = (await db.collection('users').doc(request.auth.uid).get()).data() ?? {};
@@ -137,12 +147,30 @@ exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, a
     throw new HttpsError('permission-denied', 'Only the manager on duty can sign a checklist off.');
   }
   const ref = db.collection(COLLECTION).doc(String(request.data?.id ?? ''));
-  const snap = await ref.get();
-  if (!snap.exists) throw new HttpsError('not-found', 'No such checklist.');
-  const r = snap.data();
-  if (r.status === 'filed') return { ok: true, already: true, fileUrl: r.fileUrl };
-  const open = (r.tasks ?? []).filter((t) => !t.group && !t.done && !t.note);
-  if (open.length) throw new HttpsError('failed-precondition', open.length + ' task(s) are neither ticked nor noted.');
+  const first = await ref.get();
+  if (!first.exists) throw new HttpsError('not-found', 'No such checklist.');
+  // A manager at this location, not any GM anywhere (S10).
+  if (me.role !== 'admin' && !R.seesLocation(me, first.data().brandId, first.data().locationId)) {
+    throw new HttpsError('permission-denied', 'You are not a manager at this location.');
+  }
+
+  // Claimed in one step, so a double tap or a retry files one PDF, not two.
+  // A claim older than five minutes is a run that died - it can be taken over.
+  const claim = await db.runTransaction(async (tx) => {
+    const s = await tx.get(ref);
+    const x = s.data();
+    if (x.status === 'filed') return { already: true, r: x };
+    if (x.status === 'filing' && Date.now() - (x.filingAt ?? 0) < 5 * 60 * 1000) return { busy: true };
+    const open = (x.tasks ?? []).filter((t) => !t.group && !t.done && !t.note);
+    if (open.length) return { open: open.length };
+    tx.update(ref, { status: 'filing', filingAt: Date.now() });
+    return { r: x };
+  });
+  if (claim.already) return { ok: true, already: true, fileUrl: claim.r.fileUrl };
+  if (claim.busy) throw new HttpsError('aborted', 'Someone is signing this off right now - give it a moment.');
+  if (claim.open) throw new HttpsError('failed-precondition', claim.open + ' task(s) are neither ticked nor noted.');
+  const r = claim.r;
+  try {
 
   const filedAt = Date.now();
   const managers = Array.from(new Set([...(r.managers ?? []), ...(['General Manager', 'Assistant Manager'].includes(me.job) ? [me.name] : [])]));
@@ -153,48 +181,90 @@ exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, a
   const d = await drive();
   const parent = await checklistsFolder(r.locationId);
   const month = await ensureChild(d, parent, r.dateKey.slice(0, 7));
-  const file = await d.files.create({
-    requestBody: { name: r.dateKey + ' ' + r.title.replace(' Checklist', '') + '.pdf', parents: [month], mimeType: 'application/pdf' },
-    media: { mimeType: 'application/pdf', body: Readable.from(Buffer.from(bytes)) },
-    fields: 'id, webViewLink',
-    supportsAllDrives: true,
-  });
-  await ref.update({ status: 'filed', managers, filedByName: me.name ?? '', filedAt, fileId: file.data.id, fileUrl: file.data.webViewLink });
+  const name = r.dateKey + ' ' + r.title.replace(' Checklist', '') + '.pdf';
+  // Already in Drive from a run that uploaded but did not finish? Use that
+  // one rather than filing a second copy.
+  const esc = name.replace(/'/g, "\\'");
+  const existing = await d.files.list({ q: `'${month}' in parents and name = '${esc}' and trashed = false`, fields: 'files(id, webViewLink)', pageSize: 1, ...SHARED });
+  const file = existing.data.files?.[0]
+    ? { data: existing.data.files[0] }
+    : await d.files.create({
+        requestBody: { name, parents: [month], mimeType: 'application/pdf' },
+        media: { mimeType: 'application/pdf', body: Readable.from(Buffer.from(bytes)) },
+        fields: 'id, webViewLink',
+        supportsAllDrives: true,
+      });
+  await ref.update({ status: 'filed', managers, filedByName: me.name ?? '', filedAt, fileId: file.data.id, fileUrl: file.data.webViewLink, filingAt: null });
   return { ok: true, fileUrl: file.data.webViewLink };
+  } catch (err) {
+    // Handed back so it can be tried again.
+    await ref.update({ status: 'open', filingAt: null }).catch(() => {});
+    if (err instanceof HttpsError) throw err;
+    throw new HttpsError('internal', 'Could not file it: ' + err.message);
+  }
 });
+
+// A list is "missing" for a day until it is filed.
+async function missingLists(db, locationId, lists, day) {
+  const snap = await db.collection(COLLECTION).where('locationId', '==', locationId).where('dateKey', '==', day).get();
+  const filed = new Set(snap.docs.filter((x) => x.data().status === 'filed').map((x) => x.data().listId));
+  return lists.filter(([id]) => !filed.has(id));
+}
+const names = (ls) => ls.map(([, n]) => n).join(', ');
+const daysAgo = (n) => centralKey(new Date(Date.now() - n * 24 * 60 * 60 * 1000));
 
 exports.dailyChecklistWatch = onSchedule(
   { schedule: '0 22 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'] },
   async () => {
     const db = admin.firestore();
     const users = await R.activeUsers();
+    // 10pm: the business day and the calendar day are the same.
     const today = centralKey(new Date());
-    const yesterday = centralKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    const yesterday = daysAgo(1);
     for (const [locationId, lists] of Object.entries(LISTS)) {
       const brandId = await R.brandForLocation(locationId);
       const where = await R.locationName(locationId);
-      const missing = async (day) => {
-        const snap = await db.collection(COLLECTION).where('locationId', '==', locationId).where('dateKey', '==', day).get();
-        const filed = new Set(snap.docs.filter((x) => x.data().status === 'filed').map((x) => x.data().listId));
-        return lists.filter(([id]) => !filed.has(id)).map(([, name]) => name);
-      };
       const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
-      const todayMissing = await missing(today);
-      if (todayMissing.length) {
+
+      const openingMissing = (await missingLists(db, locationId, lists, today)).filter(([id]) => !isClosing(id));
+      if (openingMissing.length) {
         const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
-        await notifyPeople(gms, todayMissing.length + ' daily checklist' + (todayMissing.length === 1 ? '' : 's') + ' not signed off · ' + where, todayMissing.join(', '), {
+        await notifyPeople(gms.length ? gms : R.admins(users), openingMissing.length + ' opening checklist' + (openingMissing.length === 1 ? '' : 's') + ' not signed off · ' + where, names(openingMissing), {
           speed: ACTION, topic: 'assignment', path: path + '?date=' + today, button: 'Open the checklists',
-          why: 'You got this because you are the GM at ' + where + '.', throttleKey: 'daily-' + locationId + '-' + today,
+          why: gms.length ? 'You got this because you are the GM at ' + where + '.' : 'You got this because ' + where + ' has no GM in the Hub.',
+          throttleKey: 'daily-' + locationId + '-' + today,
         });
       }
-      const lateMissing = await missing(yesterday);
+      const lateMissing = await missingLists(db, locationId, lists, yesterday);
       if (lateMissing.length) {
-        const up = R.approvers(users);
-        await notifyPeople(up, 'Yesterday\'s checklists were never signed off · ' + where, lateMissing.join(', '), {
+        await notifyPeople(R.approvers(users), 'Yesterday\'s checklists were never signed off · ' + where, names(lateMissing), {
           speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'See them',
           why: 'You got this because you are the COO or an admin.', throttleKey: 'daily-late-' + locationId + '-' + yesterday,
         });
       }
+    }
+  }
+);
+
+exports.dailyClosingWatch = onSchedule(
+  { schedule: '0 10 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'] },
+  async () => {
+    const db = admin.firestore();
+    const users = await R.activeUsers();
+    // 10am: last night's closing belongs to yesterday's business day.
+    const yesterday = daysAgo(1);
+    for (const [locationId, lists] of Object.entries(LISTS)) {
+      const brandId = await R.brandForLocation(locationId);
+      const where = await R.locationName(locationId);
+      const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
+      const closingMissing = (await missingLists(db, locationId, lists, yesterday)).filter(([id]) => isClosing(id));
+      if (!closingMissing.length) continue;
+      const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
+      await notifyPeople(gms.length ? gms : R.admins(users), 'Last night\'s closing checklist' + (closingMissing.length === 1 ? '' : 's') + ' not signed off · ' + where, names(closingMissing), {
+        speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'Open the checklists',
+        why: gms.length ? 'You got this because you are the GM at ' + where + '.' : 'You got this because ' + where + ' has no GM in the Hub.',
+        throttleKey: 'daily-closing-' + locationId + '-' + yesterday,
+      });
     }
   }
 );

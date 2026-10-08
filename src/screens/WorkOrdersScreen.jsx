@@ -21,6 +21,7 @@ export default function WorkOrdersScreen() {
     signWorkOrder,
     retryPdfGeneration,
     markDownloadedAndCleanUp,
+    openOriginal,
   } = useWorkOrders();
   const [tab, setTab] = useState('queue');
   const [createOpen, setCreateOpen] = useState(false);
@@ -126,10 +127,13 @@ export default function WorkOrdersScreen() {
                   <span style={styles.cardMeta}>from {o.uploadedByName}</span>
                 </div>
                 {o.description ? <p style={styles.cardDescription}>{o.description}</p> : null}
-                {o.originalFileUrl ? (
-                  <a href={o.originalFileUrl} target="_blank" rel="noreferrer" style={styles.docLink}>
+                {o.originalPath || o.originalFileUrl ? (
+                  <button
+                    style={{ ...styles.docLink, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', font: 'inherit' }}
+                    onClick={() => openOriginal(o).catch((err) => notify('Could not open it', err?.message ?? 'Try again.'))}
+                  >
                     View document{o.originalFileName ? ` — ${o.originalFileName}` : ''}
-                  </a>
+                  </button>
                 ) : o.documentUrl ? (
                   <a href={o.documentUrl} target="_blank" rel="noreferrer" style={styles.docLink}>
                     View document
@@ -179,7 +183,7 @@ export default function WorkOrdersScreen() {
                       Retry
                     </button>
                   </div>
-                ) : o.status === 'completed' && o.originalFileUrl ? (
+                ) : o.status === 'completed' && (o.originalPath || o.originalFileUrl) ? (
                   <div style={styles.errorBlock}>
                     <p style={styles.hint}>Everyone's signed — putting the final document together… If this seems stuck, retry.</p>
                     <button style={styles.retryButton} onClick={() => handleRetry(o)}>
@@ -337,7 +341,7 @@ export default function WorkOrdersScreen() {
               everyone on this work order.
             </p>
             <p style={styles.testNote}>
-              {signingOrder.originalFileUrl
+              {signingOrder.originalPath || signingOrder.originalFileUrl
                 ? "Once everyone assigned has signed, a final signed PDF is generated automatically with every signature on a dedicated signature page — the person who sent this will get a download link."
                 : 'This one used a link instead of an uploaded file, so signatures are recorded here in the app, but there\'s no document to merge them into.'}
             </p>

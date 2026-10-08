@@ -101,7 +101,7 @@ export function OffboardingProvider({ children }) {
         const restored = !!r.driveRestoredAt || !r.driveRemoved;
         return !restored || OFFBOARDING_STEPS.some((s) => !r.restoreSteps?.[s.key]?.done);
       }
-      const driveDone = !!r.driveRemoved;
+      const driveDone = driveRemovalDone(r);
       return !driveDone || OFFBOARDING_STEPS.some((s) => !r.steps?.[s.key]?.done);
     });
 
@@ -110,6 +110,15 @@ export function OffboardingProvider({ children }) {
       {children}
     </OffboardingContext.Provider>
   );
+}
+
+// Drive counts as done only after a run that finished with nothing it could
+// not remove. Older records (before 8 Oct) have no "finished" flag; they
+// were written only at the end of a run, so they count as finished.
+export function driveRemovalDone(r) {
+  const d = r?.driveRemoved;
+  if (!d) return false;
+  return d.finished !== false && !(d.failures?.length > 0);
 }
 
 export function useOffboarding() {
