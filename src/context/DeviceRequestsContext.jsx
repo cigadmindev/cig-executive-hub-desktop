@@ -71,6 +71,11 @@ export function DeviceRequestsProvider({ children }) {
 
               arrivedAt: x.arrivedAt ?? null,
               arrivedByName: x.arrivedByName ?? '',
+              statusChangedByName: x.statusChangedByName ?? '',
+              statusChangedAt: x.statusChangedAt ?? null,
+              statusChangeReason: x.statusChangeReason ?? '',
+              editedByName: x.editedByName ?? '',
+              editedAt: x.editedAt ?? null,
             };
           })
           // Newest first - the "your own" query cannot sort on the server
@@ -130,11 +135,28 @@ export function DeviceRequestsProvider({ children }) {
     });
   };
 
+  // Admins only: correct the details, or move a request to any step - e.g.
+  // approved too early, now declined. A reason is required, and the person
+  // who asked is emailed what changed (onDeviceRequestMoved).
+  const adminEdit = async (id, fields) => {
+    await updateDoc(doc(db, COLLECTION, id), { ...fields, editedByName: user?.name ?? '', editedAt: Date.now() });
+  };
+  const adminSetStatus = async (id, status, reason) => {
+    if (!reason?.trim()) throw new Error('Give a reason - the person who asked will see it.');
+    await updateDoc(doc(db, COLLECTION, id), {
+      status,
+      statusChangedByName: user?.name ?? '',
+      statusChangedAt: Date.now(),
+      statusChangeReason: reason.trim(),
+      ...(status === 'declined' ? { declineReason: reason.trim() } : {}),
+    });
+  };
+
   const open = requests.filter((r) => r.status !== 'arrived' && r.status !== 'declined');
   const closed = requests.filter((r) => r.status === 'arrived' || r.status === 'declined');
 
   return (
-    <DeviceRequestsContext.Provider value={{ requests, open, closed, addRequest, decide, markOrdered, markArrived }}>
+    <DeviceRequestsContext.Provider value={{ requests, open, closed, addRequest, decide, markOrdered, markArrived, adminEdit, adminSetStatus }}>
       {children}
     </DeviceRequestsContext.Provider>
   );

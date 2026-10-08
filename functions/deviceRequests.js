@@ -60,8 +60,13 @@ exports.onDeviceRequestMoved = onDocumentUpdated(
 
   let title = null;
   let body = '';
+  const STEP = { requested: 'waiting on a decision', approved: 'approved', ordered: 'ordered', arrived: 'arrived', declined: 'declined' };
 
-  if (after.status === 'approved') {
+  // An admin moved it by hand - say exactly what changed and why.
+  if (after.statusChangedAt && after.statusChangedAt !== before.statusChangedAt) {
+    title = 'Update on your ' + after.deviceType + ' request';
+    body = (after.statusChangedByName || 'An admin') + ' changed it from ' + (STEP[before.status] ?? before.status) + ' to ' + (STEP[after.status] ?? after.status) + '. ' + (after.statusChangeReason || '');
+  } else if (after.status === 'approved') {
     title = 'Approved: ' + after.deviceType;
     body = (after.decidedByName || 'It') + ' approved it — ordering next';
   } else if (after.status === 'declined') {
