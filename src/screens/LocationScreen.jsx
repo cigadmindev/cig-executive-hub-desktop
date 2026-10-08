@@ -12,10 +12,12 @@ import RequestAccessModal from '../components/RequestAccessModal';
 import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
 import { iconName } from '../utils/iconGlyphs';
+import { DAILY_LOCATIONS } from '../data/dailyChecklists';
 
 // Same directory-card language as mobile's LocationScreen: icon circle,
 // title, subtitle, badge, chevron.
 const OPERATIONAL_ITEMS = [
+  { key: 'daily-checklists', icon: 'clipboard-outline', title: 'Daily Checklists', subtitle: 'Opening and closing, ticked off each day', path: 'daily-checklists' },
   { key: 'event-requests', icon: 'sparkles-outline', title: 'Event / Promo Requests', subtitle: 'Request and track events & promotions', path: 'event-requests' },
   { key: 'renewals', icon: 'document-text-outline', title: 'License & Lease Renewals', subtitle: 'Expiration dates and renewals', path: 'renewals' },
   { key: 'opening-checklist', icon: 'rocket-outline', title: 'Opening Checklist', subtitle: 'Everything needed before opening day', path: 'opening-checklist' },
@@ -120,7 +122,9 @@ export default function LocationScreen() {
       <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel }}>Operations</h3>
       <div style={styles.grid}>
         {OPERATIONAL_ITEMS.filter((item) =>
-          hasFeature(user, {
+          item.key === 'daily-checklists'
+            ? DAILY_LOCATIONS.includes(location.id) && (user?.role !== 'manager' || ['General Manager', 'Assistant Manager'].includes(user?.job))
+            : hasFeature(user, {
             'event-requests': 'eventRequests',
             renewals: 'renewals',
             'opening-checklist': 'openingChecklist',

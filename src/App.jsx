@@ -39,6 +39,8 @@ import CalendarScreen from './screens/CalendarScreen';
 import AvailabilityScreen from './screens/AvailabilityScreen';
 import EventRequestsScreen from './screens/EventRequestsScreen';
 import EmailPreviewScreen from './screens/EmailPreviewScreen';
+import DailyChecklistsScreen from './screens/DailyChecklistsScreen';
+import DailyChecklistScreen from './screens/DailyChecklistScreen';
 import { AccessMatrixProvider } from './context/AccessMatrixContext';
 import { atLeast } from './data/accessMatrix';
 import RenewalsScreen from './screens/RenewalsScreen';
@@ -94,6 +96,8 @@ function Gate() {
         <Route path="/" element={<HomeScreen />} />
         <Route path="/brand/:brandId" element={<RequireBrand><BrandScreen /></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId" element={<RequireBrand><LocationScreen /></RequireBrand>} />
+        <Route path="/brand/:brandId/location/:locationId/daily-checklists" element={<RequireBrand><DailyChecklistsScreen /></RequireBrand>} />
+        <Route path="/brand/:brandId/location/:locationId/daily-checklists/:listId" element={<RequireBrand><DailyChecklistScreen /></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId/event-requests" element={<RequireBrand><RequireFeature feature="eventRequests"><EventRequestsScreen /></RequireFeature></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId/renewals" element={<RequireBrand><RequireFeature feature="renewals"><RenewalsScreen /></RequireFeature></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId/category/:categoryId" element={<RequireCategory><CategoryDetailScreen /></RequireCategory>} />
