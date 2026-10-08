@@ -57,8 +57,39 @@ service cloud.firestore {
     //
     // Mirrors canEditChecklists in the app. If one changes, change both.
     function canEditChecklists() {
-      return isLive() && (me().role == 'admin'
-        || me().job in ['COO', 'Culinary Director', 'Culinary Manager', 'Beverage Manager']);
+      return isLive() && (me().role == 'admin' || checklistLevel() == 'edit');
+    }
+
+    // The pre-opening checklist column of Who sees what, read live - so when
+    // an admin changes a row in Manage Logins, the lock follows the screen
+    // (8 Oct 2026). Before, the rule had its own fixed list of jobs, and a row
+    // changed to Edit saw the buttons but had every save refused.
+    //
+    // Job -> row and the default levels mirror src/data/accessMatrix.js.
+    // If a job or a row is added there, add it here too.
+    function matrixRow() {
+      return {
+        'Owner': 'owner', 'CEO': 'owner', 'COO': 'coo', 'Financials': 'financials',
+        'Culinary Director': 'culinary', 'Culinary Manager': 'culinary', 'Beverage Manager': 'beverage',
+        'General Manager': 'gm', 'Assistant Manager': 'agm', 'Kitchen Manager': 'km', 'Executive Chef': 'chef',
+        'Sous Chef': 'sous', 'Catering & Events': 'catering', 'IT & Training': 'it', 'Marketing': 'marketing',
+        'Communications': 'marketing', 'Videographer': 'video', 'HR': 'hr', 'Real Estate': 'realestate'
+      }.get(me().get('job', ''), 'none');
+    }
+    function checklistDefault(row) {
+      return {
+        'owner': 'tick', 'coo': 'edit', 'financials': 'view', 'culinary': 'edit', 'beverage': 'edit',
+        'km': 'tick', 'realestate': 'view'
+      }.get(row, 'none');
+    }
+    function checklistLevel() {
+      let row = matrixRow();
+      let path = /databases/$(database)/documents/accessMatrix/$(row);
+      return exists(path) ? get(path).data.get('openingChecklist', checklistDefault(row)) : checklistDefault(row);
+    }
+    // Tick items off: the rows at Tick or Edit, and admins.
+    function canTickChecklists() {
+      return isLive() && (me().role == 'admin' || checklistLevel() in ['tick', 'edit']);
     }
 
     // Finance is a job, not a role - Sam is an executive whose job is
@@ -363,7 +394,10 @@ service cloud.firestore {
         request.resource.data.authorUid == request.auth.uid &&
         request.resource.data.brandId in myBrands()
       ) || (
-        isSignedIn() &&
+        // Ticking off, filling in, attaching a document or moving a date on a
+        // pre-opening item: the rows at Tick or Edit (it was anyone signed
+        // in, at any restaurant - S7, 8 Oct 2026).
+        canTickChecklists() &&
         resource.data.openingItem == true &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document'])
       );
