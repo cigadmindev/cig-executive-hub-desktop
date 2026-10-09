@@ -11,6 +11,7 @@ import {
 } from '../context/IntegrationRequestsContext';
 import { fmtDay } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
+import { plainError } from '../lib/errors';
 
 const when = (ts) => fmtDay(ts);
 
@@ -73,7 +74,7 @@ export default function IntegrationRequestsScreen() {
       setDetail('');
       notify('Sent', 'It will go to whoever looks after the integrations.');
     } catch (err) {
-      notify('Could not send', err?.message ?? 'Try again.');
+      notify('Could not send', plainError(err, 'Try again.'));
     } finally {
       setSaving(false);
     }
@@ -88,7 +89,7 @@ export default function IntegrationRequestsScreen() {
         draftResponse.trim() ? 'They will see your reply.' : 'No reply was sent.'
       );
     } catch (err) {
-      notify('Could not save', err?.message ?? 'Try again.');
+      notify('Could not save', plainError(err, 'Try again.'));
     }
   };
 

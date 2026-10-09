@@ -9,6 +9,7 @@ import DatePickerField from '../components/DatePickerField';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import { fmtDay } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
+import { plainError } from '../lib/errors';
 
 // Catering orders and private event bookings, on the same layout as every
 // other request page: status filters, a table, the selected one on the right.
@@ -67,7 +68,7 @@ export default function CateringScreen() {
       after?.();
       if (typeof note === 'string') notify('Done, with one thing left', note);
     } catch (err) {
-      notify('Nothing was changed', err?.message ?? 'Try again.');
+      notify('Nothing was changed', plainError(err, 'Try again.'));
     } finally {
       setBusy(false);
     }

@@ -11,6 +11,7 @@ import { useDialog } from '../hooks/useDialog';
 import PostCard from '../components/PostCard';
 import { nike } from '../theme/nike';
 import PageHeader from '../components/PageHeader';
+import { plainError } from '../lib/errors';
 
 export default function CategoryDetailScreen() {
   const { dialogNode, notify } = useDialog();
@@ -72,7 +73,7 @@ export default function CategoryDetailScreen() {
       setConnectingItem(null);
       setLinkDraft('');
     } catch (err) {
-      setSaveError(err.message || 'Could not save this link.');
+      setSaveError(plainError(err, 'Could not save this link.'));
     } finally {
       setSavingLink(false);
     }

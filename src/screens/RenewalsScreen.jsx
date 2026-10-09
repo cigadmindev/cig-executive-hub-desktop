@@ -13,6 +13,7 @@ import PageHeader from '../components/PageHeader';
 import { fmtDay } from '../lib/dates';
 import Pill from '../components/Pill';
 import { modalBackdrop, modalSurface } from '../theme/modal';
+import { plainError } from '../lib/errors';
 
 const formatDate = (ts) => (ts ? fmtDay(ts) : 'Not set');
 
@@ -87,7 +88,7 @@ export default function RenewalsScreen() {
       if (approvedTs && expirationTs) completeLinkedCalendarTask(editingItem.type);
       setEditingItem(null);
     } catch (err) {
-      notify('Could not save', err?.message ?? 'The dates were not saved. Try again.');
+      notify('Could not save', plainError(err, 'The dates were not saved. Try again.'));
     }
   };
 
@@ -106,7 +107,7 @@ export default function RenewalsScreen() {
     } catch (err) {
       // The worst silent failure in the app: the modal closes and the permit
       // still expires, but someone believes it is renewed.
-      notify('Could not sign off', err?.message ?? 'The renewal was not recorded. Try again.');
+      notify('Could not sign off', plainError(err, 'The renewal was not recorded. Try again.'));
     }
   };
 
@@ -144,7 +145,7 @@ export default function RenewalsScreen() {
                     setNewType('');
                     setAddOpen(false);
                   } catch (err) {
-                    notify('Could not add', err?.message ?? 'Try again.');
+                    notify('Could not add', plainError(err, 'Try again.'));
                   }
                 }}
               >

@@ -13,6 +13,7 @@ import RequestAccessModal from '../components/RequestAccessModal';
 import { nike } from '../theme/nike';
 import { SEC_CITIES, SEC_STATE_NAMES } from '../data/secCities';
 import PageHeader from '../components/PageHeader';
+import { plainError } from '../lib/errors';
 
 export default function BrandScreen() {
   const { dialogNode, confirm, notify } = useDialog();
@@ -96,7 +97,7 @@ export default function BrandScreen() {
       await addLocation(brand.id, newName.trim(), lat, lng);
       closeAddForm();
     } catch (err) {
-      notify('Could not add location', err?.message ?? 'Something went wrong saving this location. Please try again.');
+      notify('Could not add location', plainError(err, 'Something went wrong saving this location. Please try again.'));
     }
   };
 
@@ -190,8 +191,7 @@ export default function BrandScreen() {
               />
             </div>
             <p style={styles.modalNote}>
-              This location will get the same categories and directory as every other location — items
-              stay as "we're on it" until connected on the backend.
+              The new location gets the same folders and pages as every other location.
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button style={styles.cancelButton} onClick={closeAddForm}>

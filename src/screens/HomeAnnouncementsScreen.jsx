@@ -8,6 +8,7 @@ import { accessLevel } from '../data/accessMatrix';
 import PostCard from '../components/PostCard';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { plainError } from '../lib/errors';
 
 // New announcement, in three steps: who it is for, what it says, and how long
 // it stays at the top of Home. The preview on the right is the card people
@@ -81,7 +82,7 @@ export default function HomeAnnouncementsScreen() {
       await addAnnouncement(target.id, message.trim(), user?.name ?? 'Unknown', target.label, toHome ? pinDays : null, brandId);
       navigate('/');
     } catch (err) {
-      notify('Could not post', err?.message ?? 'Your announcement was not posted. Try again.');
+      notify('Could not post', plainError(err, 'Your announcement was not posted. Try again.'));
     } finally {
       setPosting(false);
     }

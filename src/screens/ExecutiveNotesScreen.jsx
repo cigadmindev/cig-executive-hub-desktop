@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useExecutiveNotes } from '../context/ExecutiveNotesContext';
 import PageHeader from '../components/PageHeader';
 import { fmtDayTime } from '../lib/dates';
+import { plainError } from '../lib/errors';
 
 const formatDate = (iso) => fmtDayTime(iso);
 
@@ -27,7 +28,7 @@ export default function ExecutiveNotesScreen() {
     const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'getExecutiveNotesFile');
     fn({ driveUrl })
       .then((res) => setPreview(res.data))
-      .catch((err) => setPreview({ error: err.message || 'Could not reach Google Drive.' }));
+      .catch((err) => setPreview({ error: plainError(err, 'Could not reach Google Drive.') }));
   }, [driveUrl]);
 
   const startEdit = () => {

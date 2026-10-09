@@ -9,6 +9,7 @@ import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { fmtDay } from '../lib/dates';
 import Pill from '../components/Pill';
+import { plainError } from '../lib/errors';
 
 // Availability - one page, the same for everyone:
 //   Waiting on you  (the COO and admins) time off to approve or deny
@@ -73,7 +74,7 @@ export default function AvailabilityScreen() {
       setEditing(null);
       notify('Saved', editing === 'usual' ? 'Your usual week carries forward every week.' : 'Saved for this week only.');
     } catch (err) {
-      notify('Could not save', err?.message ?? 'Try again.');
+      notify('Could not save', plainError(err, 'Try again.'));
     }
   };
   const hasUsual = !!mine && DAYS.some((d) => mine[d] && !mine[d].off);
@@ -96,7 +97,7 @@ export default function AvailabilityScreen() {
       setFrom(''); setTo(''); setReason('');
       notify('Sent', 'Ronnie or an admin will decide, and you will be emailed the answer.');
     } catch (err) {
-      notify('Could not send', err?.message ?? 'Try again.');
+      notify('Could not send', plainError(err, 'Try again.'));
     }
   };
   const myRequests = timeOffRequests.filter((r) => r.uid === user?.uid).sort((a, b) => b.startDate - a.startDate);

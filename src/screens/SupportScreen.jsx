@@ -7,6 +7,7 @@ import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { fmtDayTime } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
+import { plainError } from '../lib/errors';
 
 const formatDateTime = (ts) => fmtDayTime(ts);
 
@@ -47,7 +48,7 @@ function RegularSupportView() {
       setDescription('');
       setConfirmOpen(true);
     } catch (err) {
-      notify('Could not send', err?.message ?? 'Your request was not submitted. Try again.');
+      notify('Could not send', plainError(err, 'Your request was not submitted. Try again.'));
     }
   };
 
@@ -211,7 +212,7 @@ function AdminSupportView() {
       setVisibleToAll(true);
       setVisibleToUids([]);
     } catch (err) {
-      notify('Could not post', err?.message ?? 'Your update was not posted. Try again.');
+      notify('Could not post', plainError(err, 'Your update was not posted. Try again.'));
     }
   };
 

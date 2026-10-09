@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { modalBackdrop, modalSurface } from '../theme/modal';
+import { plainError } from '../lib/errors';
 
 // HR, in one place.
 //
@@ -58,7 +59,7 @@ export default function HRScreen() {
       await setDoc(doc(db, SETTINGS_DOC), draft, { merge: true });
       setEditing(false);
     } catch (err) {
-      notify('Could not save', err?.message ?? 'Something went wrong.');
+      notify('Could not save', plainError(err, 'Something went wrong.'));
     } finally {
       setSaving(false);
     }

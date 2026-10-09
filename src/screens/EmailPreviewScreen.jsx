@@ -3,6 +3,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { plainError } from '../lib/errors';
 
 // Admin only. Every email the Hub sends, drawn by the real template with
 // sample content, with who gets it and what triggers it - and a button to
@@ -22,7 +23,7 @@ export default function EmailPreviewScreen() {
     call({}).then((r) => {
       setList(r.list);
       if (r.list[0]) setCurrent(r.list[0].id);
-    }).catch((err) => notify('Could not load', err?.message ?? 'Try again.'));
+    }).catch((err) => notify('Could not load', plainError(err, 'Try again.')));
   }, [user?.uid]);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function EmailPreviewScreen() {
       const r = await call({ id: current, send: true });
       notify('Sent', 'A copy is on its way to ' + r.sent + '.');
     } catch (err) {
-      notify('Could not send', err?.message ?? 'Try again.');
+      notify('Could not send', plainError(err, 'Try again.'));
     } finally {
       setSending(false);
     }

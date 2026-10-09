@@ -1,21 +1,12 @@
 import { setReadOnly } from '../readOnly/state';
 import { accessLevel, canSeeFolder } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  deleteUser,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
-} from 'firebase/auth';
-import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, deleteUser, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { doc, getDoc, getDocs, collection, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { setSentryUser } from '../sentry';
-import { auth, db, storage } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig';
+import { plainError } from '../lib/errors';
 
 const AuthContext = createContext(undefined);
 
@@ -190,7 +181,7 @@ export function AuthProvider({ children }) {
       await deleteUser(current);
       return { success: true };
     } catch (err) {
-      return { success: false, error: err?.message ?? 'Something went wrong deleting your account.' };
+      return { success: false, error: plainError(err, 'Something went wrong deleting your account.') };
     }
   };
 

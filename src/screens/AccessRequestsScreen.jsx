@@ -6,6 +6,7 @@ import { brands } from '../data/mockData';
 import { rowForJob, featureAllowed, canSeeFolder } from '../data/accessMatrix';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import { fmtDay } from '../lib/dates';
+import { plainError } from '../lib/errors';
 
 // Someone asked to see something their login can't reach. Admins decide
 // (5 October 2026). Approve gives that one thing to that one person - never
@@ -46,7 +47,7 @@ export default function AccessRequestsScreen() {
       await fn();
       after?.();
     } catch (err) {
-      notify('Nothing was changed', err?.message ?? 'Try again.');
+      notify('Nothing was changed', plainError(err, 'Try again.'));
     } finally {
       setBusy(false);
     }

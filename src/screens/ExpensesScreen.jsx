@@ -17,6 +17,7 @@ import { useBudgetTargets } from '../context/BudgetTargetsContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { modalBackdrop, modalLook } from '../theme/modal';
+import { plainError } from '../lib/errors';
 
 export default function ExpensesScreen() {
   const { dialogNode, confirm, notify } = useDialog();
@@ -139,7 +140,7 @@ export default function ExpensesScreen() {
       resetForm();
       notify('Receipt submitted', res?.periodLabel ? `Filed to ${res.periodLabel}.` : 'Saved.');
     } catch (err) {
-      notify('Could not submit', err?.message ?? 'Something went wrong.');
+      notify('Could not submit', plainError(err, 'Something went wrong.'));
     } finally {
       setSaving(false);
     }
@@ -166,7 +167,7 @@ export default function ExpensesScreen() {
             `${r.label}: ${res.previousReceipts} → ${res.receipts} receipts, $${formatAmount(res.totalCents)}.`
           );
         } catch (err) {
-          notify('Could not rebuild', err?.message ?? 'Try again.');
+          notify('Could not rebuild', plainError(err, 'Try again.'));
         } finally {
           setRebuilding(null);
         }
@@ -178,7 +179,7 @@ export default function ExpensesScreen() {
     try {
       await downloadReport(dateKey, which);
     } catch (err) {
-      notify('Could not download', err?.message ?? 'The report was not downloaded. Try again.');
+      notify('Could not download', plainError(err, 'The report was not downloaded. Try again.'));
     }
   };
 
@@ -197,7 +198,7 @@ export default function ExpensesScreen() {
       );
       setMoving(null);
     } catch (err) {
-      notify('Could not move', err?.message ?? 'Try again.');
+      notify('Could not move', plainError(err, 'Try again.'));
     }
   };
 
@@ -211,7 +212,7 @@ export default function ExpensesScreen() {
         try {
           await voidReceipt(r.id, 'Voided by admin');
         } catch (err) {
-          notify('Could not void', err?.message ?? 'Something went wrong.');
+          notify('Could not void', plainError(err, 'Something went wrong.'));
         }
       },
     });
@@ -329,7 +330,7 @@ export default function ExpensesScreen() {
                       await addTarget(newTargetName);
                       setNewTargetName('');
                     } catch (err) {
-                      notify('Could not add', err?.message ?? 'Try again.');
+                      notify('Could not add', plainError(err, 'Try again.'));
                     }
                   }}
                 >

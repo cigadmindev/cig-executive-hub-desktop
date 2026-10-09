@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { plainError } from '../lib/errors';
 
 // A file on a message. Transient by design: the scheduled sweep deletes it
 // from Storage once everyone in the thread has viewed it, so anyone who needs
@@ -26,7 +27,7 @@ export default function ChatAttachment({ messageId, attachment, onView }) {
       onView?.();
     } catch (err) {
       if (tab) tab.close();
-      setFailed(err?.message ?? 'Could not open it.');
+      setFailed(plainError(err, 'Could not open it.'));
     } finally {
       setBusy(false);
     }

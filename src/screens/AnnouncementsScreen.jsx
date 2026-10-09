@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { plainError } from '../lib/errors';
 
 export default function AnnouncementsScreen() {
   const { dialogNode, notify } = useDialog();
@@ -40,7 +41,7 @@ export default function AnnouncementsScreen() {
       // like it posted.
       navigate(backPath);
     } catch (err) {
-      notify('Could not post', err?.message ?? 'Your announcement was not posted. Try again.');
+      notify('Could not post', plainError(err, 'Your announcement was not posted. Try again.'));
     }
   };
 

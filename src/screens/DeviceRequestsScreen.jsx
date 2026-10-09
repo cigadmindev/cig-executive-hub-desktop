@@ -8,6 +8,7 @@ import { useDialog } from '../hooks/useDialog';
 import DatePickerField from '../components/DatePickerField';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import { fmtDay } from '../lib/dates';
+import { plainError } from '../lib/errors';
 
 // Asking for a new company device, and following it through to arriving.
 // Different from Systems Help (a till behaving oddly) and from repairs
@@ -68,7 +69,7 @@ export default function DeviceRequestsScreen() {
       await fn();
       done?.();
     } catch (err) {
-      notify('Could not save', err?.message ?? 'Something went wrong.');
+      notify('Could not save', plainError(err, 'Something went wrong.'));
     } finally {
       setBusy(false);
     }

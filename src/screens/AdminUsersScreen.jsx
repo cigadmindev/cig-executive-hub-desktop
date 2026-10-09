@@ -12,6 +12,7 @@ import { brands, categories, FEATURES } from '../data/mockData';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { plainError } from '../lib/errors';
 
 function toggleInArray(arr, id) {
   return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
@@ -160,7 +161,7 @@ export default function AdminUsersScreen() {
             : `${draft.name.trim()} was created, but the setup email didn't send. They can use Forgot password on the sign-in page.`
         );
       } catch (err) {
-        notify('Could not create login', err?.message ?? 'Something went wrong.');
+        notify('Could not create login', plainError(err, 'Something went wrong.'));
       } finally {
         setSaving(false);
       }
@@ -176,7 +177,7 @@ export default function AdminUsersScreen() {
       await updatePermissions(target.uid, { ...(target.permissions ?? {}), ...permissionsFromDraft() });
       setPanelMode(null);
     } catch (err) {
-      notify('Could not save', err?.message ?? 'Nothing was changed. Try again.');
+      notify('Could not save', plainError(err, 'Nothing was changed. Try again.'));
     } finally {
       setSaving(false);
     }
@@ -192,7 +193,7 @@ export default function AdminUsersScreen() {
           await sendWelcomeLink(targetEmail, targetName);
           notify('Sent', targetName + ' can set their password whenever they get to it.');
         } catch (err) {
-          notify('Could not send', err?.message ?? 'Something went wrong.');
+          notify('Could not send', plainError(err, 'Something went wrong.'));
         }
       },
     });
@@ -208,7 +209,7 @@ export default function AdminUsersScreen() {
           await sendPasswordReset(targetEmail, targetName);
           notify('Reset sent', `${targetName} will get an email to set a new password.`);
         } catch (err) {
-          notify('Could not send', err?.message ?? 'Something went wrong.');
+          notify('Could not send', plainError(err, 'Something went wrong.'));
         }
       },
     });
@@ -224,7 +225,7 @@ export default function AdminUsersScreen() {
           await setUserActive(uid, true);
           await markReactivated(uid);
         } catch (err) {
-          notify('Could not reactivate', err?.message ?? 'Something went wrong.');
+          notify('Could not reactivate', plainError(err, 'Something went wrong.'));
         }
       },
     });
@@ -242,7 +243,7 @@ export default function AdminUsersScreen() {
           // Opens the checklist of what to revoke outside the Hub.
           await startOffboarding(users.find((u) => u.uid === uid) ?? { uid, name: targetName }, currentUser?.name);
         } catch (err) {
-          notify('Could not deactivate', err?.message ?? 'Something went wrong.');
+          notify('Could not deactivate', plainError(err, 'Something went wrong.'));
         }
       },
     });

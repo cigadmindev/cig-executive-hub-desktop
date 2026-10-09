@@ -10,13 +10,14 @@ import ConfirmEditField from '../components/ConfirmEditField';
 import SearchBar from '../components/SearchBar';
 import { useState } from 'react';
 import PageHeader from '../components/PageHeader';
+import { plainError } from '../lib/errors';
 
 export default function OperationalPOCScreen() {
   const { brandId, locationId } = useParams();
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
   const [expandedId, setExpandedId] = useState(null);
-  const { getByLocation: getContacts, ensureSeeded, updateContactField, addContact, deleteContact } =
+  const { loaded, getByLocation: getContacts, ensureSeeded, updateContactField, addContact, deleteContact } =
     useOpeningOngoingContacts();
   const { user } = useAuth();
   const { dialogNode, notify, confirm } = useDialog();
@@ -81,7 +82,7 @@ export default function OperationalPOCScreen() {
                     setNewSection('');
                     setAddOpen(false);
                   } catch (err) {
-                    notify('Could not add', err?.message ?? 'Try again.');
+                    notify('Could not add', plainError(err, 'Try again.'));
                   }
                 }}
               >
@@ -146,7 +147,7 @@ export default function OperationalPOCScreen() {
                                   try {
                                     await deleteContact(c.id);
                                   } catch (err) {
-                                    notify('Could not remove', err?.message ?? 'Try again.');
+                                    notify('Could not remove', plainError(err, 'Try again.'));
                                   }
                                 },
                               })
@@ -165,7 +166,9 @@ export default function OperationalPOCScreen() {
         );
       })}
 
-      {contacts.length === 0 ? <p style={styles.hint}>Loading…</p> : null}
+      {contacts.length === 0 ? (
+        <p style={styles.hint}>{loaded ? 'No contacts for this location yet.' + (canEdit ? ' Add the first one with + Add contact.' : '') : 'Loading…'}</p>
+      ) : null}
       {dialogNode}
     </div>
   );

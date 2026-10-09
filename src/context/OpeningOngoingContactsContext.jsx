@@ -14,6 +14,9 @@ export function OpeningOngoingContactsProvider({ children }) {
   const { user } = useAuth();
   const { getByBrand } = useCustomLocations();
   const [contacts, setContacts] = useState([]);
+  // True once the first answer has arrived, so an empty list can say "none
+  // yet" instead of "Loading…" forever (V4).
+  const [loaded, setLoaded] = useState(false);
 
   // The rules cannot work out a contact's restaurant on their own - Chelsea's
   // id is a random string - so every contact carries brandId.
@@ -30,6 +33,7 @@ export function OpeningOngoingContactsProvider({ children }) {
   useEffect(() => {
     if (!user) {
       setContacts([]);
+      setLoaded(false);
       return;
     }
     // Only the restaurants this person has. Admins and executives take the
@@ -38,6 +42,7 @@ export function OpeningOngoingContactsProvider({ children }) {
     const mine = user.permissions?.brandIds ?? [];
     if (!seesAll && mine.length === 0) {
       setContacts([]);
+      setLoaded(true);
       return;
     }
     const source = seesAll
@@ -60,8 +65,12 @@ export function OpeningOngoingContactsProvider({ children }) {
         };
       });
       setContacts(list);
+      setLoaded(true);
     },
-      (err) => console.error('[OpeningOngoingContacts listener] ' + err.code + ': ' + err.message)
+      (err) => {
+        console.error('[OpeningOngoingContacts listener] ' + err.code + ': ' + err.message);
+        setLoaded(true);
+      }
     );
     return unsubscribe;
   }, [user]);
@@ -196,7 +205,7 @@ export function OpeningOngoingContactsProvider({ children }) {
 
   return (
     <OpeningOngoingContactsContext.Provider
-      value={{ getByLocation, ensureSeeded, updateContactField, regenerateForLocation, addContact, deleteContact }}
+      value={{ loaded, getByLocation, ensureSeeded, updateContactField, regenerateForLocation, addContact, deleteContact }}
     >
       {children}
     </OpeningOngoingContactsContext.Provider>

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import PageHeader from './PageHeader';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 
 // The one layout every request page uses:
 //   title + one line on how it works, "+ New" top right
@@ -7,6 +8,24 @@ import PageHeader from './PageHeader';
 //   a compact table on the left, the selected request's detail on the right
 // Each page supplies its own columns, filters and detail panel.
 export default function RequestPage({ back, title, subtitle, actionLabel, onAction, filters, filter, onFilter, columns, rows, selectedId, onSelect, detail, empty, note, children }) {
+  // On a phone the list and the detail don't fit side by side, and the
+  // detail used to land under the list where nobody saw it. Tapping a row now
+  // opens it full-screen with a way back to the list (V3).
+  const isNarrow = useIsNarrow();
+  const [phoneOpen, setPhoneOpen] = useState(false);
+  useEffect(() => {
+    if (!isNarrow) setPhoneOpen(false);
+  }, [isNarrow]);
+
+  if (isNarrow && phoneOpen) {
+    return (
+      <div style={styles.page}>
+        <button style={styles.phoneBack} onClick={() => setPhoneOpen(false)}>‹ {title}</button>
+        {detail}
+      </div>
+    );
+  }
+
   return (
     <div style={styles.page}>
       <PageHeader back={back} title={title} subtitle={subtitle} actionLabel={actionLabel} onAction={onAction} />
@@ -31,7 +50,7 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
                   </thead>
                   <tbody>
                     {rows.map((r) => (
-                      <tr key={r.id} onClick={() => onSelect(r.id)} style={{ ...styles.tr, ...(r.id === selectedId ? styles.trOn : {}) }}>
+                      <tr key={r.id} onClick={() => { onSelect(r.id); if (isNarrow) setPhoneOpen(true); }} style={{ ...styles.tr, ...(r.id === selectedId && !isNarrow ? styles.trOn : {}) }}>
                         {columns.map((c) => <td key={c.key} style={styles.td}>{c.render(r)}</td>)}
                       </tr>
                     ))}
@@ -42,7 +61,7 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
           </div>
           {note ? <p style={styles.note}>{note}</p> : null}
         </div>
-        <div style={{ flex: '0 1 380px', minWidth: 280 }}>{detail}</div>
+        {isNarrow ? null : <div style={{ flex: '0 1 380px', minWidth: 280 }}>{detail}</div>}
       </div>
     </div>
   );
@@ -71,6 +90,7 @@ export const detailStyles = {
 
 const styles = {
   page: { padding: '24px 28px 60px', maxWidth: 1200 },
+  phoneBack: { background: 'none', border: 'none', padding: '4px 0', marginBottom: 12, fontSize: 13, fontWeight: 600, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' },
   filters: { display: 'flex', gap: 6, flexWrap: 'wrap', margin: '4px 0 12px' },
   filter: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 16, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   filterOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },

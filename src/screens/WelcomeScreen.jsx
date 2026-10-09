@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
+import { plainError } from '../lib/errors';
 
 // Setting a password from the welcome email.
 //
@@ -34,7 +35,7 @@ export default function WelcomeScreen() {
         const res = await fn({ token });
         setAccount(res.data);
       } catch (err) {
-        setLoadError(err?.message ?? 'This link is no longer valid.');
+        setLoadError(plainError(err, 'This link is no longer valid.'));
       }
     })();
   }, [token]);
@@ -53,7 +54,7 @@ export default function WelcomeScreen() {
       await signInWithEmailAndPassword(auth, res.data.email, password);
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err?.message ?? 'Something went wrong. Try again.');
+      setError(plainError(err, 'Something went wrong. Try again.'));
       setSaving(false);
     }
   };

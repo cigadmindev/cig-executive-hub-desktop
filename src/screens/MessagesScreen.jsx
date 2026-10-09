@@ -9,6 +9,7 @@ import ChatAttachment from '../components/ChatAttachment';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 import { fmtDay, fmtTime, fmtDayTime } from '../lib/dates';
+import { plainError } from '../lib/errors';
 
 // Today: the time. Before today: the day.
 function formatTime(ts) {
@@ -104,7 +105,7 @@ export default function MessagesScreen() {
         viewedBy: [],
       });
     } catch (err) {
-      notify('Upload failed', err?.message ?? 'Something went wrong sending that file.');
+      notify('Upload failed', plainError(err, 'Something went wrong sending that file.'));
     } finally {
       setUploading(false);
     }
@@ -133,7 +134,7 @@ export default function MessagesScreen() {
     // If it does not go, say so and put the words back rather than losing them.
     sendMessage(activeId, sent).catch((err) => {
       setText(sent);
-      notify('Message not sent', err?.message ?? 'Try again.');
+      notify('Message not sent', plainError(err, 'Try again.'));
     });
     setText('');
     if (inputRef.current) inputRef.current.style.height = 'auto';
@@ -176,7 +177,7 @@ export default function MessagesScreen() {
           await deleteConversation(id);
           if (activeId === id) setActiveId(null);
         } catch (err) {
-          notify('Could not delete it', err?.message ?? 'Try again.');
+          notify('Could not delete it', plainError(err, 'Try again.'));
         }
       },
     });

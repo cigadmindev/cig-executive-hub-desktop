@@ -18,6 +18,7 @@ import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { fmtDay } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
+import { plainError } from '../lib/errors';
 
 const formatDate = (ts) => (ts ? fmtDay(ts) : null);
 
@@ -80,7 +81,7 @@ export default function OpeningChecklistScreen() {
       });
       setAddingToList(null);
     } catch (err) {
-      notify('Could not add', err?.message ?? 'The item was not added. Try again.');
+      notify('Could not add', plainError(err, 'The item was not added. Try again.'));
     } finally {
       setSavingNew(false);
     }
@@ -103,7 +104,7 @@ export default function OpeningChecklistScreen() {
         assignedToName: person?.name ?? null,
       });
     } catch (err) {
-      notify('Could not assign', err?.message ?? 'Nothing was changed. Try again.');
+      notify('Could not assign', plainError(err, 'Nothing was changed. Try again.'));
     }
   };
 
@@ -114,7 +115,7 @@ export default function OpeningChecklistScreen() {
     try {
       await updateEntry(item.id, { dependsOnIds: ids });
     } catch (err) {
-      notify('Could not save', err?.message ?? 'Nothing was changed. Try again.');
+      notify('Could not save', plainError(err, 'Nothing was changed. Try again.'));
     }
   };
 
@@ -128,7 +129,7 @@ export default function OpeningChecklistScreen() {
         try {
           await deleteEntry(item.id);
         } catch (err) {
-          notify('Could not delete', err?.message ?? 'The item was not removed. Try again.');
+          notify('Could not delete', plainError(err, 'The item was not removed. Try again.'));
         }
       },
     });
@@ -208,7 +209,7 @@ export default function OpeningChecklistScreen() {
     } catch (err) {
       // This rebuilds the whole checklist, so a failure is worth surfacing
       // rather than leaving someone wondering why the dates did not move.
-      notify('Could not set the date', err?.message ?? 'The checklist was not rebuilt. Try again.');
+      notify('Could not set the date', plainError(err, 'The checklist was not rebuilt. Try again.'));
       return;
     }
   };
@@ -248,7 +249,7 @@ export default function OpeningChecklistScreen() {
     try {
       await toggleOpeningItemDone(item.id, !item.done, user?.name ?? 'Unknown');
     } catch (err) {
-      notify(item.done ? 'Could not un-tick it' : 'Could not sign it off', err?.message ?? 'Nothing was changed. Try again.');
+      notify(item.done ? 'Could not un-tick it' : 'Could not sign it off', plainError(err, 'Nothing was changed. Try again.'));
       return;
     }
 
@@ -279,7 +280,7 @@ export default function OpeningChecklistScreen() {
       );
       setRenewalPrompt(null);
     } catch (err) {
-      notify('Could not save', err?.message ?? 'The renewal dates were not saved. Try again.');
+      notify('Could not save', plainError(err, 'The renewal dates were not saved. Try again.'));
     }
   };
 
@@ -305,7 +306,7 @@ export default function OpeningChecklistScreen() {
     try {
       await updateEntry(item.id, { dateTime: newDate });
     } catch (err) {
-      notify('Could not change the date', err?.message ?? 'Nothing was changed. Try again.');
+      notify('Could not change the date', plainError(err, 'Nothing was changed. Try again.'));
     }
   };
 
@@ -328,7 +329,7 @@ export default function OpeningChecklistScreen() {
       }
       await updateEntry(item.id, { openingFields: { ...item.openingFields, [field]: value } });
     } catch (err) {
-      notify('Could not save', err?.message ?? 'Nothing was changed. Try again.');
+      notify('Could not save', plainError(err, 'Nothing was changed. Try again.'));
     }
   };
 

@@ -5,6 +5,7 @@ import { useDailyRecord, todayKey, isManagerOnDuty } from '../hooks/useDailyChec
 import { useDialog } from '../hooks/useDialog';
 import { backLink } from '../theme/pageHeader';
 import { fmtTime, fmtDayKey } from '../lib/dates';
+import { plainError } from '../lib/errors';
 
 // One daily checklist, laid out like the printed sheet. The manager on duty
 // ticks each task once it's verified; every GM or assistant manager who
@@ -41,7 +42,7 @@ export default function DailyChecklistScreen() {
           await signOff();
           notify('Filed', 'Saved to Drive.');
         } catch (err) {
-          notify('Could not file it', err?.message ?? 'Try again.');
+          notify('Could not file it', plainError(err, 'Try again.'));
         } finally {
           setFiling(false);
         }

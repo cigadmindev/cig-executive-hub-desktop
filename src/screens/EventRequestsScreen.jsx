@@ -12,6 +12,7 @@ import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage'
 import { atLeast } from '../data/accessMatrix';
 import { fmtDayTime } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
+import { plainError } from '../lib/errors';
 
 const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
 
@@ -141,7 +142,7 @@ export default function EventRequestsScreen() {
     } catch (err) {
       notify(
         editingRequest ? 'Could not save' : 'Could not submit',
-        err?.message ?? 'Nothing was changed. Try again.'
+        plainError(err, 'Nothing was changed. Try again.')
       );
     }
   };
@@ -159,7 +160,7 @@ export default function EventRequestsScreen() {
         authorName: user?.name ?? 'Unknown',
       });
     } catch (err) {
-      notify('Could not approve', err?.message ?? 'Nothing was changed. Try again.');
+      notify('Could not approve', plainError(err, 'Nothing was changed. Try again.'));
       return;
     }
     if (!ok) {
@@ -176,7 +177,7 @@ export default function EventRequestsScreen() {
       await resolveRequest(denyingId, 'denied', denyReason.trim());
       setDenyingId(null);
     } catch (err) {
-      notify('Could not deny', err?.message ?? 'Nothing was changed. Try again.');
+      notify('Could not deny', plainError(err, 'Nothing was changed. Try again.'));
     }
   };
   const handleDelete = (r) => {
@@ -236,7 +237,7 @@ export default function EventRequestsScreen() {
                 <div style={d.actions}>
                   <button style={d.primary} disabled={changing.status === r.status || !changing.reason.trim()} onClick={async () => {
                     try { await adminSetStatus(r.id, changing.status, changing.reason); setChanging(null); setFilter(changing.status); }
-                    catch (err) { notify('Could not change it', err?.message ?? 'Try again.'); }
+                    catch (err) { notify('Could not change it', plainError(err, 'Try again.')); }
                   }}>Change status</button>
                   <button style={d.ghost} onClick={() => setChanging(null)}>Cancel</button>
                 </div>

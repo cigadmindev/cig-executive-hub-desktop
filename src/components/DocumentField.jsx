@@ -3,6 +3,7 @@ import { ref, uploadBytes, deleteObject } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { storage } from '../firebaseConfig';
 import { useDialog } from '../hooks/useDialog';
+import { plainError } from '../lib/errors';
 
 // One document per checklist item or renewal — the permit itself.
 //
@@ -50,7 +51,7 @@ export default function DocumentField({ locationId, itemKey, value, onChange, us
 
       onChange({ path, name: file.name, uploadedAt: Date.now(), uploadedBy: userName ?? null });
     } catch (err) {
-      setError(err?.message ?? 'Upload failed.');
+      setError(plainError(err, 'Upload failed.'));
     } finally {
       setBusy(false);
     }
@@ -71,7 +72,7 @@ export default function DocumentField({ locationId, itemKey, value, onChange, us
       const res = await fn({ storagePath: value.path });
       window.open(res.data.url, '_blank', 'noreferrer');
     } catch (err) {
-      setError(err?.message ?? 'Could not open that document.');
+      setError(plainError(err, 'Could not open that document.'));
     } finally {
       setBusy(false);
     }

@@ -6,6 +6,7 @@ import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { fmtDay } from '../lib/dates';
 import Pill from '../components/Pill';
+import { plainError } from '../lib/errors';
 
 const when = (t) => fmtDay(t);
 
@@ -54,7 +55,7 @@ export default function OffboardingScreen() {
           notify(
             'Still working, or something went wrong',
             'If this took a while it probably finished — reopen this page to check. Otherwise: ' +
-              (err?.message ?? 'something went wrong.')
+              plainError(err, 'something went wrong.')
           );
         } finally {
           setBusy(null);

@@ -14,6 +14,7 @@ import Icon from '../components/Icon';
 import { iconName } from '../utils/iconGlyphs';
 import { DAILY_LOCATIONS } from '../data/dailyChecklists';
 import PageHeader from '../components/PageHeader';
+import { plainError } from '../lib/errors';
 
 // Same directory-card language as mobile's LocationScreen: icon circle,
 // title, subtitle, badge, chevron.
@@ -66,7 +67,7 @@ export default function LocationScreen() {
           notify(
             'Still working, or something went wrong',
             'If this took a while, the folders were probably still created - open the File Directories below to check. Otherwise: ' +
-              (err?.message ?? 'something went wrong.')
+              plainError(err, 'something went wrong.')
           );
         } finally {
           setSettingUp(false);

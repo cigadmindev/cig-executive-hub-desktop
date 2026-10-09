@@ -7,6 +7,7 @@ import PageHeader from '../components/PageHeader';
 import { fmtDayTime } from '../lib/dates';
 import Pill from '../components/Pill';
 import { modalBackdrop, modalSurface } from '../theme/modal';
+import { plainError } from '../lib/errors';
 
 const formatDateTime = (ts) => fmtDayTime(ts);
 
@@ -73,7 +74,7 @@ export default function WorkOrdersScreen() {
     try {
       await markDownloadedAndCleanUp(order);
     } catch (err) {
-      notify('Could not download', err?.message ?? 'The document was not downloaded. Try again.');
+      notify('Could not download', plainError(err, 'The document was not downloaded. Try again.'));
     }
   };
 
@@ -85,7 +86,7 @@ export default function WorkOrdersScreen() {
       setSuccessPopup('Your signature has been recorded and sent.');
     } catch (err) {
       // Silence here means someone believes they signed something they did not.
-      notify('Could not sign', err?.message ?? 'Your signature was not recorded. Try again.');
+      notify('Could not sign', plainError(err, 'Your signature was not recorded. Try again.'));
     }
   };
 
@@ -129,7 +130,7 @@ export default function WorkOrdersScreen() {
                 {o.originalPath || o.originalFileUrl ? (
                   <button
                     style={{ ...styles.docLink, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', font: 'inherit' }}
-                    onClick={() => openOriginal(o).catch((err) => notify('Could not open it', err?.message ?? 'Try again.'))}
+                    onClick={() => openOriginal(o).catch((err) => notify('Could not open it', plainError(err, 'Try again.')))}
                   >
                     View document{o.originalFileName ? ` — ${o.originalFileName}` : ''}
                   </button>
@@ -177,14 +178,14 @@ export default function WorkOrdersScreen() {
                   </div>
                 ) : o.status === 'completed' && o.signedPdfError ? (
                   <div style={styles.errorBlock}>
-                    <p style={styles.errorText}>Couldn't put the final document together — {o.signedPdfError}</p>
+                    <p style={styles.errorText}>Everyone signed, but the signed PDF couldn't be made. Try again, and tell Brenner if it keeps failing.</p>
                     <button style={styles.retryButton} onClick={() => handleRetry(o)}>
-                      Retry
+                      Try again
                     </button>
                   </div>
                 ) : o.status === 'completed' && (o.originalPath || o.originalFileUrl) ? (
                   <div style={styles.errorBlock}>
-                    <p style={styles.hint}>Everyone's signed — putting the final document together… If this seems stuck, retry.</p>
+                    <p style={styles.hint}>Everyone has signed. The signed PDF is being made; if it doesn't appear in a few minutes, press Retry.</p>
                     <button style={styles.retryButton} onClick={() => handleRetry(o)}>
                       Retry
                     </button>
