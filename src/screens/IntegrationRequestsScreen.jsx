@@ -10,6 +10,7 @@ import {
   KINDS,
 } from '../context/IntegrationRequestsContext';
 import { fmtDay } from '../lib/dates';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 const when = (ts) => fmtDay(ts);
 
@@ -236,7 +237,7 @@ export default function IntegrationRequestsScreen() {
       />
 
       {formOpen ? (
-        <div style={styles.backdrop} onClick={() => !saving && setFormOpen(false)}>
+        <div data-modal="" data-modal-keep="" style={styles.backdrop} onClick={() => !saving && setFormOpen(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>New Request</h2>
 
@@ -327,7 +328,7 @@ const styles = {
   primaryButton: { flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer', marginTop: 18 },
   secondaryButton: { flex: 1, padding: '11px 0', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', marginTop: 18 },
 
-  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modal: { width: 'min(460px, calc(100vw - 32px))', maxHeight: '86vh', overflowY: 'auto', background: 'var(--bg-elevated)', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  backdrop: { ...modalBackdrop, zIndex: 100 },
+  modal: { padding: 22, ...modalSurface, width: 'min(460px, 100%)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 4px' },
 };

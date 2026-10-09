@@ -502,7 +502,7 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, presets, savePreset,
     draft.features.length === 0 ? 'Nothing extra' : reachNot.length === 0 ? 'Everything' : `Everything except ${reachNot.join(', ')}`;
 
   return (
-    <div style={styles.backdrop} onClick={onClose}>
+    <div data-modal="" data-modal-keep="" style={styles.backdrop} onClick={onClose}>
       <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
         <h2 style={styles.panelTitle}>{mode === 'create' ? 'New login' : `Edit access — ${draft.name}`}</h2>
 

@@ -8,6 +8,7 @@ import { brands } from '../data/mockData';
 import DatePickerField from '../components/DatePickerField';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import { fmtDay } from '../lib/dates';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 // Catering orders and private event bookings, on the same layout as every
 // other request page: status filters, a table, the selected one on the right.
@@ -275,7 +276,7 @@ export default function CateringScreen() {
       </RequestPage>
 
       {adding ? (
-        <div style={styles.backdrop} onClick={() => !busy && setAdding(null)}>
+        <div data-modal="" data-modal-keep="" style={styles.backdrop} onClick={() => !busy && setAdding(null)}>
           <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
             <h2 style={styles.modalTitle}>Add enquiry</h2>
             <p style={styles.hint}>For one that came in by phone, in person or another way. It lands in New, like the emailed ones.</p>
@@ -331,7 +332,7 @@ export default function CateringScreen() {
       ) : null}
 
       {editing ? (
-        <div style={styles.backdrop} onClick={() => setEditing(null)}>
+        <div data-modal="" data-modal-keep="" style={styles.backdrop} onClick={() => setEditing(null)}>
           <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
             <h2 style={styles.modalTitle}>Edit details</h2>
             <p style={styles.hint}>Fix anything that came through wrong. What they originally sent is kept on the record.</p>
@@ -372,8 +373,8 @@ const styles = {
   linkButton: { display: 'inline-block', background: 'none', border: '1px solid var(--border-strong)', color: 'var(--neon)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, textDecoration: 'none' },
   done: { fontSize: 12, color: '#4ADE80', alignSelf: 'center' },
   hint: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '8px 0 0' },
-  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 },
-  modal: { width: 'min(440px, 100%)', maxHeight: '86vh', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 },
+  backdrop: { ...modalBackdrop, zIndex: 100 },
+  modal: { padding: 22, ...modalSurface, width: 'min(460px, 100%)' },
   modalTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
   fieldLabel: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', margin: '10px 0 4px' },
   modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 },

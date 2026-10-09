@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
 import PageHeader from '../components/PageHeader';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 // What to do when something happens at a restaurant.
 //
@@ -232,7 +233,7 @@ export default function EmergencyScreen() {
       </p>
 
       {pickingFor ? (
-        <div style={styles.backdrop} onClick={() => setPickingFor(null)}>
+        <div data-modal="" style={styles.backdrop} onClick={() => setPickingFor(null)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Which location?</h2>
             <p style={styles.modalBody}>
@@ -276,8 +277,8 @@ const styles = {
 
   closing: { fontSize: 12, lineHeight: 1.6, color: 'var(--text-tertiary)', margin: '18px 0 0' },
 
-  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 },
-  modal: { width: 'min(380px, 100%)', maxHeight: '80vh', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 },
+  backdrop: { ...modalBackdrop, zIndex: 100 },
+  modal: { padding: 22, ...modalSurface, width: 'min(400px, 100%)' },
   modalTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
   modalBody: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '0 0 14px' },
   brandBlock: { marginBottom: 14 },

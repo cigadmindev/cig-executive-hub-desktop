@@ -16,6 +16,7 @@ import { useViewTracking } from '../context/ViewTrackingContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { fmtDay, fmtTime } from '../lib/dates';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 function dayKey(d) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -518,7 +519,7 @@ export default function CalendarScreen() {
       </div>
 
       {formOpen ? (
-        <div style={styles.modalBackdrop} onClick={closeForm}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={closeForm}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>{editingEntry ? 'Edit Event' : 'Add Event'}</h2>
             {/* The day is already chosen — stating it is context, not another
@@ -578,7 +579,7 @@ export default function CalendarScreen() {
 
 
       {confirmingOpeningDate ? (
-        <div style={styles.modalBackdrop} onClick={() => setConfirmingOpeningDate(null)}>
+        <div data-modal="" style={styles.modalBackdrop} onClick={() => setConfirmingOpeningDate(null)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Change this due date?</h2>
             <p style={styles.confirmOpeningBody}>
@@ -677,27 +678,8 @@ const styles = {
   confirmOpeningBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 },
   linkButton: { fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 },
 
-  modalBackdrop: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.78)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Without this the card stacked below the calendar grid, so dates showed
-    // through the form.
-    zIndex: 100,
-  },
-  modalCard: {
-    width: 'min(380px, calc(100vw - 32px))',
-    background: 'var(--bg-elevated)',
-    border: '1px solid var(--border)',
-    borderRadius: 14,
-    padding: 24,
-    boxShadow: 'var(--shadow-lg)',
-    maxHeight: '86vh',
-    overflowY: 'auto',
-  },
+  modalBackdrop: { ...modalBackdrop, zIndex: 100 },
+  modalCard: { padding: 24, ...modalSurface, width: 'min(460px, 100%)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 5, marginTop: 12 },
   input: {

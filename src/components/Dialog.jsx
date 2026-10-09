@@ -26,7 +26,7 @@ export default function Dialog({
   const messageOnly = !onConfirm;
 
   return (
-    <div style={styles.backdrop} onClick={onClose}>
+    <div data-modal="" style={styles.backdrop} onClick={onClose}>
       <div style={styles.card} onClick={(e) => e.stopPropagation()} data-reveal="">
         <p style={styles.title}>{title}</p>
         {body ? <p style={styles.body}>{body}</p> : null}

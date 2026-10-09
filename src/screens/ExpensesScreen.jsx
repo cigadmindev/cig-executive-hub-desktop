@@ -16,6 +16,7 @@ import {
 import { useBudgetTargets } from '../context/BudgetTargetsContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { modalBackdrop, modalLook } from '../theme/modal';
 
 export default function ExpensesScreen() {
   const { dialogNode, confirm, notify } = useDialog();
@@ -537,7 +538,7 @@ export default function ExpensesScreen() {
 
       {/* Add a receipt */}
       {formOpen ? (
-        <div style={styles.modalBackdrop}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop}>
           <div style={styles.modalCard}>
             <h2 style={styles.modalTitle}>Add Receipt</h2>
             <div style={styles.modalScroll}>
@@ -675,7 +676,7 @@ export default function ExpensesScreen() {
 
       {/* Full-size receipt */}
       {viewing ? (
-        <div style={styles.modalBackdrop}>
+        <div data-modal="" style={styles.modalBackdrop}>
           <div style={styles.viewerCard}>
             {urls[viewing.id] ? (
               isPdf(viewing) ? (
@@ -723,7 +724,7 @@ export default function ExpensesScreen() {
 
       {/* Finance only: move a receipt to another period, open or shut. */}
       {moving ? (
-        <div style={styles.modalBackdrop}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop}>
           <div style={styles.modalCard}>
             <h2 style={styles.modalTitle}>Move to another period</h2>
             <p style={styles.hint}>
@@ -849,26 +850,8 @@ const styles = {
     flexShrink: 0,
   },
 
-  modalBackdrop: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.85)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 22,
-    zIndex: 100,
-  },
-  modalCard: {
-    width: 'min(460px, calc(100vw - 32px))',
-    maxHeight: '88vh',
-    display: 'flex',
-    flexDirection: 'column',
-    background: 'var(--bg-elevated)',
-    border: '1px solid var(--border)',
-    borderRadius: 14,
-    padding: 24,
-  },
+  modalBackdrop: { ...modalBackdrop, zIndex: 100 },
+  modalCard: { maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: 24, ...modalLook, width: 'min(460px, 100%)' },
   modalTitle: { fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 14px' },
   // Right padding so the scrollbar sits beside the fields rather than over
   // them. On a phone it is an overlay and invisible; in a desktop browser it

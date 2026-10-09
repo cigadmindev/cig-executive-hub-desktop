@@ -6,6 +6,7 @@ import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { fmtDayTime } from '../lib/dates';
 import Pill from '../components/Pill';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 const formatDateTime = (ts) => fmtDayTime(ts);
 
@@ -217,7 +218,7 @@ export default function WorkOrdersScreen() {
       )}
 
       {createOpen ? (
-        <div style={styles.modalBackdrop} onClick={() => setCreateOpen(false)}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => setCreateOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>New Work Order</h2>
             <p style={styles.modalSub}>Send a document out for signature</p>
@@ -330,7 +331,7 @@ export default function WorkOrdersScreen() {
       ) : null}
 
       {signingOrder ? (
-        <div style={styles.modalBackdrop} onClick={() => { setSigningOrder(null); setSignatureImage(null); }}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => { setSigningOrder(null); setSignatureImage(null); }}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Confirm Signature</h2>
             <p style={styles.confirmBody}>
@@ -357,7 +358,7 @@ export default function WorkOrdersScreen() {
       ) : null}
 
       {successPopup ? (
-        <div style={styles.modalBackdrop} onClick={() => setSuccessPopup(null)}>
+        <div data-modal="" style={styles.modalBackdrop} onClick={() => setSuccessPopup(null)}>
           <div style={styles.successCard} onClick={(e) => e.stopPropagation()}>
             <p style={styles.successIcon}>✓</p>
             <p style={styles.successText}>{successPopup}</p>
@@ -473,8 +474,8 @@ const styles = {
   signatureImage: { height: 32, marginLeft: 20, opacity: 0.9 },
   signedNote: { color: 'var(--text-tertiary)', fontWeight: 400 },
 
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 'min(420px, calc(100vw - 32px))', maxHeight: '82vh', overflowY: 'auto', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)' },
+  modalBackdrop: { ...modalBackdrop, zIndex: 100 },
+  modalCard: { padding: 24, ...modalSurface, width: 'min(460px, 100%)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   confirmBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 12 },
   testNote: { fontSize: 11, color: 'var(--accent)', lineHeight: 1.5, marginBottom: 14, fontStyle: 'italic' },
@@ -494,7 +495,7 @@ const styles = {
   modalButtonsRow: { display: 'flex', gap: 10, marginTop: 20 },
   cancelButton: { flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
   saveButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
-  successCard: { width: 320, background: 'var(--bg-card)', border: '1px solid var(--success)', borderRadius: 'var(--radius-lg)', padding: 24, boxShadow: 'var(--shadow-lg)', textAlign: 'center' },
+  successCard: { padding: 24, textAlign: 'center', ...modalSurface, width: 'min(400px, 100%)' },
   successIcon: { fontSize: 30, color: 'var(--success)', margin: '0 0 8px' },
   successText: { fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5, margin: '0 0 18px' },
   successButton: { width: '100%', padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },

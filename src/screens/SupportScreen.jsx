@@ -6,6 +6,7 @@ import Icon from '../components/Icon';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { fmtDayTime } from '../lib/dates';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 const formatDateTime = (ts) => fmtDayTime(ts);
 
@@ -154,7 +155,7 @@ function RegularSupportView() {
       )}
 
       {confirmOpen ? (
-        <div style={styles.modalBackdrop} onClick={() => setConfirmOpen(false)}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => setConfirmOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Request Sent</h2>
             <p style={styles.modalBody}>
@@ -397,8 +398,8 @@ const styles = {
   chip: { padding: '6px 12px', borderRadius: 16, border: '1px solid var(--border)', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12 },
   chipActive: { background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, borderColor: 'var(--neon)' },
 
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 'min(380px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)', textAlign: 'center' },
+  modalBackdrop: { ...modalBackdrop, zIndex: 100 },
+  modalCard: { padding: 24, textAlign: 'center', ...modalSurface, width: 'min(400px, 100%)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   modalBody: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 18, lineHeight: 1.6 },
 };

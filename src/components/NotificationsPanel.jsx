@@ -92,7 +92,7 @@ export default function NotificationsPanel({ onClose }) {
   });
 
   return (
-    <div style={styles.backdrop} onClick={onClose}>
+    <div data-modal="" style={styles.backdrop} onClick={onClose}>
       <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
         <div style={styles.head}>
           <span style={styles.title}>Notifications</span>

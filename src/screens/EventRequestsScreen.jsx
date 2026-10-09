@@ -11,6 +11,7 @@ import { useDialog } from '../hooks/useDialog';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import { atLeast } from '../data/accessMatrix';
 import { fmtDayTime } from '../lib/dates';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
 
@@ -287,7 +288,7 @@ export default function EventRequestsScreen() {
       />
 
       {formOpen ? (
-        <div style={styles.modalBackdrop} onClick={() => setFormOpen(false)}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => setFormOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>{editingRequest ? 'Edit Event Request' : 'New Event Request'}</h2>
 
@@ -401,7 +402,7 @@ export default function EventRequestsScreen() {
       ) : null}
 
       {denyingId ? (
-        <div style={styles.modalBackdrop} onClick={() => setDenyingId(null)}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => setDenyingId(null)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Reason for Denial</h2>
             <input style={styles.input} value={denyReason} onChange={(e) => setDenyReason(e.target.value)} placeholder="e.g. Kitchen is already booked that night" />
@@ -455,8 +456,8 @@ const styles = {
   saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
   cancelButton: { padding: '8px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 },
 
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 'min(380px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 22, maxHeight: '85vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' },
+  modalBackdrop: { ...modalBackdrop, zIndex: 100 },
+  modalCard: { padding: 22, ...modalSurface, width: 'min(400px, 100%)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   label: { display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4, marginTop: 10 },
   input: {

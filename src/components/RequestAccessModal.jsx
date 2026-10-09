@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 // target: { label } — what's being requested, just for display.
 // onSubmit(reason) — called when the person confirms.
@@ -10,7 +11,7 @@ export default function RequestAccessModal({ target, onSubmit, onClose }) {
   };
 
   return (
-    <div style={styles.modalBackdrop} onClick={onClose}>
+    <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={onClose}>
       <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
         <h2 style={styles.modalTitle}>Request Access</h2>
         <p style={styles.modalBody}>
@@ -40,8 +41,8 @@ export default function RequestAccessModal({ target, onSubmit, onClose }) {
 }
 
 const styles = {
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 'min(380px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', padding: 24, boxShadow: 'var(--shadow-lg)' },
+  modalBackdrop: { ...modalBackdrop, zIndex: 100 },
+  modalCard: { padding: 24, ...modalSurface, width: 'min(400px, 100%)' },
   modalTitle: { fontSize: 17, fontWeight: 700, margin: '0 0 8px', letterSpacing: -0.2 },
   modalBody: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 },

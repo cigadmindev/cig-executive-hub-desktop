@@ -4,6 +4,7 @@ import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 // HR, in one place.
 //
@@ -165,7 +166,7 @@ export default function HRScreen() {
       {settings.note ? <p style={styles.formNote}>{settings.note}</p> : null}
 
       {editing ? (
-        <div style={styles.backdrop} onClick={() => !saving && setEditing(false)}>
+        <div data-modal="" data-modal-keep="" style={styles.backdrop} onClick={() => !saving && setEditing(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Edit HR page</h2>
             <p style={styles.modalBody}>Everyone sees this. Links open in Drive, so they always show the current version.</p>
@@ -227,8 +228,8 @@ const styles = {
   contactFirm: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 8px' },
   contactLine: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0' },
 
-  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 },
-  modal: { width: 'min(440px, 100%)', maxHeight: '86vh', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 },
+  backdrop: { ...modalBackdrop, zIndex: 100 },
+  modal: { padding: 22, ...modalSurface, width: 'min(460px, 100%)' },
   modalTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
   modalBody: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '0 0 6px' },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 5, marginTop: 10 },

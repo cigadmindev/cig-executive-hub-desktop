@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 // Click to edit inline; hitting Save shows a confirmation step with the
 // old and new value side by side before it actually commits.
@@ -62,7 +63,7 @@ export default function ConfirmEditField({ label, value, placeholder, onSave, ty
         </div>
 
         {confirming ? (
-          <div style={styles.confirmBackdrop} onClick={() => setConfirming(false)}>
+          <div data-modal="" style={styles.confirmBackdrop} onClick={() => setConfirming(false)}>
             <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
               <p style={styles.confirmTitle}>Confirm change{label ? ` — ${label}` : ''}</p>
               <div style={styles.confirmDiffRow}>
@@ -140,8 +141,8 @@ const styles = {
   saveBtn: { padding: '0 12px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 900, flexShrink: 0, textTransform: 'uppercase' },
   cancelBtn: { padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, flexShrink: 0 },
 
-  confirmBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
-  confirmCard: { width: 340, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', padding: 20, boxShadow: 'var(--shadow-lg)' },
+  confirmBackdrop: { ...modalBackdrop, zIndex: 200 },
+  confirmCard: { padding: 20, ...modalSurface, width: 'min(400px, 100%)' },
   confirmTitle: { fontSize: 13, fontWeight: 700, marginBottom: 12 },
   confirmDiffRow: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 16, flexWrap: 'wrap' },
   confirmOld: { color: 'var(--text-tertiary)', textDecoration: 'line-through' },

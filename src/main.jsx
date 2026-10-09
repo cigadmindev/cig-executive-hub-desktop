@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { initSentry } from './sentry';
 import App from './App.jsx';
 import './index.css';
+import './lib/modalKeys';
 
 initSentry();
 

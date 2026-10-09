@@ -6,6 +6,7 @@ import { useSupportRequests } from '../context/SupportRequestsContext';
 import { useTheme } from '../context/ThemeContext';
 import Icon from '../components/Icon';
 import PageHeader from '../components/PageHeader';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
@@ -156,7 +157,7 @@ export default function ProfileScreen() {
       </div>
 
       {editOpen ? (
-        <div style={styles.modalBackdrop} onClick={() => !savingProfile && setEditOpen(false)}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => !savingProfile && setEditOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Edit Profile</h2>
 
@@ -245,7 +246,7 @@ export default function ProfileScreen() {
       ) : null}
 
       {deleteOpen ? (
-        <div style={styles.modalBackdrop} onClick={closeDeleteModal}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={closeDeleteModal}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Delete My Account</h2>
             <p style={styles.modalBody}>
@@ -345,8 +346,8 @@ const styles = {
   menuItemText: { color: '#FFFFFF', fontSize: 14, fontWeight: 600, flex: 1 },
   menuDot: { width: 9, height: 9, borderRadius: 4.5, background: 'var(--danger)' },
 
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 'min(380px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 18, padding: 24, boxShadow: 'var(--shadow-lg)' },
+  modalBackdrop: { ...modalBackdrop, zIndex: 100 },
+  modalCard: { padding: 24, ...modalSurface, width: 'min(400px, 100%)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
   modalBody: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.55 },
   input: {

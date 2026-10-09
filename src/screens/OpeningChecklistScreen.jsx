@@ -17,6 +17,7 @@ import { atLeast } from '../data/accessMatrix';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { fmtDay } from '../lib/dates';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 
 const formatDate = (ts) => (ts ? fmtDay(ts) : null);
 
@@ -725,7 +726,7 @@ export default function OpeningChecklistScreen() {
       </div>
 
       {confirmingDate ? (
-        <div style={styles.confirmBackdrop} onClick={() => setConfirmingDate(false)}>
+        <div data-modal="" style={styles.confirmBackdrop} onClick={() => setConfirmingDate(false)}>
           <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
             <p style={styles.confirmTitle}>
               {info.openingDate ? 'Change opening date?' : 'Set opening date?'}
@@ -752,7 +753,7 @@ export default function OpeningChecklistScreen() {
           asking for this on the Renewals screen, which means asking someone
           to go find a document they already had open. */}
       {renewalPrompt ? (
-        <div style={styles.confirmBackdrop}>
+        <div data-modal="" data-modal-keep="" style={styles.confirmBackdrop}>
           <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
             <p style={styles.confirmTitle}>{renewalPrompt.type} obtained</p>
             <p style={styles.confirmBody}>
@@ -775,7 +776,7 @@ export default function OpeningChecklistScreen() {
       ) : null}
 
       {confirmingItem ? (
-        <div style={styles.confirmBackdrop} onClick={() => setConfirmingItem(null)}>
+        <div data-modal="" style={styles.confirmBackdrop} onClick={() => setConfirmingItem(null)}>
           <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
             <p style={styles.confirmTitle}>
               {confirmingItem.done ? 'Un-sign this off?' : 'Sign off on this task?'}
@@ -799,7 +800,7 @@ export default function OpeningChecklistScreen() {
       ) : null}
 
       {confirmingItemDate ? (
-        <div style={styles.confirmBackdrop} onClick={() => setConfirmingItemDate(null)}>
+        <div data-modal="" style={styles.confirmBackdrop} onClick={() => setConfirmingItemDate(null)}>
           <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
             <p style={styles.confirmTitle}>Change this due date?</p>
             <p style={styles.confirmBody}>
@@ -821,7 +822,7 @@ export default function OpeningChecklistScreen() {
       ) : null}
 
       {confirmingRegenerate ? (
-        <div style={styles.confirmBackdrop} onClick={() => !regenerating && setConfirmingRegenerate(false)}>
+        <div data-modal="" style={styles.confirmBackdrop} onClick={() => !regenerating && setConfirmingRegenerate(false)}>
           <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
             <p style={styles.confirmTitle}>Bring this location up to date?</p>
             <p style={styles.confirmBody}>
@@ -841,7 +842,7 @@ export default function OpeningChecklistScreen() {
         </div>
       ) : null}
       {addingToList ? (
-        <div style={styles.modalBackdrop} onClick={() => !savingNew && setAddingToList(null)}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => !savingNew && setAddingToList(null)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>Add a checklist item</h2>
             {/* One "+ Add item" at the top of the page (V1); which list it
@@ -928,8 +929,8 @@ const styles = {
   page: { padding: '28px max(22px, min(40px, 4vw))' },
   searchHint: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' },
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modalCard: { width: 'min(420px, calc(100vw - 32px))', maxHeight: '82vh', overflowY: 'auto', background: 'var(--bg-elevated)', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  modalBackdrop: { ...modalBackdrop, zIndex: 100 },
+  modalCard: { padding: 22, ...modalSurface, width: 'min(460px, 100%)' },
   modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 4px' },
   modalFieldLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 5px' },
   modalInput: { width: '100%', boxSizing: 'border-box', height: 36, padding: '0 11px', marginBottom: 14, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
@@ -1058,8 +1059,8 @@ const styles = {
   saveDateButton: { padding: '9px 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, flexShrink: 0, textTransform: 'uppercase' },
   cancelDateButton: { padding: '9px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, flexShrink: 0 },
 
-  confirmBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
-  confirmCard: { width: 'min(400px, calc(100vw - 32px))', background: 'var(--bg-elevated)', border: 'none', borderRadius: 16, padding: 22, boxShadow: 'var(--shadow-lg)' },
+  confirmBackdrop: { ...modalBackdrop, zIndex: 200 },
+  confirmCard: { padding: 22, ...modalSurface, width: 'min(400px, 100%)' },
   confirmTitle: { fontSize: 15, fontWeight: 700, marginBottom: 10 },
   confirmBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 },
   confirmButtonsRow: { display: 'flex', gap: 10 },

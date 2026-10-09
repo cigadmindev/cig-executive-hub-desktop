@@ -427,7 +427,7 @@ export default function MessagesScreen() {
       </div>
 
       {pickerOpen ? (
-        <div style={styles.modalBackdrop} onClick={closePicker}>
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={closePicker}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <h2 style={styles.modalTitle}>{pickerMode === 'dm' ? 'New Message' : 'New Group'}</h2>
 
