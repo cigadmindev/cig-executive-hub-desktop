@@ -1,27 +1,17 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { recordDid } from './NotificationsContext';
-import { collection, onSnapshot, query, where, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 
-// The nine categories, as stable keys with the label separate. Renaming a
-// label later must not orphan every receipt filed under it — the same reason
-// checklist items are keyed. This list is duplicated in the Cloud Function,
-// which validates against it, and in the mobile app. Changing one means
-// changing all three.
-export const EXPENSE_CATEGORIES = [
-  { key: 'airfareTravel', label: 'Airfare / Travel' },
-  { key: 'lodging', label: 'Lodging' },
-  { key: 'meals', label: 'Meals' },
-  { key: 'groundTransport', label: 'Ground Transport' },
-  { key: 'mileage', label: 'Mileage' },
-  { key: 'conferenceEvents', label: 'Conference & Events' },
-  { key: 'supplies', label: 'Supplies' },
-  { key: 'entertainment', label: 'Entertainment' },
-  { key: 'other', label: 'Other' },
-];
+// Receipts are filed under Sam's accounts (9 Oct 2026) - the expenseAccounts
+// collection, which Finance looks after in the Hub. Receipts filed before
+// then keep their old category label until they are given an account.
+//
+// The one account that asks who was there.
+export const ATTENDEES_ACCOUNT = '7255';
 
 const ExpensesContext = createContext(undefined);
 const COLLECTION = 'expenseReceipts';
@@ -61,8 +51,15 @@ export function ExpensesProvider({ children }) {
               submittedByUid: data.submittedByUid,
               submittedByName: data.submittedByName ?? 'Unknown',
               amountCents: data.amountCents ?? 0,
-              categoryKey: data.categoryKey ?? 'other',
-              categoryLabel: data.categoryLabel ?? 'Other',
+              categoryKey: data.categoryKey ?? null,
+              categoryLabel: data.categoryLabel ?? null,
+              accountCode: data.accountCode ?? null,
+              accountName: data.accountName ?? null,
+              accountHeading: data.accountHeading ?? null,
+              attendees: data.attendees ?? null,
+              locationId: data.locationId ?? null,
+              recodes: data.recodes ?? [],
+              editHistory: data.editHistory ?? [],
               where: data.where ?? '',
               reason: data.reason ?? '',
               dateSpent: data.dateSpent ?? '',
@@ -74,6 +71,7 @@ export function ExpensesProvider({ children }) {
               voided: data.voided === true,
               voidedBy: data.voidedBy ?? null,
               voidedReason: data.voidedReason ?? null,
+              voidedAt: data.voidedAt ?? null,
               chargeToId: data.chargeToId ?? null,
               chargeToName: data.chargeToName ?? 'Corporate',
               // The fiscal period, set by the server. Finance can move it.
@@ -142,6 +140,25 @@ export function ExpensesProvider({ children }) {
     );
   }, [user?.uid, seesAll]);
 
+  // Sam's accounts, in his order. Read by everyone who files receipts.
+  const [accounts, setAccounts] = useState([]);
+  useEffect(() => {
+    if (!user) {
+      setAccounts([]);
+      return undefined;
+    }
+    return onSnapshot(
+      collection(db, 'expenseAccounts'),
+      (snap) =>
+        setAccounts(
+          snap.docs
+            .map((d) => ({ code: d.id, ...d.data() }))
+            .sort((a, b) => (a.headingOrder ?? 99) - (b.headingOrder ?? 99) || (a.order ?? 999) - (b.order ?? 999) || a.code.localeCompare(b.code))
+        ),
+      (err) => console.error('[ExpenseAccounts listener] ' + err.code + ': ' + err.message)
+    );
+  }, [user?.uid]);
+
   // The fiscal calendar - a few dozen small documents, read by everyone so
   // the form can say which period a receipt will go into.
   const [periods, setPeriods] = useState([]);
@@ -176,7 +193,8 @@ export function ExpensesProvider({ children }) {
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = objectUrl;
-    a.download = which === 'photos' ? 'receipts-' + dateKey + '.zip' : 'expenses-' + dateKey + '.csv';
+    // The server names the file: old reports are .csv, new ones .xlsx.
+    a.download = res.data.fileName ?? (which === 'photos' ? 'receipts-' + dateKey + '.zip' : 'expenses-' + dateKey + '.xlsx');
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -194,7 +212,7 @@ export function ExpensesProvider({ children }) {
     return res.data;
   };
 
-  // Finance only - enforced by the function.
+  // Finance and admins - enforced by the function.
   const movePeriod = async (receiptId, periodId) => {
     const fns = getFunctions(undefined, 'us-central1');
     const res = await httpsCallable(fns, 'moveReceiptPeriod')({ receiptId, periodId });
@@ -214,7 +232,7 @@ export function ExpensesProvider({ children }) {
   // Takes a File straight from an <input type="file">, which uploadBytes
   // accepts as-is. The mobile version has to fetch its local URI into a blob
   // first; same destination, different starting point.
-  const submitReceipt = async ({ file, amountCents, categoryKey, where: whereText, reason, dateSpent, chargeToId }) => {
+  const submitReceipt = async ({ file, amountCents, accountCode, attendees, locationId, where: whereText, reason, dateSpent }) => {
     recordDid('You submitted a receipt', 'Submitted from the Hub', '/expenses');
     if (!user) throw new Error('You must be signed in.');
 
@@ -230,15 +248,43 @@ export function ExpensesProvider({ children }) {
     const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'submitExpenseReceipt');
     const res = await fn({
       amountCents,
-      categoryKey,
+      accountCode,
+      attendees: attendees ?? null,
+      locationId: locationId ?? null,
       where: whereText,
       reason,
       dateSpent,
       storagePath: path,
-      chargeToId: chargeToId ?? null,
     });
     return res.data;
   };
+
+  // Every change goes through the server, which checks who is asking and
+  // keeps a record of it (9 Oct 2026).
+  const call = async (name, data) => (await httpsCallable(getFunctions(undefined, 'us-central1'), name)(data)).data;
+  const editReceipt = (receiptId, fields) => call('editExpenseReceipt', { receiptId, ...fields });
+  const recodeReceipt = (receiptId, accountCode) => call('recodeExpenseReceipt', { receiptId, accountCode });
+
+  // Finance and admins look after the account list. An account is never
+  // deleted - retired, so old receipts and reports keep their name.
+  const addAccount = async ({ code, name, heading }) => {
+    const c = String(code).trim();
+    if (!/^[0-9][0-9A-Za-z-]{1,15}$/.test(c)) throw new Error('Use the account number from the books, e.g. 7260.');
+    if (accounts.some((a) => a.code === c)) throw new Error('Account ' + c + ' is already on the list.');
+    const sameHeading = accounts.filter((a) => a.heading === heading);
+    await setDoc(doc(db, 'expenseAccounts', c), {
+      code: c,
+      name: String(name).trim(),
+      heading,
+      headingOrder: sameHeading[0]?.headingOrder ?? 99,
+      order: Math.max(0, ...accounts.map((a) => a.order ?? 0)) + 1,
+      retired: false,
+      addedByName: user?.name ?? null,
+      addedAt: Date.now(),
+    });
+  };
+  const setAccountRetired = (code, retired) =>
+    updateDoc(doc(db, 'expenseAccounts', code), retired ? { retired: true, retiredByName: user?.name ?? null, retiredAt: Date.now() } : { retired: false });
 
   // Storage denies reads to every client, so this is the only way to see a
   // receipt image. Batched: a page of receipts should not be a round trip each.
@@ -249,20 +295,17 @@ export function ExpensesProvider({ children }) {
     return res.data?.urls ?? {};
   };
 
-  const voidReceipt = async (id, reason) => {
-    if (!user) throw new Error('You must be signed in.');
-    // Admins only, enforced by the Firestore rule — which also restricts the
-    // write to exactly these three fields, so voiding cannot be used to change
-    // an amount after the cutoff.
-    await updateDoc(doc(db, COLLECTION, id), {
-      voided: true,
-      voidedBy: user.name ?? 'Unknown',
-      voidedReason: reason,
-    });
-  };
+  // Your own, until the period's report is made; Finance and admins any time.
+  const voidReceipt = (receiptId, reason) => call('voidExpenseReceipt', { receiptId, reason });
 
-  const isEditable = (r) =>
-    !r.voided && r.submittedByUid === user?.uid && Date.now() < r.editableUntil;
+  // Your own receipt can be changed until its period's report is made - the
+  // Saturday after the catch-up week ends. The server makes the real check;
+  // this only decides whether to offer the buttons.
+  const isEditable = (r) => {
+    if (r.voided || r.submittedByUid !== user?.uid) return false;
+    const p = periods.find((x) => x.id === r.periodId);
+    return !p || centralDateKey(new Date()) <= p.windowEndKey;
+  };
 
   const value = useMemo(
     () => ({
@@ -271,16 +314,21 @@ export function ExpensesProvider({ children }) {
       seesAll,
       loading,
       submitReceipt,
+      editReceipt,
+      recodeReceipt,
       getImageUrls,
       voidReceipt,
       isEditable,
+      accounts,
+      addAccount,
+      setAccountRetired,
       downloadReport,
       rebuildPeriod,
       movePeriod,
       periods,
       hasUncollectedReport,
     }),
-    [receipts, reports, periods, seesAll, loading, user?.uid]
+    [receipts, reports, periods, accounts, seesAll, loading, user?.uid]
   );
 
   return <ExpensesContext.Provider value={value}>{children}</ExpensesContext.Provider>;
@@ -320,25 +368,7 @@ export function centralDateKey(d) {
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
-export function prettyDate(key) {
-  if (!key) return '';
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
-/** "4h 12m left to edit" — shown while a receipt can still be changed. */
-export function timeLeft(until, now) {
-  const ms = until - now;
-  if (ms <= 0) return null;
-  const mins = Math.floor(ms / 60000);
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return h > 0 ? `${h}h ${m}m left to edit` : `${m}m left to edit`;
-}
 
 // The same rule the server applies (functions/fiscal.js), used only to tell
 // the person in advance where their receipt will go. The server decides.

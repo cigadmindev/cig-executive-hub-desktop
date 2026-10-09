@@ -5,7 +5,7 @@
 //                          and an email to finance.
 //   rebuildPeriodReport    Finance or admin - rebuild a period from its receipts
 //                          as they stand now.
-//   moveReceiptPeriod      Finance only - put a receipt in a different period,
+//   moveReceiptPeriod      Finance and admins - put a receipt in a different period,
 //                          open or shut.
 //   expenseDailyToCoo      07:00 - yesterday's receipts, by email, to the COO,
 //                          so he can follow up with whoever submitted them.
@@ -16,7 +16,8 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { Resend } = require('resend');
-const { buildReceiptArchive } = require('./receiptArchive');
+const ExcelJS = require('exceljs');
+const { buildReceiptArchive, hasPhoto } = require('./receiptArchive');
 const T = require('./emailTemplate');
 const { ZONE, PERIODS, centralDateKey, addDays, weekday, loadPeriods, periodFor, periodRange } = require('./fiscal');
 const { requireLive } = require('./caller');
@@ -27,7 +28,6 @@ const FROM = 'CIG Executive Hub <no-reply@cigconcepts.com>';
 const WEB = 'https://hub.cigconcepts.com';
 
 const money = (cents) => (cents / 100).toFixed(2);
-const csvCell = (v) => '"' + (v === null || v === undefined ? '' : String(v)).replace(/"/g, '""') + '"';
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function isFinance(u) {
@@ -52,76 +52,175 @@ async function ghostUids(db) {
 // ---------------------------------------------------------------------------
 // The period report - one builder for the scheduled close and the rebuild
 // ---------------------------------------------------------------------------
+//
+// One spreadsheet for Sam, with four tabs (B2.4, 9 Oct 2026):
+//   Receipts     every receipt: photo number, account code, account, heading,
+//                location, who, when, where, why, who was there, amount, notes
+//   By account   totals by Sam's headings and accounts, in his order
+//   By person    totals per executive
+//   By location  totals per location, Corporate first
+// The photo zip numbers each photo the same way, so "Photo 007" in the sheet
+// is 007_… in the zip. Voided receipts are listed (marked) but never counted.
+const NOT_CODED = 'Not coded yet';
+const accountOf = (r) => (r.accountCode ? r.accountCode + ' · ' + (r.accountName ?? '') : NOT_CODED);
+
 async function buildPeriod(period) {
   const db = admin.firestore();
   const ghosts = await ghostUids(db);
   const snap = await db.collection(RECEIPTS).where('periodId', '==', period.id).get();
+  // Sorted once, here: this order is the sheet's row order and the photo
+  // numbers, for the spreadsheet and the zip alike.
   const receipts = snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((r) => !ghosts.has(r.submittedByUid));
+    .filter((r) => !ghosts.has(r.submittedByUid))
+    .sort((a, b) => (a.dateSpent ?? '').localeCompare(b.dateSpent ?? '') || (a.submittedAt ?? 0) - (b.submittedAt ?? 0));
 
+  const accSnap = await db.collection('expenseAccounts').get();
+  const accounts = Object.fromEntries(accSnap.docs.map((d) => [d.id, d.data()]));
+
+  let photo = 0;
+  const photoNo = new Map();
+  for (const r of receipts) if (hasPhoto(r)) photoNo.set(r.id, ++photo);
+
+  const byAccount = {};
+  const byPerson = {};
+  const byLocation = {};
   const byCategory = {};
-  const byChargeTo = {};
   let total = 0;
+  const add = (o, k, cents) => {
+    o[k] = o[k] ?? { count: 0, cents: 0 };
+    o[k].count += 1;
+    o[k].cents += cents;
+  };
   for (const r of receipts) {
     if (r.voided) continue;
-    const c = r.categoryLabel ?? 'Uncategorised';
-    byCategory[c] = (byCategory[c] ?? 0) + (r.amountCents ?? 0);
-    const t = r.chargeToName ?? 'Corporate';
-    byChargeTo[t] = (byChargeTo[t] ?? 0) + (r.amountCents ?? 0);
-    total += r.amountCents ?? 0;
+    const cents = r.amountCents ?? 0;
+    total += cents;
+    add(byAccount, r.accountCode ?? NOT_CODED, cents);
+    add(byPerson, r.submittedByName ?? 'Unknown', cents);
+    add(byLocation, r.chargeToName ?? 'Corporate', cents);
+    // For the email: the account names, biggest first.
+    byCategory[r.accountName ?? NOT_CODED] = (byCategory[r.accountName ?? NOT_CODED] ?? 0) + cents;
   }
 
   const range = periodRange(period);
   const title = period.label + ' (' + range + ')';
-  const lines = [];
-  const sorted = (o) => Object.keys(o).sort((a, b) => o[b] - o[a]);
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'CIG Executive Hub';
+  const head = (ws, row) => {
+    const h = ws.getRow(row);
+    h.font = { bold: true };
+    h.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF2' } };
+    ws.views = [{ state: 'frozen', ySplit: row }];
+  };
+  const dollars = '"$"#,##0.00';
 
-  lines.push(csvCell(title + ' — Expense Summary'), '');
-  lines.push([csvCell('Category'), csvCell('Total')].join(','));
-  sorted(byCategory).forEach((k) => lines.push([csvCell(k), csvCell(money(byCategory[k]))].join(',')));
-  lines.push('', [csvCell('TOTAL'), csvCell(money(total))].join(','), '', '');
+  // 1. Every receipt
+  const ws1 = wb.addWorksheet('Receipts');
+  ws1.addRow([title + ' — every receipt']).font = { bold: true, size: 13 };
+  ws1.addRow([]);
+  ws1.columns = [
+    { key: 'photo', width: 8 }, { key: 'date', width: 12 }, { key: 'who', width: 20 }, { key: 'code', width: 9 },
+    { key: 'account', width: 30 }, { key: 'heading', width: 18 }, { key: 'location', width: 30 }, { key: 'where', width: 26 },
+    { key: 'why', width: 40 }, { key: 'attendees', width: 26 }, { key: 'amount', width: 12 }, { key: 'notes', width: 40 },
+  ];
+  ws1.addRow(['Photo', 'Date spent', 'Who', 'Code', 'Account', 'Heading', 'Location', 'Where', 'Why', 'Who was there', 'Amount', 'Notes']);
+  head(ws1, 3);
+  for (const r of receipts) {
+    const notes = [];
+    if (r.voided) notes.push('VOIDED by ' + (r.voidedBy ?? '?') + ': ' + (r.voidedReason ?? ''));
+    if (!r.accountCode) notes.push('Not coded yet (was "' + (r.categoryLabel ?? '—') + '")');
+    if (r.movedByName) notes.push('Moved here by ' + r.movedByName + ' from ' + (r.previousPeriodLabel ?? '?'));
+    for (const c of r.recodes ?? []) notes.push('Account changed by ' + c.byName + ': ' + c.from + ' → ' + c.to);
+    const row = ws1.addRow({
+      photo: photoNo.has(r.id) ? String(photoNo.get(r.id)).padStart(3, '0') : '',
+      date: r.dateSpent ?? '',
+      who: r.submittedByName ?? '',
+      code: r.accountCode ?? '',
+      account: r.accountName ?? NOT_CODED,
+      heading: r.accountHeading ?? '',
+      location: r.chargeToName ?? 'Corporate',
+      where: r.where ?? '',
+      why: r.reason ?? '',
+      attendees: r.attendees ?? '',
+      amount: (r.amountCents ?? 0) / 100,
+      notes: notes.join(' · '),
+    });
+    row.getCell('amount').numFmt = dollars;
+    if (r.voided) row.font = { color: { argb: 'FF999999' }, strike: true };
+  }
+  const t1 = ws1.addRow({ account: 'TOTAL (voided not counted)', amount: total / 100 });
+  t1.font = { bold: true };
+  t1.getCell('amount').numFmt = dollars;
 
-  lines.push(csvCell('By charge to'), '');
-  lines.push([csvCell('Charged to'), csvCell('Total')].join(','));
-  sorted(byChargeTo).forEach((k) => lines.push([csvCell(k), csvCell(money(byChargeTo[k]))].join(',')));
-  lines.push('', '');
+  // 2. By account, in Sam's heading order
+  const ws2 = wb.addWorksheet('By account');
+  ws2.columns = [{ width: 20 }, { width: 9 }, { width: 32 }, { width: 10 }, { width: 14 }];
+  ws2.addRow([title + ' — by account']).font = { bold: true, size: 13 };
+  ws2.addRow([]);
+  ws2.addRow(['Heading', 'Code', 'Account', 'Receipts', 'Total']);
+  head(ws2, 3);
+  const codes = Object.keys(byAccount).filter((c) => c !== NOT_CODED).sort((a, b) => {
+    const A = accounts[a] ?? {};
+    const B = accounts[b] ?? {};
+    return (A.headingOrder ?? 99) - (B.headingOrder ?? 99) || (A.order ?? 999) - (B.order ?? 999) || a.localeCompare(b);
+  });
+  let heading = null;
+  let headingCents = 0;
+  const closeHeading = () => {
+    if (heading === null) return;
+    const row = ws2.addRow([heading + ' total', '', '', '', headingCents / 100]);
+    row.font = { bold: true };
+    row.getCell(5).numFmt = dollars;
+    ws2.addRow([]);
+  };
+  for (const c of codes) {
+    const h = accounts[c]?.heading ?? '—';
+    if (h !== heading) {
+      closeHeading();
+      heading = h;
+      headingCents = 0;
+    }
+    headingCents += byAccount[c].cents;
+    const row = ws2.addRow([h, c, accounts[c]?.name ?? '', byAccount[c].count, byAccount[c].cents / 100]);
+    row.getCell(5).numFmt = dollars;
+  }
+  closeHeading();
+  if (byAccount[NOT_CODED]) {
+    const row = ws2.addRow([NOT_CODED, '', 'Give these an account in the Hub, then rebuild', byAccount[NOT_CODED].count, byAccount[NOT_CODED].cents / 100]);
+    row.getCell(5).numFmt = dollars;
+    row.font = { color: { argb: 'FFB45309' } };
+  }
+  const t2 = ws2.addRow(['TOTAL', '', '', '', total / 100]);
+  t2.font = { bold: true };
+  t2.getCell(5).numFmt = dollars;
 
-  lines.push(csvCell('Every receipt'), '');
-  lines.push(
-    ['Period', 'Date spent', 'Submitted by', 'Amount', 'Category', 'Charge to', 'Where', 'Reason', 'Submitted at', 'Voided', 'Moved by finance']
-      .map(csvCell)
-      .join(',')
-  );
-  receipts
-    .slice()
-    .sort((a, b) => (a.dateSpent ?? '').localeCompare(b.dateSpent ?? ''))
-    .forEach((r) =>
-      lines.push(
-        [
-          period.label,
-          r.dateSpent,
-          r.submittedByName,
-          money(r.amountCents ?? 0),
-          r.categoryLabel,
-          r.chargeToName ?? 'Corporate',
-          r.where,
-          r.reason,
-          r.submittedAt ? new Date(r.submittedAt).toLocaleString('en-US', { timeZone: ZONE }) : '',
-          r.voided ? 'VOIDED' : '',
-          r.movedByName ? r.movedByName + ' (from ' + (r.previousPeriodLabel ?? '?') + ')' : '',
-        ]
-          .map(csvCell)
-          .join(',')
-      )
-    );
+  // 3 and 4. By person, by location
+  const simple = (name, label, o, firstKey) => {
+    const ws = wb.addWorksheet(name);
+    ws.columns = [{ width: 34 }, { width: 10 }, { width: 14 }];
+    ws.addRow([title + ' — ' + name.toLowerCase()]).font = { bold: true, size: 13 };
+    ws.addRow([]);
+    ws.addRow([label, 'Receipts', 'Total']);
+    head(ws, 3);
+    const keys = Object.keys(o).sort((a, b) => (a === firstKey ? -1 : b === firstKey ? 1 : o[b].cents - o[a].cents));
+    for (const k of keys) ws.addRow([k, o[k].count, o[k].cents / 100]).getCell(3).numFmt = dollars;
+    const t = ws.addRow(['TOTAL', '', total / 100]);
+    t.font = { bold: true };
+    t.getCell(3).numFmt = dollars;
+  };
+  simple('By person', 'Who', byPerson, null);
+  simple('By location', 'Location', byLocation, 'Corporate');
 
-  const path = 'expenseReports/' + period.id + '.csv';
-  await admin.storage().bucket().file(path).save(lines.join('\n'), { contentType: 'text/csv' });
+  const path = 'expenseReports/' + period.id + '.xlsx';
+  const buffer = await wb.xlsx.writeBuffer();
+  await admin.storage().bucket().file(path).save(Buffer.from(buffer), {
+    contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
 
   let archivePath = null;
   try {
-    archivePath = await buildReceiptArchive(receipts, period.id);
+    archivePath = await buildReceiptArchive(receipts, period.id, photoNo);
   } catch (err) {
     console.error('Receipt archive failed for ' + period.id + ': ' + err.message);
   }
@@ -148,7 +247,7 @@ exports.closeExpensePeriod = onSchedule(
       kind: 'period',
       periodId: period.id,
       label: title,
-      receiptCount: receipts.length,
+      receiptCount: receipts.filter((r) => !r.voided).length,
       totalCents: total,
       storagePath: path,
       archivePath,
@@ -170,6 +269,7 @@ exports.closeExpensePeriod = onSchedule(
       const cats = Object.keys(byCategory).sort((a, b) => byCategory[b] - byCategory[a]);
       const top = cats.slice(0, 4).map((c) => [c, '$' + money(byCategory[c])]);
       const rest = cats.slice(4).reduce((s, c) => s + byCategory[c], 0);
+      // (byCategory holds Sam's account names now - the biggest four, then the rest.)
       const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
         from: FROM,
         to,
@@ -178,7 +278,7 @@ exports.closeExpensePeriod = onSchedule(
           kicker: 'Expenses',
           title: period.label + ' report is ready',
           intro: periodRange(period) + '. The catch-up week closed Friday, so this is final.',
-          details: [['Receipts', String(receipts.length)], ['Total', '$' + money(total)], ...top, ...(rest ? [['Other categories', '$' + money(rest)]] : [])],
+          details: [['Receipts', String(receipts.length)], ['Total', '$' + money(total)], ...top, ...(rest ? [['Other accounts', '$' + money(rest)]] : [])],
           button: { label: 'Download the report and photos', url: WEB + '/expenses' },
           footer: 'You got this because you are finance. Save a copy - the Hub keeps reports ninety days.',
         }),
@@ -212,7 +312,7 @@ exports.rebuildPeriodReport = onCall({ memory: '1GiB', timeoutSeconds: 540 }, as
   const { receipts, total, title, path, archivePath } = await buildPeriod({ id: periodDoc.id, ...periodDoc.data() });
   await reportRef.update({
     label: title,
-    receiptCount: receipts.length,
+    receiptCount: receipts.filter((r) => !r.voided).length,
     totalCents: total,
     storagePath: path,
     archivePath,
@@ -233,7 +333,8 @@ exports.moveReceiptPeriod = onCall(async (request) => {
   await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const me = await financeOrAdmin(request.auth.uid);
-  if (!me || !isFinance(me)) throw new HttpsError('permission-denied', 'Only finance can move a receipt between periods.');
+  // Finance, and admins (who can do everything in the Hub - decided 6 Oct).
+  if (!me || (me.role !== 'admin' && !isFinance(me))) throw new HttpsError('permission-denied', 'Only Finance can move a receipt between periods.');
 
   const db = admin.firestore();
   const receiptId = String(request.data?.receiptId ?? '');
@@ -323,7 +424,7 @@ exports.expenseDailyToCoo = onSchedule(
       const mailto = mail ? 'mailto:' + mail + '?subject=' + encodeURIComponent('Receipt: $' + money(r.amountCents) + ' at ' + r.where) : null;
       rows.push({
         title: '$' + money(r.amountCents) + (r.voided ? ' · VOID' : '') + ' · ' + r.submittedByName,
-        line: [r.categoryLabel, r.where, r.chargeToName ?? 'Corporate', r.periodLabel].filter(Boolean).join(' · ') + ' · "' + r.reason + '"',
+        line: [r.accountName ?? r.categoryLabel, r.where, r.chargeToName ?? 'Corporate', r.periodLabel].filter(Boolean).join(' · ') + ' · "' + r.reason + '"',
         url: url ?? mailto,
         action: url ? 'View receipt' : 'Email ' + first,
         url2: url ? mailto : null,

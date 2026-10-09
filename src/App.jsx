@@ -16,7 +16,6 @@ import { SupportRequestsProvider } from './context/SupportRequestsContext';
 import { SupportAnnouncementsProvider } from './context/SupportAnnouncementsContext';
 import { CategoryDriveLinksProvider } from './context/CategoryDriveLinksContext';
 import { ExpensesProvider } from './context/ExpensesContext';
-import { BudgetTargetsProvider } from './context/BudgetTargetsContext';
 import { IntegrationRequestsProvider } from './context/IntegrationRequestsContext';
 import { OpeningInfoProvider } from './context/OpeningInfoContext';
 import { OpeningOngoingContactsProvider } from './context/OpeningOngoingContactsContext';
@@ -159,7 +158,6 @@ function Providers({ children }) {
       <OffboardingProvider>
       <AccessPresetsProvider>
       <AccessMatrixProvider>
-      <BudgetTargetsProvider>
       <ExpensesProvider>
       <CategoryDriveLinksProvider>
       <SupportRequestsProvider>
@@ -194,7 +192,6 @@ function Providers({ children }) {
       </SupportRequestsProvider>
       </CategoryDriveLinksProvider>
       </ExpensesProvider>
-      </BudgetTargetsProvider>
       </AccessMatrixProvider>
       </AccessPresetsProvider>
       </OffboardingProvider>

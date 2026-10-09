@@ -18,7 +18,10 @@ const ZONE = 'America/Chicago';
 //
 // Date first so they sort chronologically in any file browser, then who
 // submitted it, the amount, and where - readable without opening anything.
-function nameFor(r, index) {
+// Which receipts get a photo in the zip - and so a photo number in the sheet.
+const hasPhoto = (r) => Boolean(r.storagePath && !r.imageDeletedAt && !r.voided);
+
+function nameFor(r, number) {
   const safe = (v) =>
     String(v ?? '')
       .replace(/[^\w\s-]/g, '')
@@ -31,12 +34,13 @@ function nameFor(r, index) {
 
   // The index keeps two receipts from the same person, day and place from
   // colliding inside the zip.
+  // The photo number first, matching the "Photo" column in the spreadsheet.
   return [
+    String(number).padStart(3, '0'),
     r.dateSpent ?? 'undated',
     safe(r.submittedByName),
     amount,
     safe(r.where),
-    String(index + 1).padStart(3, '0'),
   ].join('_') + '.' + ext;
 }
 
@@ -44,10 +48,10 @@ function nameFor(r, index) {
  * Builds the zip and returns its storage path, or null when the month had no
  * photos worth archiving.
  */
-async function buildReceiptArchive(receipts, monthKey) {
+async function buildReceiptArchive(receipts, monthKey, photoNo = null) {
   const bucket = admin.storage().bucket();
 
-  const withPhotos = receipts.filter((r) => r.storagePath && !r.imageDeletedAt && !r.voided);
+  const withPhotos = receipts.filter(hasPhoto);
   if (withPhotos.length === 0) return null;
 
   const path = `expenseReports/${monthKey}-receipts.zip`;
@@ -73,7 +77,7 @@ async function buildReceiptArchive(receipts, monthKey) {
     const r = withPhotos[i];
     try {
       const [bytes] = await bucket.file(r.storagePath).download();
-      archive.append(bytes, { name: nameFor(r, i) });
+      archive.append(bytes, { name: nameFor(r, photoNo?.get(r.id) ?? i + 1) });
       added++;
     } catch (err) {
       // One unreadable photo should not cost the whole archive.
@@ -93,4 +97,4 @@ async function buildReceiptArchive(receipts, monthKey) {
   return path;
 }
 
-module.exports = { buildReceiptArchive };
+module.exports = { buildReceiptArchive, hasPhoto };

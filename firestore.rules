@@ -266,11 +266,24 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // What a receipt can be charged to. Finance and admins open, close and
-    // reopen them.
-    match /budgetTargets/{id} {
+    // Sam's accounts (9 Oct 2026), one document per account, id = its code.
+    // Everyone who files receipts reads them; Finance and admins add or
+    // retire them. A retired account stays on old receipts and reports.
+    match /expenseAccounts/{code} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isFinance();
+      allow create, update: if (isAdmin() || isFinance())
+        && request.resource.data.keys().hasOnly(['code', 'name', 'heading', 'headingOrder', 'order', 'retired', 'addedByName', 'addedAt', 'retiredByName', 'retiredAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && request.resource.data.heading is string;
+      allow delete: if false;
+    }
+
+    // The old charge-to list, replaced on 9 Oct 2026 by the Hub's own
+    // locations (Corporate unless one is picked). Kept readable for history;
+    // nothing writes to it any more.
+    match /budgetTargets/{id} {
+      allow read: if isAdmin() || isFinance();
+      allow write: if false;
     }
 
     // The fiscal calendar. Read by everyone so the receipt form can say which
@@ -288,27 +301,13 @@ service cloud.firestore {
     match /expenseReceipts/{receiptId} {
       allow read: if isAdmin() || isFinance() ||
         (isSignedIn() && resource.data.submittedByUid == request.auth.uid);
-      // Written only by submitExpenseReceipt, which stamps the deadline from
-      // the server clock. A client create would let a device set its own.
-      allow create: if false;
-      // Editable by the person who submitted it until their cutoff passes -
-      // the details only. The deadline, the void, the photo and who filed it
-      // are not theirs to change, or a receipt could extend its own window
-      // or un-void itself.
-      allow update: if isSignedIn()
-        && resource.data.submittedByUid == request.auth.uid
-        && request.time.toMillis() < resource.data.editableUntil
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['amountCents', 'categoryKey', 'categoryLabel', 'where', 'reason',
-                       'dateSpent', 'chargeToId', 'chargeToName']);
-      // Admins can void a receipt but not delete it. Voiding stops it
-      // counting toward totals and greys it out; the record survives, so a
-      // daily report that already mentioned it still matches what is in the
-      // app. Restricted to exactly those three fields so a void cannot be
-      // used to quietly rewrite an amount.
-      allow update: if isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['voided', 'voidedBy', 'voidedReason']);
+      // Every change goes through the server (9 Oct 2026): filing
+      // (submitExpenseReceipt), your own edit or void until the period's
+      // report is made (editExpenseReceipt, voidExpenseReceipt), Finance
+      // giving it an account (recodeExpenseReceipt) or moving it to another
+      // period (moveReceiptPeriod). Each checks who is asking and keeps a
+      // record of what changed, so nothing here is written by a browser.
+      allow create, update: if false;
       // A financial record is never removed from a client.
       allow delete: if false;
     }

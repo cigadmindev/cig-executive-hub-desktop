@@ -58,7 +58,9 @@ exports.getExpenseReportUrl = onCall(async (request) => {
     .file(path)
     .getSignedUrl({ action: 'read', expires: Date.now() + 15 * 60 * 1000 });
 
-  return { url, label: report.label };
+  // The file's own name: old reports are .csv, new ones .xlsx (9 Oct 2026).
+  const ext = path.split('.').pop();
+  return { url, label: report.label, fileName: (which === 'photos' ? 'receipts-' : 'expenses-') + dateKey + '.' + ext };
 });
 
 // Called once the browser has the file. Separate from issuing the URL so a

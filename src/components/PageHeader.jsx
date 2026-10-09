@@ -19,7 +19,9 @@ export default function PageHeader({ back, title, subtitle, extras, actionLabel,
         )
       ) : null}
       <div style={pageHeader}>
-        <div style={{ minWidth: 0 }}>
+        {/* Takes the room that's left, so the add button stays top right
+            even on a phone instead of dropping under the title. */}
+        <div style={{ minWidth: 0, flex: '1 1 180px' }}>
           <h1 className="hub-page-title" style={{ margin: 0, display: icon ? 'flex' : undefined, alignItems: 'center', gap: 10, ...(plainCase ? { textTransform: 'none' } : {}) }}>
             {icon}
             {title}

@@ -9,12 +9,17 @@ const { onCall, HttpsError } = require('firebase-functions/https');
 const admin = require('firebase-admin');
 
 const COLLECTION = 'expenseReceipts';
-const { loadPeriods, assignPeriod } = require('./fiscal');
+const { loadPeriods, assignPeriod, isOpenOn } = require('./fiscal');
 const { requireLive } = require('./caller');
+const { ATTENDEES_ACCOUNT } = require('./expenseAccounts');
 
-// The nine categories. Kept as stable keys with the label separate, the same
-// way checklist items work — renaming a label later must not orphan every
-// receipt filed under it.
+const ACCOUNTS = 'expenseAccounts';
+const REPORTS = 'expenseReports';
+
+// The nine old categories. Receipts are now filed under Sam's accounts (9 Oct
+// 2026); these stay so receipts filed before then keep their label, and so a
+// browser still running the old page can file a receipt - it arrives "not
+// coded yet" for Finance to give it an account.
 const CATEGORIES = {
   airfareTravel: 'Airfare / Travel',
   lodging: 'Lodging',
@@ -73,6 +78,127 @@ function canSeeEverything(profile) {
 }
 
 // ---------------------------------------------------------------------------
+// Shared checks - the same rules for a new receipt and an edited one
+// ---------------------------------------------------------------------------
+
+// The account it was for: one of Sam's, still open. Name and heading are read
+// here, never taken from the caller.
+async function resolveAccount(db, code) {
+  const c = String(code ?? '').trim();
+  if (!c || c.includes('/')) throw new HttpsError('invalid-argument', 'Choose what it was for.');
+  const snap = await db.collection(ACCOUNTS).doc(c).get();
+  if (!snap.exists || snap.data().retired) {
+    throw new HttpsError('invalid-argument', 'That account is no longer open. Choose another.');
+  }
+  const a = snap.data();
+  return { accountCode: snap.id, accountName: a.name, accountHeading: a.heading ?? '' };
+}
+
+// Which location it goes with: Corporate unless one of the Hub's own
+// locations is picked (Brenner, 9 Oct). The name is built here.
+const BRAND_NAMES = {
+  taste: 'Taste Italian Kitchen',
+  blutos: 'Blutos Greek Tavern',
+  heritage: 'Heritage Chophouse',
+  pronto: 'Pronto Gusto',
+  stellas: 'Sunnyside Social',
+};
+const STATIC_LOCATIONS = {
+  'taste-starkville': ['taste', 'Starkville'],
+  'taste-ridgeland': ['taste', 'Ridgeland'],
+  'blutos-starkville': ['blutos', 'Starkville'],
+  'heritage-starkville': ['heritage', 'Starkville'],
+};
+async function resolveLocation(db, locationId, current = null) {
+  const id = String(locationId ?? '').trim();
+  // Editing a receipt filed before 9 Oct under the old charge-to list
+  // ("General", "Events"…): left as it was unless a location is picked.
+  if (id === 'keep' && current) {
+    return { locationId: current.locationId ?? null, chargeToId: current.chargeToId ?? null, chargeToName: current.chargeToName ?? 'Corporate' };
+  }
+  if (!id || id === 'corporate') return { locationId: null, chargeToId: null, chargeToName: 'Corporate' };
+  let brandId = null;
+  let name = null;
+  if (STATIC_LOCATIONS[id]) {
+    [brandId, name] = STATIC_LOCATIONS[id];
+  } else if (!id.includes('/')) {
+    const snap = await db.collection('customLocations').doc(id).get();
+    if (snap.exists) {
+      brandId = snap.data().brandId ?? null;
+      name = snap.data().name ?? null;
+    }
+  }
+  if (!name) throw new HttpsError('invalid-argument', 'That location is no longer in the Hub. Pick another, or Corporate.');
+  const label = (BRAND_NAMES[brandId] ? BRAND_NAMES[brandId] + ' · ' : '') + name;
+  return { locationId: id, chargeToId: null, chargeToName: label };
+}
+
+// Amount, date, where, why and who was there - the same rules everywhere.
+function checkDetails({ amountCents, where, reason, dateSpent }) {
+  if (!Number.isInteger(amountCents) || amountCents <= 0) {
+    throw new HttpsError('invalid-argument', 'Enter an amount greater than zero.');
+  }
+  if (amountCents > 100000000) {
+    throw new HttpsError('invalid-argument', 'That amount looks wrong — over $1,000,000.');
+  }
+  const whereTrimmed = String(where ?? '').trim();
+  if (whereTrimmed.length < 2) throw new HttpsError('invalid-argument', 'Enter where this was spent.');
+  if (whereTrimmed.length > 120) throw new HttpsError('invalid-argument', 'That location is too long.');
+  const reasonTrimmed = String(reason ?? '').trim();
+  if (reasonTrimmed.length < 2) throw new HttpsError('invalid-argument', 'Enter a reason.');
+  if (reasonTrimmed.length > 500) throw new HttpsError('invalid-argument', 'That reason is too long.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateSpent ?? ''))) {
+    throw new HttpsError('invalid-argument', 'Choose the date this was spent.');
+  }
+  if (dateSpent > centralDateKey(new Date())) {
+    throw new HttpsError('invalid-argument', "That date is in the future — use the day the money was spent.");
+  }
+  return { where: whereTrimmed, reason: reasonTrimmed };
+}
+
+function cleanAttendees(accountCode, attendees) {
+  if (accountCode !== ATTENDEES_ACCOUNT) return null;
+  const t = String(attendees ?? '').trim();
+  if (t.length > 300) throw new HttpsError('invalid-argument', 'That list of people is too long.');
+  return t || null;
+}
+
+// Is this receipt's period still open to its owner? Until the period's
+// report is made - the Saturday after its catch-up week - the person who
+// filed it can still change or void it (Brenner, 9 Oct). Both locks are
+// checked: the calendar (the window has not ended) and the report itself
+// (not made yet), so a period whose report was swept after ninety days, or
+// one from before period reports, can't be reopened.
+async function reportMade(db, periodId) {
+  if (!periodId) return false;
+  return (await db.collection(REPORTS).doc(periodId).get()).exists;
+}
+async function stillOpen(db, periodId) {
+  if (!periodId) return false;
+  const p = await db.collection('fiscalPeriods').doc(periodId).get();
+  if (!p.exists || !isOpenOn(p.data(), centralDateKey(new Date()))) return false;
+  return !(await reportMade(db, periodId));
+}
+const receiptRef = (db, id) => {
+  const s = String(id ?? '');
+  if (!s || s.includes('/')) throw new HttpsError('invalid-argument', 'Which receipt?');
+  return db.collection(COLLECTION).doc(s);
+};
+
+// A report already made no longer matches once a receipt in it changes. Say
+// so on the report, the same way moving a receipt does.
+async function flagReport(db, periodId, receiptId) {
+  if (!periodId) return;
+  const ref = db.collection(REPORTS).doc(periodId);
+  const rep = await ref.get();
+  if (!rep.exists) return;
+  await ref.update({
+    changedReceiptIds: admin.firestore.FieldValue.arrayUnion(receiptId),
+    staleSince: rep.data().staleSince ?? Date.now(),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Submit
 // ---------------------------------------------------------------------------
 //
@@ -91,39 +217,20 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
   const uid = request.auth.uid;
   const profile = await callerProfile(uid);
 
-  const { amountCents, categoryKey, where, dateSpent, reason, storagePath, chargeToId } = request.data || {};
+  const { amountCents, accountCode, attendees, locationId, categoryKey, where, dateSpent, reason, storagePath } = request.data || {};
 
-  // Amount. Held as integer cents so report totals cannot drift by rounding;
-  // the client types and sees 214.77 and converts on the way in.
-  if (!Number.isInteger(amountCents) || amountCents <= 0) {
-    throw new HttpsError('invalid-argument', 'Enter an amount greater than zero.');
-  }
-  if (amountCents > 100000000) {
-    throw new HttpsError('invalid-argument', 'That amount looks wrong — over $1,000,000.');
-  }
-
-  if (!CATEGORIES[categoryKey]) {
-    throw new HttpsError('invalid-argument', 'Choose a category.');
-  }
-
-  const whereTrimmed = String(where ?? '').trim();
-  if (whereTrimmed.length < 2) throw new HttpsError('invalid-argument', 'Enter where this was spent.');
-  if (whereTrimmed.length > 120) throw new HttpsError('invalid-argument', 'That location is too long.');
-
-  const reasonTrimmed = String(reason ?? '').trim();
-  if (reasonTrimmed.length < 2) throw new HttpsError('invalid-argument', 'Enter a reason.');
-  if (reasonTrimmed.length > 500) throw new HttpsError('invalid-argument', 'That reason is too long.');
-
-  // Date spent is when the money left, which is not necessarily today. A
-  // future date is a mistake: a flight booked today for next month was paid
-  // today. Compared in Central so the boundary is the same for everyone.
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateSpent ?? ''))) {
-    throw new HttpsError('invalid-argument', 'Choose the date this was spent.');
-  }
+  // Amount is held as integer cents so report totals cannot drift by
+  // rounding. Date spent is when the money left, never in the future,
+  // compared in Central so the boundary is the same for everyone.
+  const details = checkDetails({ amountCents, where, reason, dateSpent });
   const todayKey = centralDateKey(new Date());
-  if (dateSpent > todayKey) {
-    throw new HttpsError('invalid-argument', "That date is in the future — use the day the money was spent.");
-  }
+  const db = admin.firestore();
+
+  // What it was for: one of Sam's accounts. A browser still running the old
+  // page sends a category instead; that receipt is kept, "not coded yet".
+  let account = { accountCode: null, accountName: null, accountHeading: null };
+  if (accountCode) account = await resolveAccount(db, accountCode);
+  else if (!CATEGORIES[categoryKey]) throw new HttpsError('invalid-argument', 'Choose what it was for.');
 
   // The image must live under this person's own folder. Belt and braces: the
   // Storage rules enforce the same thing, but a mismatch here would mean a
@@ -138,22 +245,8 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
     throw new HttpsError('failed-precondition', 'The receipt photo did not finish uploading. Try again.');
   }
 
-  // What it is charged to. Every receipt is charged to something: when the
-  // form sends nothing - the iPhone app, or someone who left it alone - it
-  // goes to the default, Corporate. The name is looked up here rather than
-  // trusted from the client.
-  const db = admin.firestore();
-  let target = null;
-  if (chargeToId) {
-    const t = await db.collection('budgetTargets').doc(String(chargeToId)).get();
-    if (!t.exists || t.data().archived) {
-      throw new HttpsError('invalid-argument', 'That charge-to option is no longer open - pick another.');
-    }
-    target = { id: t.id, ...t.data() };
-  } else {
-    const d = await db.collection('budgetTargets').where('isDefault', '==', true).limit(1).get();
-    if (!d.empty) target = { id: d.docs[0].id, ...d.docs[0].data() };
-  }
+  // Which location it goes with: Corporate unless one is picked.
+  const place = await resolveLocation(db, locationId);
 
   // Which fiscal period it belongs to - decided here, on the server's clock,
   // so a device cannot put a receipt into a period that has shut.
@@ -173,18 +266,19 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
   // without knowing anything about timezones.
   const editableUntil = endOfCentralDay(centralDateKey(new Date(now)));
 
-  const ref = admin.firestore().collection(COLLECTION).doc();
+  const ref = db.collection(COLLECTION).doc();
   await ref.set({
     submittedByUid: uid,
     submittedByName: profile.name ?? 'Unknown',
     amountCents,
-    categoryKey,
-    categoryLabel: CATEGORIES[categoryKey],
-    where: whereTrimmed,
-    reason: reasonTrimmed,
+    ...account,                      // accountCode / accountName / accountHeading
+    attendees: cleanAttendees(account.accountCode, attendees),
+    categoryKey: account.accountCode ? null : categoryKey,
+    categoryLabel: account.accountCode ? null : CATEGORIES[categoryKey],
+    where: details.where,
+    reason: details.reason,
     dateSpent,                       // YYYY-MM-DD, Central. The accounting date.
-    chargeToId: target?.id ?? null,
-    chargeToName: target?.name ?? 'Corporate',   // resolved above, never taken from the client
+    ...place,                        // locationId / chargeToId / chargeToName, resolved above
     periodId: period.id,             // the fiscal period - see fiscal.js
     periodLabel: period.label,
     submittedAt: now,
@@ -198,6 +292,109 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
   });
 
   return { id: ref.id, editableUntil, periodId: period.id, periodLabel: period.label };
+});
+
+// ---------------------------------------------------------------------------
+// Change your own receipt, until its period's report is made
+// ---------------------------------------------------------------------------
+exports.editExpenseReceipt = onCall(async (request) => {
+  const me = await requireLive(request);
+  const db = admin.firestore();
+  const { receiptId, amountCents, accountCode, attendees, locationId, where, dateSpent, reason } = request.data || {};
+  const ref = receiptRef(db, receiptId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'That receipt no longer exists.');
+  const r = snap.data();
+  if (r.submittedByUid !== me.uid) throw new HttpsError('permission-denied', 'Only the person who filed it can change it.');
+  if (r.voided) throw new HttpsError('failed-precondition', 'That receipt was voided.');
+  if (!(await stillOpen(db, r.periodId))) {
+    throw new HttpsError('failed-precondition', "This period has closed. Ask Finance to change it.");
+  }
+
+  const details = checkDetails({ amountCents, where, reason, dateSpent });
+  const account = await resolveAccount(db, accountCode);
+  const place = await resolveLocation(db, locationId, r);
+
+  // A new date can put it in another period - decided the same way as when
+  // it was filed, and only into a period whose report isn't made yet.
+  const update = {
+    amountCents,
+    ...account,
+    attendees: cleanAttendees(account.accountCode, attendees),
+    categoryKey: null,
+    categoryLabel: null,
+    where: details.where,
+    reason: details.reason,
+    dateSpent,
+    ...place,
+    editedAt: Date.now(),
+  };
+  if (dateSpent !== r.dateSpent) {
+    const period = assignPeriod(await loadPeriods(db), dateSpent, centralDateKey(new Date()));
+    if (!period) throw new HttpsError('failed-precondition', "That date is outside the fiscal calendar loaded in the Hub.");
+    if (period.id !== r.periodId) {
+      if (!(await stillOpen(db, period.id))) throw new HttpsError('failed-precondition', "That date's period has closed. Ask Finance.");
+      update.periodId = period.id;
+      update.periodLabel = period.label;
+    }
+  }
+  const changed = Object.keys(update).filter((k) => k !== 'editedAt' && JSON.stringify(update[k] ?? null) !== JSON.stringify(r[k] ?? null));
+  if (changed.length === 0) return { ok: true, unchanged: true };
+  update.editHistory = admin.firestore.FieldValue.arrayUnion({ at: update.editedAt, byName: me.name ?? 'Unknown', fields: changed });
+  await ref.update(update);
+  return { ok: true, periodLabel: update.periodLabel ?? r.periodLabel };
+});
+
+// ---------------------------------------------------------------------------
+// Void a receipt: yours until the report is made; Finance and admins any time
+// ---------------------------------------------------------------------------
+exports.voidExpenseReceipt = onCall(async (request) => {
+  const me = await requireLive(request);
+  const db = admin.firestore();
+  const reason = String(request.data?.reason ?? '').trim();
+  if (reason.length < 2) throw new HttpsError('invalid-argument', 'Say why it is being voided.');
+  if (reason.length > 300) throw new HttpsError('invalid-argument', 'That reason is too long.');
+  const ref = receiptRef(db, request.data?.receiptId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'That receipt no longer exists.');
+  const r = snap.data();
+  if (r.voided) return { ok: true, unchanged: true };
+  const made = await reportMade(db, r.periodId);
+  const finance = canSeeEverything(me);
+  if (!finance) {
+    if (r.submittedByUid !== me.uid) throw new HttpsError('permission-denied', 'Only the person who filed it can void it.');
+    if (!(await stillOpen(db, r.periodId))) throw new HttpsError('failed-precondition', 'This period has closed. Ask Finance to void it.');
+  }
+  await ref.update({ voided: true, voidedBy: me.name ?? 'Unknown', voidedByUid: me.uid, voidedAt: Date.now(), voidedReason: reason });
+  // Voided after the report went out: the report no longer matches.
+  if (made) await flagReport(db, r.periodId, ref.id);
+  return { ok: true };
+});
+
+// ---------------------------------------------------------------------------
+// Finance (and admins) give a receipt its account - never its amount
+// ---------------------------------------------------------------------------
+exports.recodeExpenseReceipt = onCall(async (request) => {
+  const me = await requireLive(request);
+  if (!canSeeEverything(me)) throw new HttpsError('permission-denied', 'Only Finance can change a receipt\'s account.');
+  const db = admin.firestore();
+  const ref = receiptRef(db, request.data?.receiptId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'That receipt no longer exists.');
+  const r = snap.data();
+  const account = await resolveAccount(db, request.data?.accountCode);
+  if (account.accountCode === r.accountCode) return { ok: true, unchanged: true };
+  await ref.update({
+    ...account,
+    recodes: admin.firestore.FieldValue.arrayUnion({
+      at: Date.now(),
+      byName: me.name ?? 'Finance',
+      from: r.accountCode ? r.accountCode + ' ' + (r.accountName ?? '') : 'not coded (' + (r.categoryLabel ?? '—') + ')',
+      to: account.accountCode + ' ' + account.accountName,
+    }),
+  });
+  await flagReport(db, r.periodId, ref.id);
+  return { ok: true };
 });
 
 // ---------------------------------------------------------------------------

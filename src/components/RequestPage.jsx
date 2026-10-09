@@ -7,7 +7,7 @@ import { useIsNarrow } from '../hooks/useIsNarrow';
 //   status filters with counts
 //   a compact table on the left, the selected request's detail on the right
 // Each page supplies its own columns, filters and detail panel.
-export default function RequestPage({ back, title, subtitle, actionLabel, onAction, filters, filter, onFilter, columns, rows, selectedId, onSelect, detail, empty, note, children }) {
+export default function RequestPage({ back, title, subtitle, actionLabel, onAction, filters, filter, onFilter, columns, rows, selectedId, onSelect, detail, empty, note, children, phoneRow }) {
   // On a phone the list and the detail don't fit side by side, and the
   // detail used to land under the list where nobody saw it. Tapping a row now
   // opens it full-screen with a way back to the list (V3).
@@ -42,6 +42,15 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
           <div style={styles.tableCard}>
             {rows.length === 0 ? (
               <p style={styles.empty}>{empty ?? 'Nothing here.'}</p>
+            ) : isNarrow && phoneRow ? (
+              // On a phone a page can give each row a compact two-line form
+              // instead of a table that scrolls sideways.
+              rows.map((r) => (
+                <button key={r.id} style={styles.phoneRow} onClick={() => { onSelect(r.id); setPhoneOpen(true); }}>
+                  <span style={{ flex: 1, minWidth: 0 }}>{phoneRow(r)}</span>
+                  <span aria-hidden="true" style={styles.phoneChevron}>›</span>
+                </button>
+              ))
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={styles.table}>
@@ -90,6 +99,8 @@ export const detailStyles = {
 
 const styles = {
   page: { padding: '24px 28px 60px', maxWidth: 1200 },
+  phoneRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--border)', padding: '12px 6px', color: 'var(--text-primary)', fontFamily: 'inherit', cursor: 'pointer' },
+  phoneChevron: { color: 'var(--text-tertiary)', fontSize: 18 },
   phoneBack: { background: 'none', border: 'none', padding: '4px 0', marginBottom: 12, fontSize: 13, fontWeight: 600, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' },
   filters: { display: 'flex', gap: 6, flexWrap: 'wrap', margin: '4px 0 12px' },
   filter: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 16, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
