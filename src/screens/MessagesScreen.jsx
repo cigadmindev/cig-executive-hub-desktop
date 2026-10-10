@@ -180,6 +180,14 @@ export default function MessagesScreen() {
     const el = threadRef.current.querySelector('[data-msg-id="' + currentHit + '"]');
     if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [currentHit]);
+  // Opening a chat, or a new message arriving, shows the newest at the
+  // bottom - unless a search is jumping to a match.
+  const lastId = activeMessages[activeMessages.length - 1]?.id;
+  useEffect(() => {
+    if (tneedle || !threadRef.current) return;
+    threadRef.current.scrollTop = threadRef.current.scrollHeight;
+  }, [activeId, lastId]);
+
   const step = (dir) => {
     if (!threadHits.length) return;
     const now = hit < 0 ? startAt : hit;
@@ -389,7 +397,7 @@ export default function MessagesScreen() {
         </div>
       </div>
 
-      <div style={{ ...styles.thread, ...(showThread ? {} : { display: 'none' }) }}>
+      <div style={{ ...styles.thread, ...(isNarrow && activeId ? styles.threadPhone : {}), ...(showThread ? {} : { display: 'none' }) }}>
         {!activeConvo ? (
           <div style={styles.threadEmpty}>Select a conversation</div>
         ) : (
@@ -620,9 +628,13 @@ export default function MessagesScreen() {
 
 const styles = {
   page: { display: 'flex', height: '100%' },
-  pageNarrow: { display: 'flex', flexDirection: 'column', height: '100%' },
+  // On a phone the page must stay inside the space above the bottom bar: the
+  // thread scrolls inside it rather than growing, or a long chat pushed the
+  // typing box down behind the bar (10 Oct 2026). minHeight 0 is what lets a
+  // flex child be shorter than its content.
+  pageNarrow: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
   list: { width: 300, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' },
-  listNarrow: { width: '100%', borderRight: 'none', flex: 1, minWidth: 0 },
+  listNarrow: { width: '100%', borderRight: 'none', flex: 1, minWidth: 0, minHeight: 0 },
   backToList: {
     background: 'none',
     border: 'none',
@@ -673,7 +685,7 @@ const styles = {
     verticalAlign: 'middle',
   },
   convoNameUnread: { fontWeight: 800 },
-  listScroll: { flex: 1, overflowY: 'auto', padding: '0 8px' },
+  listScroll: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 8px' },
   emptyList: { padding: 16, fontSize: 13, color: 'var(--text-secondary)' },
   convoRow: {
     display: 'flex',
@@ -721,12 +733,26 @@ const styles = {
     borderRadius: 4,
     flexShrink: 0,
   },
-  thread: { flex: 1, display: 'flex', flexDirection: 'column' },
+  thread: { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 },
+  // On a phone an open chat is pinned to the screen, between the top of the
+  // screen and the floating bottom bar, so the typing box can never slide
+  // underneath the bar however long the chat or whatever sits above it
+  // (update banner, View as bar, Safari's own bars). 142px clears the bar,
+  // its 24px gap, the home button and the bell.
+  threadPhone: {
+    position: 'fixed',
+    top: 'env(safe-area-inset-top, 0px)',
+    left: 0,
+    right: 0,
+    bottom: 'calc(142px + env(safe-area-inset-bottom, 0px))',
+    zIndex: 5,
+    background: 'var(--bg-window)',
+  },
   threadEmpty: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 14 },
   threadHeader: { padding: '14px 8px 12px 16px', fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   // Top padding leaves room for a reaction pill on the first message — it
   // overlaps the bubble's top corner, so a flush start clips it.
-  threadScroll: { flex: 1, overflowY: 'auto', padding: '18px 20px 0' },
+  threadScroll: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 20px 0' },
   // Squared with a hairline border, matching every other surface in the app.
   // The old solid --accent fill read as a different material from the cards
   // around it, and rounded tails borrow a shape that isn't ours.
