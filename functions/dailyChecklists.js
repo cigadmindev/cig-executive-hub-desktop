@@ -64,10 +64,16 @@ async function ensureChild(d, parentId, name) {
 
 // The location's "Opening & Closing Checklists" folder, from the link the
 // Drive setup recorded for it.
+// Looked up by location and folder name rather than by document id: older
+// links (Starkville's) were saved before ids were encoded, so the same folder
+// can sit under either spelling (10 Oct 2026).
 async function checklistsFolder(locationId) {
-  const id = locationId + '_operations_' + encodeURIComponent('Opening & Closing Checklists');
-  const link = await admin.firestore().collection('categoryDriveLinks').doc(id).get();
-  const url = link.exists ? link.data().driveUrl : null;
+  const snap = await admin.firestore().collection('categoryDriveLinks')
+    .where('locationId', '==', locationId)
+    .where('categoryId', '==', 'operations')
+    .where('itemName', '==', 'Opening & Closing Checklists')
+    .get();
+  const url = snap.docs.map((d) => d.data().driveUrl).find(Boolean) ?? null;
   const m = url && url.match(/folders\/([\w-]+)/);
   if (!m) throw new HttpsError('failed-precondition', "This location's Drive folders aren't set up yet - run Drive setup for it first.");
   return m[1];
