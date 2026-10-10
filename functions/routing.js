@@ -49,7 +49,7 @@ const STATIC_LOCATION_BRAND = {
   'blutos-starkville': 'blutos',
   'heritage-starkville': 'heritage',
 };
-const BRAND_IDS = ['taste', 'blutos', 'heritage', 'pronto', 'stellas'];
+const BRAND_IDS = ['taste', 'blutos', 'heritage', 'pronto', 'stellas', 'cajun'];
 const STATIC_LOCATION_NAME = {
   'taste-starkville': 'Taste Starkville',
   'taste-ridgeland': 'Taste Ridgeland',

@@ -104,7 +104,7 @@ exports.getPermitDocUrl = onCall(async (request) => {
   if (profile.role !== 'admin' && profile.role !== 'executive') {
     // A manager needs the brand this location belongs to. Static locations
     // carry their brand in the id; custom ones are looked up.
-    let brandId = ['taste', 'blutos', 'heritage', 'pronto', 'stellas'].find((b) =>
+    let brandId = ['taste', 'blutos', 'heritage', 'pronto', 'stellas', 'cajun'].find((b) =>
       locationId.startsWith(b + '-')
     );
 

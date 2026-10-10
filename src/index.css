@@ -35,6 +35,20 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+
+  /* Tells the browser the Hub is dark, so the parts it draws itself -
+     dropdown lists, date pickers, scrollbars - are dark too. */
+  color-scheme: dark;
+}
+
+/* An open dropdown list is drawn by the computer, not the page. On Windows
+   it kept the page's white text on its own white background, so the list
+   looked blank (Ronnie's HP, 10 Oct 2026). Give the options a solid dark
+   background of their own. */
+select option,
+select optgroup {
+  background: #1E1E25;
+  color: #FFFFFF;
 }
 
 * {

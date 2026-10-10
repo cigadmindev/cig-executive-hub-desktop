@@ -6,6 +6,7 @@ export const brandColors = {
   'Heritage Chophouse': '#7B1E3A',
   'Pronto Gusto': '#E0A83D',
   'Sunnyside Social': '#5C7A52',
+  'Cajun Depot': '#C8552B',
   'Overall Analysis': '#9B6FD1',
 };
 

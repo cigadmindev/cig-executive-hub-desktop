@@ -2,11 +2,12 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
+import { isExecOnlyBrand } from '../data/mockData';
 
 const CustomLocationsContext = createContext(undefined);
 
 export function CustomLocationsProvider({ children }) {
-  const { user } = useAuth();
+  const { user, hasBrandAccess } = useAuth();
   const [locations, setLocations] = useState([]);
 
   useEffect(() => {
@@ -34,8 +35,13 @@ export function CustomLocationsProvider({ children }) {
     return unsubscribe;
   }, [user]);
 
+  // An executives-only restaurant's locations (Cajun Depot) are left out of
+  // every list for anyone who can't open that restaurant - one place, so no
+  // dropdown or picker anywhere in the Hub can show them by accident.
   const getByBrand = (brandId) =>
-    locations.filter((l) => l.brandId === brandId).sort((a, b) => a.timestamp - b.timestamp);
+    isExecOnlyBrand(brandId) && !hasBrandAccess(user, brandId)
+      ? []
+      : locations.filter((l) => l.brandId === brandId).sort((a, b) => a.timestamp - b.timestamp);
 
   const addLocation = async (brandId, name, latitude, longitude) => {
     await addDoc(collection(db, 'customLocations'), {

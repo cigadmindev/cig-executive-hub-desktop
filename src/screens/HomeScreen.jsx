@@ -333,7 +333,7 @@ export default function HomeScreen() {
 
       <p style={styles.zoneLabel}>Restaurants</p>
       <div style={isNarrow ? styles.gridNarrow : styles.grid}>
-        {brands.map((item) => {
+        {brands.filter((b) => !b.execOnly || hasBrandAccess(user, b.id)).map((item) => {
           const allowed = hasBrandAccess(user, item.id);
           const activeLocations = item.locations.filter((l) => l.status === 'active');
           const customLocations = getByBrand(item.id);

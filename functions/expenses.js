@@ -108,6 +108,7 @@ const BRAND_NAMES = {
   heritage: 'Heritage Chophouse',
   pronto: 'Pronto Gusto',
   stellas: 'Sunnyside Social',
+  cajun: 'Cajun Depot',
 };
 const STATIC_LOCATIONS = {
   'taste-starkville': ['taste', 'Starkville'],

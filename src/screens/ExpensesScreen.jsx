@@ -35,7 +35,7 @@ const money = (cents) => '$' + Number((cents ?? 0) / 100).toLocaleString('en-US'
 
 export default function ExpensesScreen() {
   const { dialogNode, confirm, notify } = useDialog();
-  const { user } = useAuth();
+  const { user, hasBrandAccess } = useAuth();
   const { getByBrand } = useCustomLocations();
   const {
     receipts, reports, seesAll, seesStores, loading, periods, accounts,
@@ -55,10 +55,10 @@ export default function ExpensesScreen() {
   // Every location in the Hub, open or opening, after Corporate.
   const locations = useMemo(
     () =>
-      brands.flatMap((b) =>
+      brands.filter((b) => !b.execOnly || hasBrandAccess(user, b.id)).flatMap((b) =>
         [...(b.locations ?? []), ...getByBrand(b.id)].map((l) => ({ id: l.id, label: b.name + ' · ' + l.name }))
       ),
-    [getByBrand]
+    [getByBrand, user?.uid]
   );
 
   // ---------------------------------------------------------------- list

@@ -22,7 +22,7 @@ const PIN = [
 export default function HomeAnnouncementsScreen() {
   const { dialogNode, notify } = useDialog();
   const { addAnnouncement } = useBrandAnnouncements();
-  const { user, users, refreshUsers } = useAuth();
+  const { user, users, refreshUsers, hasBrandAccess } = useAuth();
   // The people list is loaded on demand; the audience count needs it.
   useEffect(() => {
     if (!(users ?? []).length && refreshUsers) refreshUsers().catch(() => {});
@@ -110,7 +110,7 @@ export default function HomeAnnouncementsScreen() {
           {scope !== 'all' ? (
             <div style={styles.pickers}>
               <select style={styles.select} value={brandId} onChange={(e) => { setBrandId(e.target.value); setLocationId(null); }}>
-                {brands.map((b) => (
+                {brands.filter((b) => !b.execOnly || hasBrandAccess(user, b.id)).map((b) => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>

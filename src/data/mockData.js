@@ -29,7 +29,21 @@ export const brands = [
     name: 'Sunnyside Social',
     locations: [],
   },
+  // Opening in the Blutos building in Starkville after Blutos closes (end
+  // of January 2027). Executives only until Brenner opens it to the team:
+  // nobody else sees it unless it is added to their login (Mark, 10 Oct
+  // 2026). Its location is added in the Hub, like Chelsea.
+  {
+    id: 'cajun',
+    name: 'Cajun Depot',
+    execOnly: true,
+    locations: [],
+  },
 ];
+
+// Executives-only restaurants: admins and executives, plus anyone given the
+// restaurant on their login. "All brands" in Who sees what does not reach them.
+export const isExecOnlyBrand = (brandId) => !!brands.find((b) => b.id === brandId)?.execOnly;
 
 /**
  * The brand a location belongs to, or null if it is not a known location.
