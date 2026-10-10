@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDailyRecord, todayKey, isManagerOnDuty } from '../hooks/useDailyChecklists';
+import { brands } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
 import { backLink } from '../theme/pageHeader';
 import { fmtTime, fmtDayKey } from '../lib/dates';
@@ -19,7 +20,9 @@ export default function DailyChecklistScreen() {
   const dateKey = params.get('date') ?? todayKey();
   const { user } = useAuth();
   const { dialogNode, notify, confirm } = useDialog();
-  const { list, record, toggle, setNote, setWorker, signOff } = useDailyRecord(locationId, brandId, dateKey, listId);
+  const { list, record, toggle, setNote, setWorker, setSheetNote, signOff } = useDailyRecord(locationId, brandId, dateKey, listId);
+  // "Starkville", "Ridgeland" - for the sheet's heading and the Drive path.
+  const place = brands.find((b) => b.id === brandId)?.locations?.find((l) => l.id === locationId)?.name ?? '';
   const [noting, setNoting] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [filing, setFiling] = useState(false);
@@ -54,7 +57,7 @@ export default function DailyChecklistScreen() {
       <Link to={`/brand/${brandId}/location/${locationId}/daily-checklists?date=${dateKey}`} style={backLink}>‹ Daily checklists</Link>
       <div style={styles.columns}>
         <div style={styles.sheet}>
-          <p style={styles.brand}>TASTE ITALIAN KITCHEN — STARKVILLE</p>
+          <p style={styles.brand}>TASTE ITALIAN KITCHEN — {place.toUpperCase()}</p>
           <h1 style={styles.h1}>{list.title.toUpperCase()}</h1>
           <p style={styles.muted}>{list.subtitle}</p>
           <div style={styles.fields}>
@@ -67,7 +70,7 @@ export default function DailyChecklistScreen() {
                   disabled={!canWork}
                   defaultValue={record?.workers?.[w] ?? ''}
                   key={(record?.id ?? '') + w}
-                  placeholder="Name"
+                  placeholder={/time/i.test(w) ? 'e.g. 7:45 AM' : 'Name'}
                   onBlur={(e) => e.target.value !== (record?.workers?.[w] ?? '') && setWorker(w, e.target.value.trim())}
                 />
               </div>
@@ -120,6 +123,19 @@ export default function DailyChecklistScreen() {
               )}
             </tbody>
           </table>
+          {(list.notes ?? []).map(([key, label]) => (
+            <div key={key} style={{ marginTop: 14 }}>
+              <p style={styles.fieldLabel}>{label.toUpperCase()}</p>
+              <textarea
+                style={{ ...styles.input, minHeight: 56, resize: 'vertical' }}
+                disabled={!canWork}
+                defaultValue={record?.notes?.[key] ?? ''}
+                key={(record?.id ?? '') + key}
+                placeholder={canWork ? 'Write it here, or leave blank' : ''}
+                onBlur={(e) => e.target.value.trim() !== (record?.notes?.[key] ?? '') && setSheetNote(key, e.target.value.trim())}
+              />
+            </div>
+          ))}
         </div>
         <div style={styles.side}>
           <div style={styles.card}>
@@ -142,7 +158,7 @@ export default function DailyChecklistScreen() {
           </div>
           <div style={styles.card}>
             <p style={{ ...styles.big, fontSize: 13 }}>Filed to Drive as</p>
-            <p style={styles.small}>Taste Starkville › Operations › Opening &amp; Closing Checklists › {dateKey.slice(0, 7)} ›<br /><span style={{ color: 'var(--text-primary)' }}>{dateKey} {list.title.replace(' Checklist', '')}.pdf</span></p>
+            <p style={styles.small}>Taste {place} › Operations › Opening &amp; Closing Checklists › {dateKey.slice(0, 7)} ›<br /><span style={{ color: 'var(--text-primary)' }}>{dateKey} {list.title.replace(' Checklist', '')}.pdf</span></p>
           </div>
         </div>
       </div>

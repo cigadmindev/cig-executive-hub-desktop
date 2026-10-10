@@ -126,7 +126,7 @@ export default function CateringScreen() {
             {!e.email && !e.phone ? 'None given' : null}
           </span>
         </div>
-        {!isCatering && (e.space || e.style) ? <div style={d.row}><span style={d.k}>Asked for</span><span style={d.v}>{[e.space, e.style].filter(Boolean).join(' · ')}</span></div> : null}
+        {!isCatering && (e.space || e.style || e.beverage) ? <div style={d.row}><span style={d.k}>Asked for</span><span style={d.v}>{[e.space, e.style, e.beverage].filter(Boolean).join(' · ')}</span></div> : null}
         {e.about ? <div style={d.row}><span style={d.k}>They wrote</span><span style={{ ...d.v, whiteSpace: 'pre-wrap' }}>{e.about}</span></div> : null}
         {e.status === 'lost' && e.lostReason ? <div style={d.row}><span style={d.k}>Why lost</span><span style={d.v}>{e.lostReason}</span></div> : null}
 

@@ -1,4 +1,4 @@
-// Daily opening and closing checklists (Taste Starkville).
+// Daily opening and closing checklists (Taste Starkville and Ridgeland).
 //
 //   fileDailyChecklist   the manager on duty signs a list off: it is drawn as
 //                        a PDF in the layout of the printed sheet and filed to
@@ -35,6 +35,10 @@ const LISTS = {
   'taste-starkville': [
     ['host-opening', 'Host Opening'], ['server-opening', 'Server Opening'], ['bar-opening', 'Main Bar Opening'], ['veranda-opening', 'Veranda Opening'],
     ['host-closing', 'Host Closing'], ['server-closing', 'Server / Food Runner Closing'], ['bar-closing', 'Bar Closing'], ['boh-closing', 'Kitchen Closing'],
+  ],
+  // Ridgeland's own chef sheets (10 Oct 2026).
+  'taste-ridgeland': [
+    ['ridgeland-chef-opening', 'AM Opening Chef'], ['ridgeland-chef-closing', 'PM Closing Chef'],
   ],
 };
 const isClosing = (listId) => listId.endsWith('-closing');
@@ -78,7 +82,7 @@ async function drawPdf(r, locationName) {
   let page = pdf.addPage([W, H]);
   let y = H - M;
   const ink = rgb(0.1, 0.1, 0.1), soft = rgb(0.42, 0.42, 0.45), line = rgb(0.82, 0.82, 0.84), accent = rgb(0.04, 0.55, 0.65);
-  const clean = (s) => String(s ?? '').replace(/[–—]/g, '-').replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/½/g, '1/2').replace(/°/g, ' deg').replace(/[éèê]/g, 'e').replace(/[ÉÈ]/g, 'E').replace(/[^\x20-\x7E\n]/g, '');
+  const clean = (s) => String(s ?? '').replace(/·/g, '-').replace(/[–—]/g, '-').replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/½/g, '1/2').replace(/°/g, ' deg').replace(/[éèê]/g, 'e').replace(/[ÉÈ]/g, 'E').replace(/[^\x20-\x7E\n]/g, '');
   const wrap = (text, f, size, width) => {
     const out = [];
     for (const para of clean(text).split('\n')) {
@@ -132,6 +136,15 @@ async function drawPdf(r, locationName) {
       page.drawText(clean(who + ' ' + timeOf(t.at)), { x: bx + 20, y: y - 18, size: 8, font, color: ink });
     }
     y -= h;
+  }
+  // The boxes at the foot of the sheet ("Maintenance / Equipment Issues"…),
+  // filled in or not, as on paper.
+  for (const { key, label } of r.noteLabels ?? []) {
+    const body = wrap(r.notes?.[key] || '-', font, 9, W - 2 * M);
+    need(26 + body.length * 12);
+    y -= 18;
+    text(String(label).toUpperCase(), M, 7, bold, soft); y -= 13;
+    for (const l of body) { text(l, M, 9, font, ink); y -= 12; }
   }
   need(40); y -= 18;
   text('Signed off by ' + (r.filedByName ?? '') + ' at ' + timeOf(r.filedAt) + ', ' + r.dateKey + ' - CIG Executive Hub', M, 8, font, soft);

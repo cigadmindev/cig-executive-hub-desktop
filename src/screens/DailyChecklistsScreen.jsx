@@ -1,14 +1,14 @@
 import React from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { brands } from '../data/mockData';
-import { DAILY_CHECKLISTS, tasksFor, dayName } from '../data/dailyChecklists';
+import { listsFor, tasksFor, dayName } from '../data/dailyChecklists';
 import { useDailyRecords, todayKey } from '../hooks/useDailyChecklists';
 import PageHeader from '../components/PageHeader';
 import { fmtTime, fmtDayKey } from '../lib/dates';
 import Pill from '../components/Pill';
 
-// Taste Starkville › Daily checklists - every opening and closing list for a
-// day, with where each one stands.
+// A location's daily checklists - every opening and closing list it runs
+// for a day, with where each one stands.
 const shift = (key, n) => {
   const [y, m, d] = key.split('-').map(Number);
   const t = new Date(y, m - 1, d + n);
@@ -26,6 +26,7 @@ export default function DailyChecklistsScreen() {
   const brand = brands.find((b) => b.id === brandId);
   const location = brand?.locations?.find((l) => l.id === locationId);
   const isToday = dateKey === todayKey();
+  const lists = listsFor(locationId);
 
   const card = (list) => {
     const r = records[list.id];
@@ -66,9 +67,9 @@ export default function DailyChecklistsScreen() {
         }
       />
       <p style={styles.label}>Opening</p>
-      <div style={styles.grid}>{DAILY_CHECKLISTS.filter((l) => l.kind === 'opening').map(card)}</div>
+      <div style={styles.grid}>{lists.filter((l) => l.kind === 'opening').map(card)}</div>
       <p style={styles.label}>Closing</p>
-      <div style={styles.grid}>{DAILY_CHECKLISTS.filter((l) => l.kind === 'closing').map(card)}</div>
+      <div style={styles.grid}>{lists.filter((l) => l.kind === 'closing').map(card)}</div>
       <p style={styles.note}>Not signed off by 10pm → this location's GM is emailed. Still not signed off the next day → the COO and admins are emailed.</p>
     </div>
   );

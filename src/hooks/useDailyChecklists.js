@@ -3,7 +3,7 @@ import { collection, doc, onSnapshot, query, where, runTransaction, arrayUnion, 
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
-import { DAILY_CHECKLISTS, tasksFor } from '../data/dailyChecklists';
+import { listsFor, tasksFor } from '../data/dailyChecklists';
 
 // One record per location, per day, per list:
 //   dailyChecklists/{locationId}_{dateKey}_{listId}
@@ -41,7 +41,8 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
   const { user } = useAuth();
   const [record, setRecord] = useState(null);
   const id = recordId(locationId, dateKey, listId);
-  const list = DAILY_CHECKLISTS.find((l) => l.id === listId);
+  // Only a list this location runs.
+  const list = listsFor(locationId).find((l) => l.id === listId);
 
   useEffect(() => {
     if (!list) return undefined;
@@ -60,6 +61,10 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
           locationId, brandId, dateKey, listId, kind: list.kind, title: list.title, subtitle: list.subtitle,
           intro: list.intro, sections: !!list.sections,
           workers: Object.fromEntries(list.workers.map((w) => [w, ''])),
+          // The free-text boxes at the foot of the sheet, where a list has them.
+          notes: Object.fromEntries((list.notes ?? []).map(([k]) => [k, ''])),
+          // Their labels, copied in like the tasks, for the filed PDF.
+          noteLabels: (list.notes ?? []).map(([key, label]) => ({ key, label })),
           tasks: tasksFor(list, dateKey).map((t) => ({ ...t, done: false, byName: null, at: null, note: '' })),
           managers: isManagerOnDuty(user) ? [user.name] : [],
           status: 'open', createdAt: Date.now(),
@@ -88,10 +93,11 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
       tx.update(ref, { tasks });
     });
   const setWorker = (role, name) => updateDoc(doc(db, COLLECTION, id), { ['workers.' + role]: name });
+  const setSheetNote = (key, text) => updateDoc(doc(db, COLLECTION, id), { ['notes.' + key]: text });
   const signOff = async () => {
     const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'fileDailyChecklist', { timeout: 120000 });
     return (await fn({ id })).data;
   };
 
-  return { list, record, toggle, setNote, setWorker, signOff };
+  return { list, record, toggle, setNote, setWorker, setSheetNote, signOff };
 }

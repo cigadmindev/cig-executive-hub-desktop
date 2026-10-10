@@ -61,6 +61,8 @@ export function CateringProvider({ children }) {
               // Private events only.
               space: x.space ?? '',
               style: x.style ?? '',
+              // The website form's drinks question (Ridgeland, Oct 2026).
+              beverage: x.beverage ?? '',
               about: x.about ?? '',
               // Catering only.
               fulfilment: x.fulfilment ?? '',

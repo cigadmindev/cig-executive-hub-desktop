@@ -1,12 +1,23 @@
-// Daily opening and closing checklists - Taste Italian Kitchen, Starkville.
-// Transcribed from the printed sheets (Oct 2026). Each task: [title, details]
+// Daily opening and closing checklists - Taste Italian Kitchen, Starkville
+// and Ridgeland. Transcribed from each location's printed sheets (Oct 2026). Each task: [title, details]
 // with optional { day } (0 Sunday ... 6 Saturday) for tasks that only apply
 // one day a week, and { section } for the Server closing "Section" column.
 // Groups (BOH stations) are rows whose title starts with '## '.
 //
 // The day's record copies the tasks for that day, so editing a list here
 // never changes a checklist already started or filed.
-export const DAILY_LOCATIONS = ['taste-starkville'];
+//
+// Each location runs its own lists (LISTS_AT below). A list may also carry
+// notes: [key, label] pairs for the free-text boxes at the foot of a sheet
+// ("Maintenance / Equipment Issues"…), printed on the filed PDF.
+
+// Which lists each location runs, in the order they show. Kept in step with
+// LISTS in functions/dailyChecklists.js.
+const LISTS_AT = {
+  'taste-starkville': ['host-opening', 'server-opening', 'bar-opening', 'veranda-opening', 'host-closing', 'server-closing', 'bar-closing', 'boh-closing'],
+  'taste-ridgeland': ['ridgeland-chef-opening', 'ridgeland-chef-closing'],
+};
+export const DAILY_LOCATIONS = Object.keys(LISTS_AT);
 
 const T = (title, details = '', extra = {}) => ({ title, details, ...extra });
 const G = (name) => ({ group: name });
@@ -207,7 +218,134 @@ export const DAILY_CHECKLISTS = [
       G('Final Walkthrough'), T('Food Debris Off Every Line'), T('All Water is Drained'), T('All Rags Taken Out'), T('All Equipment Turned Off'), T('Pans Flipped'),
     ],
   },
+  // ---- Taste Ridgeland (sheets from Brenner, 10 Oct 2026) ----
+  {
+    id: 'ridgeland-chef-opening', kind: 'opening', title: 'AM Opening Chef Checklist', subtitle: 'Taste Italian Kitchen · Chef Accountability Checklist',
+    workers: ['Opening Chef', 'Start Time'],
+    intro: "The opening chef completes every task below before service, and the manager on duty verifies each one. Let the manager on duty know right away if anything below can't be completed.",
+    notes: [['maintenance', 'Maintenance / Equipment Issues'], ['prep', 'Product / Prep Issues for PM Team'], ['other', 'Additional Notes']],
+    tasks: [
+      G('1. Kitchen & Equipment Inspection'),
+      T('Check all walk-in coolers and confirm they are operating and cooling properly.'),
+      T('Check all reach-in coolers and confirm they are operating and cooling properly.'),
+      T('Verify all equipment that should have been turned off overnight was turned off.'),
+      T('Inspect equipment for visible damage, leaks, unusual temperatures, or other concerns.'),
+      T('Report equipment problems to management immediately.'),
+      G('2. Dish Area Check'),
+      T('Inspect the dish area from the previous night.'),
+      T('Confirm clean dishes, utensils, pots, pans, and equipment are stored in their designated locations.'),
+      T('Confirm the dish area is clean, organized, and ready for service.'),
+      G('3. General Kitchen Cleanliness'),
+      T('Inspect kitchen walls; remove any food, grease, dirt, or debris.'),
+      T('Confirm kitchen floors were pressure washed and properly cleaned during the previous closing shift.'),
+      T('Check corners, under equipment, and other hard-to-reach areas for debris.'),
+      T('Confirm the employee smoking area is clean and free of trash and debris.'),
+      T('Confirm the back area is free of boxes, trash, food debris, and clutter.'),
+      T('Correct or assign all cleaning issues before service begins.'),
+      G('4. Delivery / Truck Receiving'),
+      T('Assist cooks with receiving and putting away truck deliveries.'),
+      T('Store refrigerated and frozen products promptly.'),
+      T('Place all products in the correct storage areas and follow FIFO rotation.'),
+      T('Notify management of missing, damaged, incorrect, or questionable products.'),
+      G('5. Station Opening Support'),
+      T('Check in with each cook about station setup.'),
+      T('Assist any cook who needs help opening or preparing a station.'),
+      T('Confirm each station has required food, utensils, cutting boards, smallwares, towels, and sanitizer.'),
+      T('Confirm all stations are fully set and ready before service.'),
+      G('6. AM/PM Prep Review'),
+      T('Meet with the AM Lead Prep Cook and review the AM and PM prep lists.'),
+      T('Identify high-priority and low-stock items; adjust prep priorities as needed.'),
+      T('Verify prep quantities will support lunch and dinner service.'),
+      G('7. Daily Par Levels'),
+      T("Review the previous day's sales and current product on hand."),
+      T('Review OpenTable reservations, large parties, special events, and catering orders.'),
+      T('Set food and prep pars based on projected sales and expected business.'),
+      T('Communicate adjusted pars to prep cooks, lead cooks, and appropriate kitchen staff.'),
+      G('8. Morning Catering'),
+      T('Review all catering orders scheduled for the morning.'),
+      T('Verify quantities, pickup or delivery times, and special instructions.'),
+      T('Assist with catering preparation as needed.'),
+      T('Confirm all catering food is complete, packaged, and ready on time.'),
+      G('9. Labor Review'),
+      T('Review the kitchen schedule for the entire day.'),
+      T('Compare scheduled labor with reservations, catering, projected business, and expected sales.'),
+      T('Reduce labor only when service and preparation will not be negatively affected.'),
+      T('Make labor adjustments early and communicate changes to employees and management.'),
+      G('10. Final Opening Walk-Through'),
+      T('Kitchen is clean, organized, and ready for service.'),
+      T('Coolers and other required equipment are operating properly.'),
+      T('Prep is on schedule and all stations are completely set.'),
+      T('Catering needs are covered and staffing has been reviewed.'),
+      T("Team knows about reservations, large parties, specials, 86'd items, catering, and service concerns."),
+    ],
+  },
+  {
+    id: 'ridgeland-chef-closing', kind: 'closing', title: 'PM Closing Chef Checklist', subtitle: 'Taste Italian Kitchen · Chef Accountability Checklist',
+    workers: ['Closing Chef', 'Start Time'],
+    intro: "The closing chef completes every task below before leaving, and the manager on duty verifies each one. Let the manager on duty know right away if anything below can't be completed.",
+    notes: [['maintenance', 'Maintenance / Equipment Issues'], ['prep', 'Product / Prep Issues for AM Team']],
+    tasks: [
+      G('1. Food Storage, Labeling & Dating'),
+      T("Inspect every cook's station before the employee leaves."),
+      T('Confirm all remaining food is covered or placed in approved storage containers.'),
+      T('Confirm all stored food is clearly labeled and dated.'),
+      T('Return food to the correct walk-in, reach-in, freezer, or dry-storage location.'),
+      T('Maintain FIFO rotation and discard food that cannot be safely stored or does not meet standards.'),
+      G('2. Food Cooling'),
+      T('Check sauces, soups, proteins, pasta preparations, and all other cooked foods requiring cooling.'),
+      T('Transfer hot food to appropriate containers or pans for safe cooling.'),
+      T('Do not leave food in large or deep containers that prevent proper cooling.'),
+      T('Verify refrigerated food is cooling properly before final storage.'),
+      T('Cover, label, date, and store all cooled food properly.'),
+      G('3. Cooler Check'),
+      T('Check all walk-in and reach-in coolers.'),
+      T('Confirm all coolers are operating and cooling properly.'),
+      T('Confirm cooler doors are completely closed and food is organized correctly.'),
+      T('Report temperature, equipment, or cooling concerns immediately.'),
+      G('4. Kitchen Equipment'),
+      T('Confirm cooking equipment is thoroughly cleaned and free of grease, food debris, and residue.'),
+      T('Turn off all kitchen equipment required to be shut down overnight.'),
+      T('Verify burners, ovens, fryers, grills, sauté equipment, warmers, and other applicable equipment are off.'),
+      T('Report equipment malfunctions or maintenance issues before leaving.'),
+      G('5. Cutting Boards & Stations'),
+      T('Remove all cutting boards from every station.'),
+      T('Scrub and sanitize/bleach cutting boards according to food-safety procedures.'),
+      T('Wipe down and sanitize each station; remove all food debris.'),
+      T('Clean and properly store station utensils and smallwares.'),
+      G('6. Dish Area'),
+      T('Confirm all dishes, pots, pans, utensils, containers, and smallwares are washed and properly stored.'),
+      T('Clean and sanitize all hand sinks and dish sinks.'),
+      T('Completely clean the dish machine.'),
+      T('Clean and polish applicable stainless-steel surfaces.'),
+      T('Leave the dish area clean, dry, and organized.'),
+      G('7. Pizza Area'),
+      T('Check and fully restock pizza boxes and packaging supplies.'),
+      T('Leave the pizza area clean, organized, and ready for the next shift.'),
+      G('8. Trash'),
+      T('Empty all kitchen trash cans and move trash to the proper disposal area.'),
+      T('Place a clean liner in every trash can.'),
+      T('Leave the trash area clean and free of loose debris.'),
+      G('9. Floors'),
+      T('Thoroughly clean kitchen floors, including under accessible equipment and around station edges.'),
+      T('Remove all food, grease, trash, and debris.'),
+      T('Leave no puddles or standing water on the floor.'),
+      T('Confirm floors are as dry as possible before closing.'),
+      G('10. Final Closing Walk-Through'),
+      T('All food is safely stored, labeled, dated, and cooling properly.'),
+      T('All coolers are operating properly and doors are closed.'),
+      T('Dishes are washed and stored; cutting boards are scrubbed and sanitized.'),
+      T('Trash is removed, cans have new liners, and pizza boxes are stocked.'),
+      T('Equipment is clean and required equipment is turned off.'),
+      T('Hand sinks, dish sinks, dish machine, and stainless-steel surfaces are clean.'),
+      T('Floors are clean and dry with no standing water.'),
+      T('Kitchen is organized and ready for the AM opening team.'),
+    ],
+  },
 ];
+
+// The lists one location runs, in its order.
+export const listsFor = (locationId) =>
+  (LISTS_AT[locationId] ?? []).map((id) => DAILY_CHECKLISTS.find((l) => l.id === id)).filter(Boolean);
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export const dayName = (d) => DAY_NAMES[d];
