@@ -312,7 +312,10 @@ export default function OpeningChecklistScreen() {
   };
 
   const updateSetupField = async (item, field, value) => {
-    if (!canTick) return;
+    // The person asked to sign can add the signed copy even without the
+    // checklist (10 Oct 2026) - documents only.
+    const signer = item.signature?.status === 'waiting' && item.signature.requestedOfUid === user?.uid;
+    if (!canTick && !(signer && field === '__documents')) return;
     try {
       // The document sits at the top level rather than inside openingFields —
       // it's a file reference, not a text field, and the renewal record reads
@@ -599,6 +602,7 @@ export default function OpeningChecklistScreen() {
                             item={item}
                             onSave={updateSetupField}
                             readOnly={!canTick}
+                            canAddDocuments={item.signature?.status === 'waiting' && item.signature.requestedOfUid === user?.uid}
                             locationId={locationId}
                             userName={user?.name}
                             assignableUsers={canEdit ? assignableUsers : null}
@@ -721,6 +725,7 @@ export default function OpeningChecklistScreen() {
                           item={item}
                           onSave={updateSetupField}
                           readOnly={!canTick}
+                          canAddDocuments={item.signature?.status === 'waiting' && item.signature.requestedOfUid === user?.uid}
                           locationId={locationId}
                           userName={user?.name}
                           assignableUsers={canEdit ? assignableUsers : null}

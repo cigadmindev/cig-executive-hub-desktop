@@ -528,7 +528,14 @@ async function fileEventCosts(enquiryId) {
       }
       const now = Date.now();
       const receiptId = 'event-' + enquiryId + '-' + c.id;
-      await db.collection(COLLECTION).doc(receiptId).create({
+      const receiptRef = db.collection(COLLECTION).doc(receiptId);
+      // One step: the receipt is made and the cost marked filed together,
+      // and only if the cost is still there and not filed - so taking a cost
+      // off at the same moment can never leave a receipt behind.
+      await db.runTransaction(async (tx) => {
+        const [costNow, existing] = await Promise.all([tx.get(c.ref), tx.get(receiptRef)]);
+        if (!costNow.exists || costNow.data().filedReceiptId) return;
+        if (!existing.exists) tx.create(receiptRef, {
         submittedByUid: cost.addedByUid,
         submittedByName: cost.addedByName || who.name || 'Unknown',
         amountCents: cost.amountCents,
@@ -554,10 +561,9 @@ async function fileEventCosts(enquiryId) {
         cateringEnquiryId: enquiryId,
         cateringLabel: what,
         billedToCustomer: true,
-      }).catch((err) => {
-        if (err.code !== 6) throw err; // 6 = already exists: filed by an earlier run
       });
-      await c.ref.update({ filedReceiptId: receiptId, filedAt: now });
+        tx.update(c.ref, { filedReceiptId: receiptId, filedAt: now });
+      });
     } catch (err) {
       console.error('Event cost ' + enquiryId + '/' + c.id + ' could not be filed: ' + err.message);
     }

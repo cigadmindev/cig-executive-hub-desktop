@@ -130,7 +130,7 @@ export default function DailyChecklistScreen() {
                 style={{ ...styles.input, minHeight: 56, resize: 'vertical' }}
                 disabled={!canWork}
                 defaultValue={record?.notes?.[key] ?? ''}
-                key={(record?.id ?? '') + key}
+                key={(record?.id ?? '') + key + '|' + (record?.notes?.[key] ?? '')}
                 placeholder={canWork ? 'Write it here, or leave blank' : ''}
                 onBlur={(e) => e.target.value.trim() !== (record?.notes?.[key] ?? '') && setSheetNote(key, e.target.value.trim())}
               />

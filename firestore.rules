@@ -238,6 +238,8 @@ service cloud.firestore {
           && request.resource.data.filedReceiptId == null
           && request.resource.data.keys().hasOnly(['amountCents', 'accountCode', 'execCategory', 'where', 'storagePath', 'addedByUid', 'addedByName', 'addedAt', 'filedReceiptId'])
           && request.resource.data.amountCents is int && request.resource.data.amountCents > 0
+          && request.resource.data.amountCents <= 100000000
+          && request.resource.data.where is string && request.resource.data.where.size() >= 2
           && request.resource.data.storagePath is string
           && request.resource.data.storagePath.matches('receipts/' + request.auth.uid + '/.*');
         allow update: if false;
@@ -407,6 +409,25 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // "Needs a signature from…" (10 Oct 2026). Someone working the list can
+    // ask for a signature in their own name, or take a request off - never
+    // mark one signed. Only the person asked signs it or sends it back, and
+    // only while it is waiting on them.
+    function signatureAskOk() {
+      let after = request.resource.data.get('signature', null);
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['signature'])
+        || after == null
+        || (after.status == 'waiting' && after.requestedByUid == request.auth.uid);
+    }
+    function signerOk() {
+      let before = resource.data.get('signature', null);
+      let after = request.resource.data.get('signature', null);
+      return before != null && before.status == 'waiting' && before.requestedOfUid == request.auth.uid
+        && after != null && after.requestedOfUid == before.requestedOfUid && after.requestedByUid == before.requestedByUid
+        && (after == before || after.status in ['signed', 'sentBack'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signature', 'done', 'doneBy', 'doneAt', 'signOffHistory', 'documents', 'document']);
+    }
+
     match /schedules/{entryId} {
       // Every entry carries its restaurant, so reads are limited to the
       // restaurants someone has. Narrowing within a restaurant stays in the
@@ -441,15 +462,15 @@ service cloud.firestore {
         // in, at any restaurant - S7, 8 Oct 2026).
         canTickChecklists() &&
         resource.data.openingItem == true &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document', 'documents', 'signature'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document', 'documents', 'signature']) &&
+        signatureAskOk()
       ) || (
         // The person asked to sign a finished item (10 Oct 2026): they sign it
         // (which ticks it off), send it back, or add the signed copy - even
         // if they could not otherwise tick this checklist.
         isSignedIn() &&
         resource.data.openingItem == true &&
-        resource.data.get('signature', {}).get('requestedOfUid', '') == request.auth.uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signature', 'done', 'doneBy', 'doneAt', 'signOffHistory', 'documents', 'document'])
+        signerOk()
       );
       allow delete: if canEditChecklists() || (
         isSignedIn() &&

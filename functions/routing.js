@@ -136,11 +136,10 @@ const admins = (users) => users.filter(isAdmin);
 
 // Who claims and works catering and private events at a location: the
 // Catering & Events managers there, and nobody else (Brenner, 10 Oct 2026).
-// With none at that location, its GM is told so nothing is lost.
+// None there: an empty list, and the caller tells admins plainly instead.
 async function cateringClaimers(users, locationId) {
   const brandId = await brandForLocation(locationId);
-  const ce = atLocation(users, ['Catering & Events'], brandId, locationId);
-  return ce.length ? ce : atLocation(users, ['General Manager'], brandId, locationId);
+  return atLocation(users, ['Catering & Events'], brandId, locationId);
 }
 
 async function cateringTeam(users, locationId) {

@@ -37,6 +37,8 @@ export default function ItemDetails({
   templateDependencyIds = null,
   // View-only people see what has been filled in, with nothing to change.
   readOnly = false,
+  // The person asked to sign can still add the signed copy (10 Oct 2026).
+  canAddDocuments = false,
 }) {
   const { dialogNode, confirm } = useDialog();
   // Fields added this session but not yet saved — without this they'd vanish
@@ -184,7 +186,7 @@ export default function ItemDetails({
           itemKey={item.setupKey || item.id}
           value={documentsOf(item)}
           userName={userName}
-          readOnly={readOnly}
+          readOnly={readOnly && !canAddDocuments}
           onChange={(list) => onSave(item, '__documents', list)}
         />
       ) : null}

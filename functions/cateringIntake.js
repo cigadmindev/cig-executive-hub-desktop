@@ -184,21 +184,25 @@ exports.pullCateringEnquiries = onSchedule(
       if (!placed) team = R.admins(users);
       await notifyPeople(
         team,
-        e.locationId
-          ? 'New ' + (isPrivateEvent ? 'private event' : 'catering') + ' enquiry · ' + e.locationName
-          : 'Catering enquiry needs a location',
+        !e.locationId
+          ? 'Catering enquiry needs a location'
+          : placed
+            ? 'New ' + (isPrivateEvent ? 'private event' : 'catering') + ' enquiry · ' + e.locationName
+            : 'New enquiry at ' + e.locationName + ' - no Catering & Events manager there',
         who + ' · ' + what,
         {
           speed: ACTION,
           topic: 'catering',
-          ref: 'catering/' + docRef.id,
+          // Only the people who claim it get it as something waiting on them;
+          // an admin told because nobody else could be gets a plain notice.
+          ...(placed ? { ref: 'catering/' + docRef.id } : {}),
           path: '/catering',
           details: [['Name', who], ['When', e.preferredDateText ?? ''], ['Guests', e.guests ?? ''], ['Occasion', e.occasion ?? '']].filter(([, v]) => v),
-          button: e.locationId ? 'Claim it' : 'Choose its location',
+          button: !e.locationId ? 'Choose its location' : placed ? 'Claim it' : 'Open Catering',
           why: placed
             ? 'You got this because you look after catering at ' + e.locationName + '.'
             : e.locationId
-              ? 'You got this because you are an admin and nobody looks after catering at ' + e.locationName + ' in the Hub.'
+              ? 'You got this because you are an admin and ' + e.locationName + ' has no Catering & Events manager in the Hub. Add one in Manage Logins, or change its status from the ADMIN section.'
               : 'You got this because you are an admin and nobody else could be told.',
           locationId: e.locationId ?? null,
         }
