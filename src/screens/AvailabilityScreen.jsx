@@ -16,7 +16,13 @@ import { plainError } from '../lib/errors';
 //   My hours        your usual week, set once, carried forward every week;
 //                   "only this week is different" for one-offs
 //   My time off     your requests and where each stands
-//   My team         (GMs and up) a week grid, time off shaded
+//   My team         (GMs and up) a week grid, time off shaded; executives
+//                   also get "Executive team" - each other (Mark, 10 Oct 2026)
+//
+// Each working day can say where you'll be (10 Oct 2026): the Corporate
+// office, a restaurant in general, one of its locations, on the road, or
+// working from home. Stored on the day as where: 'corporate' | 'road' |
+// 'home' | 'brand:<id>' | 'loc:<id>'.
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const SHORT = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
 const BLANK = { off: true, start: '09:00', end: '17:00' };
@@ -45,13 +51,14 @@ function weekFor(record, mondayKey) {
 }
 
 export default function AvailabilityScreen() {
-  const { user, users, refreshUsers, hasLocationAccess } = useAuth();
+  const { user, users, refreshUsers, hasLocationAccess, hasBrandAccess } = useAuth();
   const { timeOffRequests, weeklyAvailability, submitTimeOff, resolveTimeOff, deleteTimeOffRequest, setMyWeeklyAvailability, setWeekOverride } = useAvailability();
   const { getByBrand } = useCustomLocations();
   const { dialogNode, notify, confirm } = useDialog();
 
   const approves = user?.role === 'admin' || atLeast(user, 'availability', 'approve');
-  const seesTeam = user?.role === 'admin' || atLeast(user, 'availability', 'team');
+  const isExec = user?.role === 'admin' || user?.role === 'executive';
+  const seesTeam = isExec || atLeast(user, 'availability', 'team');
 
   useEffect(() => {
     if (seesTeam && !(users ?? []).length && refreshUsers) refreshUsers().catch(() => {});
@@ -115,12 +122,45 @@ export default function AvailabilityScreen() {
     });
     return out;
   }, [user?.uid, getByBrand]);
+  // Where someone can say they'll be: Corporate, each restaurant they can
+  // see in general and each of its locations, on the road, from home.
+  const placeGroups = useMemo(
+    () =>
+      brands
+        .filter((b) => hasBrandAccess(user, b.id) || !b.execOnly)
+        .map((b) => ({
+          label: b.name,
+          options: [
+            { value: 'brand:' + b.id, label: b.name + ' (general)' },
+            ...[...(b.locations ?? []), ...getByBrand(b.id)].map((l) => ({ value: 'loc:' + l.id, label: b.name + ' · ' + l.name })),
+          ],
+        })),
+    [user?.uid, getByBrand]
+  );
+  const placeName = useMemo(() => {
+    const m = { corporate: 'Corporate', road: 'On the road', home: 'From home' };
+    brands.forEach((b) => {
+      const short = b.name.split(' ')[0] === 'Cajun' ? b.name : b.name.split(' ')[0];
+      m['brand:' + b.id] = b.name;
+      [...(b.locations ?? []), ...getByBrand(b.id)].forEach((l) => (m['loc:' + l.id] = short + ' · ' + l.name));
+    });
+    return m;
+  }, [getByBrand]);
+  const whereOf = (day) => (day && !day.off && day.where ? placeName[day.where] ?? 'Elsewhere' : null);
+
+  // Executives see each other as a team of their own (Mark, 10 Oct 2026).
+  const EXEC = '__exec';
+  const teamChoices = [...(isExec ? [{ id: EXEC, label: 'Executive team' }] : []), ...myLocations];
   const [locKey, setLocKey] = useState('');
-  const loc = myLocations.find((l) => l.id === locKey) ?? myLocations[0];
+  const loc = teamChoices.find((l) => l.id === locKey) ?? teamChoices[0];
   const [weekOffset, setWeekOffset] = useState(0);
   const teamMonday = mondayOf(weekOffset);
   const teamKey = ymd(teamMonday);
-  const team = (users ?? [])
+  const team = loc?.id === EXEC
+    ? (users ?? [])
+        .filter((u) => u.active !== false && !u.isGhost && (u.role === 'executive' || u.role === 'admin'))
+        .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+    : (users ?? [])
     .filter((u) => u.active !== false && u.role !== 'admin' && loc)
     .filter((u) => (u.permissions?.brandIds ?? []).includes(loc.brandId))
     .filter((u) => {
@@ -148,6 +188,22 @@ export default function AvailabilityScreen() {
               <input type="time" style={styles.time} value={draft[d].start} onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], start: e.target.value } })} />
               <span style={styles.muted}>to</span>
               <input type="time" style={styles.time} value={draft[d].end} onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], end: e.target.value } })} />
+              <select
+                style={{ ...styles.select, minWidth: 190 }}
+                aria-label={'Where on ' + SHORT[d]}
+                value={draft[d].where ?? ''}
+                onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], where: e.target.value || null } })}
+              >
+                <option value="">Where? (optional)</option>
+                <option value="corporate">Corporate office</option>
+                {placeGroups.map((g) => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </optgroup>
+                ))}
+                <option value="road">On the road</option>
+                <option value="home">Working from home</option>
+              </select>
             </>
           ) : <span style={styles.muted}>Off</span>}
         </div>
@@ -221,7 +277,10 @@ export default function AvailabilityScreen() {
               {DAYS.map((d) => (
                 <div key={d} style={styles.hourRow}>
                   <span>{SHORT[d]}</span>
-                  <span style={span(shownWeek?.[d]) ? styles.strong : styles.muted}>{span(shownWeek?.[d]) ?? 'Off'}</span>
+                  <span style={span(shownWeek?.[d]) ? styles.strong : styles.muted}>
+                    {span(shownWeek?.[d]) ?? 'Off'}
+                    {whereOf(shownWeek?.[d]) ? <span style={styles.muted}> · {whereOf(shownWeek?.[d])}</span> : null}
+                  </span>
                 </div>
               ))}
               <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
@@ -259,11 +318,11 @@ export default function AvailabilityScreen() {
         <div style={styles.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <p style={{ ...styles.cardTitle, margin: 0, flex: 1 }}>
-              My team <span style={styles.muted}>· week of {teamMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+              {loc.id === EXEC ? 'Executive team' : 'My team'} <span style={styles.muted}>· week of {teamMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
             </p>
             <button style={styles.ghost} onClick={() => setWeekOffset(weekOffset - 1)}>‹</button>
             <select style={styles.select} value={loc.id} onChange={(e) => setLocKey(e.target.value)}>
-              {myLocations.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+              {teamChoices.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
             </select>
             <button style={styles.ghost} onClick={() => setWeekOffset(weekOffset + 1)}>›</button>
           </div>
@@ -279,7 +338,7 @@ export default function AvailabilityScreen() {
               </thead>
               <tbody>
                 {team.length === 0 ? (
-                  <tr><td style={styles.td} colSpan={8}>Nobody is assigned to this location yet.</td></tr>
+                  <tr><td style={styles.td} colSpan={8}>{loc.id === EXEC ? 'No executives found.' : 'Nobody is assigned to this location yet.'}</td></tr>
                 ) : team.map((u) => {
                   const rec = weekFor(weeklyAvailability.find((w) => w.uid === u.uid), teamKey);
                   return (
@@ -291,6 +350,7 @@ export default function AvailabilityScreen() {
                         return (
                           <td key={d} style={{ ...styles.td, ...(off ? styles.offCell : {}) }}>
                             {off ? 'Off' : !rec ? <span style={styles.muted}>not set</span> : s ?? '—'}
+                            {!off && s && whereOf(rec?.[d]) ? <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{whereOf(rec?.[d])}</div> : null}
                           </td>
                         );
                       })}
@@ -328,7 +388,7 @@ const styles = {
   formRow: { display: 'flex', gap: 12, flexWrap: 'wrap' },
   select: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', fontSize: 13, color: 'var(--text-primary)', fontFamily: 'inherit' },
   editor: { marginTop: 4 },
-  editRow: { display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--border)', padding: '7px 0', fontSize: 13, color: 'var(--text-secondary)' },
+  editRow: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, borderTop: '1px solid var(--border)', padding: '7px 0', fontSize: 13, color: 'var(--text-secondary)' },
   editDay: { width: 36, fontWeight: 700, color: 'var(--text-primary)' },
   offLabel: { width: 90, display: 'flex', alignItems: 'center', gap: 4 },
   time: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 6px', color: 'var(--text-primary)', fontFamily: 'inherit' },

@@ -134,6 +134,15 @@ function atLocation(users, jobs, brandId, locationId) {
 const approvers = (users) => users.filter((u) => isAdmin(u) || isCoo(u));
 const admins = (users) => users.filter(isAdmin);
 
+// Who claims and works catering and private events at a location: the
+// Catering & Events managers there, and nobody else (Brenner, 10 Oct 2026).
+// With none at that location, its GM is told so nothing is lost.
+async function cateringClaimers(users, locationId) {
+  const brandId = await brandForLocation(locationId);
+  const ce = atLocation(users, ['Catering & Events'], brandId, locationId);
+  return ce.length ? ce : atLocation(users, ['General Manager'], brandId, locationId);
+}
+
 async function cateringTeam(users, locationId) {
   const brandId = await brandForLocation(locationId);
   return atLocation(users, ['General Manager', 'Catering & Events', 'Executive Chef', 'Sous Chef'], brandId, locationId);
@@ -172,6 +181,6 @@ const without = (people, uid) => people.filter((p) => p.uid !== uid);
 
 module.exports = {
   activeUsers, brandForLocation, brandForTarget, locationName, seesLocation, hearsFolder, atLocation,
-  approvers, admins, cateringTeam, renewalTeam, postAudience, folderPostAudience,
+  approvers, admins, cateringTeam, cateringClaimers, renewalTeam, postAudience, folderPostAudience,
   dedupe, without, isAdmin, isCoo, isFinance, notGhost,
 };

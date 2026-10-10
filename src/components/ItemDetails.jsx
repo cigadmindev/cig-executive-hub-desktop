@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDialog } from '../hooks/useDialog';
 import ConfirmEditField from './ConfirmEditField';
-import DocumentField from './DocumentField';
+import DocumentsField, { documentsOf } from './DocumentsField';
 
 // The expanded body of a checklist row. The row itself owns whether this is
 // shown — one chevron per item rather than a separate Details button, which
@@ -179,13 +179,13 @@ export default function ItemDetails({
       {/* Every item can hold its document - items added in the Hub (no
           setupKey) too, filed under the item's own id (8 Oct 2026). */}
       {locationId ? (
-        <DocumentField
+        <DocumentsField
           locationId={locationId}
           itemKey={item.setupKey || item.id}
-          value={item.document ?? null}
+          value={documentsOf(item)}
           userName={userName}
           readOnly={readOnly}
-          onChange={(doc) => onSave(item, '__document', doc)}
+          onChange={(list) => onSave(item, '__documents', list)}
         />
       ) : null}
 

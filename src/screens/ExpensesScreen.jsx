@@ -353,6 +353,7 @@ export default function ExpensesScreen() {
           ...(seesAll && selected.execCategoryLabel ? [['Chosen as', selected.execCategoryLabel]] : []),
           ['Where', selected.where],
           ['Why', selected.reason],
+          ...(selected.cateringLabel ? [['Event', 'Billed to the customer · ' + selected.cateringLabel]] : []),
           [
             'Location',
             seesAll && selected.locationStage ? (

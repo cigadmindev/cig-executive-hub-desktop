@@ -198,13 +198,51 @@ service cloud.firestore {
             && brandId in p.permissions.brandIds));
     }
 
+    // By location, not just restaurant (Brenner, 10 Oct 2026): someone whose
+    // login is limited to some of a restaurant's locations sees only those -
+    // Sarah (Starkville) never Ridgeland's, Ann Marie the reverse. Admins,
+    // executives and IT see every location.
+    function eventsAtLocation(brandId, locationId) {
+      let p = eventsProfile();
+      let only = p.get('permissions', {}).get('locationsByBrand', {}).get(brandId, []);
+      return p.role == 'admin' || p.role == 'executive' || p.job == 'IT & Training'
+        || only.size() == 0 || locationId in only;
+    }
+
     match /cateringEnquiries/{id} {
-      allow read: if handlesEventsFor(resource.data.brandId);
+      allow read: if handlesEventsFor(resource.data.brandId)
+        && eventsAtLocation(resource.data.brandId, resource.data.locationId);
       // Written by the function that reads the mailbox, and by anyone adding
       // one that came in by phone.
-      allow create: if handlesEventsFor(request.resource.data.brandId);
-      allow update: if handlesEventsFor(resource.data.brandId);
+      allow create: if handlesEventsFor(request.resource.data.brandId)
+        && eventsAtLocation(request.resource.data.brandId, request.resource.data.locationId);
+      // Claiming and working an enquiry is Catering & Events' alone, at their
+      // own locations (Brenner, 10 Oct 2026); admins can correct anything.
+      allow update: if isAdmin() || (
+        isLive() && eventsProfile().job == 'Catering & Events'
+        && resource.data.brandId in eventsProfile().get('permissions', {}).get('brandIds', [])
+        && eventsAtLocation(resource.data.brandId, resource.data.locationId));
       allow delete: if isAdmin();
+
+      // What an event cost (10 Oct 2026): receipts added on the event, filed
+      // to Expenses by the server when the event closes. Anyone who looks
+      // after the event can see and add them; the person who added one can
+      // take it off until it has been filed. Only the server marks it filed.
+      match /costs/{costId} {
+        function parent() {
+          return get(/databases/$(database)/documents/cateringEnquiries/$(id)).data;
+        }
+        allow read: if handlesEventsFor(parent().brandId) && eventsAtLocation(parent().brandId, parent().locationId);
+        allow create: if handlesEventsFor(parent().brandId) && eventsAtLocation(parent().brandId, parent().locationId)
+          && request.resource.data.addedByUid == request.auth.uid
+          && request.resource.data.filedReceiptId == null
+          && request.resource.data.keys().hasOnly(['amountCents', 'accountCode', 'execCategory', 'where', 'storagePath', 'addedByUid', 'addedByName', 'addedAt', 'filedReceiptId'])
+          && request.resource.data.amountCents is int && request.resource.data.amountCents > 0
+          && request.resource.data.storagePath is string
+          && request.resource.data.storagePath.matches('receipts/' + request.auth.uid + '/.*');
+        allow update: if false;
+        allow delete: if isSignedIn() && resource.data.addedByUid == request.auth.uid && resource.data.filedReceiptId == null;
+      }
     }
 
     match /deviceRequests/{id} {
@@ -403,7 +441,15 @@ service cloud.firestore {
         // in, at any restaurant - S7, 8 Oct 2026).
         canTickChecklists() &&
         resource.data.openingItem == true &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document', 'documents', 'signature'])
+      ) || (
+        // The person asked to sign a finished item (10 Oct 2026): they sign it
+        // (which ticks it off), send it back, or add the signed copy - even
+        // if they could not otherwise tick this checklist.
+        isSignedIn() &&
+        resource.data.openingItem == true &&
+        resource.data.get('signature', {}).get('requestedOfUid', '') == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signature', 'done', 'doneBy', 'doneAt', 'signOffHistory', 'documents', 'document'])
       );
       allow delete: if canEditChecklists() || (
         isSignedIn() &&
@@ -493,8 +539,9 @@ service cloud.firestore {
     // to their own location.
     function seesTeam() {
       let p = me();
-      // The rows marked Team or Approve for Availability in Who sees what (S6/S8).
-      return isLive() && (p.role == 'admin' || p.job in ['Owner', 'CEO', 'COO', 'Financials', 'Culinary Director', 'Culinary Manager', 'Beverage Manager', 'General Manager', 'IT & Training', 'HR']);
+      // The rows marked Team or Approve for Availability in Who sees what
+      // (S6/S8), and every executive - they see each other (10 Oct 2026).
+      return isLive() && (p.role == 'admin' || p.role == 'executive' || p.job in ['Owner', 'CEO', 'COO', 'Financials', 'Culinary Director', 'Culinary Manager', 'Beverage Manager', 'General Manager', 'IT & Training', 'HR']);
     }
 
     match /timeOffRequests/{requestId} {

@@ -1,6 +1,6 @@
 import { atLeast } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, query, where, deleteField } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, setDoc, query, where, deleteField } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 
@@ -37,7 +37,7 @@ export function AvailabilityProvider({ children }) {
     // anyone the rule would not let read every document. Reviewers read the
     // collection; everyone else must ask only for their own.
     // Who sees what: "Team" and up read everyone's time off; others their own.
-    const canReviewTimeOff = user.role === 'admin' || atLeast(user, 'availability', 'team');
+    const canReviewTimeOff = user.role === 'admin' || user.role === 'executive' || atLeast(user, 'availability', 'team');
     const timeOffQuery = canReviewTimeOff
       ? collection(db, 'timeOffRequests')
       : query(collection(db, 'timeOffRequests'), where('uid', '==', user.uid));
@@ -83,7 +83,8 @@ export function AvailabilityProvider({ children }) {
     // executives and admins, so they keep the whole collection; a manager
     // reads their own record only - by document, since the id is the person
     // and there is no uid field to query on.
-    const seesEveryone = user.role === 'admin' || atLeast(user, 'availability', 'team');
+    // Executives too: they see each other as a team (10 Oct 2026).
+    const seesEveryone = user.role === 'admin' || user.role === 'executive' || atLeast(user, 'availability', 'team');
     const availabilitySource = seesEveryone
       ? collection(db, 'weeklyAvailability')
       : doc(db, 'weeklyAvailability', user.uid);

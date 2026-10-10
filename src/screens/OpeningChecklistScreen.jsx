@@ -11,6 +11,7 @@ import { useRenewals, renewalDocId } from '../context/RenewalsContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmEditField from '../components/ConfirmEditField';
 import ItemDetails from '../components/ItemDetails';
+import SignaturePanel, { waitingOn } from '../components/SignaturePanel';
 import DatePickerField from '../components/DatePickerField';
 import SearchBar from '../components/SearchBar';
 import { atLeast } from '../data/accessMatrix';
@@ -316,6 +317,15 @@ export default function OpeningChecklistScreen() {
       // The document sits at the top level rather than inside openingFields —
       // it's a file reference, not a text field, and the renewal record reads
       // it from there when a permit is signed off.
+      // Several documents now (10 Oct 2026); the first is still the one the
+      // renewal record carries.
+      if (field === '__documents') {
+        const first = value[0] ?? null;
+        await updateEntry(item.id, { documents: value, document: first });
+        const type = RENEWAL_TYPE_BY_KEY[item.setupKey];
+        if (type && (first?.path ?? null) !== (item.document?.path ?? null)) await setRenewalDocument(renewalDocId(locationId, type), first);
+        return;
+      }
       if (field === '__document') {
         // The checklist first: if that is refused, the renewal record is not
         // changed either, so the two never disagree.
@@ -528,6 +538,8 @@ export default function OpeningChecklistScreen() {
                             overdue, so it means something when it appears. */}
                         {item.done ? (
                           <span style={styles.rowMeta}>{item.doneBy || 'Done'}</span>
+                        ) : waitingOn(item) ? (
+                          <span style={styles.waitingPill}>Waiting on {waitingOn(item).split(' ')[0]}</span>
                         ) : overdue ? (
                           <span style={styles.rowOverdueLabel}>Overdue</span>
                         ) : !canTick ? (
@@ -575,6 +587,14 @@ export default function OpeningChecklistScreen() {
                               </button>
                             </div>
                           ) : null}
+                          <SignaturePanel
+                            item={item}
+                            me={user}
+                            canRequest={canTick}
+                            people={assignableUsers}
+                            save={(fields) => updateEntry(item.id, fields)}
+                            notify={notify}
+                          />
                           <ItemDetails
                             item={item}
                             onSave={updateSetupField}
@@ -656,6 +676,8 @@ export default function OpeningChecklistScreen() {
                       </span>
                       {item.done ? (
                         <span style={styles.rowMeta}>{item.doneBy || 'Done'}</span>
+                      ) : waitingOn(item) ? (
+                        <span style={styles.waitingPill}>Waiting on {waitingOn(item).split(' ')[0]}</span>
                       ) : overdue ? (
                         <span style={styles.rowOverdueLabel}>Overdue</span>
                       ) : !canTick ? (
@@ -687,6 +709,14 @@ export default function OpeningChecklistScreen() {
                             likely to need assigning as a setup one, and having
                             the controls on one list but not the other would
                             read as a bug. */}
+                        <SignaturePanel
+                          item={item}
+                          me={user}
+                          canRequest={canTick}
+                          people={assignableUsers}
+                          save={(fields) => updateEntry(item.id, fields)}
+                          notify={notify}
+                        />
                         <ItemDetails
                           item={item}
                           onSave={updateSetupField}
@@ -927,6 +957,7 @@ export default function OpeningChecklistScreen() {
 }
 
 const styles = {
+  waitingPill: { fontSize: 11, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: '#E8B93B', background: 'rgba(232,185,59,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap' },
   page: { padding: '28px max(22px, min(40px, 4vw))' },
   searchHint: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' },
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },

@@ -25,6 +25,8 @@ exports.sweepOrphanDocs = onSchedule({ schedule: '30 4 * * 1', timeZone: ZONE },
     snap.forEach((d) => {
       const path = d.data().document?.path;
       if (path) referenced.add(path);
+      // Checklist items can hold several (10 Oct 2026).
+      for (const x of d.data().documents ?? []) if (x?.path) referenced.add(x.path);
     });
   }
 

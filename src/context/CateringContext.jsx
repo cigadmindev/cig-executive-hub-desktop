@@ -36,14 +36,29 @@ export function CateringProvider({ children }) {
       setEnquiries([]);
       return;
     }
-    const source = seesAll
-      ? query(collection(db, COLLECTION), orderBy('createdAt', 'desc'))
-      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)), orderBy('createdAt', 'desc'));
+    // By location (10 Oct 2026): the database only hands someone limited to
+    // some of a restaurant's locations the enquiries for those, so the
+    // question asked has to name them - one per location, or the whole
+    // restaurant when their login covers all of it.
+    const col = collection(db, COLLECTION);
+    const sources = seesAll
+      ? [query(col, orderBy('createdAt', 'desc'))]
+      : mine.slice(0, 30).flatMap((b) => {
+          const only = user.permissions?.locationsByBrand?.[b];
+          return Array.isArray(only) && only.length
+            ? only.map((l) => query(col, where('brandId', '==', b), where('locationId', '==', l)))
+            : [query(col, where('brandId', '==', b))];
+        });
+    const parts = sources.map(() => null);
+    const publish = () => {
+      if (parts.some((x) => x === null)) return;
+      setEnquiries(parts.flat().sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)));
+    };
 
-    return onSnapshot(
+    const unsubs = sources.map((source, i) => onSnapshot(
       source,
-      (snapshot) =>
-        setEnquiries(
+      (snapshot) => {
+        parts[i] = (
           snapshot.docs.map((d) => {
             const x = d.data();
             return {
@@ -104,9 +119,16 @@ export function CateringProvider({ children }) {
               statusChangeReason: x.statusChangeReason ?? '',
             };
           })
-        ),
-      (err) => console.error('[Catering] ' + err.code + ': ' + err.message)
-    );
+        );
+        publish();
+      },
+      (err) => {
+        console.error('[Catering] ' + err.code + ': ' + err.message);
+        parts[i] = [];
+        publish();
+      }
+    ));
+    return () => unsubs.forEach((u) => u());
   }, [user]);
 
   // Anyone can add one by hand - a phone call, a walk-in, something that came

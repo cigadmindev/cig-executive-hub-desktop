@@ -3,9 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { useCatering } from '../context/CateringContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useDialog } from '../hooks/useDialog';
-import { atLeast } from '../data/accessMatrix';
 import { brands } from '../data/mockData';
 import DatePickerField from '../components/DatePickerField';
+import EventCosts from '../components/EventCosts';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import { fmtDay } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
@@ -28,9 +28,15 @@ const STEP = {
   talking: ['Talking', 'cyan'],
   confirmed: ['Confirmed', 'green'],
   done: ['Done', 'grey'],
-  lost: ['Lost', 'red'],
+  // "Didn't book" (Brenner, 10 Oct 2026): it never went ahead. Kept as 'lost'
+  // underneath so older records still read.
+  lost: ["Didn't book", 'red'],
 };
 const FILTERS = Object.entries(STEP).map(([k, [l]]) => [k, l]);
+
+// The jobs that look after events at their location (firestore.rules,
+// handlesEventsFor): they see their location's enquiries and can add one.
+const HANDLER_JOBS = ['General Manager', 'Assistant Manager', 'Executive Chef', 'Sous Chef', 'Catering & Events', 'Kitchen Manager'];
 
 const BLANK = { kind: 'catering', locationId: '', name: '', email: '', phone: '', organisation: '', occasion: '', guests: '', date: '', preferredTime: '', fulfilment: '', address: '', about: '' };
 
@@ -40,7 +46,12 @@ export default function CateringScreen() {
   const { enquiries, addEnquiry, claim, setStatus, lose, adminSetStatus, update, correct, markInvoiced, markPaid } = useCatering();
   const { dialogNode, notify } = useDialog();
   const isAdmin = user?.role === 'admin';
-  const canAct = atLeast(user, 'catering', 'claim');
+  // Only Catering & Events managers claim and work enquiries (Brenner,
+  // 10 Oct 2026) - not GMs, chefs or admins. Admins keep the ADMIN section.
+  const canAct = user?.job === 'Catering & Events';
+  // Anyone who looks after events at a location, and every executive, can
+  // add one that came in by phone or in person, and add costs to an event.
+  const canAdd = canAct || isAdmin || user?.role === 'executive' || HANDLER_JOBS.includes(user?.job);
 
   const firstWithItems = ['new', 'talking', 'confirmed'].find((k) => enquiries.some((e) => e.status === k)) ?? 'new';
   const [filter, setFilter] = useState(null);
@@ -95,7 +106,7 @@ export default function CateringScreen() {
       ['Invoiced', e.invoicedAt, ''],
       ['Paid', e.paidAt, ''],
       ['Done', e.doneAt, e.doneByName],
-      ['Marked lost', e.lostAt, e.lostByName],
+      ["Marked didn't book", e.lostAt, e.lostByName],
       ['Details corrected', e.correctedAt, e.correctedByName],
       ['Changed by hand', e.statusChangedAt, e.statusChangedByName],
     ]
@@ -128,7 +139,7 @@ export default function CateringScreen() {
         </div>
         {!isCatering && (e.space || e.style || e.beverage) ? <div style={d.row}><span style={d.k}>Asked for</span><span style={d.v}>{[e.space, e.style, e.beverage].filter(Boolean).join(' · ')}</span></div> : null}
         {e.about ? <div style={d.row}><span style={d.k}>They wrote</span><span style={{ ...d.v, whiteSpace: 'pre-wrap' }}>{e.about}</span></div> : null}
-        {e.status === 'lost' && e.lostReason ? <div style={d.row}><span style={d.k}>Why lost</span><span style={d.v}>{e.lostReason}</span></div> : null}
+        {e.status === 'lost' && e.lostReason ? <div style={d.row}><span style={d.k}>Why it didn't book</span><span style={d.v}>{e.lostReason}</span></div> : null}
 
         {canAct ? (
           <>
@@ -136,7 +147,7 @@ export default function CateringScreen() {
               <div style={{ marginTop: 14 }}>
                 <input style={d.input} autoFocus placeholder="Why they are not going ahead" value={changing?.reason ?? ''} onChange={(ev) => setChanging({ reason: ev.target.value })} />
                 <div style={{ ...d.actions, marginTop: 0 }}>
-                  <button style={d.primary} disabled={busy || !(changing?.reason ?? '').trim()} onClick={() => run(() => lose(e.id, changing.reason), () => { reset(); setSelectedId(e.id); setFilter('lost'); })}>Mark lost</button>
+                  <button style={d.primary} disabled={busy || !(changing?.reason ?? '').trim()} onClick={() => run(() => lose(e.id, changing.reason), () => { reset(); setSelectedId(e.id); setFilter('lost'); })}>Mark didn't book</button>
                   <button style={d.ghost} onClick={reset}>Cancel</button>
                 </div>
               </div>
@@ -146,7 +157,7 @@ export default function CateringScreen() {
                 {e.status === 'new' && e.ownerUid ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'talking'), () => { setSelectedId(e.id); setFilter('talking'); })}>Talking</button> : null}
                 {['new', 'talking'].includes(e.status) ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'confirmed'), () => { setSelectedId(e.id); setFilter('confirmed'); })}>Confirmed</button> : null}
                 {e.status === 'confirmed' ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'done'), () => { setSelectedId(e.id); setFilter('done'); })}>Done</button> : null}
-                {['new', 'talking', 'confirmed'].includes(e.status) ? <button style={d.ghost} onClick={() => { setChanging({ reason: '' }); setLosing(e.id); }}>Lost…</button> : null}
+                {['new', 'talking', 'confirmed'].includes(e.status) ? <button style={d.ghost} onClick={() => { setChanging({ reason: '' }); setLosing(e.id); }}>Didn't book…</button> : null}
               </div>
             )}
             {isCatering && e.status === 'confirmed' ? (
@@ -189,6 +200,8 @@ export default function CateringScreen() {
             ) : null}
           </>
         )}
+
+        {e.status !== 'lost' ? <EventCosts enquiry={e} canAdd={canAdd} notify={notify} /> : null}
 
         {isAdmin ? (
           <div style={d.section}>
@@ -248,8 +261,8 @@ export default function CateringScreen() {
     <div>
       <RequestPage
         title="Catering"
-        subtitle="Catering orders and private events. The GM, Catering & Events or a chef claims each one."
-        actionLabel={canAct ? '+ Add enquiry' : null}
+        subtitle="Catering orders and private events. Catering & Events claims and handles each one."
+        actionLabel={canAdd ? '+ Add enquiry' : null}
         onAction={() => setAdding({ ...BLANK, locationId: locationOptions.length === 1 ? locationOptions[0].id : '' })}
         filters={FILTERS.map(([k, l]) => ({ key: k, label: l, count: ['done', 'lost'].includes(k) ? null : enquiries.filter((e) => e.status === k).length }))}
         filter={shown}
@@ -267,12 +280,12 @@ export default function CateringScreen() {
         onSelect={(id) => { setSelectedId(id); reset(); }}
         detail={detail}
         empty="Nothing in this list."
-        note={canAct ? null : 'You can see these but not change them. The GM, Catering & Events and chefs handle them.'}
+        note={canAct ? null : canAdd ? 'You can add enquiries and event costs. Catering & Events claims and handles them.' : 'You can see these but not change them. Catering & Events handles them.'}
       >
         <div style={styles.howNote}>
           <strong>How enquiries get here:</strong> forward any catering or private event enquiry to{' '}
           <a href="mailto:catering@cigconcepts.com" style={{ color: 'var(--neon)', fontWeight: 700 }}>catering@cigconcepts.com</a>
-          . It shows up here within five minutes, and that location's GM, catering lead and chefs are emailed. One that came in by phone? Use + Add enquiry.
+          . It shows up here within five minutes, and that location's Catering &amp; Events manager is asked to claim it. One that came in by phone? Use + Add enquiry.
         </div>
       </RequestPage>
 

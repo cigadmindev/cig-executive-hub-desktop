@@ -36,7 +36,7 @@ const CATALOG = [
     html: () => n({ kicker: 'Catering', title: 'New catering enquiry · Taste Ridgeland', intro: 'Jordan Ellis · Catering for 40', details: [['Name', 'Jordan Ellis'], ['When', 'Sat Oct 24'], ['Guests', '40']], button: 'Claim it', footer: 'You got this because you look after catering at Taste Ridgeland.' }) },
   // Things to do
   { id: 'cateringChanged', group: 'Requests', name: 'Catering enquiry changed', to: 'Whoever claimed it, or the location\'s catering team', when: 'An admin changes its status', speed: 'urgent',
-    html: () => n({ kicker: 'Catering', title: 'Catering enquiry changed · Mia Chen', intro: 'Brenner changed it from Confirmed to Lost. They booked elsewhere.', button: 'Open Catering', footer: 'You got this because you are handling this enquiry.' }) },
+    html: () => n({ kicker: 'Catering', title: 'Catering enquiry changed · Mia Chen', intro: 'Brenner changed it from Confirmed to Didn\'t book. They booked elsewhere.', button: 'Open Catering', footer: 'You got this because you are handling this enquiry.' }) },
   { id: 'signature', group: 'To do', name: 'Signature needed', to: 'Each person who must sign', when: 'A document is sent for signature', speed: 'urgent',
     html: () => n({ kicker: 'Signature', title: 'Signature needed: Heritage lease addendum', intro: 'Brenner sent this for your signature.', button: 'Review and sign', footer: 'You got this because you were asked to sign.' }) },
   { id: 'assignment', group: 'To do', name: 'Checklist item assigned', to: 'The person assigned', when: 'An opening checklist item is assigned', speed: 'urgent',

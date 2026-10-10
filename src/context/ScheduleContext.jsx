@@ -76,6 +76,12 @@ export function ScheduleProvider({ children }) {
           // uploadedBy }. Lives on the task that produced it, and gets copied
           // to the renewal record on sign-off so it's there at renewal time.
           document: data.document ?? null,
+          // Every document on the task (10 Oct 2026); absent on older items.
+          documents: data.documents ?? null,
+          // "Needs a signature from…" - { requestedOfUid, requestedOfName,
+          // requestedByUid, requestedByName, requestedAt, note, status:
+          // 'waiting' | 'signed' | 'sentBack', signedAt, backNote }.
+          signature: data.signature ?? null,
           renewalItem: data.renewalItem ?? false, // the migrated license/permit's initial "get this" calendar task
           renewalType: data.renewalType ?? null, // matches a type in renewalTypes.js
           done: data.done ?? false,

@@ -483,4 +483,96 @@ exports.getReceiptUrls = onCall(async (request) => {
 // Receipt photos age out at ninety days in sweepReceiptPhotos. Each period's
 // go to finance as a zip with the period report.
 
+// ---------------------------------------------------------------------------
+// Catering and event costs (Mark, 10 Oct 2026)
+// ---------------------------------------------------------------------------
+//
+// Receipts added on a catering order or private event are held on the event
+// (cateringEnquiries/{id}/costs) until it closes - Paid for catering, Done for
+// a private event - then each one is filed here as an ordinary receipt by the
+// person who added it, under the event's location, dated the day it is
+// filed and marked "billed to the customer". One added after the event
+// closed is filed straight away. Each cost is filed once: the receipt's id
+// comes from the cost, so a second run finds it already there.
+const { onDocumentUpdated, onDocumentCreated } = require('firebase-functions/v2/firestore');
+
+const eventClosed = (e) => (e.kind === 'catering' ? !!e.paidAt : e.status === 'done');
+
+async function fileEventCosts(enquiryId) {
+  const db = admin.firestore();
+  const evSnap = await db.collection('cateringEnquiries').doc(enquiryId).get();
+  if (!evSnap.exists) return;
+  const ev = evSnap.data();
+  if (!eventClosed(ev)) return;
+  const costs = await db.collection('cateringEnquiries').doc(enquiryId).collection('costs').where('filedReceiptId', '==', null).get();
+  if (costs.empty) return;
+
+  const todayKey = centralDateKey(new Date());
+  const period = assignPeriod(await loadPeriods(db), todayKey, todayKey);
+  if (!period) {
+    console.error('Event costs for ' + enquiryId + ' not filed: today is outside the fiscal calendar.');
+    return;
+  }
+  const place = ev.locationId ? await resolveLocation(db, ev.locationId).catch(() => null) : null;
+  const what = (ev.kind === 'catering' ? 'Catering' : ev.occasion || 'Private event') + ' for ' + (ev.name || 'a customer') + (ev.preferredDateText ? ' (' + ev.preferredDateText + ')' : '');
+
+  for (const c of costs.docs) {
+    const cost = c.data();
+    try {
+      const who = (await db.collection('users').doc(cost.addedByUid).get()).data() ?? {};
+      let account = { accountCode: null, accountName: null, accountHeading: null, execCategory: null, execCategoryLabel: null };
+      try {
+        account = (await resolveFor(db, { execCategory: cost.execCategory, accountCode: cost.accountCode })) ?? account;
+      } catch (err) {
+        // An account retired since - filed "not coded yet" for Finance.
+      }
+      const now = Date.now();
+      const receiptId = 'event-' + enquiryId + '-' + c.id;
+      await db.collection(COLLECTION).doc(receiptId).create({
+        submittedByUid: cost.addedByUid,
+        submittedByName: cost.addedByName || who.name || 'Unknown',
+        amountCents: cost.amountCents,
+        ...account,
+        submitterLevel: levelOf(who),
+        categoryKey: null,
+        categoryLabel: null,
+        where: cost.where || '',
+        reason: 'Billed to the customer: ' + what,
+        dateSpent: todayKey,
+        ...(place ?? { locationId: null, chargeToId: null, chargeToName: 'Corporate', locationStage: null }),
+        periodId: period.id,
+        periodLabel: period.label,
+        submittedAt: now,
+        submittedDateKey: todayKey,
+        editableUntil: endOfCentralDay(todayKey),
+        storagePath: cost.storagePath,
+        imageDeletedAt: null,
+        voided: false,
+        voidedBy: null,
+        voidedReason: null,
+        // Which event it belongs to, for Sam and the report.
+        cateringEnquiryId: enquiryId,
+        cateringLabel: what,
+        billedToCustomer: true,
+      }).catch((err) => {
+        if (err.code !== 6) throw err; // 6 = already exists: filed by an earlier run
+      });
+      await c.ref.update({ filedReceiptId: receiptId, filedAt: now });
+    } catch (err) {
+      console.error('Event cost ' + enquiryId + '/' + c.id + ' could not be filed: ' + err.message);
+    }
+  }
+}
+
+exports.onEventClosedFileCosts = onDocumentUpdated('cateringEnquiries/{id}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return;
+  if (eventClosed(after) && !eventClosed(before)) await fileEventCosts(event.params.id);
+});
+
+exports.onEventCostAdded = onDocumentCreated('cateringEnquiries/{id}/costs/{costId}', async (event) => {
+  await fileEventCosts(event.params.id);
+});
+
 exports.EXPENSE_CATEGORIES = CATEGORIES;

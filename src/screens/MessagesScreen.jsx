@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +44,31 @@ function colorInConversation(uid, memberUids) {
   return SENDER_COLORS[i % SENDER_COLORS.length];
 }
 
+// The search term, lit up wherever it appears in a message or a name.
+function highlight(text, q, current = false) {
+  const t = String(text ?? '');
+  const needle = q.trim().toLowerCase();
+  if (!needle) return t;
+  const out = [];
+  let i = 0;
+  const low = t.toLowerCase();
+  while (i < t.length) {
+    const at = low.indexOf(needle, i);
+    if (at === -1) {
+      out.push(t.slice(i));
+      break;
+    }
+    if (at > i) out.push(t.slice(i, at));
+    out.push(
+      <mark key={at} style={current ? styles.markCurrent : styles.mark}>
+        {t.slice(at, at + needle.length)}
+      </mark>
+    );
+    i = at + needle.length;
+  }
+  return out;
+}
+
 export default function MessagesScreen() {
   const isNarrow = useIsNarrow();
   const {
@@ -75,6 +100,17 @@ export default function MessagesScreen() {
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
+
+  // Search (Mark, 10 Oct 2026): across every chat from the list, and inside
+  // the open chat with a count and arrows to step through the matches. Every
+  // message you can see is already on the page, so it is instant.
+  const [q, setQ] = useState('');
+  const [threadSearch, setThreadSearch] = useState(false);
+  const [tq, setTq] = useState('');
+  const [hit, setHit] = useState(0);
+  // The message tapped in the results, so the chat opens on that one.
+  const [jumpId, setJumpId] = useState(null);
+  const threadRef = useRef(null);
 
   // Uploads and sends in one step. A staged attachment waiting for a caption
   // is a state that can be abandoned, leaving a file in Storage with nothing
@@ -115,9 +151,39 @@ export default function MessagesScreen() {
   const activeConvo = conversations.find((c) => c.id === activeId);
   const activeMessages = activeId ? getMessagesForConversation(activeId) : [];
 
-  const openConversation = (id) => {
+  const openConversation = (id, find = '', messageId = null) => {
     setActiveId(id);
     markConversationRead(id);
+    setThreadSearch(!!find);
+    setTq(find);
+    setHit(-1);
+    setJumpId(messageId);
+  };
+
+  const needle = q.trim().toLowerCase();
+  const chatHits = needle ? conversations.filter((c) => (c.name ?? '').toLowerCase().includes(needle)) : [];
+  const messageHits = useMemo(() => {
+    if (!needle) return [];
+    return conversations
+      .flatMap((c) => getMessagesForConversation(c.id).filter((m) => (m.text ?? '').toLowerCase().includes(needle)).map((m) => ({ m, c })))
+      .sort((a, b) => (b.m.timestamp ?? 0) - (a.m.timestamp ?? 0))
+      .slice(0, 60);
+  }, [needle, conversations, getMessagesForConversation]);
+
+  // Inside the open chat: the matching messages, newest last like the thread.
+  const tneedle = tq.trim().toLowerCase();
+  const threadHits = tneedle ? activeMessages.filter((m) => (m.text ?? '').toLowerCase().includes(tneedle)).map((m) => m.id) : [];
+  const startAt = jumpId && threadHits.includes(jumpId) ? threadHits.indexOf(jumpId) : threadHits.length - 1;
+  const currentHit = threadHits.length ? threadHits[(hit < 0 ? startAt : hit) % threadHits.length] : null;
+  useEffect(() => {
+    if (!currentHit || !threadRef.current) return;
+    const el = threadRef.current.querySelector('[data-msg-id="' + currentHit + '"]');
+    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [currentHit]);
+  const step = (dir) => {
+    if (!threadHits.length) return;
+    const now = hit < 0 ? startAt : hit;
+    setHit((now + dir + threadHits.length) % threadHits.length);
   };
 
   // Grows the textarea to fit its content, up to a max height, then lets it
@@ -219,18 +285,55 @@ export default function MessagesScreen() {
         <div style={{ ...styles.listHeader, ...nike.pageTitleSm, fontSize: 20 }}>Messages</div>
 
         <div style={styles.newButtonsRow}>
-          <button style={{ ...styles.newButton, ...nike.primaryButton }} onClick={() => openPicker('dm')}>
+          <button style={{ ...styles.newButton, ...nike.primaryButton, ...(isNarrow ? { minHeight: 44 } : {}) }} onClick={() => openPicker('dm')}>
             + New Message
           </button>
           {user?.role === 'admin' || user?.role === 'executive' ? (
-            <button style={{ ...styles.newButton, ...nike.primaryButton }} onClick={() => openPicker('group')}>
+            <button style={{ ...styles.newButton, ...nike.primaryButton, ...(isNarrow ? { minHeight: 44 } : {}) }} onClick={() => openPicker('group')}>
               + New Group
             </button>
           ) : null}
         </div>
 
+        <div style={styles.searchWrap}>
+          <input
+            type="search"
+            style={{ ...styles.search, ...(isNarrow ? { fontSize: 16, minHeight: 44 } : {}) }}
+            placeholder="Search chats and messages"
+            aria-label="Search chats and messages"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+
         <div style={styles.listScroll}>
-          {conversations.length === 0 ? (
+          {needle ? (
+            <>
+              <p style={styles.resultsLabel}>Chats{chatHits.length ? ' · ' + chatHits.length : ''}</p>
+              {chatHits.length === 0 ? <p style={styles.emptyList}>No chat names match.</p> : null}
+              {chatHits.map((c) => (
+                <div key={c.id} data-row="" style={styles.convoRow} onClick={() => openConversation(c.id)}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={styles.convoName}>{highlight(c.name, q)}</div>
+                    <div style={styles.convoPreview}>{c.type === 'group' ? 'Group · ' + (c.memberUids?.length ?? 0) + ' people' : 'Chat'}</div>
+                  </div>
+                </div>
+              ))}
+              <p style={styles.resultsLabel}>Messages{messageHits.length ? ' · ' + messageHits.length : ''}</p>
+              {messageHits.length === 0 ? <p style={styles.emptyList}>No messages match "{q.trim()}".</p> : null}
+              {messageHits.map(({ m, c }) => (
+                <div key={m.id} data-row="" style={{ ...styles.convoRow, alignItems: 'flex-start' }} onClick={() => openConversation(c.id, q.trim(), m.id)}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={styles.convoName}>{c.name}</span>
+                      <span style={styles.convoTime}>{formatTime(m.timestamp)}</span>
+                    </div>
+                    <div style={styles.resultText}>{c.type === 'group' && m.senderName ? m.senderName + ': ' : ''}{highlight(m.text, q)}</div>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : conversations.length === 0 ? (
             <p style={styles.emptyList}>No conversations yet. Start one above.</p>
           ) : (
             conversations.map((c) => {
@@ -239,7 +342,7 @@ export default function MessagesScreen() {
                 <div
                   key={c.id}
                   data-row=""
-                  style={{ ...styles.convoRow, ...(activeId === c.id ? styles.convoRowActive : {}) }}
+                  style={{ ...styles.convoRow, ...(isNarrow ? styles.convoRowNarrow : {}), ...(activeId === c.id ? styles.convoRowActive : {}) }}
                   onClick={() => openConversation(c.id)}
                 >
                   {/* Initials rather than a glyph — you recognise a person by
@@ -260,7 +363,7 @@ export default function MessagesScreen() {
                       {c.name}
                       {c.type === 'group' ? <span style={styles.groupTag}>GROUP</span> : null}
                     </div>
-                    <div style={styles.convoPreview}>{c.lastMessageText || 'No messages yet'}</div>
+                    <div style={{ ...styles.convoPreview, ...(isNarrow ? { maxWidth: 'none', fontSize: 13 } : {}) }}>{c.lastMessageText || 'No messages yet'}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     <span style={styles.convoTime}>{formatTime(c.lastMessageTimestamp)}</span>
@@ -291,13 +394,49 @@ export default function MessagesScreen() {
           <div style={styles.threadEmpty}>Select a conversation</div>
         ) : (
           <>
-            {isNarrow ? (
-              <button style={styles.backToList} onClick={() => setActiveId(null)}>
-                ‹ Messages
+            <div style={styles.threadHeaderRow}>
+              {isNarrow ? (
+                <button style={styles.backToList} onClick={() => setActiveId(null)} aria-label="Back to chats">
+                  ‹
+                </button>
+              ) : null}
+              <div style={{ ...styles.threadHeader, flex: 1, minWidth: 0 }}>{activeConvo.name}</div>
+              <button
+                style={{ ...styles.searchToggle, ...(threadSearch ? styles.searchToggleOn : {}) }}
+                aria-label="Search this chat"
+                title="Search this chat"
+                onClick={() => {
+                  setThreadSearch((v) => !v);
+                  setTq('');
+                  setHit(-1);
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
               </button>
+            </div>
+            {threadSearch ? (
+              <div style={styles.threadSearchBar}>
+                <input
+                  type="search"
+                  autoFocus
+                  style={{ ...styles.search, flex: 1, ...(isNarrow ? { fontSize: 16 } : {}) }}
+                  placeholder="Search in this chat"
+                  aria-label="Search in this chat"
+                  value={tq}
+                  onChange={(e) => {
+                    setTq(e.target.value);
+                    setHit(-1);
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && step(e.shiftKey ? 1 : -1)}
+                />
+                <span style={styles.hitCount}>
+                  {tneedle ? (threadHits.length ? (threadHits.indexOf(currentHit) + 1) + ' of ' + threadHits.length : 'None') : ''}
+                </span>
+                <button style={styles.stepButton} aria-label="Earlier match" disabled={!threadHits.length} onClick={() => step(-1)}>▲</button>
+                <button style={styles.stepButton} aria-label="Later match" disabled={!threadHits.length} onClick={() => step(1)}>▼</button>
+              </div>
             ) : null}
-            <div style={styles.threadHeader}>{activeConvo.name}</div>
-            <div style={styles.threadScroll}>
+            <div style={styles.threadScroll} ref={threadRef}>
               {activeMessages.map((m, index) => {
                 const isMe = m.senderUid === user?.uid;
                 const isEditing = editingMsgId === m.id;
@@ -307,7 +446,10 @@ export default function MessagesScreen() {
                 return (
                   <div
                     key={m.id}
+                    data-msg-id={m.id}
                     style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: 18, gap: 8, alignItems: 'flex-end' }}
+                    // On a phone there is no hover: a tap shows the actions.
+                    onClick={isNarrow ? () => setHoveredMsgId((prev) => (prev === m.id ? null : m.id)) : undefined}
                     onMouseEnter={() => setHoveredMsgId(m.id)}
                     onMouseLeave={() => setHoveredMsgId((prev) => (prev === m.id ? null : prev))}
                   >
@@ -356,12 +498,12 @@ export default function MessagesScreen() {
                         </div>
                       </div>
                     ) : (
-                      <div data-bubble="" style={{ ...styles.bubble, ...(isMe ? styles.bubbleMe : styles.bubbleOther) }}>
+                      <div data-bubble="" style={{ ...styles.bubble, ...(isMe ? styles.bubbleMe : styles.bubbleOther), ...(isNarrow ? { maxWidth: '82%', fontSize: 15 } : {}), ...(currentHit === m.id ? styles.bubbleHit : {}) }}>
                         {showSenderInfo ? (
                           <div style={{ ...styles.senderName, color: colorInConversation(m.senderUid, activeConvo.memberUids) }}>{m.senderName}</div>
                         ) : null}
 
-                        {m.text ? <div>{m.text}</div> : null}
+                        {m.text ? <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{tneedle ? highlight(m.text, tq, currentHit === m.id) : m.text}</div> : null}
                         {m.attachment ? (
                           <ChatAttachment
                             messageId={m.id}
@@ -404,7 +546,7 @@ export default function MessagesScreen() {
               </button>
               <textarea
                 ref={inputRef}
-                style={styles.input}
+                style={{ ...styles.input, ...(isNarrow ? { fontSize: 16 } : {}) }}
                 placeholder="Message…"
                 value={text}
                 rows={1}
@@ -485,8 +627,10 @@ const styles = {
     background: 'none',
     border: 'none',
     color: 'var(--text-secondary)',
-    fontSize: 14,
-    padding: '10px 4px',
+    fontSize: 24,
+    width: 44,
+    height: 44,
+    padding: 0,
     cursor: 'pointer',
     alignSelf: 'flex-start',
     WebkitTapHighlightColor: 'transparent',
@@ -545,6 +689,20 @@ const styles = {
   // Background only. The left border collided with the hover bar, so an active
   // row showed two markers stacked and neither read cleanly.
   convoRowActive: { background: 'rgba(255,255,255,0.09)' },
+  convoRowNarrow: { padding: '12px 8px', minHeight: 56 },
+  searchWrap: { padding: '0 12px 10px' },
+  search: { width: '100%', boxSizing: 'border-box', minHeight: 38, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13, padding: '0 12px', outline: 'none', fontFamily: 'inherit' },
+  resultsLabel: { margin: '10px 8px 4px', fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  resultText: { fontSize: 13, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+  mark: { background: 'rgba(34,211,238,0.28)', color: 'var(--text-primary)', borderRadius: 3, padding: '0 1px' },
+  markCurrent: { background: 'var(--neon)', color: '#0A0A0B', borderRadius: 3, padding: '0 1px' },
+  threadHeaderRow: { display: 'flex', alignItems: 'center', gap: 6, paddingRight: 12, borderBottom: '1px solid var(--border)' },
+  searchToggle: { width: 40, height: 40, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-inset)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 },
+  searchToggleOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
+  threadSearchBar: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderBottom: '1px solid var(--border)', background: '#16161A' },
+  hitCount: { fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', minWidth: 44, textAlign: 'center' },
+  stepButton: { width: 38, height: 38, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', flexShrink: 0 },
+  bubbleHit: { boxShadow: '0 0 0 2px var(--neon)' },
   convoName: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' },
   convoPreview: {
     fontSize: 12,
@@ -565,7 +723,7 @@ const styles = {
   },
   thread: { flex: 1, display: 'flex', flexDirection: 'column' },
   threadEmpty: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 14 },
-  threadHeader: { padding: '16px 20px 4px', fontSize: 16, fontWeight: 700 },
+  threadHeader: { padding: '14px 8px 12px 16px', fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   // Top padding leaves room for a reaction pill on the first message — it
   // overlaps the bubble's top corner, so a flush start clips it.
   threadScroll: { flex: 1, overflowY: 'auto', padding: '18px 20px 0' },

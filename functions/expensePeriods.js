@@ -132,6 +132,7 @@ async function buildPeriod(period) {
     const notes = [];
     if (r.voided) notes.push('VOIDED by ' + (r.voidedBy ?? '?') + ': ' + (r.voidedReason ?? ''));
     if (!r.accountCode) notes.push('Not coded yet (was "' + (r.categoryLabel ?? '—') + '")');
+    if (r.cateringLabel) notes.push('Billed to the customer: ' + r.cateringLabel);
     if (r.movedByName) notes.push('Moved here by ' + r.movedByName + ' from ' + (r.previousPeriodLabel ?? '?'));
     for (const c of r.recodes ?? []) notes.push('Account changed by ' + c.byName + ': ' + c.from + ' → ' + c.to);
     const row = ws1.addRow({

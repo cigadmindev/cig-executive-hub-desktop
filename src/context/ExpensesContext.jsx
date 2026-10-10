@@ -90,6 +90,8 @@ export function ExpensesProvider({ children }) {
               submitterLevel: data.submitterLevel ?? null,
               locationId: data.locationId ?? null,
               locationStage: data.locationStage ?? null,
+              // A cost added on a catering order or private event.
+              cateringLabel: data.cateringLabel ?? null,
               recodes: data.recodes ?? [],
               editHistory: data.editHistory ?? [],
               where: data.where ?? '',

@@ -353,3 +353,5 @@ Object.assign(exports, require('./dailyChecklists'));
 Object.assign(exports, require('./deviceRequests'));
 
 Object.assign(exports, require('./cateringIntake'));
+// "Needs a signature from…" on checklist items (10 Oct 2026).
+Object.assign(exports, require('./checklistSignatures'));

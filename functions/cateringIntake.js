@@ -175,7 +175,9 @@ exports.pullCateringEnquiries = onSchedule(
       const isPrivateEvent = e.kind === 'privateEvent';
       const who = e.name || 'Someone';
       const what = (isPrivateEvent ? 'Private event' : 'Catering') + (e.guests ? ' for ' + e.guests : '');
-      let team = e.locationId ? await R.cateringTeam(users, e.locationId) : [];
+      // Only Catering & Events claim them (10 Oct 2026) - so only they are
+      // asked to; the GM hears once it is confirmed, from the calendar.
+      let team = e.locationId ? await R.cateringClaimers(users, e.locationId) : [];
       const placed = e.locationId && team.length > 0;
       // No location, or nobody at that location to tell: admins, rather than
       // everyone or no one.
@@ -323,7 +325,7 @@ exports.pullCateringEnquiries = onSchedule(
 // Claimed - it is no longer waiting on the rest of the location's team.
 // Moved by an admin - whoever is on it is told what changed and why; if
 // nobody has claimed it, the location's catering team is.
-const STEP = { new: 'New', talking: 'Talking', confirmed: 'Confirmed', done: 'Done', lost: 'Lost' };
+const STEP = { new: 'New', talking: 'Talking', confirmed: 'Confirmed', done: 'Done', lost: "Didn't book" };
 exports.onCateringEnquiryUpdated = onDocumentUpdated({ document: 'cateringEnquiries/{id}', secrets: ['RESEND_API_KEY'] }, async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
@@ -335,7 +337,7 @@ exports.onCateringEnquiryUpdated = onDocumentUpdated({ document: 'cateringEnquir
     // Whoever claimed it; if nobody, the location's team; with no location
     // or nobody there, admins (S12) - never everyone.
     let people = after.ownerUid ? users.filter((u) => u.uid === after.ownerUid) : [];
-    if (!people.length && after.locationId) people = await R.cateringTeam(users, after.locationId);
+    if (!people.length && after.locationId) people = await R.cateringClaimers(users, after.locationId);
     if (!people.length) people = R.admins(users);
     await notifyPeople(
       people,

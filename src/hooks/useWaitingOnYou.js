@@ -8,6 +8,7 @@ import { useWorkOrders } from '../context/WorkOrdersContext';
 import { useIntegrationRequests } from '../context/IntegrationRequestsContext';
 import { useCatering } from '../context/CateringContext';
 import { useExpenses } from '../context/ExpensesContext';
+import { useSchedule } from '../context/ScheduleContext';
 import { atLeast, accessLevel } from '../data/accessMatrix';
 import { brandIdForTarget } from '../data/mockData';
 import { fmtDay } from '../lib/dates';
@@ -29,6 +30,7 @@ export function useWaitingOnYou() {
   const { requests: helpRequests, handlesRequests } = useIntegrationRequests();
   const { enquiries } = useCatering();
   const { periods, reports, seesAll } = useExpenses();
+  const { entries } = useSchedule();
 
   return useMemo(() => {
     if (!user) return [];
@@ -57,22 +59,30 @@ export function useWaitingOnYou() {
         .forEach((r) => add('Access', (r.userName ?? 'Someone') + ' · ' + (r.targetLabel ?? ''), 'Decide', '/access-requests', r.timestamp ?? 0));
     }
     (getMyQueue?.() ?? []).forEach((o) => add('Signature', o.title, 'Sign · from ' + (o.uploadedByName ?? ''), '/work-orders', o.createdAt ?? 0));
+    // A checklist item someone finished and asked you to sign (10 Oct 2026).
+    (entries ?? [])
+      .filter((e) => e.signature?.status === 'waiting' && e.signature.requestedOfUid === user.uid && !e.done)
+      .forEach((e) => add('Signature', e.title, 'Sign · from ' + (e.signature.requestedByName ?? ''), `/brand/${brandIdForTarget(e.locationId) ?? e.brandId}/location/${e.locationId}/opening-checklist`, e.signature.requestedAt ?? 0));
     if (handlesRequests) {
       (helpRequests ?? [])
         .filter((r) => r.status !== 'done' && !r.respondedAt)
         .forEach((r) => add('Systems Help', (r.system ?? 'Request') + ' · ' + (r.createdByName ?? ''), 'Answer', '/integration-requests', r.createdAt ?? 0));
     }
-    if (isAdmin || atLeast(user, 'catering', 'claim')) {
+    // Only Catering & Events managers claim (10 Oct 2026) - never admins.
+    if (user.job === 'Catering & Events') {
       (enquiries ?? [])
         .filter((e) => !e.ownerUid && (e.status ?? 'new') === 'new')
         .forEach((e) => add('Catering', (e.name ?? 'New enquiry') + (e.guests ? ' · ' + e.guests : ''), 'Claim · ' + (e.locationName ?? ''), '/catering', e.createdAt ?? 0));
     }
-    // Expenses: the catch-up week for anyone who submits receipts, and an
+    // Expenses: the last three days of a period for anyone who submits
+    // receipts - a receipt is dated the day it is added, so anything not in
+    // by the end goes into the next period (10 Oct 2026) - and an
     // uncollected period report for finance.
     if (isAdmin || accessLevel(user, 'expenses') !== 'none') {
-      const today = new Date().toISOString().slice(0, 10);
-      const closing = (periods ?? []).find((p) => p.endKey < today && today <= p.windowEndKey);
-      if (closing) add('Expenses', closing.label + ' receipts due ' + fmt(new Date(closing.windowEndKey + 'T12:00:00').getTime()), 'Add any receipts from that period', '/expenses', -1);
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+      const inThree = new Date(Date.now() + 3 * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+      const ending = (periods ?? []).find((p) => p.startKey <= today && today <= p.endKey && p.endKey <= inThree);
+      if (ending) add('Expenses', ending.label + ' ends ' + fmt(new Date(ending.endKey + 'T12:00:00').getTime()), 'Add any receipts you still have', '/expenses', -1);
     }
     if (seesAll) {
       (reports ?? [])
@@ -80,5 +90,5 @@ export function useWaitingOnYou() {
         .forEach((r) => add('Report', r.label + ' is ready', 'Download', '/expenses', -2));
     }
     return out.sort((a, b) => a.sort - b.sort);
-  }, [user, timeOffRequests, eventRequests, deviceRequests, accessRequests, getMyQueue, helpRequests, handlesRequests, enquiries, periods, reports, seesAll]);
+  }, [user, timeOffRequests, eventRequests, deviceRequests, accessRequests, getMyQueue, helpRequests, handlesRequests, enquiries, periods, reports, seesAll, entries]);
 }
