@@ -10,8 +10,22 @@ import { useAuth } from './AuthContext';
 // collection, which Finance looks after in the Hub. Receipts filed before
 // then keep their old category label until they are given an account.
 //
-// The one account that asks who was there.
-export const ATTENDEES_ACCOUNT = '7255';
+// Executives don't see account numbers: they pick one of Mark's six (10 Oct
+// 2026) and the server files it under Sam's account for it
+// (functions/expenseAccounts.js holds the mapping). Same keys and labels here.
+export const EXEC_CATEGORIES = [
+  ['airfare', 'Airfare'],
+  ['autoRental', 'Auto rental & related'],
+  ['hotel', 'Hotel'],
+  ['meals', 'Meals / Entertainment'],
+  ['officeSupplies', 'Office / Other supplies'],
+  ['misc', 'Miscellaneous'],
+];
+
+// Who files from a restaurant or Catering & Events. They keep Sam's full
+// account list; everyone else gets Mark's six. Matches the server.
+const STORE_JOBS = ['General Manager', 'Assistant Manager', 'Kitchen Manager', 'Executive Chef', 'Sous Chef', 'Catering & Events'];
+export const isStoreLevel = (user) => STORE_JOBS.includes(user?.job);
 
 const ExpensesContext = createContext(undefined);
 const COLLECTION = 'expenseReceipts';
@@ -24,6 +38,9 @@ export function ExpensesProvider({ children }) {
   const { user } = useAuth();
 
   const seesAll = user?.role === 'admin' || user?.job === 'Financials';
+  // The COO also sees the restaurants' and Catering & Events' receipts -
+  // never another executive's (10 Oct 2026).
+  const seesStores = !seesAll && user?.job === 'COO';
 
   useEffect(() => {
     if (!user) {
@@ -32,18 +49,30 @@ export function ExpensesProvider({ children }) {
       return;
     }
 
-    // Two different queries rather than fetching everything and filtering in
-    // the app: the Firestore rules refuse to return other people's receipts,
-    // so an unfiltered listener would simply fail for most accounts.
+    // Separate queries rather than fetching everything and filtering in the
+    // app: the Firestore rules refuse to return receipts you may not see, so
+    // an unfiltered listener would simply fail for most accounts. The COO
+    // has two - his own, and the store receipts - merged here.
     const base = collection(db, COLLECTION);
-    const q = seesAll
-      ? query(base, orderBy('dateSpent', 'desc'))
-      : query(base, where('submittedByUid', '==', user.uid), orderBy('dateSpent', 'desc'));
+    const queries = seesAll
+      ? [query(base, orderBy('dateSpent', 'desc'))]
+      : [
+          query(base, where('submittedByUid', '==', user.uid), orderBy('dateSpent', 'desc')),
+          ...(seesStores ? [query(base, where('submitterLevel', '==', 'store'))] : []),
+        ];
+    const parts = queries.map(() => null);
+    const publish = () => {
+      if (parts.some((p) => p === null)) return;
+      const byId = new Map();
+      parts.flat().forEach((r) => byId.set(r.id, r));
+      setReceipts([...byId.values()].sort((a, b) => (b.dateSpent ?? '').localeCompare(a.dateSpent ?? '')));
+      setLoading(false);
+    };
 
-    const unsubscribe = onSnapshot(
+    const unsubs = queries.map((q, i) => onSnapshot(
       q,
       (snapshot) => {
-        setReceipts(
+        parts[i] = (
           snapshot.docs.map((d) => {
             const data = d.data();
             return {
@@ -56,8 +85,11 @@ export function ExpensesProvider({ children }) {
               accountCode: data.accountCode ?? null,
               accountName: data.accountName ?? null,
               accountHeading: data.accountHeading ?? null,
-              attendees: data.attendees ?? null,
+              execCategory: data.execCategory ?? null,
+              execCategoryLabel: data.execCategoryLabel ?? null,
+              submitterLevel: data.submitterLevel ?? null,
               locationId: data.locationId ?? null,
+              locationStage: data.locationStage ?? null,
               recodes: data.recodes ?? [],
               editHistory: data.editHistory ?? [],
               where: data.where ?? '',
@@ -82,18 +114,19 @@ export function ExpensesProvider({ children }) {
             };
           })
         );
-        setLoading(false);
+        publish();
       },
       // Clears the spinner and says why. Stopping the spinner without
       // logging is the silent-failure pattern this pass is removing.
       (err) => {
         console.error('[Expenses listener] ' + err.code + ': ' + err.message);
-        setLoading(false);
+        parts[i] = [];
+        publish();
       }
-    );
+    ));
 
-    return unsubscribe;
-  }, [user?.uid, seesAll]);
+    return () => unsubs.forEach((u) => u());
+  }, [user?.uid, seesAll, seesStores]);
 
 
   // Daily reports. Only finance and admins can read the collection at all -
@@ -232,7 +265,7 @@ export function ExpensesProvider({ children }) {
   // Takes a File straight from an <input type="file">, which uploadBytes
   // accepts as-is. The mobile version has to fetch its local URI into a blob
   // first; same destination, different starting point.
-  const submitReceipt = async ({ file, amountCents, accountCode, attendees, locationId, where: whereText, reason, dateSpent }) => {
+  const submitReceipt = async ({ file, amountCents, execCategory, accountCode, locationId, where: whereText, reason }) => {
     recordDid('You submitted a receipt', 'Submitted from the Hub', '/expenses');
     if (!user) throw new Error('You must be signed in.');
 
@@ -242,18 +275,17 @@ export function ExpensesProvider({ children }) {
     const path = `receipts/${user.uid}/${fileName}`;
     await uploadBytes(storageRef(storage, path), file);
 
-    // The server stamps editableUntil from its own clock and validates every
-    // field. Writing the record here would let a device decide its own
-    // deadline.
+    // The server dates it today, stamps editableUntil from its own clock and
+    // validates every field. Writing the record here would let a device
+    // decide its own date and deadline.
     const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'submitExpenseReceipt');
     const res = await fn({
       amountCents,
-      accountCode,
-      attendees: attendees ?? null,
+      execCategory: execCategory ?? null,
+      accountCode: accountCode ?? null,
       locationId: locationId ?? null,
       where: whereText,
       reason,
-      dateSpent,
       storagePath: path,
     });
     return res.data;
@@ -312,6 +344,7 @@ export function ExpensesProvider({ children }) {
       receipts,
       reports,
       seesAll,
+      seesStores,
       loading,
       submitReceipt,
       editReceipt,
@@ -328,7 +361,7 @@ export function ExpensesProvider({ children }) {
       periods,
       hasUncollectedReport,
     }),
-    [receipts, reports, periods, accounts, seesAll, loading, user?.uid]
+    [receipts, reports, periods, accounts, seesAll, seesStores, loading, user?.uid]
   );
 
   return <ExpensesContext.Provider value={value}>{children}</ExpensesContext.Provider>;
@@ -389,10 +422,3 @@ export function periodRange(p) {
   };
   return p ? fmt(p.startKey) + ' – ' + fmt(p.endKey) : '';
 }
-
-// "Friday, Oct 30"
-export function prettyDay(key) {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' });
-}
-

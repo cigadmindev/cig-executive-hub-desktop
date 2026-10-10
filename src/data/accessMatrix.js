@@ -43,7 +43,7 @@ const NO_FIN = ALL_FOLDERS.filter((f) => f !== 'financials');
 // Rows in display order. Several job titles share a row.
 export const ROWS = [
   { id: 'owner', label: 'Owner · CEO', jobs: ['Owner', 'CEO'], d: r('all', ALL, 'tick', 'full', 'view', 'view', 'full', 'team', 'own', 'full', 'view', 'ask', 'ask', 'raise', 'full', 'post', 'full') },
-  { id: 'coo', label: 'COO', jobs: ['COO'], d: r('all', ALL, 'edit', 'full', 'full', 'full', 'full', 'approve', 'own', 'full', 'view', 'approve', 'approve', 'raise', 'full', 'post', 'full', 'Approves time off, events, devices; gets the daily receipts email') },
+  { id: 'coo', label: 'COO', jobs: ['COO'], d: r('all', ALL, 'edit', 'full', 'full', 'full', 'full', 'approve', 'own', 'full', 'view', 'approve', 'approve', 'raise', 'full', 'post', 'full', 'Approves time off, events, devices; sees the restaurants\' receipts (not executives\') and gets them by email at 7am') },
   { id: 'financials', label: 'Financials', jobs: ['Financials'], d: r('all', ['financials'], 'view', 'full', 'none', 'none', 'full', 'team', 'all', 'own', 'none', 'none', 'ask', 'raise', 'none', 'post', 'full') },
   { id: 'culinary', label: 'Culinary Dir. / Mgr', jobs: ['Culinary Director', 'Culinary Manager'], d: r('all', ALL, 'edit', 'full', 'view', 'view', 'full', 'team', 'own', 'own', 'view', 'ask', 'ask', 'raise', 'read', 'post', 'full') },
   { id: 'beverage', label: 'Beverage Manager', jobs: ['Beverage Manager'], d: r('all', 'all', 'edit', 'full', 'view', 'view', 'full', 'team', 'own', 'own', 'view', 'ask', 'ask', 'raise', 'read', 'post', 'full') },

@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import DatePickerField from '../components/DatePickerField';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
 import {
   useExpenses,
-  ATTENDEES_ACCOUNT,
+  EXEC_CATEGORIES,
+  isStoreLevel,
   formatAmount,
   parseAmount,
   centralDateKey,
@@ -18,11 +18,17 @@ import { modalBackdrop, modalSurface } from '../theme/modal';
 import { plainError } from '../lib/errors';
 import { fmtDayKey, fmtDayTime } from '../lib/dates';
 
-// Expenses (redesign approved 9 Oct 2026). Receipts for things executives
-// have already paid for, filed under Sam's accounts, sorted by location
+// Expenses (redesign approved 9 Oct 2026, round 2 on 10 Oct). Receipts for
+// things already paid for, filed under Sam's accounts, sorted by location
 // (Corporate unless one is picked), and sent to Finance in each period's
 // report. Built on the shared request-page layout: a list on the left, the
 // selected receipt on the right, the same as every other request page.
+//
+// Who sees what: you, your own receipts. Executives pick one of Mark's six
+// and never see an account number; store managers and Catering & Events
+// pick from Sam's list. The COO also sees every store receipt, never an
+// executive's. Finance and admins see everything, with the account, and
+// whether the location was opening or operating.
 
 const NOT_CODED = 'Not coded yet';
 const money = (cents) => '$' + Number((cents ?? 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -32,7 +38,7 @@ export default function ExpensesScreen() {
   const { user } = useAuth();
   const { getByBrand } = useCustomLocations();
   const {
-    receipts, reports, seesAll, loading, periods, accounts,
+    receipts, reports, seesAll, seesStores, loading, periods, accounts,
     submitReceipt, editReceipt, recodeReceipt, voidReceipt, isEditable, getImageUrls,
     downloadReport, rebuildPeriod, movePeriod, addAccount, setAccountRetired,
   } = useExpenses();
@@ -42,7 +48,9 @@ export default function ExpensesScreen() {
   const today = centralDateKey(new Date());
   const currentPeriod = previewPeriod(periods, today, today);
   const lastPeriod = currentPeriod ? [...periods].reverse().find((p) => p.endKey < currentPeriod.startKey) ?? null : null;
-  const catchUp = periods.find((p) => p.endKey < today && today <= p.windowEndKey) ?? null;
+  const storeUser = isStoreLevel(user);
+  // Sees other people's receipts: Finance and admins all; the COO the stores'.
+  const seesOthers = seesAll || seesStores;
 
   // Every location in the Hub, open or opening, after Corporate.
   const locations = useMemo(
@@ -59,7 +67,8 @@ export default function ExpensesScreen() {
   const [place, setPlace] = useState('all');
   const [selectedId, setSelectedId] = useState(null);
 
-  const mine = seesAll ? receipts : receipts.filter((r) => r.submittedByUid === user?.uid);
+  const mine = seesOthers ? receipts : receipts.filter((r) => r.submittedByUid === user?.uid);
+  const isMine = (r) => r.submittedByUid === user?.uid;
   const inPeriod = (p) => (r) => p && r.periodId === p.id;
   const filters = seesAll
     ? [
@@ -67,6 +76,13 @@ export default function ExpensesScreen() {
         ['uncoded', NOT_CODED, (r) => !r.accountCode && !r.voided],
         ['last', lastPeriod ? lastPeriod.label : 'Last period', (r) => inPeriod(lastPeriod)(r) && !r.voided],
         ['voided', 'Voided', (r) => r.voided],
+        ['all', 'All', () => true],
+      ]
+    : seesStores
+    ? [
+        ['current', 'This period', (r) => inPeriod(currentPeriod)(r) && !r.voided],
+        ['last', 'Last period', (r) => inPeriod(lastPeriod)(r) && !r.voided],
+        ['mine', 'Mine', isMine],
         ['all', 'All', () => true],
       ]
     : [
@@ -101,6 +117,13 @@ export default function ExpensesScreen() {
   }, [idKey]);
 
   const accountLabel = (r) => (r.accountCode ? r.accountCode + ' · ' + r.accountName : null);
+  // What a receipt was for, as this person should see it. Finance and store
+  // managers get Sam's account; an executive gets the one of Mark's six they
+  // chose - no account numbers (Mark, 10 Oct); the COO the account's name.
+  const forLabel = (r) =>
+    seesAll || (storeUser && isMine(r)) ? accountLabel(r) : r.execCategoryLabel ?? r.accountName ?? null;
+  const stagePill = (r) =>
+    r.locationStage === 'opening' ? <Pill tone="amber">Opening</Pill> : r.locationStage === 'operating' ? <Pill tone="grey">Operating</Pill> : null;
   const statusCell = (r) =>
     r.voided ? <Pill tone="red">Voided</Pill> : !r.accountCode ? (
       <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -108,14 +131,23 @@ export default function ExpensesScreen() {
         {r.categoryLabel ? <span style={styles.muted}>was "{r.categoryLabel}"</span> : null}
       </span>
     ) : (
-      <span style={{ fontWeight: 700 }}>{accountLabel(r)}</span>
+      <span style={{ fontWeight: 700 }}>{forLabel(r)}</span>
     );
   const columns = [
-    { key: 'date', label: 'Spent', render: (r) => <span style={styles.nowrap}>{fmtDayKey(r.dateSpent)}</span> },
-    ...(seesAll ? [{ key: 'who', label: 'Who', render: (r) => r.submittedByName }] : []),
-    { key: 'account', label: 'Account', render: statusCell },
-    ...(seesAll ? [] : [{ key: 'where', label: 'Where', render: (r) => <span style={styles.muted}>{r.where}</span> }]),
-    { key: 'loc', label: 'Location', render: (r) => <span style={styles.muted}>{r.chargeToName ?? 'Corporate'}</span> },
+    { key: 'date', label: 'Date', render: (r) => <span style={styles.nowrap}>{fmtDayKey(r.dateSpent)}</span> },
+    ...(seesOthers ? [{ key: 'who', label: 'Who', render: (r) => r.submittedByName }] : []),
+    { key: 'account', label: seesAll || storeUser ? 'Account' : 'For', render: statusCell },
+    ...(seesOthers ? [] : [{ key: 'where', label: 'Where', render: (r) => <span style={styles.muted}>{r.where}</span> }]),
+    {
+      key: 'loc',
+      label: 'Location',
+      render: (r) => (
+        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={styles.muted}>{r.chargeToName ?? 'Corporate'}</span>
+          {seesAll ? stagePill(r) : null}
+        </span>
+      ),
+    },
     {
       key: 'amount',
       label: 'Amount',
@@ -146,6 +178,11 @@ export default function ExpensesScreen() {
   // ---------------------------------------------------------------- top of page
   const myCurrent = receipts.filter((r) => r.submittedByUid === user?.uid && currentPeriod && r.periodId === currentPeriod.id && !r.voided);
   const allCurrent = receipts.filter((r) => currentPeriod && r.periodId === currentPeriod.id && !r.voided);
+  // The COO's cards count the store receipts only, not his own.
+  const storeCurrent = allCurrent.filter((r) => r.submitterLevel === 'store');
+  const topPlace = Object.entries(
+    storeCurrent.reduce((o, r) => ({ ...o, [r.chargeToName ?? 'Corporate']: (o[r.chargeToName ?? 'Corporate'] ?? 0) + (r.amountCents ?? 0) }), {})
+  ).sort((a, b) => b[1] - a[1])[0] ?? null;
   const uncodedCount = receipts.filter((r) => !r.accountCode && !r.voided).length;
   const sum = (list) => list.reduce((n, r) => n + (r.amountCents ?? 0), 0);
 
@@ -182,9 +219,23 @@ export default function ExpensesScreen() {
       {!currentPeriod && periods.length > 0 ? (
         <div style={styles.warn}>Today is outside the fiscal calendar loaded in the Hub, so receipts can't be filed yet. Finance needs to load the next year.</div>
       ) : null}
-      {catchUp ? (
-        <div style={styles.warn}>
-          {catchUp.label} has ended. Receipts from {periodRange(catchUp)} are due by <strong>{fmtDayKey(catchUp.windowEndKey)}</strong> and go into {catchUp.label} on their own.
+      {seesStores ? (
+        <div style={styles.cards}>
+          <div style={styles.card}>
+            <p style={styles.kicker}>{currentPeriod ? currentPeriod.label + ' so far · stores' : 'This period · stores'}</p>
+            <p style={styles.big}>{money(sum(storeCurrent))}</p>
+            <p style={styles.small}>{storeCurrent.length} receipt{storeCurrent.length === 1 ? '' : 's'}{currentPeriod ? ' · ' + periodRange(currentPeriod) : ''}</p>
+          </div>
+          <div style={styles.card}>
+            <p style={styles.kicker}>Biggest location</p>
+            <p style={styles.big}>{topPlace ? topPlace[0] : '—'}</p>
+            <p style={styles.small}>{topPlace ? money(topPlace[1]) + ' this period' : 'No store receipts yet this period.'}</p>
+          </div>
+          <div style={styles.card}>
+            <p style={styles.kicker}>Your 7am email</p>
+            <p style={{ ...styles.big, fontSize: 15 }}>Same receipts as this page</p>
+            <p style={styles.small}>Stores and Catering &amp; Events only</p>
+          </div>
         </div>
       ) : null}
       {seesAll ? (
@@ -222,7 +273,7 @@ export default function ExpensesScreen() {
             )}
           </div>
         </div>
-      ) : (
+      ) : seesStores ? null : (
         <div style={styles.bar}>
           <div style={{ flex: '1 1 240px', minWidth: 0 }}>
             <p style={styles.kicker}>This period</p>
@@ -235,7 +286,7 @@ export default function ExpensesScreen() {
           </div>
         </div>
       )}
-      {seesAll ? (
+      {seesOthers ? (
         <div style={styles.toolsRow}>
           <label style={styles.selectLabel}>
             Person
@@ -289,20 +340,27 @@ export default function ExpensesScreen() {
         </button>
         <div style={{ minWidth: 0 }}>
           <p style={{ ...d.kicker, color: selected.voided ? '#F87171' : selected.accountCode ? 'var(--text-tertiary)' : '#E8B93B' }}>
-            {selected.voided ? 'Voided' : selected.accountCode ? selected.accountHeading || 'Account' : NOT_CODED}
+            {selected.voided ? 'Voided' : !selected.accountCode ? NOT_CODED : seesAll ? selected.accountHeading || 'Account' : 'Receipt'}
           </p>
           <p style={styles.amount}>{money(selected.amountCents)}</p>
-          <p style={styles.small}>{accountLabel(selected) ?? (selected.categoryLabel ? 'was "' + selected.categoryLabel + '"' : NOT_CODED)}</p>
+          <p style={styles.small}>{forLabel(selected) ?? (selected.categoryLabel ? 'was "' + selected.categoryLabel + '"' : NOT_CODED)}</p>
         </div>
       </div>
       <div style={{ marginTop: 14 }}>
         {[
-          ['Spent', fmtDayKey(selected.dateSpent)],
-          ...(seesAll ? [['Who', selected.submittedByName]] : []),
+          ['Date', fmtDayKey(selected.dateSpent)],
+          ...(seesOthers ? [['Who', selected.submittedByName]] : []),
+          ...(seesAll && selected.execCategoryLabel ? [['Chosen as', selected.execCategoryLabel]] : []),
           ['Where', selected.where],
           ['Why', selected.reason],
-          ...(selected.attendees ? [['Who was there', selected.attendees]] : []),
-          ['Location', selected.chargeToName ?? 'Corporate'],
+          [
+            'Location',
+            seesAll && selected.locationStage ? (
+              <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>{selected.chargeToName}{stagePill(selected)}</span>
+            ) : (
+              selected.chargeToName ?? 'Corporate'
+            ),
+          ],
           ['Period', selected.periodLabel ?? '—'],
           ['Filed', fmtDayTime(selected.submittedAt)],
         ].map(([k, v]) => (
@@ -323,6 +381,8 @@ export default function ExpensesScreen() {
         <p style={{ ...styles.small, marginTop: 10 }}>This period's report has been made. Ask Finance if something needs changing.</p>
       ) : selected.submittedByUid === user?.uid && !selected.voided ? (
         <p style={{ ...styles.small, marginTop: 10 }}>You can edit or void it until the period's report is made.</p>
+      ) : seesStores && !isMine(selected) ? (
+        <p style={{ ...styles.small, marginTop: 10 }}>View only. Sam in Finance handles account changes.</p>
       ) : null}
 
       {canFinance ? (
@@ -364,7 +424,13 @@ export default function ExpensesScreen() {
     <>
       <RequestPage
         title="Expenses"
-        subtitle={seesAll ? "Every executive's receipts, coded to Sam's accounts, and each period's report." : "Receipts for things you've already paid for. They go to Finance in each period's report."}
+        subtitle={
+          seesAll
+            ? "Everyone's receipts, coded to Sam's accounts, and each period's report."
+            : seesStores
+            ? "Receipts from the restaurants and Catering & Events, plus your own. Other executives' receipts aren't shown here."
+            : "Receipts for things you've already paid for. They go to Finance in each period's report."
+        }
         actionLabel="+ Add receipt"
         onAction={() => setForm({ mode: 'add' })}
         filters={filters.map(([key, label, test]) => ({ key, label, count: mine.filter(test).filter(byPerson).filter(byPlace).length }))}
@@ -382,10 +448,10 @@ export default function ExpensesScreen() {
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>
-                {r.voided ? 'Voided' : r.accountName ?? NOT_CODED}
+                {r.voided ? 'Voided' : (seesAll || storeUser ? r.accountName : r.execCategoryLabel ?? r.accountName) ?? NOT_CODED}
               </span>
               <span style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-                {fmtDayKey(r.dateSpent)} · {seesAll ? r.submittedByName : r.where}
+                {fmtDayKey(r.dateSpent)} · {seesOthers ? r.submittedByName : r.where}
               </span>
             </span>
             <span style={{ fontSize: 15, fontWeight: 800, ...(r.voided ? { textDecoration: 'line-through', color: 'var(--text-tertiary)' } : {}) }}>{money(r.amountCents)}</span>
@@ -404,6 +470,7 @@ export default function ExpensesScreen() {
           locations={locations}
           periods={periods}
           myReceipts={receipts.filter((r) => r.submittedByUid === user?.uid)}
+          storeUser={storeUser}
           notify={notify}
           onClose={() => setForm(null)}
           onSave={async (fields, file) => {
@@ -459,7 +526,7 @@ export default function ExpensesScreen() {
               <p style={styles.small}>{viewing.imageDeletedAt ? 'The photo was removed after ninety days. The record is still here.' : 'The photo is loading or unavailable.'}</p>
             )}
             <p style={{ ...styles.amount, marginTop: 12 }}>{money(viewing.amountCents)}</p>
-            <p style={styles.small}>{accountLabel(viewing) ?? NOT_CODED} · {viewing.where} · {fmtDayKey(viewing.dateSpent)}</p>
+            <p style={styles.small}>{forLabel(viewing) ?? NOT_CODED} · {viewing.where} · {fmtDayKey(viewing.dateSpent)}</p>
             <div style={{ ...d.actions, justifyContent: 'flex-end' }}>
               <button style={d.ghost} onClick={() => setViewing(null)}>Close</button>
             </div>
@@ -563,16 +630,38 @@ function AccountPicker({ accounts, value, onChange, recent }) {
   );
 }
 
-function ReceiptForm({ mode, receipt, accounts, locations, periods, myReceipts, notify, onClose, onSave }) {
+// Mark's six, as big buttons. No account numbers: the server files each one
+// under the account Sam wants.
+function ExecChoices({ value, onChange }) {
+  return (
+    <div style={styles.choiceGrid} role="radiogroup" aria-label="What was it for?">
+      {EXEC_CATEGORIES.map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          role="radio"
+          aria-checked={value === key}
+          style={{ ...styles.choice, ...(value === key ? styles.choiceOn : {}) }}
+          onClick={() => onChange(key)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ReceiptForm({ mode, receipt, accounts, locations, periods, myReceipts, storeUser, notify, onClose, onSave }) {
   const editing = mode === 'edit';
   const today = centralDateKey(new Date());
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [amount, setAmount] = useState(editing ? formatAmount(receipt.amountCents) : '');
-  const [dateSpent, setDateSpent] = useState(editing ? receipt.dateSpent : today);
+  // Store managers pick Sam's account; executives one of Mark's six. On an
+  // edit, an executive who picks nothing keeps what it is filed under.
   const [accountCode, setAccountCode] = useState(editing ? receipt.accountCode ?? '' : '');
-  const [attendees, setAttendees] = useState(editing ? receipt.attendees ?? '' : '');
+  const [execCategory, setExecCategory] = useState(editing ? receipt.execCategory ?? null : null);
   const [where, setWhere] = useState(editing ? receipt.where : '');
   const [reason, setReason] = useState(editing ? receipt.reason : '');
   // A receipt filed under the old charge-to list ("General", "Events"…)
@@ -599,8 +688,10 @@ function ReceiptForm({ mode, receipt, accounts, locations, periods, myReceipts, 
   }, [myReceipts]);
 
   const cents = parseAmount(amount);
-  const period = previewPeriod(periods, dateSpent, today);
-  const ready = (editing || file) && cents !== null && accountCode && where.trim().length >= 2 && reason.trim().length >= 2 && dateSpent;
+  // Dated the day it is filed - no date to pick (Brenner, 10 Oct).
+  const period = editing ? null : previewPeriod(periods, today, today);
+  const chosen = storeUser ? accountCode : execCategory || (editing && receipt.accountCode);
+  const ready = (editing || file) && cents !== null && chosen && where.trim().length >= 2 && reason.trim().length >= 2;
 
   const save = async () => {
     if (!ready) return;
@@ -609,9 +700,7 @@ function ReceiptForm({ mode, receipt, accounts, locations, periods, myReceipts, 
       await onSave(
         {
           amountCents: cents,
-          dateSpent,
-          accountCode,
-          attendees: accountCode === ATTENDEES_ACCOUNT ? attendees.trim() : null,
+          ...(storeUser ? { accountCode } : { execCategory: execCategory ?? null }),
           where: where.trim(),
           reason: reason.trim(),
           locationId: locationId === 'corporate' ? null : locationId,
@@ -659,37 +748,34 @@ function ReceiptForm({ mode, receipt, accounts, locations, periods, myReceipts, 
           }}
         />
 
-        <div style={styles.twoCol}>
-          <label style={styles.fieldLabel}>
-            Amount
-            <input
-              style={styles.input}
-              value={amount}
-              inputMode="decimal"
-              placeholder="0.00"
-              onChange={(e) => {
-                const cleaned = e.target.value.replace(/[^0-9.]/g, '');
-                const parts = cleaned.split('.');
-                setAmount(parts.length > 1 ? `${parts[0]}.${parts.slice(1).join('').slice(0, 2)}` : cleaned);
-              }}
-            />
-          </label>
-          <div style={styles.fieldLabel}>
-            Date spent
-            <DatePickerField value={dateSpent} onChange={setDateSpent} max={today} placeholder="Date spent" />
-          </div>
-        </div>
+        <label style={styles.fieldLabel}>
+          Amount
+          <input
+            style={styles.input}
+            value={amount}
+            inputMode="decimal"
+            placeholder="0.00"
+            onChange={(e) => {
+              const cleaned = e.target.value.replace(/[^0-9.]/g, '');
+              const parts = cleaned.split('.');
+              setAmount(parts.length > 1 ? `${parts[0]}.${parts.slice(1).join('').slice(0, 2)}` : cleaned);
+            }}
+          />
+        </label>
 
         <div style={styles.fieldLabel}>
           What was it for?
-          <AccountPicker accounts={accounts} value={accountCode} onChange={setAccountCode} recent={recent} />
+          {storeUser ? (
+            <AccountPicker accounts={accounts} value={accountCode} onChange={setAccountCode} recent={recent} />
+          ) : (
+            <>
+              <ExecChoices value={execCategory} onChange={setExecCategory} />
+              {editing && !receipt.execCategory && receipt.accountCode && !execCategory ? (
+                <span style={{ ...styles.small, fontWeight: 400 }}>Filed as {receipt.accountName}. Pick one only to change it.</span>
+              ) : null}
+            </>
+          )}
         </div>
-        {accountCode === ATTENDEES_ACCOUNT ? (
-          <label style={styles.fieldLabel}>
-            Who was there
-            <input style={styles.input} value={attendees} onChange={(e) => setAttendees(e.target.value)} placeholder="Names, e.g. a vendor rep and the GM" />
-          </label>
-        ) : null}
         <label style={styles.fieldLabel}>
           Where
           <input style={styles.input} value={where} onChange={(e) => setWhere(e.target.value)} placeholder="The business on the receipt" />
@@ -706,7 +792,11 @@ function ReceiptForm({ mode, receipt, accounts, locations, periods, myReceipts, 
             {locations.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
           </select>
         </label>
-        {period ? <p style={styles.small}>Goes into {period.label} ({periodRange(period)}). Finance gets it in that period's report.</p> : null}
+        {editing ? (
+          <p style={styles.small}>Dated {fmtDayKey(receipt.dateSpent)}. Stays in {receipt.periodLabel ?? 'its period'}.</p>
+        ) : (
+          <p style={styles.small}>Dated today, {fmtDayKey(today)}.{period ? ' Goes into ' + period.label + '.' : ''}</p>
+        )}
 
         <div style={styles.modalButtons}>
           <button style={d.ghost} onClick={onClose} disabled={saving}>Cancel</button>
@@ -743,7 +833,7 @@ function MoveModal({ receipt, periods, busy, onClose, onMove }) {
       <div style={{ ...styles.modal, width: 'min(420px, 100%)' }} onClick={(e) => e.stopPropagation()}>
         <h2 style={styles.modalTitle}>Move to another period</h2>
         <p style={styles.small}>
-          {money(receipt.amountCents)} · {receipt.submittedByName} · spent {fmtDayKey(receipt.dateSpent)}. Now in {receipt.periodLabel ?? 'no period'}. A report already made on either side is marked as needing a rebuild.
+          {money(receipt.amountCents)} · {receipt.submittedByName} · dated {fmtDayKey(receipt.dateSpent)}. Now in {receipt.periodLabel ?? 'no period'}. A report already made on either side is marked as needing a rebuild.
         </p>
         <select style={styles.input} value={to} onChange={(e) => setTo(e.target.value)}>
           {periods.slice().reverse().map((p) => <option key={p.id} value={p.id}>{p.label} ({periodRange(p)})</option>)}
@@ -854,7 +944,9 @@ const styles = {
   modalTitle: { margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' },
   close: { background: 'none', border: 'none', color: 'var(--accent)', width: 32, height: 32, borderRadius: 8, fontSize: 16, cursor: 'pointer' },
   modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 },
-  twoCol: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 },
+  choiceGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 },
+  choice: { minHeight: 48, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '6px 10px' },
+  choiceOn: { border: '1px solid var(--neon)', background: 'rgba(34,211,238,0.1)', color: 'var(--neon)', fontWeight: 800 },
   fieldLabel: { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' },
   input: { width: '100%', boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 11px', minHeight: 40, fontSize: 14, color: 'var(--text-primary)', fontFamily: 'inherit' },
   photoButton: { minHeight: 90, border: '1px dashed var(--border-strong)', borderRadius: 12, background: 'rgba(255,255,255,0.04)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },

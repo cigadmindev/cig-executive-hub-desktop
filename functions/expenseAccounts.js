@@ -64,10 +64,6 @@ HEADINGS.forEach(([heading, list], h) =>
   )
 );
 
-// The one account that asks who was there - the question an accountant
-// always asks about a meal.
-const ATTENDEES_ACCOUNT = '7255';
-
 // Old categories that map to one account without guessing (Brenner, 9 Oct).
 // Mileage, Conference & Events, Supplies and Other could be several accounts,
 // so they stay "not coded yet" for Finance to choose.
@@ -79,4 +75,22 @@ const OLD_CATEGORY_TO_ACCOUNT = {
   groundTransport: '7515',
 };
 
-module.exports = { STARTING_ACCOUNTS, ATTENDEES_ACCOUNT, OLD_CATEGORY_TO_ACCOUNT };
+// Mark's six (10 Oct 2026). Executives pick one of these instead of an
+// account number; each one files under the account Sam wants it in. Finance
+// can still give any receipt a different account.
+const EXEC_CATEGORIES = {
+  airfare: { label: 'Airfare', account: '7515' },
+  autoRental: { label: 'Auto rental & related', account: '7105' },
+  hotel: { label: 'Hotel', account: '7515' },
+  meals: { label: 'Meals / Entertainment', account: '7255' },
+  officeSupplies: { label: 'Office / Other supplies', account: '7440' },
+  misc: { label: 'Miscellaneous', account: '7175' },
+};
+
+// Who files from a restaurant (or Catering & Events) rather than as an
+// executive. Their receipts are the ones the COO sees; they keep Sam's full
+// account list. Everyone else - executives, admins - gets Mark's six.
+const STORE_JOBS = ['General Manager', 'Assistant Manager', 'Kitchen Manager', 'Executive Chef', 'Sous Chef', 'Catering & Events'];
+const levelOf = (profile) => (STORE_JOBS.includes(profile?.job) ? 'store' : 'executive');
+
+module.exports = { STARTING_ACCOUNTS, OLD_CATEGORY_TO_ACCOUNT, EXEC_CATEGORIES, STORE_JOBS, levelOf };

@@ -11,7 +11,7 @@ const admin = require('firebase-admin');
 const COLLECTION = 'expenseReceipts';
 const { loadPeriods, assignPeriod, isOpenOn } = require('./fiscal');
 const { requireLive } = require('./caller');
-const { ATTENDEES_ACCOUNT } = require('./expenseAccounts');
+const { EXEC_CATEGORIES, levelOf } = require('./expenseAccounts');
 
 const ACCOUNTS = 'expenseAccounts';
 const REPORTS = 'expenseReports';
@@ -77,6 +77,12 @@ function canSeeEverything(profile) {
   return profile.role === 'admin' || profile.job === 'Financials';
 }
 
+// The COO sees the restaurants' and Catering & Events' receipts - never
+// another executive's (Brenner, 10 Oct). Everyone else sees only their own.
+function seesStoreReceipts(profile) {
+  return profile.job === 'COO';
+}
+
 // ---------------------------------------------------------------------------
 // Shared checks - the same rules for a new receipt and an edited one
 // ---------------------------------------------------------------------------
@@ -109,14 +115,30 @@ const STATIC_LOCATIONS = {
   'blutos-starkville': ['blutos', 'Starkville'],
   'heritage-starkville': ['heritage', 'Starkville'],
 };
+// Opening or operating, for Sam (Brenner, 10 Oct): a location is opening
+// until its opening date passes. One with no opening date is operating if it
+// is one of the original four, opening if it was added in the Hub (a new
+// restaurant whose date isn't set yet). Decided when the receipt is filed,
+// so a receipt keeps the stage it was spent in after the restaurant opens.
+async function stageOf(db, id) {
+  const info = await db.collection('openingLocationInfo').doc(id).get();
+  const openingDate = info.exists ? info.data().openingDate : null;
+  if (typeof openingDate === 'number') return openingDate > Date.now() ? 'opening' : 'operating';
+  return STATIC_LOCATIONS[id] ? 'operating' : 'opening';
+}
+
 async function resolveLocation(db, locationId, current = null) {
   const id = String(locationId ?? '').trim();
   // Editing a receipt filed before 9 Oct under the old charge-to list
   // ("General", "Events"…): left as it was unless a location is picked.
   if (id === 'keep' && current) {
-    return { locationId: current.locationId ?? null, chargeToId: current.chargeToId ?? null, chargeToName: current.chargeToName ?? 'Corporate' };
+    return { locationId: current.locationId ?? null, chargeToId: current.chargeToId ?? null, chargeToName: current.chargeToName ?? 'Corporate', locationStage: current.locationStage ?? null };
   }
-  if (!id || id === 'corporate') return { locationId: null, chargeToId: null, chargeToName: 'Corporate' };
+  if (!id || id === 'corporate') return { locationId: null, chargeToId: null, chargeToName: 'Corporate', locationStage: null };
+  // The same location as before keeps the stage it was filed with.
+  if (current && current.locationId === id && current.locationStage) {
+    return { locationId: id, chargeToId: null, chargeToName: current.chargeToName, locationStage: current.locationStage };
+  }
   let brandId = null;
   let name = null;
   if (STATIC_LOCATIONS[id]) {
@@ -130,11 +152,33 @@ async function resolveLocation(db, locationId, current = null) {
   }
   if (!name) throw new HttpsError('invalid-argument', 'That location is no longer in the Hub. Pick another, or Corporate.');
   const label = (BRAND_NAMES[brandId] ? BRAND_NAMES[brandId] + ' · ' : '') + name;
-  return { locationId: id, chargeToId: null, chargeToName: label };
+  return { locationId: id, chargeToId: null, chargeToName: label, locationStage: await stageOf(db, id) };
 }
 
-// Amount, date, where, why and who was there - the same rules everywhere.
-function checkDetails({ amountCents, where, reason, dateSpent }) {
+// What it was for. Executives pick one of Mark's six, which files under
+// Sam's account for it; store managers pick the account itself (10 Oct).
+// On an edit, keeping the same choice keeps whatever account Finance gave it.
+async function resolveFor(db, { execCategory, accountCode }, current = null) {
+  if (execCategory) {
+    const cat = EXEC_CATEGORIES[execCategory];
+    if (!cat) throw new HttpsError('invalid-argument', 'Choose what it was for.');
+    if (current && current.execCategory === execCategory && current.accountCode) {
+      return { accountCode: current.accountCode, accountName: current.accountName, accountHeading: current.accountHeading ?? '', execCategory, execCategoryLabel: cat.label };
+    }
+    return { ...(await resolveAccount(db, cat.account)), execCategory, execCategoryLabel: cat.label };
+  }
+  if (accountCode) {
+    if (current && current.accountCode === accountCode) {
+      return { accountCode, accountName: current.accountName, accountHeading: current.accountHeading ?? '', execCategory: null, execCategoryLabel: null };
+    }
+    return { ...(await resolveAccount(db, accountCode)), execCategory: null, execCategoryLabel: null };
+  }
+  return null;
+}
+
+// Amount, where and why - the same rules everywhere. There is no date to
+// check: a receipt is dated the day it is filed (Brenner, 10 Oct).
+function checkDetails({ amountCents, where, reason }) {
   if (!Number.isInteger(amountCents) || amountCents <= 0) {
     throw new HttpsError('invalid-argument', 'Enter an amount greater than zero.');
   }
@@ -147,20 +191,7 @@ function checkDetails({ amountCents, where, reason, dateSpent }) {
   const reasonTrimmed = String(reason ?? '').trim();
   if (reasonTrimmed.length < 2) throw new HttpsError('invalid-argument', 'Enter a reason.');
   if (reasonTrimmed.length > 500) throw new HttpsError('invalid-argument', 'That reason is too long.');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateSpent ?? ''))) {
-    throw new HttpsError('invalid-argument', 'Choose the date this was spent.');
-  }
-  if (dateSpent > centralDateKey(new Date())) {
-    throw new HttpsError('invalid-argument', "That date is in the future — use the day the money was spent.");
-  }
   return { where: whereTrimmed, reason: reasonTrimmed };
-}
-
-function cleanAttendees(accountCode, attendees) {
-  if (accountCode !== ATTENDEES_ACCOUNT) return null;
-  const t = String(attendees ?? '').trim();
-  if (t.length > 300) throw new HttpsError('invalid-argument', 'That list of people is too long.');
-  return t || null;
 }
 
 // Is this receipt's period still open to its owner? Until the period's
@@ -217,20 +248,24 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
   const uid = request.auth.uid;
   const profile = await callerProfile(uid);
 
-  const { amountCents, accountCode, attendees, locationId, categoryKey, where, dateSpent, reason, storagePath } = request.data || {};
+  const { amountCents, execCategory, accountCode, locationId, categoryKey, where, reason, storagePath } = request.data || {};
 
   // Amount is held as integer cents so report totals cannot drift by
-  // rounding. Date spent is when the money left, never in the future,
-  // compared in Central so the boundary is the same for everyone.
-  const details = checkDetails({ amountCents, where, reason, dateSpent });
+  // rounding. The date is today in Central - the day it was filed - whatever
+  // the device says (Brenner, 10 Oct: no "date spent").
+  const details = checkDetails({ amountCents, where, reason });
   const todayKey = centralDateKey(new Date());
+  const dateSpent = todayKey;
   const db = admin.firestore();
 
-  // What it was for: one of Sam's accounts. A browser still running the old
-  // page sends a category instead; that receipt is kept, "not coded yet".
-  let account = { accountCode: null, accountName: null, accountHeading: null };
-  if (accountCode) account = await resolveAccount(db, accountCode);
-  else if (!CATEGORIES[categoryKey]) throw new HttpsError('invalid-argument', 'Choose what it was for.');
+  // What it was for: one of Mark's six or one of Sam's accounts. A browser
+  // still running a much older page sends a category instead; that receipt
+  // is kept, "not coded yet".
+  let account = await resolveFor(db, { execCategory, accountCode });
+  if (!account) {
+    if (!CATEGORIES[categoryKey]) throw new HttpsError('invalid-argument', 'Choose what it was for.');
+    account = { accountCode: null, accountName: null, accountHeading: null, execCategory: null, execCategoryLabel: null };
+  }
 
   // The image must live under this person's own folder. Belt and braces: the
   // Storage rules enforce the same thing, but a mismatch here would mean a
@@ -271,14 +306,16 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
     submittedByUid: uid,
     submittedByName: profile.name ?? 'Unknown',
     amountCents,
-    ...account,                      // accountCode / accountName / accountHeading
-    attendees: cleanAttendees(account.accountCode, attendees),
+    ...account,                      // accountCode / accountName / accountHeading / execCategory / execCategoryLabel
+    // Executive or store - who gets to see it besides the owner and Finance.
+    // Taken from the profile, never the request.
+    submitterLevel: levelOf(profile),
     categoryKey: account.accountCode ? null : categoryKey,
     categoryLabel: account.accountCode ? null : CATEGORIES[categoryKey],
     where: details.where,
     reason: details.reason,
-    dateSpent,                       // YYYY-MM-DD, Central. The accounting date.
-    ...place,                        // locationId / chargeToId / chargeToName, resolved above
+    dateSpent,                       // YYYY-MM-DD, Central - the day it was filed. The accounting date.
+    ...place,                        // locationId / chargeToId / chargeToName / locationStage, resolved above
     periodId: period.id,             // the fiscal period - see fiscal.js
     periodLabel: period.label,
     submittedAt: now,
@@ -300,7 +337,7 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
 exports.editExpenseReceipt = onCall(async (request) => {
   const me = await requireLive(request);
   const db = admin.firestore();
-  const { receiptId, amountCents, accountCode, attendees, locationId, where, dateSpent, reason } = request.data || {};
+  const { receiptId, amountCents, execCategory, accountCode, locationId, where, reason } = request.data || {};
   const ref = receiptRef(db, receiptId);
   const snap = await ref.get();
   if (!snap.exists) throw new HttpsError('not-found', 'That receipt no longer exists.');
@@ -311,38 +348,27 @@ exports.editExpenseReceipt = onCall(async (request) => {
     throw new HttpsError('failed-precondition', "This period has closed. Ask Finance to change it.");
   }
 
-  const details = checkDetails({ amountCents, where, reason, dateSpent });
-  const account = await resolveAccount(db, accountCode);
+  // The date and period never change on an edit - a receipt is dated the
+  // day it was filed. Choosing nothing new keeps what it was for.
+  const details = checkDetails({ amountCents, where, reason });
+  const account = await resolveFor(db, { execCategory, accountCode }, r);
+  if (!account && !r.accountCode) throw new HttpsError('invalid-argument', 'Choose what it was for.');
   const place = await resolveLocation(db, locationId, r);
 
-  // A new date can put it in another period - decided the same way as when
-  // it was filed, and only into a period whose report isn't made yet.
   const update = {
     amountCents,
-    ...account,
-    attendees: cleanAttendees(account.accountCode, attendees),
-    categoryKey: null,
-    categoryLabel: null,
+    ...(account ?? {}),
+    ...(account ? { categoryKey: null, categoryLabel: null } : {}),
     where: details.where,
     reason: details.reason,
-    dateSpent,
     ...place,
     editedAt: Date.now(),
   };
-  if (dateSpent !== r.dateSpent) {
-    const period = assignPeriod(await loadPeriods(db), dateSpent, centralDateKey(new Date()));
-    if (!period) throw new HttpsError('failed-precondition', "That date is outside the fiscal calendar loaded in the Hub.");
-    if (period.id !== r.periodId) {
-      if (!(await stillOpen(db, period.id))) throw new HttpsError('failed-precondition', "That date's period has closed. Ask Finance.");
-      update.periodId = period.id;
-      update.periodLabel = period.label;
-    }
-  }
   const changed = Object.keys(update).filter((k) => k !== 'editedAt' && JSON.stringify(update[k] ?? null) !== JSON.stringify(r[k] ?? null));
   if (changed.length === 0) return { ok: true, unchanged: true };
   update.editHistory = admin.firestore.FieldValue.arrayUnion({ at: update.editedAt, byName: me.name ?? 'Unknown', fields: changed });
   await ref.update(update);
-  return { ok: true, periodLabel: update.periodLabel ?? r.periodLabel };
+  return { ok: true, periodLabel: r.periodLabel };
 });
 
 // ---------------------------------------------------------------------------
@@ -418,6 +444,7 @@ exports.getReceiptUrls = onCall(async (request) => {
   const uid = request.auth.uid;
   const profile = await callerProfile(uid);
   const seesAll = canSeeEverything(profile);
+  const seesStores = seesStoreReceipts(profile);
 
   const ids = Array.isArray(request.data?.ids) ? request.data.ids.slice(0, 100) : [];
   if (ids.length === 0) return { urls: {} };
@@ -434,7 +461,10 @@ exports.getReceiptUrls = onCall(async (request) => {
   for (const doc of docs) {
     if (!doc.exists) continue;
     const r = doc.data();
-    if (!seesAll && r.submittedByUid !== uid) continue;   // silent — no leak of what exists
+    // Silent - no leak of what exists. The same three tiers as the rules:
+    // your own, the COO for store receipts, Finance and admins for all.
+    const allowed = seesAll || r.submittedByUid === uid || (seesStores && r.submitterLevel === 'store');
+    if (!allowed) continue;
     if (!r.storagePath || r.imageDeletedAt) continue;     // swept, or never had one
 
     try {

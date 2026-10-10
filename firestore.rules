@@ -298,9 +298,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Who sees a receipt (10 Oct 2026): the person who filed it; the COO,
+    // for receipts filed from the restaurants and Catering & Events
+    // (submitterLevel 'store', stamped by the server) - never an executive's;
+    // Finance and admins, everything.
     match /expenseReceipts/{receiptId} {
       allow read: if isAdmin() || isFinance() ||
-        (isSignedIn() && resource.data.submittedByUid == request.auth.uid);
+        (isSignedIn() && resource.data.submittedByUid == request.auth.uid) ||
+        (isCoo() && resource.data.submitterLevel == 'store');
       // Every change goes through the server (9 Oct 2026): filing
       // (submitExpenseReceipt), your own edit or void until the period's
       // report is made (editExpenseReceipt, voidExpenseReceipt), Finance

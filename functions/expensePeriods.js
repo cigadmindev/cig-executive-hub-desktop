@@ -9,8 +9,8 @@
 //                          open or shut.
 //   expenseDailyToCoo      07:00 - yesterday's receipts, by email, to the COO,
 //                          so he can follow up with whoever submitted them.
-//   expensePeriodJobs      08:00 - Monday "period closed, due Friday", Thursday
-//                          "last day tomorrow", and a warning when the loaded
+//   expensePeriodJobs      08:00 - three days before a period ends, "get this
+//                          period's receipts in", and a warning when the loaded
 //                          calendar is about to run out.
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
@@ -55,10 +55,11 @@ async function ghostUids(db) {
 //
 // One spreadsheet for Sam, with four tabs (B2.4, 9 Oct 2026):
 //   Receipts     every receipt: photo number, account code, account, heading,
-//                location, who, when, where, why, who was there, amount, notes
+//                location, opening or operating, executive or store, which of
+//                Mark's six it was filed as, who, when, where, why, amount, notes
 //   By account   totals by Sam's headings and accounts, in his order
-//   By person    totals per executive
-//   By location  totals per location, Corporate first
+//   By person    totals per person
+//   By location  totals per location (opening or operating), Corporate first
 // The photo zip numbers each photo the same way, so "Photo 007" in the sheet
 // is 007_… in the zip. Voided receipts are listed (marked) but never counted.
 const NOT_CODED = 'Not coded yet';
@@ -98,7 +99,7 @@ async function buildPeriod(period) {
     total += cents;
     add(byAccount, r.accountCode ?? NOT_CODED, cents);
     add(byPerson, r.submittedByName ?? 'Unknown', cents);
-    add(byLocation, r.chargeToName ?? 'Corporate', cents);
+    add(byLocation, (r.chargeToName ?? 'Corporate') + (r.locationStage ? ' (' + r.locationStage + ')' : ''), cents);
     // For the email: the account names, biggest first.
     byCategory[r.accountName ?? NOT_CODED] = (byCategory[r.accountName ?? NOT_CODED] ?? 0) + cents;
   }
@@ -122,9 +123,10 @@ async function buildPeriod(period) {
   ws1.columns = [
     { key: 'photo', width: 8 }, { key: 'date', width: 12 }, { key: 'who', width: 20 }, { key: 'code', width: 9 },
     { key: 'account', width: 30 }, { key: 'heading', width: 18 }, { key: 'location', width: 30 }, { key: 'where', width: 26 },
-    { key: 'why', width: 40 }, { key: 'attendees', width: 26 }, { key: 'amount', width: 12 }, { key: 'notes', width: 40 },
+    { key: 'stage', width: 18 }, { key: 'level', width: 10 }, { key: 'chosen', width: 22 },
+    { key: 'why', width: 40 }, { key: 'amount', width: 12 }, { key: 'notes', width: 40 },
   ];
-  ws1.addRow(['Photo', 'Date spent', 'Who', 'Code', 'Account', 'Heading', 'Location', 'Where', 'Why', 'Who was there', 'Amount', 'Notes']);
+  ws1.addRow(['Photo', 'Date', 'Who', 'Code', 'Account', 'Heading', 'Location', 'Where', 'Opening / operating', 'Filed as', 'Chosen as', 'Why', 'Amount', 'Notes']);
   head(ws1, 3);
   for (const r of receipts) {
     const notes = [];
@@ -141,8 +143,10 @@ async function buildPeriod(period) {
       heading: r.accountHeading ?? '',
       location: r.chargeToName ?? 'Corporate',
       where: r.where ?? '',
+      stage: r.locationStage ? r.locationStage[0].toUpperCase() + r.locationStage.slice(1) : 'Corporate',
+      level: r.submitterLevel === 'store' ? 'Store' : r.submitterLevel === 'executive' ? 'Executive' : '',
+      chosen: r.execCategoryLabel ?? '',
       why: r.reason ?? '',
-      attendees: r.attendees ?? '',
       amount: (r.amountCents ?? 0) / 100,
       notes: notes.join(' · '),
     });
@@ -388,9 +392,12 @@ exports.expenseDailyToCoo = onSchedule(
     const receipts = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
       .filter((r) => !ghosts.has(r.submittedByUid))
+      // The restaurants' and Catering & Events' receipts only - never an
+      // executive's (Brenner, 10 Oct). The same receipts the COO sees in the Hub.
+      .filter((r) => r.submitterLevel === 'store')
       .sort((a, b) => (a.submittedAt ?? 0) - (b.submittedAt ?? 0));
     if (receipts.length === 0) {
-      console.log('No receipts submitted ' + yesterday + '; no COO email.');
+      console.log('No store receipts submitted ' + yesterday + '; no COO email.');
       return;
     }
 
@@ -424,7 +431,7 @@ exports.expenseDailyToCoo = onSchedule(
       const mailto = mail ? 'mailto:' + mail + '?subject=' + encodeURIComponent('Receipt: $' + money(r.amountCents) + ' at ' + r.where) : null;
       rows.push({
         title: '$' + money(r.amountCents) + (r.voided ? ' · VOID' : '') + ' · ' + r.submittedByName,
-        line: [r.accountName ?? r.categoryLabel, r.where, r.chargeToName ?? 'Corporate', r.periodLabel].filter(Boolean).join(' · ') + ' · "' + r.reason + '"',
+        line: [r.accountName ?? r.categoryLabel, r.where, (r.chargeToName ?? 'Corporate') + (r.locationStage === 'opening' ? ' (opening)' : ''), r.periodLabel].filter(Boolean).join(' · ') + ' · "' + r.reason + '"',
         url: url ?? mailto,
         action: url ? 'View receipt' : 'Email ' + first,
         url2: url ? mailto : null,
@@ -440,7 +447,7 @@ exports.expenseDailyToCoo = onSchedule(
       html: T.layout({
         kicker: 'Expenses · daily',
         title: 'Receipts submitted ' + pretty,
-        intro: receipts.length + ' receipt' + (receipts.length === 1 ? '' : 's') + ' totalling $' + money(total) + '. Any questions, reach out to whoever submitted it.',
+        intro: receipts.length + ' receipt' + (receipts.length === 1 ? '' : 's') + ' from the restaurants and Catering & Events, totalling $' + money(total) + '. Any questions, reach out to whoever submitted it.',
         bodyHtml: T.itemList(rows),
         footer: 'You got this because you are COO. For review only - finance works from the period report. Receipt links work for seven days.',
       }),
@@ -463,26 +470,22 @@ exports.expensePeriodJobs = onSchedule(
     const periods = await loadPeriods(db);
     const users = (await db.collection('users').where('active', '==', true).get()).docs.map((d) => ({ uid: d.id, ...d.data() }));
 
-    // Monday: the period that ended yesterday is in its catch-up week.
-    // Thursday: tomorrow is its last day.
-    const closing =
-      day === 1 ? periods.find((p) => p.endKey === addDays(today, -1)) :
-      day === 4 ? periods.find((p) => p.windowEndKey === addDays(today, 1)) :
-      null;
+    // A receipt is dated the day it is filed (10 Oct 2026), so it lands in
+    // whichever period it is filed in. Three days before a period ends,
+    // everyone who files receipts gets one heads-up to get them in.
+    const closing = periods.find((p) => p.endKey === addDays(today, 3)) ?? null;
     if (closing) {
-      const due = new Date(closing.windowEndKey + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' });
+      const ends = new Date(closing.endKey + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' });
       const people = users.filter(canSubmitExpenses);
-      const [title, body] =
-        day === 1
-          ? [closing.label + ' closed yesterday', 'Submit any receipts from ' + periodRange(closing) + ' by ' + due + '. After that they go into the next period.']
-          : ['Last day tomorrow for ' + closing.label, 'Receipts from ' + periodRange(closing) + ' are due by end of day ' + due + '.'];
+      const title = closing.label + ' ends ' + ends.split(',')[0];
+      const body = 'Add any receipts you still have by end of day ' + ends + '. Anything added after that goes into the next period.';
       await notifyPeople(people, title, body, {
         speed: ACTION,
         path: '/expenses',
         topic: 'expenses',
         button: 'Add a receipt',
         why: 'You got this because you can submit expenses.',
-        throttleKey: 'period-reminder-' + closing.id + '-' + day,
+        throttleKey: 'period-ending-' + closing.id,
       });
       console.log('Reminder sent for ' + closing.id + ' to ' + people.length + ' people.');
     }
