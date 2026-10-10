@@ -43,7 +43,7 @@ const BLANK = { kind: 'catering', locationId: '', name: '', email: '', phone: ''
 export default function CateringScreen() {
   const { user, hasLocationAccess } = useAuth();
   const { getByBrand } = useCustomLocations();
-  const { enquiries, addEnquiry, claim, setStatus, lose, adminSetStatus, update, correct, markInvoiced, markPaid } = useCatering();
+  const { enquiries, addEnquiry, claim, setStatus, lose, adminSetStatus, update, correct, markInvoiced, markPaid, putOnCalendar } = useCatering();
   const { dialogNode, notify } = useDialog();
   const isAdmin = user?.role === 'admin';
   // Only Catering & Events managers claim and work enquiries (Brenner,
@@ -156,6 +156,7 @@ export default function CateringScreen() {
                 {!e.ownerUid && ['new', 'talking'].includes(e.status) ? <button style={d.primary} disabled={busy} onClick={() => run(() => claim(e.id), () => { setSelectedId(e.id); setFilter('talking'); })}>Claim</button> : null}
                 {e.status === 'new' && e.ownerUid ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'talking'), () => { setSelectedId(e.id); setFilter('talking'); })}>Talking</button> : null}
                 {['new', 'talking'].includes(e.status) ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'confirmed'), () => { setSelectedId(e.id); setFilter('confirmed'); })}>Confirmed</button> : null}
+                {e.status === 'confirmed' && !e.calendarEntryId ? <button style={d.primary} disabled={busy} onClick={() => run(() => putOnCalendar(e))}>Put it on the calendar</button> : null}
                 {e.status === 'confirmed' ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'done'), () => { setSelectedId(e.id); setFilter('done'); })}>Done</button> : null}
                 {['new', 'talking', 'confirmed'].includes(e.status) ? <button style={d.ghost} onClick={() => { setChanging({ reason: '' }); setLosing(e.id); }}>Didn't book…</button> : null}
               </div>

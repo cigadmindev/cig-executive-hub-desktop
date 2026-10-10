@@ -438,7 +438,10 @@ service cloud.firestore {
       // entry at a restaurant someone has is ordinary work.
       allow create: if canEditChecklists() || (
         isSignedIn() &&
-        request.resource.data.openingItem != true &&
+        // .get with a default: an entry without the field (a confirmed
+        // catering event, a plain calendar entry) is not an opening item.
+        // Reading it directly refused the whole save (Sarah, 10 Oct 2026).
+        request.resource.data.get('openingItem', false) != true &&
         request.resource.data.brandId in myBrands()
       );
       // Two branches, deliberately. The first is the three people who own the
@@ -452,7 +455,7 @@ service cloud.firestore {
       // restaurant you have.
       allow update: if canEditChecklists() || (
         isSignedIn() &&
-        resource.data.openingItem != true &&
+        resource.data.get('openingItem', false) != true &&
         resource.data.authorUid == request.auth.uid &&
         request.resource.data.authorUid == request.auth.uid &&
         request.resource.data.brandId in myBrands()
@@ -461,7 +464,7 @@ service cloud.firestore {
         // pre-opening item: the rows at Tick or Edit (it was anyone signed
         // in, at any restaurant - S7, 8 Oct 2026).
         canTickChecklists() &&
-        resource.data.openingItem == true &&
+        resource.data.get('openingItem', false) == true &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document', 'documents', 'signature']) &&
         signatureAskOk()
       ) || (
@@ -469,12 +472,12 @@ service cloud.firestore {
         // (which ticks it off), send it back, or add the signed copy - even
         // if they could not otherwise tick this checklist.
         isSignedIn() &&
-        resource.data.openingItem == true &&
+        resource.data.get('openingItem', false) == true &&
         signerOk()
       );
       allow delete: if canEditChecklists() || (
         isSignedIn() &&
-        resource.data.openingItem != true &&
+        resource.data.get('openingItem', false) != true &&
         resource.data.authorUid == request.auth.uid
       );
     }

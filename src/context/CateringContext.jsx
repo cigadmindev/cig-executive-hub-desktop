@@ -210,7 +210,13 @@ export function CateringProvider({ children }) {
       return null;
     }
     if (status !== 'confirmed' || e.calendarEntryId) return null;
+    return putOnCalendar(e);
+  };
 
+  // A confirmed event's calendar entry. Also its own button, for one that
+  // was confirmed but never made it onto the calendar (Sarah's Nov 17,
+  // 10 Oct 2026 - the calendar refused anyone but admins until that day).
+  const putOnCalendar = async (e) => {
     // Everything someone working the event would otherwise have to ask for.
     const lines = [
       e.kind === 'catering'
@@ -239,8 +245,9 @@ export function CateringProvider({ children }) {
       doneBy: null,
       doneAt: null,
       attentionFlag: false,
+      openingItem: false,
     });
-    await update(id, { calendarEntryId: entry.id });
+    await update(e.id, { calendarEntryId: entry.id });
     return null;
   };
 
@@ -282,7 +289,7 @@ export function CateringProvider({ children }) {
 
   return (
     <CateringContext.Provider
-      value={{ enquiries: visible, addEnquiry, update, correct, claim, setStatus, lose, adminSetStatus, markInvoiced, markPaid }}
+      value={{ enquiries: visible, addEnquiry, update, correct, claim, setStatus, lose, adminSetStatus, markInvoiced, markPaid, putOnCalendar }}
     >
       {children}
     </CateringContext.Provider>
