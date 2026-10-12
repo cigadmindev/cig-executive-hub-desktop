@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
@@ -18,9 +18,11 @@ import { plainError } from '../lib/errors';
 // My space switched on (Manage Logins). The Drive folder is made by the Hub
 // in the CIG shared drive with limited access, shared with her alone.
 //
-// Stored at privateSpaces/{uid} (notes, Drive link), its todos and files
-// subcollections, and Storage private/{uid}/.
+// Stored at privateSpaces/{uid} (notes, Drive link) and its todos. Files are
+// the Drive folder's own contents (Brenner, 12 Oct 2026): an upload passes
+// through Storage private/{uid}/ and the server moves it into the folder.
 const MAX_MB = 50;
+const call = async (name, data = {}) => (await httpsCallable(getFunctions(undefined, 'us-central1'), name)(data)).data;
 
 export default function MySpaceScreen() {
   const { user } = useAuth();
@@ -30,7 +32,9 @@ export default function MySpaceScreen() {
   const on = user?.privateSpace === true;
 
   const [space, setSpace] = useState(null);
-  const [files, setFiles] = useState([]);
+  // The Drive folder's contents: null while loading.
+  const [files, setFiles] = useState(null);
+  const [filesError, setFilesError] = useState(null);
   const [todos, setTodos] = useState([]);
   const [notes, setNotes] = useState('');
   const [notesState, setNotesState] = useState('');
@@ -50,11 +54,25 @@ export default function MySpaceScreen() {
         // Not while typing - the box would jump under the cursor.
         if (!typed.current) setNotes(data.notes ?? '');
       }, (err) => console.error('[MySpace] ' + err.code)),
-      onSnapshot(query(collection(base, 'files'), orderBy('addedAt', 'desc')), (snap) => setFiles(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), (err) => console.error('[MySpace files] ' + err.code)),
       onSnapshot(collection(base, 'todos'), (snap) => setTodos(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), (err) => console.error('[MySpace todos] ' + err.code)),
     ];
     return () => unsubs.forEach((u) => u());
   }, [uid, on]);
+
+  const folderUrl = space?.driveFolderUrl ?? null;
+  const loadFiles = async () => {
+    try {
+      const res = await call('privateFolderFiles');
+      setFiles(res.files ?? []);
+      setFilesError(null);
+    } catch (err) {
+      setFilesError(plainError(err, 'Could not read your folder.'));
+      setFiles([]);
+    }
+  };
+  useEffect(() => {
+    if (folderUrl) loadFiles();
+  }, [folderUrl]);
 
   // Notes save a moment after typing stops.
   useEffect(() => {
@@ -89,46 +107,38 @@ export default function MySpaceScreen() {
       notify('Too large', big.map((f) => f.name).join(', ') + ' - files can be up to ' + MAX_MB + ' MB. Nothing was added.');
       return;
     }
+    if (!folderUrl) {
+      notify('No Drive folder yet', 'Files go into your private Drive folder. Make it first.');
+      return;
+    }
     setUploading(true);
     try {
       for (const f of picked) {
         const safe = f.name.replace(/[^\w.\- ]+/g, '_').slice(-120);
         const path = 'private/' + uid + '/' + Date.now() + '-' + safe;
         await uploadBytes(storageRef(storage, path), f, { contentType: f.type || 'application/octet-stream' });
-        await addDoc(collection(db, 'privateSpaces', uid, 'files'), { name: f.name, size: f.size, type: f.type || '', storagePath: path, addedAt: Date.now() });
+        await call('addToPrivateFolder', { storagePath: path, name: f.name, type: f.type || '' });
       }
     } catch (err) {
       notify('Could not upload', plainError(err, 'Try again.'));
     } finally {
       setUploading(false);
+      loadFiles();
     }
   };
 
-  const openFile = async (f) => {
-    // Opened first, filled in after - a phone blocks a window opened late.
-    const w = window.open('', '_blank');
-    try {
-      const url = await getDownloadURL(storageRef(storage, f.storagePath));
-      if (w) w.location.href = url;
-      else window.location.href = url;
-    } catch (err) {
-      w?.close();
-      notify('Could not open it', plainError(err, 'Try again.'));
-    }
-  };
+  const openFile = (f) => window.open(f.webViewLink, '_blank', 'noopener');
 
   const removeFile = (f) =>
     confirm({
       title: 'Delete ' + f.name + '?',
-      body: 'It is removed for good.',
+      body: 'It goes to the shared drive\'s trash.',
       tone: 'danger',
       confirmLabel: 'Delete',
       onConfirm: async () => {
         try {
-          await deleteObject(storageRef(storage, f.storagePath)).catch((err) => {
-            if (err?.code !== 'storage/object-not-found') throw err;
-          });
-          await deleteDoc(doc(db, 'privateSpaces', uid, 'files', f.id));
+          await call('removeFromPrivateFolder', { fileId: f.id });
+          setFiles((list) => (list ?? []).filter((x) => x.id !== f.id));
         } catch (err) {
           notify('Could not delete it', plainError(err, 'Try again.'));
         }
@@ -138,7 +148,7 @@ export default function MySpaceScreen() {
   const makeFolder = async () => {
     setMakingFolder(true);
     try {
-      await httpsCallable(getFunctions(undefined, 'us-central1'), 'createPrivateDriveFolder')({});
+      await call('createPrivateDriveFolder');
     } catch (err) {
       notify('No folder yet', plainError(err, 'Try again.'));
     } finally {
@@ -171,7 +181,7 @@ export default function MySpaceScreen() {
         title="My space"
         subtitle="🔒 Only you can see this - not admins, not anyone else in the Hub."
         actionLabel={uploading ? 'Uploading…' : '+ Upload files'}
-        actionDisabled={uploading}
+        actionDisabled={uploading || !folderUrl}
         onAction={() => fileRef.current?.click()}
       />
       <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={upload} />
@@ -187,7 +197,7 @@ export default function MySpaceScreen() {
                   <span style={{ flex: 1, minWidth: 0 }}>{(user?.name ?? '') + ' — Private'}</span>
                   <a href={space.driveFolderUrl} target="_blank" rel="noreferrer" style={styles.link}>Open in Drive ↗</a>
                 </div>
-                <p style={styles.note}>In the CIG shared drive, with limited access: only you were added, so other members of the drive can't open it.</p>
+                <p style={styles.note}>In the CIG shared drive, with limited access: other members of the drive can't open it. Google always lets the shared drive's Managers in.</p>
               </>
             ) : space === null ? (
               <p style={styles.note}>Loading…</p>
@@ -203,16 +213,20 @@ export default function MySpaceScreen() {
 
           <p style={{ ...styles.cap, marginTop: 8 }}>Files</p>
           <div style={styles.card}>
-            {files.length === 0 ? <p style={styles.note}>Nothing here yet.</p> : null}
-            {files.map((f) => (
+            {!folderUrl ? <p style={styles.note}>Files go into your private Drive folder once it is made.</p> : null}
+            {folderUrl && files === null ? <p style={styles.note}>Loading your folder…</p> : null}
+            {filesError ? <p style={{ ...styles.note, color: '#F87171' }}>{filesError}</p> : null}
+            {folderUrl && files && files.length === 0 && !filesError ? <p style={styles.note}>Nothing here yet.</p> : null}
+            {(files ?? []).map((f) => (
               <div key={f.id} style={styles.row}>
-                <span style={styles.badge}>{(f.name.split('.').pop() || 'file').slice(0, 4).toUpperCase()}</span>
+                <span style={styles.badge}>{f.mimeType === 'application/vnd.google-apps.folder' ? 'DIR' : (f.name.includes('.') ? f.name.split('.').pop() : 'DOC').slice(0, 4).toUpperCase()}</span>
                 <button style={styles.fileName} onClick={() => openFile(f)}>{f.name}</button>
-                <span style={styles.note}>{new Date(f.addedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span style={styles.note}>{f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
                 <button style={styles.x} aria-label={'Delete ' + f.name} onClick={() => removeFile(f)}>✕</button>
               </div>
             ))}
-            <button style={styles.dashed} disabled={uploading} onClick={() => fileRef.current?.click()}>{uploading ? 'Uploading…' : '+ Upload files (several at once)'}</button>
+            <button style={styles.dashed} disabled={uploading || !folderUrl} onClick={() => fileRef.current?.click()}>{uploading ? 'Uploading…' : '+ Upload files (several at once)'}</button>
+            {folderUrl ? <p style={styles.note}>These are the files in your Drive folder - including anything you add from Drive.</p> : null}
           </div>
         </div>
 

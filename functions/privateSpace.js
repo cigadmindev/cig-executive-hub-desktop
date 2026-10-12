@@ -39,6 +39,7 @@ async function makeFolderFor(me) {
   });
   const id = made.data.id;
 
+  let step = 'sharing it with ' + me.email;
   try {
     await drive.permissions.create({
       fileId: id,
@@ -46,6 +47,7 @@ async function makeFolderFor(me) {
       sendNotificationEmail: false,
       requestBody: { type: 'user', role: 'writer', emailAddress: me.email },
     });
+    step = 'switching it to limited access';
     const locked = await drive.files.update({
       fileId: id,
       supportsAllDrives: true,
@@ -54,9 +56,9 @@ async function makeFolderFor(me) {
     });
     if (locked.data.inheritedPermissionsDisabled !== true) throw new Error('Drive did not confirm limited access.');
   } catch (err) {
-    console.error('Private folder for ' + me.uid + ' not made private: ' + (err?.message ?? err));
+    console.error('Private folder for ' + me.uid + ' not made private - failed at ' + step + ': ' + (err?.message ?? err));
     await drive.files.update({ fileId: id, supportsAllDrives: true, requestBody: { trashed: true } }).catch(() => {});
-    throw new HttpsError('failed-precondition', 'Drive would not make the folder private, so it was removed. Let Brenner know. (' + (err?.message ?? 'unknown') + ')');
+    throw new HttpsError('failed-precondition', 'Drive would not make the folder private (at ' + step + '), so it was removed. Let Brenner know. (' + (err?.message ?? 'unknown') + ')');
   }
 
   await ref.set({ driveFolderId: id, driveFolderUrl: made.data.webViewLink, driveFolderAt: Date.now() }, { merge: true });
@@ -83,4 +85,85 @@ exports.createPrivateDriveFolder = onCall({ timeoutSeconds: 120 }, async (reques
   const me = await requireLive(request);
   if (me.privateSpace !== true) throw new HttpsError('permission-denied', 'My space is not switched on for this login.');
   return makeFolderFor(me);
+});
+
+// ---------------------------------------------------------------------------
+// Files on My space live in the Drive folder (Brenner, 12 Oct 2026): one
+// place for everything. The page lists what is in the folder - including
+// anything she adds from Drive itself - uploads into it, and removes from it.
+//
+// An upload goes to the Hub's private storage first (only she can write
+// there), then the server moves it into the folder and deletes the copy.
+// ---------------------------------------------------------------------------
+async function myFolder(request) {
+  const me = await requireLive(request);
+  if (me.privateSpace !== true) throw new HttpsError('permission-denied', 'My space is not switched on for this login.');
+  const ref = admin.firestore().collection('privateSpaces').doc(me.uid);
+  const space = (await ref.get()).data() ?? {};
+  if (!space.driveFolderId) throw new HttpsError('failed-precondition', 'Your Drive folder is not made yet.');
+  return { me, ref, folderId: space.driveFolderId };
+}
+
+// Moves one file from Hub storage into the folder, then deletes the copy.
+async function moveIntoFolder(drive, folderId, storagePath, name, type) {
+  const file = admin.storage().bucket().file(storagePath);
+  const made = await drive.files.create({
+    requestBody: { name: String(name || 'File').slice(0, 200), parents: [folderId] },
+    media: { mimeType: type || 'application/octet-stream', body: file.createReadStream() },
+    fields: 'id',
+    supportsAllDrives: true,
+  });
+  await file.delete().catch(() => {});
+  return made.data.id;
+}
+
+exports.privateFolderFiles = onCall({ timeoutSeconds: 120 }, async (request) => {
+  const { me, ref, folderId } = await myFolder(request);
+  const drive = await driveClient();
+
+  // Anything uploaded before files went to Drive is moved in, once.
+  const old = await ref.collection('files').get();
+  for (const d of old.docs) {
+    const f = d.data();
+    try {
+      if (f.storagePath?.startsWith('private/' + me.uid + '/')) await moveIntoFolder(drive, folderId, f.storagePath, f.name, f.type);
+      await d.ref.delete();
+    } catch (err) {
+      console.error('Could not move ' + d.id + ' into the private folder: ' + (err?.message ?? err));
+    }
+  }
+
+  const res = await drive.files.list({
+    q: `'${folderId}' in parents and trashed = false`,
+    fields: 'files(id, name, mimeType, modifiedTime, webViewLink, size)',
+    orderBy: 'modifiedTime desc',
+    pageSize: 200,
+    includeItemsFromAllDrives: true,
+    supportsAllDrives: true,
+  });
+  return { files: res.data.files ?? [] };
+});
+
+exports.addToPrivateFolder = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async (request) => {
+  const { me, folderId } = await myFolder(request);
+  const { storagePath, name, type } = request.data || {};
+  if (typeof storagePath !== 'string' || !storagePath.startsWith('private/' + me.uid + '/') || storagePath.includes('..')) {
+    throw new HttpsError('invalid-argument', 'That upload is not yours.');
+  }
+  const [exists] = await admin.storage().bucket().file(storagePath).exists();
+  if (!exists) throw new HttpsError('failed-precondition', 'The upload did not finish. Try again.');
+  const id = await moveIntoFolder(await driveClient(), folderId, storagePath, name, type);
+  return { id };
+});
+
+exports.removeFromPrivateFolder = onCall(async (request) => {
+  const { folderId } = await myFolder(request);
+  const fileId = String(request.data?.fileId ?? '');
+  if (!fileId || fileId.includes('/')) throw new HttpsError('invalid-argument', 'Which file?');
+  const drive = await driveClient();
+  const f = await drive.files.get({ fileId, fields: 'parents', supportsAllDrives: true });
+  // Only something directly in her folder - never anything else in the drive.
+  if (!(f.data.parents ?? []).includes(folderId)) throw new HttpsError('permission-denied', 'That file is not in your folder.');
+  await drive.files.update({ fileId, supportsAllDrives: true, requestBody: { trashed: true } });
+  return { ok: true };
 });
