@@ -324,6 +324,28 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Sam's entity numbers (12 Oct 2026): 100 Culinary Innovations Group,
+    // 201 Taste Starkville... each tied to a Hub location ('corporate' for
+    // 100). Read by everyone who files; looked after by Finance and admins.
+    match /expenseEntities/{code} {
+      allow read: if isSignedIn();
+      allow create, update: if (isAdmin() || isFinance())
+        && request.resource.data.keys().hasOnly(['code', 'name', 'locationId', 'order', 'retired', 'addedByName', 'addedAt'])
+        && request.resource.data.code == code
+        && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && request.resource.data.locationId is string && request.resource.data.locationId.size() > 0;
+      allow delete: if false;
+    }
+    // Each person's default entity, which their receipts start on. Set by
+    // Finance and admins; the person reads their own.
+    match /expenseDefaults/{uid} {
+      allow read: if isAdmin() || isFinance() || (isSignedIn() && request.auth.uid == uid);
+      allow create, update: if (isAdmin() || isFinance())
+        && request.resource.data.keys().hasOnly(['entityCode', 'setByName', 'setAt'])
+        && request.resource.data.entityCode is string;
+      allow delete: if isAdmin() || isFinance();
+    }
+
     // The old charge-to list, replaced on 9 Oct 2026 by the Hub's own
     // locations (Corporate unless one is picked). Kept readable for history;
     // nothing writes to it any more.

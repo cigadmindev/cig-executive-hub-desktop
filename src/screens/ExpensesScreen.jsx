@@ -35,12 +35,13 @@ const money = (cents) => '$' + Number((cents ?? 0) / 100).toLocaleString('en-US'
 
 export default function ExpensesScreen() {
   const { dialogNode, confirm, notify } = useDialog();
-  const { user, hasBrandAccess } = useAuth();
+  const { user, users, hasBrandAccess } = useAuth();
   const { getByBrand } = useCustomLocations();
   const {
     receipts, reports, seesAll, seesStores, loading, periods, accounts,
     submitReceipt, editReceipt, recodeReceipt, voidReceipt, isEditable, getImageUrls,
     downloadReport, rebuildPeriod, movePeriod, addAccount, setAccountRetired,
+    entities, myDefaultEntity, defaults, addEntity, setDefaultEntity,
   } = useExpenses();
 
   const isAdmin = user?.role === 'admin';
@@ -161,6 +162,7 @@ export default function ExpensesScreen() {
   const [moving, setMoving] = useState(null);
   const [viewing, setViewing] = useState(null);
   const [managing, setManaging] = useState(false);
+  const [managingEntities, setManagingEntities] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const run = async (fn, ok, failTitle) => {
@@ -305,6 +307,7 @@ export default function ExpensesScreen() {
           </label>
           <span style={{ flex: 1 }} />
           {isAdmin || isFinance ? <button style={d.ghost} onClick={() => setManaging(true)}>Manage accounts</button> : null}
+          {isAdmin || isFinance ? <button style={d.ghost} onClick={() => setManagingEntities(true)}>Entities</button> : null}
           {older.length ? <button style={d.ghost} onClick={() => setPastOpen((v) => !v)}>{pastOpen ? 'Hide past reports' : `Past reports · ${older.length}`}</button> : null}
         </div>
       ) : null}
@@ -362,6 +365,7 @@ export default function ExpensesScreen() {
               selected.chargeToName ?? 'Corporate'
             ),
           ],
+          ...(selected.entityCode ? [['Entity', selected.entityCode + ' · ' + (selected.entityName ?? '')]] : []),
           ['Period', selected.periodLabel ?? '—'],
           ['Filed', fmtDayTime(selected.submittedAt)],
         ].map(([k, v]) => (
@@ -469,6 +473,8 @@ export default function ExpensesScreen() {
           receipt={form.receipt}
           accounts={accounts}
           locations={locations}
+          entities={entities}
+          defaultEntity={myDefaultEntity}
           periods={periods}
           myReceipts={receipts.filter((r) => r.submittedByUid === user?.uid)}
           storeUser={storeUser}
@@ -543,6 +549,18 @@ export default function ExpensesScreen() {
           onClose={() => setManaging(false)}
           addAccount={addAccount}
           setAccountRetired={setAccountRetired}
+        />
+      ) : null}
+      {managingEntities ? (
+        <ManageEntities
+          entities={entities}
+          defaults={defaults}
+          locations={locations}
+          people={(users ?? []).filter((u) => u.active !== false && !u.isGhost).sort((a, b) => String(a.name).localeCompare(String(b.name)))}
+          notify={notify}
+          onClose={() => setManagingEntities(false)}
+          addEntity={addEntity}
+          setDefaultEntity={setDefaultEntity}
         />
       ) : null}
       {dialogNode}
@@ -652,7 +670,7 @@ function ExecChoices({ value, onChange }) {
   );
 }
 
-function ReceiptForm({ mode, receipt, accounts, locations, periods, myReceipts, storeUser, notify, onClose, onSave }) {
+function ReceiptForm({ mode, receipt, accounts, locations, entities, defaultEntity, periods, myReceipts, storeUser, notify, onClose, onSave }) {
   const editing = mode === 'edit';
   const today = centralDateKey(new Date());
   const fileRef = useRef(null);
@@ -668,7 +686,26 @@ function ReceiptForm({ mode, receipt, accounts, locations, periods, myReceipts, 
   // A receipt filed under the old charge-to list ("General", "Events"…)
   // keeps it unless a location is picked.
   const legacyPlace = editing && !receipt.locationId && (receipt.chargeToName ?? 'Corporate') !== 'Corporate' ? receipt.chargeToName : null;
-  const [locationId, setLocationId] = useState(editing ? receipt.locationId ?? (legacyPlace ? 'keep' : 'corporate') : 'corporate');
+  // A new receipt starts on the person's default entity (Sam, 12 Oct 2026).
+  const defaultPlace = entities.find((e) => e.code === defaultEntity && !e.retired)?.locationId ?? 'corporate';
+  const [locationId, setLocationId] = useState(editing ? receipt.locationId ?? (legacyPlace ? 'keep' : 'corporate') : defaultPlace);
+  const [placeTouched, setPlaceTouched] = useState(false);
+  // The entities can arrive a moment after the form opens.
+  useEffect(() => {
+    if (!editing && !placeTouched) setLocationId(defaultPlace);
+  }, [defaultPlace]);
+  // Each place labelled with its entity number, numbered ones first.
+  const placeOptions = useMemo(() => {
+    const all = [{ id: 'corporate', label: 'Corporate' }, ...locations];
+    const withEntity = all.map((l) => {
+      const e = entities.find((x) => x.locationId === l.id && !x.retired);
+      return { id: l.id, code: e?.code ?? null, label: e ? e.code + ' · ' + e.name + (l.id === 'corporate' ? ' (Corporate)' : '') : l.label + ' — no entity number yet' };
+    });
+    return [
+      ...withEntity.filter((o) => o.code).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })),
+      ...withEntity.filter((o) => !o.code),
+    ];
+  }, [locations, entities]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -786,12 +823,25 @@ function ReceiptForm({ mode, receipt, accounts, locations, periods, myReceipts, 
           <input style={styles.input} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="One line" />
         </label>
         <label style={styles.fieldLabel}>
-          Location
-          <select style={styles.input} value={locationId} onChange={(e) => setLocationId(e.target.value)}>
+          Entity
+          <select
+            style={styles.input}
+            value={locationId}
+            onChange={(e) => {
+              setPlaceTouched(true);
+              setLocationId(e.target.value);
+            }}
+          >
             {legacyPlace ? <option value="keep">{legacyPlace} (as filed)</option> : null}
-            <option value="corporate">Corporate</option>
-            {locations.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+            {placeOptions.map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
           </select>
+          {!editing && defaultEntity && locationId !== defaultPlace ? (
+            <span style={{ ...styles.small, fontWeight: 400 }}>Your default is {placeOptions.find((o) => o.id === defaultPlace)?.label ?? defaultEntity}.</span>
+          ) : !editing && defaultEntity ? (
+            <span style={{ ...styles.small, fontWeight: 400 }}>Your default. Change it if this belongs somewhere else.</span>
+          ) : null}
         </label>
         {editing ? (
           <p style={styles.small}>Dated {fmtDayKey(receipt.dateSpent)}. Stays in {receipt.periodLabel ?? 'its period'}.</p>
@@ -907,6 +957,76 @@ function ManageAccounts({ accounts, notify, confirm, onClose, addAccount, setAcc
                   </button>
                 </div>
               ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Sam's entity numbers and each person's default (12 Oct 2026). An entity
+// is tied to one Hub location; a receipt filed at that location carries its
+// number. Every person's receipts start on their default; they can change it.
+function ManageEntities({ entities, defaults, locations, people, notify, onClose, addEntity, setDefaultEntity }) {
+  const places = [{ id: 'corporate', label: 'Corporate' }, ...locations];
+  const placeName = (id) => places.find((p) => p.id === id)?.label ?? id;
+  const free = places.filter((p) => !entities.some((e) => e.locationId === p.id && !e.retired));
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [locationId, setLocationId] = useState('');
+  const [saving, setSaving] = useState(false);
+  const live = entities.filter((e) => !e.retired);
+  const add = async () => {
+    setSaving(true);
+    try {
+      await addEntity({ code, name, locationId });
+      setCode('');
+      setName('');
+      setLocationId('');
+      notify('Entity added', 'Receipts filed at ' + placeName(locationId) + ' carry it from now on.');
+    } catch (err) {
+      notify('Could not add it', plainError(err, 'Nothing was saved. Try again.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  const setFor = (uid, entityCode) =>
+    setDefaultEntity(uid, entityCode).catch((err) => notify('Nothing was changed', plainError(err, 'Try again.')));
+  return (
+    <div data-modal="" data-modal-keep="" style={styles.backdrop} onClick={onClose}>
+      <div style={{ ...styles.modal, width: 'min(620px, 100%)' }} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.modalHead}>
+          <h2 style={styles.modalTitle}>Entities</h2>
+          <button style={styles.close} aria-label="Close" onClick={onClose}>✕</button>
+        </div>
+        <div style={styles.accountsScroll}>
+          <p style={styles.pickHead}>Entity numbers</p>
+          {live.map((e) => (
+            <div key={e.code} style={styles.pastRow}>
+              <span style={{ flex: 1, fontSize: 13 }}><span style={styles.pickCode}>{e.code}</span> {e.name}</span>
+              <span style={styles.muted}>{placeName(e.locationId)}</span>
+            </div>
+          ))}
+          <div style={{ ...styles.addAccountRow, marginTop: 8 }}>
+            <input style={{ ...styles.input, flex: '0 0 80px' }} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Number" aria-label="Entity number" />
+            <input style={{ ...styles.input, flex: '1 1 150px' }} value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. Taste Chelsea" aria-label="Entity name" />
+            <select style={{ ...styles.input, flex: '1 1 150px' }} value={locationId} onChange={(e) => setLocationId(e.target.value)} aria-label="Hub location">
+              <option value="">Which Hub location</option>
+              {free.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+            <button data-primary="" style={d.primary} disabled={saving || !code.trim() || !name.trim() || !locationId} onClick={add}>Add</button>
+          </div>
+
+          <p style={{ ...styles.pickHead, marginTop: 18 }}>Each person's default</p>
+          <p style={{ ...styles.small, margin: '0 4px 6px' }}>Their receipts start on this entity. They can still pick another on any receipt.</p>
+          {people.map((p) => (
+            <div key={p.uid} style={styles.pastRow}>
+              <span style={{ flex: 1, fontSize: 13 }}>{p.name}<span style={styles.muted}>{p.job ? ' · ' + p.job : ''}</span></span>
+              <select style={{ ...styles.smallSelect, maxWidth: 240 }} value={defaults[p.uid] ?? ''} onChange={(e) => e.target.value && setFor(p.uid, e.target.value)} aria-label={'Default entity for ' + p.name}>
+                {!defaults[p.uid] ? <option value="">Not set (Corporate)</option> : null}
+                {live.map((e) => <option key={e.code} value={e.code}>{e.code} · {e.name}</option>)}
+              </select>
             </div>
           ))}
         </div>

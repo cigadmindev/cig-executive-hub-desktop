@@ -14,6 +14,10 @@ const { requireLive } = require('./caller');
 const { EXEC_CATEGORIES, levelOf } = require('./expenseAccounts');
 
 const ACCOUNTS = 'expenseAccounts';
+// Sam's entity numbers (12 Oct 2026): 100 Culinary Innovations Group, 201
+// Taste Starkville... Each one belongs to a Hub location, or to 'corporate'.
+// Finance adds them in the Hub as new locations get one.
+const ENTITIES = 'expenseEntities';
 const REPORTS = 'expenseReports';
 
 // The nine old categories. Receipts are now filed under Sam's accounts (9 Oct
@@ -156,6 +160,23 @@ async function resolveLocation(db, locationId, current = null) {
   return { locationId: id, chargeToId: null, chargeToName: label, locationStage: await stageOf(db, id) };
 }
 
+// The entity number for a location ('corporate' for Corporate). None yet -
+// Chelsea, Cajun Depot - is left blank for Sam.
+async function entityFor(db, locationKey) {
+  const snap = await db.collection(ENTITIES).where('locationId', '==', locationKey).get();
+  const e = snap.docs.map((d) => d.data()).find((x) => !x.retired);
+  return e ? { entityCode: e.code, entityName: e.name } : { entityCode: null, entityName: null };
+}
+
+// The location and its entity number, together.
+async function resolvePlace(db, locationId, current = null) {
+  const place = await resolveLocation(db, locationId, current);
+  if (String(locationId ?? '').trim() === 'keep' && current) {
+    return { ...place, entityCode: current.entityCode ?? null, entityName: current.entityName ?? null };
+  }
+  return { ...place, ...(await entityFor(db, place.locationId ?? 'corporate')) };
+}
+
 // What it was for. Executives pick one of Mark's six, which files under
 // Sam's account for it; store managers pick the account itself (10 Oct).
 // On an edit, keeping the same choice keeps whatever account Finance gave it.
@@ -282,7 +303,7 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
   }
 
   // Which location it goes with: Corporate unless one is picked.
-  const place = await resolveLocation(db, locationId);
+  const place = await resolvePlace(db, locationId);
 
   // Which fiscal period it belongs to - decided here, on the server's clock,
   // so a device cannot put a receipt into a period that has shut.
@@ -316,7 +337,7 @@ exports.submitExpenseReceipt = onCall({ secrets: ['RESEND_API_KEY'] }, async (re
     where: details.where,
     reason: details.reason,
     dateSpent,                       // YYYY-MM-DD, Central - the day it was filed. The accounting date.
-    ...place,                        // locationId / chargeToId / chargeToName / locationStage, resolved above
+    ...place,                        // locationId / chargeToId / chargeToName / locationStage / entityCode / entityName
     periodId: period.id,             // the fiscal period - see fiscal.js
     periodLabel: period.label,
     submittedAt: now,
@@ -354,7 +375,7 @@ exports.editExpenseReceipt = onCall(async (request) => {
   const details = checkDetails({ amountCents, where, reason });
   const account = await resolveFor(db, { execCategory, accountCode }, r);
   if (!account && !r.accountCode) throw new HttpsError('invalid-argument', 'Choose what it was for.');
-  const place = await resolveLocation(db, locationId, r);
+  const place = await resolvePlace(db, locationId, r);
 
   const update = {
     amountCents,
@@ -513,7 +534,7 @@ async function fileEventCosts(enquiryId) {
     console.error('Event costs for ' + enquiryId + ' not filed: today is outside the fiscal calendar.');
     return;
   }
-  const place = ev.locationId ? await resolveLocation(db, ev.locationId).catch(() => null) : null;
+  const place = ev.locationId ? await resolvePlace(db, ev.locationId).catch(() => null) : null;
   const what = (ev.kind === 'catering' ? 'Catering' : ev.occasion || 'Private event') + ' for ' + (ev.name || 'a customer') + (ev.preferredDateText ? ' (' + ev.preferredDateText + ')' : '');
 
   for (const c of costs.docs) {

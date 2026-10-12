@@ -52,6 +52,9 @@ const HEADINGS = [
     ['7450', 'Computer & Tech Expense'], ['7465', 'Consulting Expense'], ['7480', 'Licenses & Permits'],
     ['7500', 'Security & Deposit Services'], ['7510', 'Training Programs'], ['7511', 'Recruiting'],
     ['7515', 'Travel & Accommodations'],
+    // Sam, 12 Oct 2026: 7515 split for detail. 7515 itself is retired.
+    ['7515.01', 'Travel - Airfare'], ['7515.02', 'Travel - Lodging'], ['7515.03', 'Travel - Car Rental'],
+    ['7515.04', 'Travel - Rideshare / Taxi'], ['7515.05', 'Travel - Parking / Toll'], ['7515.06', 'Travel - Other'],
   ]],
   ['Occupancy', [['8104', 'Rent: Storage']]],
 ];
@@ -78,10 +81,12 @@ const OLD_CATEGORY_TO_ACCOUNT = {
 // Mark's six (10 Oct 2026). Executives pick one of these instead of an
 // account number; each one files under the account Sam wants it in. Finance
 // can still give any receipt a different account.
+// Travel moved to Sam's new 7515.0x accounts on 12 Oct 2026 (it was 7515,
+// and 7105 for auto rental).
 const EXEC_CATEGORIES = {
-  airfare: { label: 'Airfare', account: '7515' },
-  autoRental: { label: 'Auto rental & related', account: '7105' },
-  hotel: { label: 'Hotel', account: '7515' },
+  airfare: { label: 'Airfare', account: '7515.01' },
+  autoRental: { label: 'Auto rental & related', account: '7515.03' },
+  hotel: { label: 'Hotel', account: '7515.02' },
   meals: { label: 'Meals / Entertainment', account: '7255' },
   officeSupplies: { label: 'Office / Other supplies', account: '7440' },
   misc: { label: 'Miscellaneous', account: '7175' },

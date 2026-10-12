@@ -194,6 +194,64 @@ export function ExpensesProvider({ children }) {
     );
   }, [user?.uid]);
 
+  // Sam's entity numbers (12 Oct 2026), each tied to a Hub location
+  // ('corporate' for 100), and the default each person's receipts start on.
+  const [entities, setEntities] = useState([]);
+  const [myDefaultEntity, setMyDefaultEntity] = useState(null);
+  const [defaults, setDefaults] = useState({});
+  useEffect(() => {
+    if (!user) {
+      setEntities([]);
+      return undefined;
+    }
+    return onSnapshot(
+      collection(db, 'expenseEntities'),
+      (snap) => setEntities(snap.docs.map((d) => ({ code: d.id, ...d.data() })).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))),
+      (err) => console.error('[ExpenseEntities listener] ' + err.code + ': ' + err.message)
+    );
+  }, [user?.uid]);
+  useEffect(() => {
+    if (!user) {
+      setMyDefaultEntity(null);
+      return undefined;
+    }
+    return onSnapshot(
+      doc(db, 'expenseDefaults', user.uid),
+      (snap) => setMyDefaultEntity(snap.exists() ? snap.data().entityCode ?? null : null),
+      (err) => console.error('[ExpenseDefault listener] ' + err.code + ': ' + err.message)
+    );
+  }, [user?.uid]);
+  useEffect(() => {
+    if (!user || !seesAll) {
+      setDefaults({});
+      return undefined;
+    }
+    return onSnapshot(
+      collection(db, 'expenseDefaults'),
+      (snap) => setDefaults(Object.fromEntries(snap.docs.map((d) => [d.id, d.data().entityCode ?? null]))),
+      (err) => console.error('[ExpenseDefaults listener] ' + err.code + ': ' + err.message)
+    );
+  }, [user?.uid, seesAll]);
+
+  const addEntity = async ({ code, name, locationId }) => {
+    const c = String(code).trim();
+    if (!/^[0-9]{2,6}$/.test(c)) throw new Error('Use the entity number from the books, e.g. 204.');
+    if (entities.some((e) => e.code === c)) throw new Error('Entity ' + c + ' is already on the list.');
+    if (!locationId) throw new Error('Choose which Hub location it is.');
+    if (entities.some((e) => e.locationId === locationId && !e.retired)) throw new Error('That location already has an entity number.');
+    await setDoc(doc(db, 'expenseEntities', c), {
+      code: c,
+      name: String(name).trim(),
+      locationId,
+      order: Number(c),
+      retired: false,
+      addedByName: user?.name ?? null,
+      addedAt: Date.now(),
+    });
+  };
+  const setDefaultEntity = (uid, entityCode) =>
+    setDoc(doc(db, 'expenseDefaults', uid), { entityCode, setByName: user?.name ?? null, setAt: Date.now() });
+
   // The fiscal calendar - a few dozen small documents, read by everyone so
   // the form can say which period a receipt will go into.
   const [periods, setPeriods] = useState([]);
@@ -357,13 +415,18 @@ export function ExpensesProvider({ children }) {
       accounts,
       addAccount,
       setAccountRetired,
+      entities,
+      myDefaultEntity,
+      defaults,
+      addEntity,
+      setDefaultEntity,
       downloadReport,
       rebuildPeriod,
       movePeriod,
       periods,
       hasUncollectedReport,
     }),
-    [receipts, reports, periods, accounts, seesAll, seesStores, loading, user?.uid]
+    [receipts, reports, periods, accounts, entities, myDefaultEntity, defaults, seesAll, seesStores, loading, user?.uid]
   );
 
   return <ExpensesContext.Provider value={value}>{children}</ExpensesContext.Provider>;

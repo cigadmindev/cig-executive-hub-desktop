@@ -86,6 +86,7 @@ async function buildPeriod(period) {
   const byAccount = {};
   const byPerson = {};
   const byLocation = {};
+  const byEntity = {};
   const byCategory = {};
   let total = 0;
   const add = (o, k, cents) => {
@@ -100,6 +101,7 @@ async function buildPeriod(period) {
     add(byAccount, r.accountCode ?? NOT_CODED, cents);
     add(byPerson, r.submittedByName ?? 'Unknown', cents);
     add(byLocation, (r.chargeToName ?? 'Corporate') + (r.locationStage ? ' (' + r.locationStage + ')' : ''), cents);
+    add(byEntity, r.entityCode ? r.entityCode + ' · ' + (r.entityName ?? '') : 'No entity number', cents);
     // For the email: the account names, biggest first.
     byCategory[r.accountName ?? NOT_CODED] = (byCategory[r.accountName ?? NOT_CODED] ?? 0) + cents;
   }
@@ -122,11 +124,11 @@ async function buildPeriod(period) {
   ws1.addRow([]);
   ws1.columns = [
     { key: 'photo', width: 8 }, { key: 'date', width: 12 }, { key: 'who', width: 20 }, { key: 'code', width: 9 },
-    { key: 'account', width: 30 }, { key: 'heading', width: 18 }, { key: 'location', width: 30 }, { key: 'where', width: 26 },
+    { key: 'account', width: 30 }, { key: 'heading', width: 18 }, { key: 'entity', width: 8 }, { key: 'location', width: 30 }, { key: 'where', width: 26 },
     { key: 'stage', width: 18 }, { key: 'level', width: 10 }, { key: 'chosen', width: 22 },
     { key: 'why', width: 40 }, { key: 'amount', width: 12 }, { key: 'notes', width: 40 },
   ];
-  ws1.addRow(['Photo', 'Date', 'Who', 'Code', 'Account', 'Heading', 'Location', 'Where', 'Opening / operating', 'Filed as', 'Chosen as', 'Why', 'Amount', 'Notes']);
+  ws1.addRow(['Photo', 'Date', 'Who', 'Code', 'Account', 'Heading', 'Entity', 'Location', 'Where', 'Opening / operating', 'Filed as', 'Chosen as', 'Why', 'Amount', 'Notes']);
   head(ws1, 3);
   for (const r of receipts) {
     const notes = [];
@@ -142,6 +144,7 @@ async function buildPeriod(period) {
       code: r.accountCode ?? '',
       account: r.accountName ?? NOT_CODED,
       heading: r.accountHeading ?? '',
+      entity: r.entityCode ?? '',
       location: r.chargeToName ?? 'Corporate',
       where: r.where ?? '',
       stage: r.locationStage ? r.locationStage[0].toUpperCase() + r.locationStage.slice(1) : 'Corporate',
@@ -216,6 +219,7 @@ async function buildPeriod(period) {
   };
   simple('By person', 'Who', byPerson, null);
   simple('By location', 'Location', byLocation, 'Corporate');
+  simple('By entity', 'Entity', byEntity, null);
 
   const path = 'expenseReports/' + period.id + '.xlsx';
   const buffer = await wb.xlsx.writeBuffer();
