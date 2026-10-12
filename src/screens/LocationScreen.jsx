@@ -129,7 +129,7 @@ export default function LocationScreen() {
       <div style={styles.grid}>
         {OPERATIONAL_ITEMS.filter((item) =>
           item.key === 'daily-checklists'
-            ? DAILY_LOCATIONS.includes(location.id) && (user?.role !== 'manager' || isManagerOnDuty(user, location.id))
+            ? DAILY_LOCATIONS.includes(location.id) && (user?.role !== 'manager' || isManagerOnDuty(user, location.id, brandId))
             : hasFeature(user, {
             'event-requests': 'eventRequests',
             renewals: 'renewals',

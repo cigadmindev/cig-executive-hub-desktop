@@ -18,13 +18,19 @@ export const recordId = (locationId, dateKey, listId) => `${locationId}_${dateKe
 export const todayKey = () =>
   new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
 
-// Managers on duty: the GMs and assistant managers who work a list.
-// A GM or AGM here - their own job, or their second job at this location
-// (Cameron: IT & Training, and also Starkville's GM).
-export const isManagerOnDuty = (user, locationId) => {
-  const jobs = ['General Manager', 'Assistant Manager'];
-  if (jobs.includes(user?.job)) return true;
-  return jobs.includes(user?.alsoJob?.job) && (!locationId || user.alsoJob.locationId === locationId);
+// Who works the daily lists (12 Oct 2026): GMs, assistant managers and the
+// chefs - Executive Chef and Sous Chef - every list, at their own location.
+// Their own job, or a second job at this location (Cameron: IT & Training,
+// and also Starkville's GM). A login narrowed to some of a restaurant's
+// locations works only those; the rules cannot check the location, so the
+// app does.
+export const DAILY_JOBS = ['General Manager', 'Assistant Manager', 'Executive Chef', 'Sous Chef'];
+export const isManagerOnDuty = (user, locationId, brandId) => {
+  if (DAILY_JOBS.includes(user?.job)) {
+    const only = brandId ? user?.permissions?.locationsByBrand?.[brandId] ?? [] : [];
+    return !locationId || only.length === 0 || only.includes(locationId);
+  }
+  return DAILY_JOBS.includes(user?.alsoJob?.job) && (!locationId || user.alsoJob.locationId === locationId);
 };
 
 // Filtered on the restaurant as well: the rule only lets managers read their
@@ -58,7 +64,7 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
 
   // A manager on duty who opens a list before it is filed is signed onto it.
   useEffect(() => {
-    if (!list || !user || (!isManagerOnDuty(user, locationId) && user.role !== 'admin')) return;
+    if (!list || !user || (!isManagerOnDuty(user, locationId, brandId) && user.role !== 'admin')) return;
     (async () => {
       const ref = doc(db, COLLECTION, id);
       const snap = await getDoc(ref);
@@ -72,10 +78,10 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
           // Their labels, copied in like the tasks, for the filed PDF.
           noteLabels: (list.notes ?? []).map(([key, label]) => ({ key, label })),
           tasks: tasksFor(list, dateKey).map((t) => ({ ...t, done: false, byName: null, at: null, note: '' })),
-          managers: isManagerOnDuty(user, locationId) ? [user.name] : [],
+          managers: isManagerOnDuty(user, locationId, brandId) ? [user.name] : [],
           status: 'open', createdAt: Date.now(),
         });
-      } else if (snap.data().status !== 'filed' && isManagerOnDuty(user, locationId) && !(snap.data().managers ?? []).includes(user.name)) {
+      } else if (snap.data().status !== 'filed' && isManagerOnDuty(user, locationId, brandId) && !(snap.data().managers ?? []).includes(user.name)) {
         await updateDoc(ref, { managers: arrayUnion(user.name) });
       }
     })().catch((e) => console.error('[DailyChecklist open] ' + e.message));
@@ -88,7 +94,7 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
       const tasks = [...snap.data().tasks];
       const t = tasks[index];
       tasks[index] = t.done ? { ...t, done: false, byName: null, at: null } : { ...t, done: true, byName: user?.name ?? '', at: Date.now(), note: '' };
-      tx.update(ref, { tasks, ...(isManagerOnDuty(user, locationId) ? { managers: arrayUnion(user.name) } : {}) });
+      tx.update(ref, { tasks, ...(isManagerOnDuty(user, locationId, brandId) ? { managers: arrayUnion(user.name) } : {}) });
     });
   const setNote = (index, note) =>
     runTransaction(db, async (tx) => {

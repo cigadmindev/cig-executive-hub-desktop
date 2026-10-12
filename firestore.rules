@@ -299,7 +299,9 @@ service cloud.firestore {
       // Ticked while open; locked while it is being filed and once filed.
       // Only the server moves it to "filing" and "filed".
       allow create, update: if (isAdmin()
-        || ((hasJobOrAlso('General Manager') || hasJobOrAlso('Assistant Manager')) && request.resource.data.brandId in myBrands()))
+        // GMs, AGMs and the chefs (12 Oct 2026); the app narrows to their location.
+        || ((hasJobOrAlso('General Manager') || hasJobOrAlso('Assistant Manager')
+             || hasJobOrAlso('Executive Chef') || hasJobOrAlso('Sous Chef')) && request.resource.data.brandId in myBrands()))
         && (resource == null || resource.data.status == 'open')
         && request.resource.data.status == 'open';
       allow delete: if isAdmin();
