@@ -36,9 +36,13 @@ const LISTS = {
     ['host-opening', 'Host Opening'], ['server-opening', 'Server Opening'], ['bar-opening', 'Main Bar Opening'], ['veranda-opening', 'Veranda Opening'],
     ['host-closing', 'Host Closing'], ['server-closing', 'Server / Food Runner Closing'], ['bar-closing', 'Bar Closing'], ['boh-closing', 'Kitchen Closing'],
   ],
-  // Ridgeland's own chef sheets (10 Oct 2026).
+  // Ridgeland, set up like Starkville (12 Oct 2026): its own kitchen sheets
+  // and Starkville's front of house adapted for Ridgeland.
   'taste-ridgeland': [
-    ['ridgeland-chef-opening', 'AM Opening Chef'], ['ridgeland-chef-closing', 'PM Closing Chef'],
+    ['ridgeland-host-opening', 'Host Opening'], ['ridgeland-server-opening', 'Server Opening'], ['ridgeland-bar-opening', 'Main Bar Opening'],
+    ['ridgeland-terrazza-opening', 'Terrazza Opening'], ['ridgeland-chef-opening', 'Kitchen Opening'],
+    ['ridgeland-host-closing', 'Host Closing'], ['ridgeland-server-closing', 'Server / Food Runner Closing'], ['ridgeland-bar-closing', 'Bar Closing'],
+    ['ridgeland-chef-closing', 'Kitchen Closing'],
   ],
 };
 const isClosing = (listId) => listId.endsWith('-closing');

@@ -15,7 +15,12 @@
 // LISTS in functions/dailyChecklists.js.
 const LISTS_AT = {
   'taste-starkville': ['host-opening', 'server-opening', 'bar-opening', 'veranda-opening', 'host-closing', 'server-closing', 'bar-closing', 'boh-closing'],
-  'taste-ridgeland': ['ridgeland-chef-opening', 'ridgeland-chef-closing'],
+  // Ridgeland, set up like Starkville (Brenner, 12 Oct 2026): its own kitchen
+  // sheets, and Starkville's front of house adapted for Ridgeland.
+  'taste-ridgeland': [
+    'ridgeland-host-opening', 'ridgeland-server-opening', 'ridgeland-bar-opening', 'ridgeland-terrazza-opening', 'ridgeland-chef-opening',
+    'ridgeland-host-closing', 'ridgeland-server-closing', 'ridgeland-bar-closing', 'ridgeland-chef-closing',
+  ],
 };
 export const DAILY_LOCATIONS = Object.keys(LISTS_AT);
 
@@ -220,9 +225,11 @@ export const DAILY_CHECKLISTS = [
   },
   // ---- Taste Ridgeland (sheets from Brenner, 10 Oct 2026) ----
   {
-    id: 'ridgeland-chef-opening', kind: 'opening', title: 'AM Opening Chef Checklist', subtitle: 'Taste Italian Kitchen · Chef Accountability Checklist',
-    workers: ['Opening Chef', 'Start Time'],
-    intro: "The opening chef completes every task below before service, and the manager on duty verifies each one. Let the manager on duty know right away if anything below can't be completed.",
+    // Ridgeland's AM sheet, retitled like Starkville's lists (12 Oct 2026).
+    // The id stays, so the sheets already filed carry on.
+    id: 'ridgeland-chef-opening', kind: 'opening', title: 'Kitchen Opening Checklist', subtitle: 'Kitchen — Pre-Service Setup & Readiness',
+    workers: ['Opening Lead', 'Start Time'],
+    intro: "The opening kitchen lead completes every task below before service begins and initials the box once it's verified. Let the manager on duty know right away if anything below can't be completed.",
     notes: [['maintenance', 'Maintenance / Equipment Issues'], ['prep', 'Product / Prep Issues for PM Team'], ['other', 'Additional Notes']],
     tasks: [
       G('1. Kitchen & Equipment Inspection'),
@@ -280,9 +287,9 @@ export const DAILY_CHECKLISTS = [
     ],
   },
   {
-    id: 'ridgeland-chef-closing', kind: 'closing', title: 'PM Closing Chef Checklist', subtitle: 'Taste Italian Kitchen · Chef Accountability Checklist',
-    workers: ['Closing Chef', 'Start Time'],
-    intro: "The closing chef completes every task below before leaving, and the manager on duty verifies each one. Let the manager on duty know right away if anything below can't be completed.",
+    id: 'ridgeland-chef-closing', kind: 'closing', title: 'Kitchen Closing Checklist', subtitle: 'Kitchen — End-of-Night Close-Out',
+    workers: ['Closing Lead', 'Start Time'],
+    intro: "The closing kitchen lead completes every task below before leaving and initials the box once it's verified. Let the manager on duty know right away if anything below can't be completed.",
     notes: [['maintenance', 'Maintenance / Equipment Issues'], ['prep', 'Product / Prep Issues for AM Team']],
     tasks: [
       G('1. Food Storage, Labeling & Dating'),
@@ -342,6 +349,87 @@ export const DAILY_CHECKLISTS = [
     ],
   },
 ];
+
+// ---- Taste Ridgeland front of house (Brenner, 12 Oct 2026) ----
+// Ridgeland's own sheets are kitchen-only, so its front of house runs
+// Starkville's lists: the Veranda is Ridgeland's Terrazza, Starkville's table
+// sections go, and anything that only makes sense in Starkville's building is
+// reworded or dropped below. Ridgeland's managers check them against the room.
+//
+// edits: { 'Task title': 'new details' | null (drop the task) }
+function forRidgeland(fromId, id, { title, subtitle, edits = {} } = {}) {
+  const from = DAILY_CHECKLISTS.find((l) => l.id === fromId);
+  const swap = (text) => (typeof text === 'string' ? text.replace(/Veranda/g, 'Terrazza') : text);
+  const tasks = from.tasks
+    .filter((t) => t.group || edits[t.title] !== null)
+    .map((t) => {
+      if (t.group) return t;
+      const { section, ...rest } = t;
+      return { ...rest, title: swap(t.title), details: swap(t.title in edits ? edits[t.title] : t.details) };
+    });
+  return { ...from, id, title: title ?? swap(from.title), subtitle: swap(subtitle ?? from.subtitle), intro: swap(from.intro), sections: false, tasks };
+}
+
+DAILY_CHECKLISTS.push(
+  forRidgeland('host-opening', 'ridgeland-host-opening', {
+    edits: {
+      'Turn On Lights': 'Turn on the host stand and entry lights.',
+      'Roll Out Rugs': 'Logo mat at the front door, readable as guests walk in, and a runner at the host stand. Vacuum or sweep every rug clean before opening.',
+      'Sweep Foyer / Front Hallway': 'Sweep the entry thoroughly, including behind any doors propped open through service.',
+      'Clean Windows & Doors': 'Using Windex and a microfiber cloth: the front doors, the entry windows, and the Terrazza windows and doors.',
+    },
+  }),
+  forRidgeland('server-opening', 'ridgeland-server-opening', {
+    edits: {
+      'Bread Warmer': 'Turn the bread warmer on. Check the walk-in for bread from the previous night before opening fresh loaves. Slice loaves in half and store them in the warmer. Do not cut bread into serving slices until 10:45 AM or later. Once slicing, put a damp rag in an eighth pan in the bottom tray to keep the bread from drying out.',
+      'Roll out rugs': 'Roll out every runner and logo mat in its usual place: kitchen hallway, Terrazza doors, server station, and front entrance.',
+      'Set up parmesan bowls': 'Use the grated Parmesan in the walk-in — look for an open bag before opening a new one. Bowls for each server station, with spoons.',
+      'Refrigeration Well': 'Set up the refrigeration well for lemons, butter chips and heavy cream by filling it about 1/3 of the way with ice.',
+    },
+  }),
+  forRidgeland('bar-opening', 'ridgeland-bar-opening', {
+    edits: {
+      'Turn All Lights On': 'Every bar light: under-bar lights, cooler lights, and shelf lights.',
+      'Turn On Music & TVs': "– If there's a big game, check with the manager on duty about which TVs show it; set all other TVs to appropriate sports channels.\n– Music mid-40s to low-50s for dining areas; halls low-to-mid-50s.",
+    },
+  }),
+  forRidgeland('veranda-opening', 'ridgeland-terrazza-opening', {
+    title: 'Terrazza Opening Checklist',
+    subtitle: 'Terrazza — Pre-Shift Setup & Readiness',
+    edits: {
+      'Ready the Dining Area': "– Check that all tables are properly set.\n– Ensure the floor is clean and free of debris.\n– Set up the patio if it's being used.",
+      'Turn All Lights On': '– Every Terrazza light, inside and out, including any string lights if the patio is being used.',
+      'Clean the Garage Door Windows': null,
+      'Turn On TVs for Game Day': "– If there's a big game, check with the manager on duty about the TVs.",
+    },
+  }),
+  forRidgeland('host-closing', 'ridgeland-host-closing', {
+    edits: {
+      'Gather & Sanitize Menus': "Gather all cocktail menus, food menus, and wine books from anywhere in the restaurant. Sanitize and dry every menu before storing them, and set out Lunch menus for the next day (check with the manager before special days like graduations or Mother's Day).",
+      'Close Out the iPads': '– Clear all tables and server assignments, unless still busy — then check with the manager.\n– Clear all open apps; charge the iPad with the lowest battery.\n– Store the iPads at the host stand, unless the manager wants one.',
+      'Sweep the Rugs': '– Sweep the rug at the host stand and the rug inside the front door.',
+      'Sweep Foyer / Front Hallway': '– Sweep the entry thoroughly, including behind any propped doors.',
+    },
+  }),
+  forRidgeland('server-closing', 'ridgeland-server-closing', {
+    edits: {
+      'Bread Warmer': 'Turn off the warmer. Wrap unsliced half loaves, date them and store in the walk-in. Sanitize and scrub all stainless surfaces and the interior.',
+      'Clean the cotton candy machine / surrounding area': null,
+      'Clean the vent beside the dish area': 'Use a rag and sanitizer spray to remove any dirt/food/dust from the vents near the dish area.',
+      'Polish all silverware and glassware': 'Return polished items to their areas: bar glassware to the bar, rocks glasses to the server station, silverware to mise en place trays then the holders; spread extra B&B plates and oil dishes between the bar, the dining room and the Terrazza.',
+      'Ice Well Items': 'Wrap and put away the lemons, heavy whipping cream and butter chips from the ice well.',
+      'Wipe down the entire server counter space in the kitchen': 'Throw away any trash and sanitize the whole server counter in the kitchen, from the POS to the bread warmer and the drink area.',
+      'Restock all to-go items in the kitchen under the water station': 'Logo cups and lids, Styrofoam cups and lids, 2 oz cups and lids, small and large clamshells, 16 oz soup bowls and lids, and logo bags.',
+    },
+  }),
+  forRidgeland('bar-closing', 'ridgeland-bar-closing', {
+    edits: {
+      'Clean the Vents': 'Using a fresh rag and sanitizer spray, every vent in the bar area.',
+      'Polish Silverware & Glassware': '– Bar glassware back to the bar; rocks glasses to the server station; silverware to mise en place trays then the holders; extra B&B plates and oil dishes spread between the bar, the dining room and the Terrazza.',
+      'Mop the Entire Bar Area': 'From the entrance to the far corner of the bar area.',
+    },
+  }),
+);
 
 // The lists one location runs, in its order.
 export const listsFor = (locationId) =>
