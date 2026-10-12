@@ -25,7 +25,7 @@ const MAX_MB = 50;
 const call = async (name, data = {}) => (await httpsCallable(getFunctions(undefined, 'us-central1'), name)(data)).data;
 
 export default function MySpaceScreen() {
-  const { user } = useAuth();
+  const { user, viewAs } = useAuth();
   const { dialogNode, confirm, notify } = useDialog();
   const fileRef = useRef(null);
   const uid = user?.uid;
@@ -45,7 +45,7 @@ export default function MySpaceScreen() {
   const typed = useRef(false);
 
   useEffect(() => {
-    if (!uid || !on) return undefined;
+    if (!uid || !on || viewAs) return undefined;
     const base = doc(db, 'privateSpaces', uid);
     const unsubs = [
       onSnapshot(base, (snap) => {
@@ -57,7 +57,7 @@ export default function MySpaceScreen() {
       onSnapshot(collection(base, 'todos'), (snap) => setTodos(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), (err) => console.error('[MySpace todos] ' + err.code)),
     ];
     return () => unsubs.forEach((u) => u());
-  }, [uid, on]);
+  }, [uid, on, viewAs]);
 
   const folderUrl = space?.driveFolderUrl ?? null;
   const loadFiles = async () => {
@@ -88,6 +88,17 @@ export default function MySpaceScreen() {
     }, 800);
     return () => clearTimeout(t);
   }, [notes, uid]);
+
+  // An admin using View as is still signed in as themselves, and the rules
+  // only let the person in - so say so rather than load forever.
+  if (viewAs) {
+    return (
+      <div style={styles.page}>
+        <PageHeader back={{ to: '/', label: 'Home' }} title="My space" />
+        <p style={styles.muted}>🔒 This is {viewAs.name ?? 'their'}'s private space. Nobody else can open it - not even an admin viewing as them. They see it on their own login.</p>
+      </div>
+    );
+  }
 
   if (!on) {
     return (
