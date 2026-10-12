@@ -28,7 +28,7 @@ export default function DailyChecklistScreen() {
   const [filing, setFiling] = useState(false);
 
   if (!list) return <div style={styles.page}><p style={styles.muted}>No such checklist.</p></div>;
-  const canWork = (user?.role === 'admin' || isManagerOnDuty(user)) && record?.status !== 'filed';
+  const canWork = (user?.role === 'admin' || isManagerOnDuty(user, locationId)) && record?.status !== 'filed';
   const tasks = record?.tasks ?? [];
   const real = tasks.map((t, i) => ({ t, i })).filter(({ t }) => !t.group);
   const done = real.filter(({ t }) => t.done).length;

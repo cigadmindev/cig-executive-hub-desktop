@@ -12,6 +12,7 @@ import RequestAccessModal from '../components/RequestAccessModal';
 import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
 import { iconName } from '../utils/iconGlyphs';
+import { isManagerOnDuty } from '../hooks/useDailyChecklists';
 import { DAILY_LOCATIONS } from '../data/dailyChecklists';
 import PageHeader from '../components/PageHeader';
 import { plainError } from '../lib/errors';
@@ -128,7 +129,7 @@ export default function LocationScreen() {
       <div style={styles.grid}>
         {OPERATIONAL_ITEMS.filter((item) =>
           item.key === 'daily-checklists'
-            ? DAILY_LOCATIONS.includes(location.id) && (user?.role !== 'manager' || ['General Manager', 'Assistant Manager'].includes(user?.job))
+            ? DAILY_LOCATIONS.includes(location.id) && (user?.role !== 'manager' || isManagerOnDuty(user, location.id))
             : hasFeature(user, {
             'event-requests': 'eventRequests',
             renewals: 'renewals',

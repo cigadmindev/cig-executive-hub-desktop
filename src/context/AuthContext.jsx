@@ -27,6 +27,9 @@ async function fetchProfile(uid, email) {
     active: data.active ?? true,
     pushToken: data.pushToken ?? null,
     job: data.job ?? null,
+    // A second job at one location (12 Oct 2026): Cameron is IT & Training
+    // and also Taste Starkville's General Manager. { job, locationId } or null.
+    alsoJob: data.alsoJob ?? null,
     // A test login. Hidden from every list, picker and feed, and from
     // reports and activity - so testing does not clutter anyone else's Hub.
     isGhost: data.isGhost === true,
@@ -71,6 +74,7 @@ export function AuthProvider({ children }) {
           active: data.active ?? true,
           pushToken: data.pushToken ?? null,
           job: data.job ?? null,
+          alsoJob: data.alsoJob ?? null,
           isGhost: data.isGhost === true,
           // default | all | action | none. Absent is the default: immediate for
           // anything waiting on you, one 8am summary for everything else.
@@ -209,6 +213,14 @@ export function AuthProvider({ children }) {
     setUser((prev) => (prev && prev.uid === uid ? { ...prev, job: job ?? null } : prev));
   };
 
+  // { job, locationId } or null to take it off.
+  const updateUserAlsoJob = async (uid, alsoJob) => {
+    const value = alsoJob?.job && alsoJob?.locationId ? { job: alsoJob.job, locationId: alsoJob.locationId } : null;
+    await updateDoc(doc(db, 'users', uid), { alsoJob: value });
+    await refreshUsers();
+    setUser((prev) => (prev && prev.uid === uid ? { ...prev, alsoJob: value } : prev));
+  };
+
   const updatePermissions = async (uid, permissions) => {
     await updateDoc(doc(db, 'users', uid), { permissions });
     await refreshUsers();
@@ -308,6 +320,7 @@ export function AuthProvider({ children }) {
         addUser,
         updatePermissions,
         updateUserJob,
+        updateUserAlsoJob,
         setUserGhost,
         setMyEmailPreference,
         updateUserRole,

@@ -123,9 +123,13 @@ function hearsFolder(u, categoryId, matrix) {
 // The people with these jobs who work at this location.
 function atLocation(users, jobs, brandId, locationId) {
   return users.filter(
-    (u) => jobs.includes(u.job) && u.role !== 'admin' && seesLocation(u, brandId, locationId) &&
-      // An executive with a location job title is company-wide, not "at" one.
-      u.role === 'manager'
+    (u) =>
+      (jobs.includes(u.job) && u.role !== 'admin' && seesLocation(u, brandId, locationId) &&
+        // An executive with a location job title is company-wide, not "at" one.
+        u.role === 'manager') ||
+      // A second job at exactly this location (Cameron: also Starkville's
+      // GM, 12 Oct 2026).
+      (jobs.includes(u.alsoJob?.job) && u.alsoJob?.locationId === locationId)
   );
 }
 

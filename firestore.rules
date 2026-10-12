@@ -95,8 +95,14 @@ service cloud.firestore {
     // Finance is a job, not a role - Sam is an executive whose job is
     // Financials. There is no fourth role.
     function hasJob(job) {
-      return isLive() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == job;
+      return isLive() && me().job == job;
+    }
+    // Their job, or their second job (Cameron: IT & Training, also
+    // Starkville's GM - 12 Oct 2026). Where the second job applies is the
+    // app's to narrow, as with every location.
+    function hasJobOrAlso(job) {
+      let p = me();
+      return isLive() && (p.job == job || p.get('alsoJob', {}).get('job', '') == job);
     }
 
     function isCoo() {
@@ -293,7 +299,7 @@ service cloud.firestore {
       // Ticked while open; locked while it is being filed and once filed.
       // Only the server moves it to "filing" and "filed".
       allow create, update: if (isAdmin()
-        || ((hasJob('General Manager') || hasJob('Assistant Manager')) && request.resource.data.brandId in myBrands()))
+        || ((hasJobOrAlso('General Manager') || hasJobOrAlso('Assistant Manager')) && request.resource.data.brandId in myBrands()))
         && (resource == null || resource.data.status == 'open')
         && request.resource.data.status == 'open';
       allow delete: if isAdmin();

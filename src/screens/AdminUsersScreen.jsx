@@ -38,6 +38,8 @@ const blankDraft = () => ({
   email: '',
   role: 'manager',
   job: null,
+  // A second job at one location: { job, locationId } or null.
+  alsoJob: null,
   brandIds: [],
   // brandId -> the locations they may see there. No entry, or an empty one,
   // means every location in that restaurant.
@@ -60,6 +62,7 @@ export default function AdminUsersScreen() {
     setUserActive,
     updateUserRole,
     updateUserJob,
+    updateUserAlsoJob,
     updatePermissions,
     setUserGhost,
     user: currentUser,
@@ -86,6 +89,9 @@ export default function AdminUsersScreen() {
     ];
   };
 
+  // Every location, labelled with its restaurant, for "Also works as".
+  const allLocations = brands.flatMap((b) => locationsFor(b.id).map((l) => ({ id: l.id, label: b.name + ' · ' + l.name })));
+
   if (currentUser?.role !== 'admin') {
     return (
       <div style={styles.page}>
@@ -105,6 +111,7 @@ export default function AdminUsersScreen() {
       email: u.email,
       role: u.role,
       job: u.job ?? null,
+      alsoJob: u.alsoJob ?? null,
       brandIds: u.permissions?.brandIds ?? [],
       locationsByBrand: u.permissions?.locationsByBrand ?? {},
       categoryIds: u.permissions?.categoryIds ?? [],
@@ -170,10 +177,15 @@ export default function AdminUsersScreen() {
 
     const target = users.find((u) => u.uid === panelMode);
     if (!target) return;
+    if (draft.alsoJob?.job && !draft.alsoJob.locationId) {
+      notify('Choose where', 'Pick the location for ' + draft.alsoJob.job + ', or set "No second job".');
+      return;
+    }
     setSaving(true);
     try {
       if (draft.role !== target.role) await updateUserRole(target.uid, draft.role);
       if (draft.job !== (target.job ?? null)) await updateUserJob(target.uid, draft.job);
+      if (JSON.stringify(draft.alsoJob ?? null) !== JSON.stringify(target.alsoJob ?? null)) await updateUserAlsoJob(target.uid, draft.alsoJob);
       await updatePermissions(target.uid, { ...(target.permissions ?? {}), ...permissionsFromDraft() });
       setPanelMode(null);
     } catch (err) {
@@ -270,6 +282,7 @@ export default function AdminUsersScreen() {
     const role = u.role === 'admin' ? 'Admin' : u.role === 'executive' ? 'Executive' : 'Manager';
     const parts = [role];
     if (u.job) parts.push(cleanJob(u.job));
+    if (u.alsoJob?.job) parts.push('also ' + cleanJob(u.alsoJob.job) + ', ' + (allLocations.find((l) => l.id === u.alsoJob.locationId)?.label ?? 'a location'));
     if (u.role === 'manager') parts.push(whereText(u.permissions));
     return parts.join(' · ');
   };
@@ -444,6 +457,7 @@ export default function AdminUsersScreen() {
           draft={draft}
           setDraft={setDraft}
           locationsFor={locationsFor}
+          allLocations={allLocations}
           presets={presets}
           savePreset={savePreset}
           saving={saving}
@@ -460,7 +474,7 @@ export default function AdminUsersScreen() {
 // The create and edit form. Grouped into who, where, folders and reach, with
 // folders and reach defaulting to everything and opening only when something
 // needs unticking - rather than twenty chips on screen every time.
-function AccessPanel({ mode, draft, setDraft, locationsFor, presets, savePreset, saving, onSave, onClose }) {
+function AccessPanel({ mode, draft, setDraft, locationsFor, allLocations, presets, savePreset, saving, onSave, onClose }) {
   const [foldersOpen, setFoldersOpen] = useState(false);
   const [reachOpen, setReachOpen] = useState(false);
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
@@ -565,6 +579,42 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, presets, savePreset,
             ))}
           </select>
         </div>
+
+        {mode !== 'create' ? (
+          <>
+            <p style={styles.sectionLabel}>Also works as</p>
+            <div style={styles.twoCol}>
+              <select
+                style={styles.input}
+                value={draft.alsoJob?.job ?? ''}
+                onChange={(e) => set({ alsoJob: e.target.value ? { job: e.target.value, locationId: draft.alsoJob?.locationId ?? '' } : null })}
+                aria-label="Second job"
+              >
+                <option value="">No second job</option>
+                {JOB_OPTIONS.filter((j) => j !== draft.job).map((j) => (
+                  <option key={j} value={j}>
+                    {j}
+                  </option>
+                ))}
+              </select>
+              <select
+                style={styles.input}
+                value={draft.alsoJob?.locationId ?? ''}
+                disabled={!draft.alsoJob?.job}
+                onChange={(e) => set({ alsoJob: { ...draft.alsoJob, locationId: e.target.value } })}
+                aria-label="Where"
+              >
+                <option value="">At which location</option>
+                {allLocations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p style={styles.note}>One extra job at one location - Cameron is IT &amp; Training and also Starkville's GM. Leave it empty for everyone else.</p>
+          </>
+        ) : null}
 
         {draft.role === 'manager' ? (
           <>
