@@ -53,7 +53,10 @@ export default function MySpaceScreen() {
         setSpace(data);
         // Not while typing - the box would jump under the cursor.
         if (!typed.current) setNotes(data.notes ?? '');
-      }, (err) => console.error('[MySpace] ' + err.code)),
+      }, (err) => {
+        console.error('[MySpace] ' + err.code + ': ' + err.message);
+        setSpace({ loadError: err.code || 'unknown' });
+      }),
       onSnapshot(collection(base, 'todos'), (snap) => setTodos(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), (err) => console.error('[MySpace todos] ' + err.code)),
     ];
     return () => unsubs.forEach((u) => u());
@@ -212,6 +215,8 @@ export default function MySpaceScreen() {
               </>
             ) : space === null ? (
               <p style={styles.note}>Loading…</p>
+            ) : space.loadError ? (
+              <p style={{ ...styles.note, color: '#F87171' }}>My space could not be opened ({space.loadError}). Send Brenner a screenshot of this.</p>
             ) : (
               <>
                 <p style={styles.note}>The Hub makes a folder in the CIG shared drive that only you can open.</p>
