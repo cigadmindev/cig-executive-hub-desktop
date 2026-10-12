@@ -34,6 +34,7 @@ import CategoryDetailScreen from './screens/CategoryDetailScreen';
 import AnnouncementsScreen from './screens/AnnouncementsScreen';
 import HomeAnnouncementsScreen from './screens/HomeAnnouncementsScreen';
 import MessagesScreen from './screens/MessagesScreen';
+import MySpaceScreen from './screens/MySpaceScreen';
 import CalendarScreen from './screens/CalendarScreen';
 import AvailabilityScreen from './screens/AvailabilityScreen';
 import EventRequestsScreen from './screens/EventRequestsScreen';
@@ -109,6 +110,7 @@ function Gate() {
         <Route path="/calendar" element={<CalendarScreen />} />
         <Route path="/directory" element={<DirectoryScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
+        <Route path="/my-space" element={<MySpaceScreen />} />
         <Route path="/availability" element={<RequireFeature feature="availability"><AvailabilityScreen /></RequireFeature>} />
         <Route path="/admin/users" element={<AdminUsersScreen />} />
         <Route path="/admin/offboarding" element={<RequireReviewer><OffboardingScreen /></RequireReviewer>} />

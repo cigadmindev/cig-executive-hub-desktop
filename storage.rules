@@ -126,6 +126,19 @@ service firebase.storage {
       allow read, write: if false;
     }
 
+    // My space (12 Oct 2026): private files. Only the person whose uid is
+    // in the path, and only while their login has My space switched on.
+    // Nobody else - admins included - can read, add or remove them here.
+    match /private/{uid}/{fileName} {
+      function mine() {
+        return live() && request.auth.uid == uid
+          && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('privateSpace', false) == true;
+      }
+      allow read, delete: if mine();
+      allow create: if mine() && request.resource.size < 50 * 1024 * 1024;
+      allow update: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

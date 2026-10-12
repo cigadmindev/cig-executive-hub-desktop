@@ -355,3 +355,5 @@ Object.assign(exports, require('./deviceRequests'));
 Object.assign(exports, require('./cateringIntake'));
 // "Needs a signature from…" on checklist items (10 Oct 2026).
 Object.assign(exports, require('./checklistSignatures'));
+// My space: a private Drive folder only its person can open (12 Oct 2026).
+Object.assign(exports, require('./privateSpace'));

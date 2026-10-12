@@ -87,6 +87,8 @@ export default function ProfileScreen() {
   };
 
   const menuItems = [
+    // My space (12 Oct 2026) - only for a login it is switched on for.
+    ...(user?.privateSpace ? [{ key: 'mySpace', icon: 'lock', label: 'My space', onClick: () => navigate('/my-space') }] : []),
     {
       key: 'support',
       icon: 'lifeBuoy',

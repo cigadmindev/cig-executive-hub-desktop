@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useNavigate , Link } from 'react-router-dom';
+import { MySpaceCard } from './MySpaceScreen';
 import { useAuth } from '../context/AuthContext';
 import { brands , hasFeature } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
@@ -135,6 +136,8 @@ export default function HomeScreen() {
             </div>
         </div>
       </header>
+
+      <MySpaceCard user={user} />
 
       {pinned.length > 0 ? (
         <div style={{ marginBottom: 22 }}>

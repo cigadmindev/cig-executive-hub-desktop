@@ -338,6 +338,24 @@ service cloud.firestore {
     }
     // Each person's default entity, which their receipts start on. Set by
     // Finance and admins; the person reads their own.
+    // My space (12 Oct 2026): notes, to-dos, the list of files and the
+    // Drive folder link. Only the person it belongs to, and only while their
+    // login has My space switched on - no admin branch, on purpose. The
+    // Drive link is written by the server, which these rules do not cover.
+    match /privateSpaces/{uid} {
+      function mine() {
+        return isLive() && request.auth.uid == uid && me().get('privateSpace', false) == true;
+      }
+      allow read: if mine();
+      allow create: if mine() && request.resource.data.keys().hasOnly(['notes', 'notesUpdatedAt']);
+      allow update: if mine() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notes', 'notesUpdatedAt']);
+      allow delete: if false;
+      match /{sub}/{id} {
+        allow read, delete: if mine() && sub in ['todos', 'files'];
+        allow create, update: if mine() && sub in ['todos', 'files'];
+      }
+    }
+
     match /expenseDefaults/{uid} {
       allow read: if isAdmin() || isFinance() || (isSignedIn() && request.auth.uid == uid);
       allow create, update: if (isAdmin() || isFinance())

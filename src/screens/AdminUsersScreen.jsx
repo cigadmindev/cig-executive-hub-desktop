@@ -40,6 +40,7 @@ const blankDraft = () => ({
   job: null,
   // A second job at one location: { job, locationId } or null.
   alsoJob: null,
+  privateSpace: false,
   brandIds: [],
   // brandId -> the locations they may see there. No entry, or an empty one,
   // means every location in that restaurant.
@@ -63,6 +64,7 @@ export default function AdminUsersScreen() {
     updateUserRole,
     updateUserJob,
     updateUserAlsoJob,
+    updateUserPrivateSpace,
     updatePermissions,
     setUserGhost,
     user: currentUser,
@@ -112,6 +114,7 @@ export default function AdminUsersScreen() {
       role: u.role,
       job: u.job ?? null,
       alsoJob: u.alsoJob ?? null,
+      privateSpace: u.privateSpace === true,
       brandIds: u.permissions?.brandIds ?? [],
       locationsByBrand: u.permissions?.locationsByBrand ?? {},
       categoryIds: u.permissions?.categoryIds ?? [],
@@ -186,6 +189,7 @@ export default function AdminUsersScreen() {
       if (draft.role !== target.role) await updateUserRole(target.uid, draft.role);
       if (draft.job !== (target.job ?? null)) await updateUserJob(target.uid, draft.job);
       if (JSON.stringify(draft.alsoJob ?? null) !== JSON.stringify(target.alsoJob ?? null)) await updateUserAlsoJob(target.uid, draft.alsoJob);
+      if ((draft.privateSpace === true) !== (target.privateSpace === true)) await updateUserPrivateSpace(target.uid, draft.privateSpace);
       await updatePermissions(target.uid, { ...(target.permissions ?? {}), ...permissionsFromDraft() });
       setPanelMode(null);
     } catch (err) {
@@ -613,6 +617,13 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, allLocations, preset
               </select>
             </div>
             <p style={styles.note}>One extra job at one location - Cameron is IT &amp; Training and also Starkville's GM. Leave it empty for everyone else.</p>
+
+            <p style={styles.sectionLabel}>My space</p>
+            <label style={styles.checkRow}>
+              <input type="checkbox" checked={draft.privateSpace === true} onChange={(e) => set({ privateSpace: e.target.checked })} />
+              <span>A private page and Drive folder only they can open</span>
+            </label>
+            <p style={styles.note}>Switching it on does not let admins see inside. Switching it off hides the page; nothing in it is deleted.</p>
           </>
         ) : null}
 

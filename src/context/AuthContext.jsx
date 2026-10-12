@@ -30,6 +30,9 @@ async function fetchProfile(uid, email) {
     // A second job at one location (12 Oct 2026): Cameron is IT & Training
     // and also Taste Starkville's General Manager. { job, locationId } or null.
     alsoJob: data.alsoJob ?? null,
+    // My space (12 Oct 2026): a private page and Drive folder. Switched on
+    // per person by an admin; switching it on does not let the admin in.
+    privateSpace: data.privateSpace === true,
     // A test login. Hidden from every list, picker and feed, and from
     // reports and activity - so testing does not clutter anyone else's Hub.
     isGhost: data.isGhost === true,
@@ -75,6 +78,7 @@ export function AuthProvider({ children }) {
           pushToken: data.pushToken ?? null,
           job: data.job ?? null,
           alsoJob: data.alsoJob ?? null,
+          privateSpace: data.privateSpace === true,
           isGhost: data.isGhost === true,
           // default | all | action | none. Absent is the default: immediate for
           // anything waiting on you, one 8am summary for everything else.
@@ -213,6 +217,12 @@ export function AuthProvider({ children }) {
     setUser((prev) => (prev && prev.uid === uid ? { ...prev, job: job ?? null } : prev));
   };
 
+  const updateUserPrivateSpace = async (uid, on) => {
+    await updateDoc(doc(db, 'users', uid), { privateSpace: on === true });
+    await refreshUsers();
+    setUser((prev) => (prev && prev.uid === uid ? { ...prev, privateSpace: on === true } : prev));
+  };
+
   // { job, locationId } or null to take it off.
   const updateUserAlsoJob = async (uid, alsoJob) => {
     const value = alsoJob?.job && alsoJob?.locationId ? { job: alsoJob.job, locationId: alsoJob.locationId } : null;
@@ -321,6 +331,7 @@ export function AuthProvider({ children }) {
         updatePermissions,
         updateUserJob,
         updateUserAlsoJob,
+        updateUserPrivateSpace,
         setUserGhost,
         setMyEmailPreference,
         updateUserRole,
