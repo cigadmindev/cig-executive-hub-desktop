@@ -14,12 +14,13 @@
 // Which lists each location runs, in the order they show. Kept in step with
 // LISTS in functions/dailyChecklists.js.
 const LISTS_AT = {
-  'taste-starkville': ['host-opening', 'server-opening', 'bar-opening', 'veranda-opening', 'host-closing', 'server-closing', 'bar-closing', 'boh-closing'],
+  // Kitchen Opening (Ridgeland's AM chef sheet) added 14 Oct 2026.
+  'taste-starkville': ['host-opening', 'server-opening', 'bar-opening', 'veranda-opening', 'kitchen-opening', 'host-closing', 'server-closing', 'bar-closing', 'boh-closing'],
   // Ridgeland, set up like Starkville (Brenner, 12 Oct 2026): its own kitchen
   // sheets, and Starkville's front of house adapted for Ridgeland.
   'taste-ridgeland': [
-    'ridgeland-host-opening', 'ridgeland-server-opening', 'ridgeland-bar-opening', 'ridgeland-terrazza-opening', 'ridgeland-chef-opening',
-    'ridgeland-host-closing', 'ridgeland-server-closing', 'ridgeland-bar-closing', 'ridgeland-chef-closing',
+    'ridgeland-manager-opening', 'ridgeland-host-opening', 'ridgeland-server-opening', 'ridgeland-bar-opening', 'ridgeland-terrazza-opening', 'ridgeland-chef-opening',
+    'ridgeland-host-closing', 'ridgeland-server-closing', 'ridgeland-bar-closing', 'ridgeland-chef-closing', 'ridgeland-manager-closing',
   ],
 };
 export const DAILY_LOCATIONS = Object.keys(LISTS_AT);
@@ -430,6 +431,37 @@ DAILY_CHECKLISTS.push(
     },
   }),
 );
+
+// Ridgeland's AI devices (Brenner, 14 Oct 2026): the manager on duty hands
+// them out and checks they are on at opening, and collects them, turns them
+// off and plugs each one into its spot at closing.
+DAILY_CHECKLISTS.push(
+  {
+    id: 'ridgeland-manager-opening', kind: 'opening', title: 'Manager Opening Checklist', subtitle: 'Manager on Duty — Pre-Shift',
+    workers: ['Manager on duty'],
+    intro: "The opening manager completes every task below before service begins and initials the box once it's done.",
+    tasks: [
+      G('AI devices'),
+      T('Assign the AI devices', 'Hand a device to each team member who wears one today, and note who has which.'),
+      T('Make sure every device is on', 'Check each device is powered on and working before service starts.'),
+    ],
+  },
+  {
+    id: 'ridgeland-manager-closing', kind: 'closing', title: 'Manager Closing Checklist', subtitle: 'Manager on Duty — End of Night',
+    workers: ['Manager on duty'],
+    intro: "The closing manager completes every task below before leaving and initials the box once it's done.",
+    tasks: [
+      G('AI devices'),
+      T('Collect every AI device', 'Get each device back from the team member who had it. Every one is accounted for.'),
+      T('Turn the devices off'),
+      T('Plug each device into its spot', 'Back in its own charging spot, so it is charged for tomorrow.'),
+    ],
+  },
+);
+
+// Starkville's Kitchen Opening (Brenner, 14 Oct 2026): the AM chef sheet
+// Ridgeland uses, as its own list so each location's records stay separate.
+DAILY_CHECKLISTS.push({ ...DAILY_CHECKLISTS.find((l) => l.id === 'ridgeland-chef-opening'), id: 'kitchen-opening' });
 
 // The lists one location runs, in its order.
 export const listsFor = (locationId) =>

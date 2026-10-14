@@ -61,6 +61,13 @@ export default function CateringScreen() {
   const [losing, setLosing] = useState(null);
   const [changing, setChanging] = useState(null);
   const [editing, setEditing] = useState(null);
+  // The date as the picker wants it (YYYY-MM-DD), from the event's own date.
+  const toDateInput = (t) => {
+    if (!t) return '';
+    const dt = new Date(t);
+    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+  };
+  const openEdit = (e) => setEditing({ ...e, dateInput: toDateInput(e.preferredDate) });
   const [adding, setAdding] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -159,6 +166,8 @@ export default function CateringScreen() {
                 {e.status === 'confirmed' && !e.calendarEntryId ? <button style={d.primary} disabled={busy} onClick={() => run(() => putOnCalendar(e))}>Put it on the calendar</button> : null}
                 {e.status === 'confirmed' ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'done'), () => { setSelectedId(e.id); setFilter('done'); })}>Done</button> : null}
                 {['new', 'talking', 'confirmed'].includes(e.status) ? <button style={d.ghost} onClick={() => { setChanging({ reason: '' }); setLosing(e.id); }}>Didn't book…</button> : null}
+                {/* Catering & Events can fix an order's details (14 Oct 2026). */}
+                <button style={d.ghost} onClick={() => openEdit(e)}>Edit details</button>
               </div>
             )}
             {isCatering && e.status === 'confirmed' ? (
@@ -220,7 +229,7 @@ export default function CateringScreen() {
               </>
             ) : (
               <div style={{ ...d.actions, marginTop: 0 }}>
-                <button style={d.ghost} onClick={() => setEditing({ ...e })}>Edit details</button>
+                <button style={d.ghost} onClick={() => openEdit(e)}>Edit details</button>
                 <button style={d.ghost} onClick={() => { setLosing(null); setChanging({ status: e.status, reason: '' }); }}>Change status…</button>
               </div>
             )}
@@ -353,7 +362,7 @@ export default function CateringScreen() {
             <p style={styles.hint}>Fix anything that came through wrong. What they originally sent is kept on the record.</p>
             {[
               ['name', 'Name'], ['email', 'Email'], ['phone', 'Phone'], ['organisation', 'Organisation'], ['occasion', 'Occasion'],
-              ['guests', 'Guests'], ['preferredDateText', 'Date'], ['preferredTime', 'Time'], ['space', 'Space'], ['style', 'Style'],
+              ['guests', 'Guests'], ['preferredTime', 'Time'], ['space', 'Space'], ['style', 'Style'],
               ['fulfilment', 'Pick-up or delivery'], ['address', 'Address'],
             ].map(([key, label]) => (
               <React.Fragment key={key}>
@@ -361,6 +370,9 @@ export default function CateringScreen() {
                 <input style={d.input} value={editing[key] ?? ''} onChange={(ev) => setEditing({ ...editing, [key]: ev.target.value })} />
               </React.Fragment>
             ))}
+            <label style={styles.fieldLabel}>Date</label>
+            <input type="date" style={{ ...d.input, colorScheme: 'dark' }} value={editing.dateInput ?? ''} onChange={(ev) => setEditing({ ...editing, dateInput: ev.target.value })} />
+            {!editing.dateInput && editing.preferredDateText ? <p style={styles.hint}>They wrote: {editing.preferredDateText}</p> : null}
             <label style={styles.fieldLabel}>What they wrote</label>
             <textarea style={{ ...d.input, minHeight: 60, resize: 'vertical' }} value={editing.about ?? ''} onChange={(ev) => setEditing({ ...editing, about: ev.target.value })} />
             <div style={styles.modalButtons}>
@@ -368,7 +380,24 @@ export default function CateringScreen() {
               <button
                 style={d.primary}
                 disabled={busy}
-                onClick={() => run(() => correct(editing.id, Object.fromEntries(['name', 'email', 'phone', 'organisation', 'occasion', 'guests', 'preferredDateText', 'preferredTime', 'space', 'style', 'about', 'fulfilment', 'address'].map((k) => [k, editing[k] ?? '']))), () => setEditing(null))}
+                onClick={() =>
+                  run(
+                    () =>
+                      correct(editing.id, {
+                        ...Object.fromEntries(['name', 'email', 'phone', 'organisation', 'occasion', 'guests', 'preferredTime', 'space', 'style', 'about', 'fulfilment', 'address'].map((k) => [k, editing[k] ?? ''])),
+                        ...(editing.dateInput && editing.dateInput !== toDateInput(editing.preferredDate)
+                          ? (() => {
+                              const [y, m, dd] = editing.dateInput.split('-').map(Number);
+                              // Only the day changes - the time it was set for stays.
+                              const old = editing.preferredDate ? new Date(editing.preferredDate) : null;
+                              const when = new Date(y, m - 1, dd, old ? old.getHours() : 12, old ? old.getMinutes() : 0).getTime();
+                              return { preferredDate: when, preferredDateText: new Date(when).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) };
+                            })()
+                          : {}),
+                      }),
+                    () => setEditing(null)
+                  )
+                }
               >
                 Save
               </button>

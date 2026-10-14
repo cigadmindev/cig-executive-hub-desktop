@@ -32,9 +32,14 @@ export default function AccessMatrixEditor() {
     <div style={styles.wrap}>
       <p style={styles.title}>Who sees what</p>
       <p style={styles.note}>
-        One row per job. Everyone gets their job's row; the locations on their own login narrow "Own location". Admins
-        see everything and are not a row. Click any cell to change it — it applies to everyone with that job straight
-        away. <span style={{ color: 'var(--neon)' }}>●</span> full · <span style={{ color: '#E8B93B' }}>◐</span> limited · — not shown
+        One row per job. Everyone gets their job's row. Admins see everything and are not a row. Click any cell to change
+        it — it applies to everyone with that job straight away. <span style={{ color: 'var(--neon)' }}>●</span> full ·{' '}
+        <span style={{ color: '#E8B93B' }}>◐</span> limited · — not shown
+      </p>
+      <p style={styles.note}>
+        <b>Where:</b> a manager always gets exactly the restaurants and locations ticked on their own login, whatever
+        their row says — untick one and it is gone. Executives get what their row says.{' '}
+        <b>Set on each login, not here:</b> Also works as (a second job at one location) and My space.
       </p>
       <div style={styles.scroll}>
         <table style={styles.table}>

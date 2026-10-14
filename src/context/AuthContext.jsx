@@ -1,5 +1,5 @@
 import { setReadOnly } from '../readOnly/state';
-import { accessLevel, canSeeFolder } from '../data/accessMatrix';
+import { accessLevel, canSeeFolder, seesEveryRestaurant } from '../data/accessMatrix';
 import { isExecOnlyBrand } from '../data/mockData';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, deleteUser, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
@@ -288,7 +288,8 @@ export function AuthProvider({ children }) {
   // what's explicitly granted.
   // From the who-sees-what table: "All" or "All brands" sees every restaurant;
   // "Own location" uses the restaurants and locations on the person's login.
-  const widest = (u) => u.role === 'admin' || ['all', 'brands'].includes(accessLevel(u, 'where'));
+  // A manager's login decides their places (14 Oct 2026) - see accessMatrix.
+  const widest = (u) => seesEveryRestaurant(u);
   // An executives-only restaurant (Cajun Depot, 10 Oct 2026) is not opened by
   // "All" or "All brands" - only by being an admin or executive, or having it
   // on your own login. The server's rules and emails work the same way.

@@ -1,5 +1,5 @@
 import React from 'react';
-import { accessLevel, rowForJob, ALL_FOLDERS } from '../data/accessMatrix';
+import { accessLevel, rowForJob, ALL_FOLDERS, seesEveryRestaurant } from '../data/accessMatrix';
 import { brands, categories } from '../data/mockData';
 
 // "In plain words": what a person will see, can't see, and is emailed about,
@@ -29,7 +29,7 @@ export function describeAccess(person) {
   const row = rowForJob(person.job);
   if (!row) return null;
   const lv = (k) => accessLevel(person, k);
-  const wide = ['all', 'brands'].includes(lv('where'));
+  const wide = seesEveryRestaurant(person);
   const where = wide
     ? 'every restaurant'
     : (person.permissions?.brandIds ?? [])

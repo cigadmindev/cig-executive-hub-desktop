@@ -101,7 +101,7 @@ async function myFolder(request) {
   const ref = admin.firestore().collection('privateSpaces').doc(me.uid);
   const space = (await ref.get()).data() ?? {};
   if (!space.driveFolderId) throw new HttpsError('failed-precondition', 'Your Drive folder is not made yet.');
-  return { me, ref, folderId: space.driveFolderId };
+  return { me, ref, folderId: space.driveFolderId, folderUrl: space.driveFolderUrl ?? null };
 }
 
 // Moves one file from Hub storage into the folder, then deletes the copy.
@@ -118,7 +118,7 @@ async function moveIntoFolder(drive, folderId, storagePath, name, type) {
 }
 
 exports.privateFolderFiles = onCall({ timeoutSeconds: 120 }, async (request) => {
-  const { me, ref, folderId } = await myFolder(request);
+  const { me, ref, folderId, folderUrl } = await myFolder(request);
   const drive = await driveClient();
 
   // Anything uploaded before files went to Drive is moved in, once.
@@ -141,7 +141,9 @@ exports.privateFolderFiles = onCall({ timeoutSeconds: 120 }, async (request) => 
     includeItemsFromAllDrives: true,
     supportsAllDrives: true,
   });
-  return { files: res.data.files ?? [] };
+  // The folder's link too, so the page shows it even if its own read of
+  // My space is slow or fails (14 Oct 2026).
+  return { files: res.data.files ?? [], folderUrl };
 });
 
 exports.addToPrivateFolder = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async (request) => {

@@ -68,13 +68,29 @@ service cloud.firestore {
     // Job -> row and the default levels mirror src/data/accessMatrix.js.
     // If a job or a row is added there, add it here too.
     function matrixRow() {
+      return rowOf(me().get('job', ''));
+    }
+    function rowOf(job) {
       return {
         'Owner': 'owner', 'CEO': 'owner', 'COO': 'coo', 'Financials': 'financials',
         'Culinary Director': 'culinary', 'Culinary Manager': 'culinary', 'Beverage Manager': 'beverage',
         'General Manager': 'gm', 'Assistant Manager': 'agm', 'Kitchen Manager': 'km', 'Executive Chef': 'chef',
         'Sous Chef': 'sous', 'Catering & Events': 'catering', 'IT & Training': 'it', 'Marketing': 'marketing',
         'Communications': 'marketing', 'Videographer': 'video', 'HR': 'hr', 'Real Estate': 'realestate'
-      }.get(me().get('job', ''), 'none');
+      }.get(job, 'none');
+    }
+    // The Daily checklists column (14 Oct 2026), read live like the
+    // pre-opening one. Work: GMs, assistant managers and chefs by default.
+    function dailyLevelFor(job) {
+      let row = rowOf(job);
+      let path = /databases/$(database)/documents/accessMatrix/$(row);
+      let fallback = row in ['gm', 'agm', 'chef', 'sous'] ? 'work' : 'none';
+      return exists(path) ? get(path).data.get('dailyChecklists', fallback) : fallback;
+    }
+    // Their own job's row, or their second job's (Cameron: also Starkville GM).
+    function worksDailyLists() {
+      return isLive() && (dailyLevelFor(me().get('job', '')) == 'work'
+        || dailyLevelFor(me().get('alsoJob', {}).get('job', '')) == 'work');
     }
     function checklistDefault(row) {
       return {
@@ -184,6 +200,12 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+    // Benefits & insurance on the HR page (14 Oct 2026): executives and
+    // admins only.
+    match /appSettings/insurance {
+      allow read: if isAdminOrExecutive();
+      allow write: if isAdmin();
+    }
 
     // Who looks after catering and events at a location. Ann Marie should
     // not be reading Starkville's enquiries, and vice versa - the narrowing
@@ -197,8 +219,10 @@ service cloud.firestore {
     function handlesEventsFor(brandId) {
       let p = eventsProfile();
       return isLive() && (
-        (p.role == 'admin' || p.role == 'executive' || p.job == 'IT & Training')
-        || ((p.job == 'General Manager' || p.job == 'Assistant Manager'
+        (p.role == 'admin' || p.role == 'executive')
+        // IT & Training goes by the restaurants on their login, like every
+        // manager (14 Oct 2026) - taking one off has to take it away.
+        || ((p.job == 'IT & Training' || p.job == 'General Manager' || p.job == 'Assistant Manager'
              || p.job == 'Executive Chef' || p.job == 'Sous Chef'
              || p.job == 'Catering & Events' || p.job == 'Kitchen Manager')
             && brandId in p.permissions.brandIds));
@@ -206,12 +230,12 @@ service cloud.firestore {
 
     // By location, not just restaurant (Brenner, 10 Oct 2026): someone whose
     // login is limited to some of a restaurant's locations sees only those -
-    // Sarah (Starkville) never Ridgeland's, Ann Marie the reverse. Admins,
-    // executives and IT see every location.
+    // Sarah (Starkville) never Ridgeland's, Ann Marie the reverse. Admins and
+    // executives see every location; everyone else goes by their login.
     function eventsAtLocation(brandId, locationId) {
       let p = eventsProfile();
       let only = p.get('permissions', {}).get('locationsByBrand', {}).get(brandId, []);
-      return p.role == 'admin' || p.role == 'executive' || p.job == 'IT & Training'
+      return p.role == 'admin' || p.role == 'executive'
         || only.size() == 0 || locationId in only;
     }
 
@@ -299,9 +323,8 @@ service cloud.firestore {
       // Ticked while open; locked while it is being filed and once filed.
       // Only the server moves it to "filing" and "filed".
       allow create, update: if (isAdmin()
-        // GMs, AGMs and the chefs (12 Oct 2026); the app narrows to their location.
-        || ((hasJobOrAlso('General Manager') || hasJobOrAlso('Assistant Manager')
-             || hasJobOrAlso('Executive Chef') || hasJobOrAlso('Sous Chef')) && request.resource.data.brandId in myBrands()))
+        // The Daily checklists column (14 Oct 2026); the app narrows to their location.
+        || (worksDailyLists() && request.resource.data.brandId in myBrands()))
         && (resource == null || resource.data.status == 'open')
         && request.resource.data.status == 'open';
       allow delete: if isAdmin();
@@ -516,6 +539,15 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document', 'documents', 'signature']) &&
         signatureAskOk()
       ) || (
+        // Catering & Events moving a confirmed event's date (14 Oct 2026) -
+        // any catering entry at their restaurant, even one a colleague put
+        // on the calendar. Only the date.
+        hasJob('Catering & Events') &&
+        resource.data.get('openingItem', false) != true &&
+        'Catering & Events' in resource.data.get('needs', []) &&
+        resource.data.brandId in myBrands() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dateTime'])
+      ) || (
         // The person asked to sign a finished item (10 Oct 2026): they sign it
         // (which ticks it off), send it back, or add the signed copy - even
         // if they could not otherwise tick this checklist.
@@ -527,6 +559,12 @@ service cloud.firestore {
         isSignedIn() &&
         resource.data.get('openingItem', false) != true &&
         resource.data.authorUid == request.auth.uid
+      ) || (
+        // Catering & Events taking an event back off the calendar (14 Oct 2026).
+        hasJob('Catering & Events') &&
+        resource.data.get('openingItem', false) != true &&
+        'Catering & Events' in resource.data.get('needs', []) &&
+        resource.data.brandId in myBrands()
       );
     }
 

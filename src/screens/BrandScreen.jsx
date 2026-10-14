@@ -1,3 +1,4 @@
+import RequestPill from '../components/RequestPill';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { brands } from '../data/mockData';
@@ -219,7 +220,7 @@ export default function BrandScreen() {
                 {canOpen(loc) ? (
                   <span style={nike.chevron}>›</span>
                 ) : (
-                  <span style={styles.lockedNote}>🔒 Request access</span>
+                  <RequestPill pending={user ? hasPendingRequest(user.email, 'location', loc.id) : false} />
                 )}
               </button>
               {canOpen(loc) && hasUnseenForLocation(loc.id) ? <span style={styles.unseenDot} /> : null}
@@ -310,7 +311,6 @@ const styles = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 },
   cardWrap: { position: 'relative' },
   cardLocked: { opacity: 0.55 },
-  lockedNote: { fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)' },
   unseenDot: { position: 'absolute', top: 10, left: 10, width: 10, height: 10, borderRadius: 5, background: 'var(--danger)' },
   card: {
     width: '100%',

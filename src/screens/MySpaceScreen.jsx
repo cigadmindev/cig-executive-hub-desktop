@@ -62,20 +62,36 @@ export default function MySpaceScreen() {
     return () => unsubs.forEach((u) => u());
   }, [uid, on, viewAs]);
 
-  const folderUrl = space?.driveFolderUrl ?? null;
+  // The folder comes from the server as well as from My space's own record
+  // (14 Oct 2026), so the page never depends on one read to find it.
+  const [serverFolderUrl, setServerFolderUrl] = useState(null);
+  const [noFolder, setNoFolder] = useState(false);
+  const folderUrl = space?.driveFolderUrl ?? serverFolderUrl;
+  // Only the newest answer counts - an older one arriving late is ignored.
+  const loadSeq = useRef(0);
   const loadFiles = async () => {
+    const seq = ++loadSeq.current;
     try {
       const res = await call('privateFolderFiles');
+      if (seq !== loadSeq.current) return;
       setFiles(res.files ?? []);
+      if (res.folderUrl) setServerFolderUrl(res.folderUrl);
+      setNoFolder(false);
       setFilesError(null);
     } catch (err) {
-      setFilesError(plainError(err, 'Could not read your folder.'));
+      if (seq !== loadSeq.current) return;
+      if (err?.code === 'functions/failed-precondition') {
+        setNoFolder(true);
+        setFilesError(null);
+      } else {
+        setFilesError(plainError(err, 'Could not read your folder.'));
+      }
       setFiles([]);
     }
   };
   useEffect(() => {
-    if (folderUrl) loadFiles();
-  }, [folderUrl]);
+    if (uid && on && !viewAs) loadFiles();
+  }, [uid, on, viewAs]);
 
   // Notes save a moment after typing stops.
   useEffect(() => {
@@ -98,7 +114,7 @@ export default function MySpaceScreen() {
     return (
       <div style={styles.page}>
         <PageHeader back={{ to: '/', label: 'Home' }} title="My space" />
-        <p style={styles.muted}>🔒 This is {viewAs.name ?? 'their'}'s private space. Nobody else can open it - not even an admin viewing as them. They see it on their own login.</p>
+        <p style={styles.muted}>This is {viewAs.name ?? 'their'}'s private space. Nobody else can open it - not even an admin viewing as them. They see it on their own login.</p>
       </div>
     );
   }
@@ -163,6 +179,7 @@ export default function MySpaceScreen() {
     setMakingFolder(true);
     try {
       await call('createPrivateDriveFolder');
+      await loadFiles();
     } catch (err) {
       notify('No folder yet', plainError(err, 'Try again.'));
     } finally {
@@ -193,7 +210,7 @@ export default function MySpaceScreen() {
       <PageHeader
         back={{ to: '/', label: 'Home' }}
         title="My space"
-        subtitle="🔒 Only you can see this - not admins, not anyone else in the Hub."
+        subtitle="Only you can see this - not admins, not anyone else in the Hub."
         actionLabel={uploading ? 'Uploading…' : '+ Upload files'}
         actionDisabled={uploading || !folderUrl}
         onAction={() => fileRef.current?.click()}
@@ -204,19 +221,18 @@ export default function MySpaceScreen() {
         <div style={styles.col}>
           <p style={styles.cap}>My Drive folder</p>
           <div style={styles.card}>
-            {space?.driveFolderUrl ? (
+            {folderUrl ? (
               <>
                 <div style={styles.row}>
-                  <span style={{ fontSize: 18 }}>📁</span>
-                  <span style={{ flex: 1, minWidth: 0 }}>{(user?.name ?? '') + ' — Private'}</span>
-                  <a href={space.driveFolderUrl} target="_blank" rel="noreferrer" style={styles.link}>Open in Drive ↗</a>
+                  <span style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{(user?.name ?? '') + ' — Private'}</span>
+                  <a href={folderUrl} target="_blank" rel="noreferrer" style={styles.link}>Open in Drive ↗</a>
                 </div>
                 <p style={styles.note}>In the CIG shared drive, with limited access: other members of the drive can't open it. Google always lets the shared drive's Managers in.</p>
               </>
-            ) : space === null ? (
+            ) : !noFolder && files === null ? (
               <p style={styles.note}>Loading…</p>
-            ) : space.loadError ? (
-              <p style={{ ...styles.note, color: '#F87171' }}>My space could not be opened ({space.loadError}). Send Brenner a screenshot of this.</p>
+            ) : !noFolder ? (
+              <p style={{ ...styles.note, color: '#F87171' }}>Your folder could not be reached{space?.loadError ? ' (' + space.loadError + ')' : ''}. Send Brenner a screenshot of this.</p>
             ) : (
               <>
                 <p style={styles.note}>The Hub makes a folder in the CIG shared drive that only you can open.</p>
@@ -273,8 +289,8 @@ export default function MySpaceScreen() {
               </div>
             ))}
             <div style={styles.addRow}>
-              <input style={{ ...styles.input, flex: '1 1 160px' }} value={newTodo} placeholder="Add a to-do" onChange={(e) => setNewTodo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTodo()} />
-              <input style={{ ...styles.input, flex: '0 0 150px' }} type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)} aria-label="Date (optional)" />
+              <input style={{ ...styles.input, flex: '1 1 140px', minWidth: 0 }} value={newTodo} placeholder="Add a to-do" onChange={(e) => setNewTodo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTodo()} />
+              <input style={{ ...styles.input, flex: '0 1 150px', minWidth: 0 }} type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)} aria-label="Date (optional)" />
               <button style={styles.primary} disabled={!newTodo.trim()} onClick={addTodo}>Add</button>
             </div>
             <p style={styles.note}>Private - never on the shared calendar, never in anyone's "Needs you".</p>

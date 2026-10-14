@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { accessLevel } from '../data/accessMatrix';
+import { seesEveryRestaurant } from '../data/accessMatrix';
 import { brands } from '../data/mockData';
 
 // The amber bar shown while an admin is seeing the Hub as someone else.
@@ -9,7 +9,7 @@ export default function ViewAsBar() {
   const { viewAs, stopViewAs } = useAuth();
   const navigate = useNavigate();
   if (!viewAs) return null;
-  const wide = ['all', 'brands'].includes(accessLevel(viewAs, 'where'));
+  const wide = seesEveryRestaurant(viewAs);
   const where = wide
     ? 'every restaurant'
     : (viewAs.permissions?.brandIds ?? [])

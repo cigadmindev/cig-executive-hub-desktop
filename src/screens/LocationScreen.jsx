@@ -9,6 +9,7 @@ import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import { useDialog } from '../hooks/useDialog';
 import RequestAccessModal from '../components/RequestAccessModal';
+import RequestPill from '../components/RequestPill';
 import { nike } from '../theme/nike';
 import Icon from '../components/Icon';
 import { iconName } from '../utils/iconGlyphs';
@@ -185,17 +186,15 @@ export default function LocationScreen() {
               onClick={() => handleCategoryClick(cat)}
             >
               <div style={styles.iconCircle}>
-                <Icon name={iconName(allowed ? cat.icon : 'lock-closed-outline')} color={allowed ? 'var(--neon)' : 'var(--text-tertiary)'} />
+                <Icon name={iconName(cat.icon)} color={allowed ? 'var(--neon)' : 'var(--text-tertiary)'} />
               </div>
               <div style={styles.textCol}>
                 <span style={nike.cardName}>{cat.label}</span>
-                {!allowed ? (
-                  <span style={styles.cardSubtitle}>{pending ? 'Request pending' : 'Tap to request access'}</span>
-                ) : null}
+                {!allowed ? <span style={styles.cardSubtitle}>You don't have this folder</span> : null}
               </div>
               <div style={styles.trailingCol}>
                 {showBadge ? <span style={nike.dot} /> : null}
-                <span style={nike.chevron}>{allowed ? '›' : pending ? 'Pending' : 'Request'}</span>
+                {allowed ? <span style={nike.chevron}>›</span> : <RequestPill pending={pending} />}
               </div>
             </button>
           );

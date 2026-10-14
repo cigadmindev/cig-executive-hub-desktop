@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useNavigate , Link } from 'react-router-dom';
 import { MySpaceCard } from './MySpaceScreen';
+import RequestPill from '../components/RequestPill';
 import { useAuth } from '../context/AuthContext';
 import { brands , hasFeature } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
@@ -367,15 +368,13 @@ export default function HomeScreen() {
               >
                 <div style={styles.cardBody}>
                   <span style={styles.cardName}>{item.name}</span>
-                  <span style={styles.cardMeta}>
-                    {!allowed
-                      ? pendingRequest
-                        ? 'Request pending'
-                        : 'Tap to request access'
-                      : totalLocations > 0
-                      ? `${totalLocations} location${totalLocations > 1 ? 's' : ''}`
-                      : 'In Progress'}
-                  </span>
+                  {!allowed ? (
+                    <span style={{ marginTop: 4 }}><RequestPill pending={pendingRequest} /></span>
+                  ) : (
+                    <span style={styles.cardMeta}>
+                      {totalLocations > 0 ? `${totalLocations} location${totalLocations > 1 ? 's' : ''}` : 'In Progress'}
+                    </span>
+                  )}
                   {/* Each tile carries its own state, so the strip is a status
                       board rather than just a set of links. */}
                   {allowed && summary.byBrand[item.id] ? (

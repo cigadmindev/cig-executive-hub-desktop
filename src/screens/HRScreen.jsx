@@ -166,6 +166,8 @@ export default function HRScreen() {
 
       {settings.note ? <p style={styles.formNote}>{settings.note}</p> : null}
 
+      {user?.role === 'admin' || user?.role === 'executive' ? <InsuranceSection isAdmin={isAdmin} notify={notify} /> : null}
+
       {editing ? (
         <div data-modal="" data-modal-keep="" style={styles.backdrop} onClick={() => !saving && setEditing(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -209,6 +211,115 @@ export default function HRScreen() {
 
       {dialogNode}
     </div>
+  );
+}
+
+// Benefits & insurance (Ronnie, 14 Oct 2026). Executives and admins only:
+// stored in appSettings/insurance, which only they can read - nothing about
+// it is in the page's code, which every login downloads.
+const INSURANCE_FIELDS = [
+  ['firm', 'Firm', 'Broker name'],
+  ['firmRole', 'What they do for us', 'Employee benefits & insurance broker'],
+  ['contactName', 'Contact', ''],
+  ['contactTitle', 'Title', ''],
+  ['phone', 'Phone', ''],
+  ['email', 'Email', ''],
+  ['address', 'Address', ''],
+  ['formLabel', 'Form name', 'e.g. 2025 Benefits Enrollment Form'],
+  ['formUrl', 'Form link', 'Drive link'],
+];
+
+function InsuranceSection({ isAdmin, notify }) {
+  const [info, setInfo] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(
+    () =>
+      onSnapshot(
+        doc(db, 'appSettings/insurance'),
+        (snap) => setInfo(snap.exists() ? snap.data() : {}),
+        (err) => {
+          console.error('[Insurance] ' + err.code);
+          setInfo({});
+        }
+      ),
+    []
+  );
+  const save = async () => {
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'appSettings/insurance'), draft, { merge: true });
+      setDraft(null);
+    } catch (err) {
+      notify('Could not save', plainError(err, 'Something went wrong.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+  if (info === null) return null;
+  const empty = !info.firm && !info.contactName;
+  return (
+    <>
+      <p style={styles.sectionLabel}>
+        Benefits &amp; insurance <span style={styles.contactTitle}>· executives only</span>
+        {isAdmin ? (
+          <button style={{ ...styles.editButton, marginLeft: 10 }} onClick={() => setDraft({ ...info })}>
+            Edit
+          </button>
+        ) : null}
+      </p>
+      <div style={styles.card}>
+        {empty ? <p style={styles.missing}>Not added yet.</p> : null}
+        {info.firm ? <p style={styles.contactName}>{info.firm}</p> : null}
+        {info.firmRole ? <p style={styles.contactFirm}>{info.firmRole}</p> : null}
+        {info.contactName ? (
+          <p style={{ ...styles.contactName, marginTop: 10 }}>
+            {info.contactName}
+            {info.contactTitle ? <span style={styles.contactTitle}> · {info.contactTitle}</span> : null}
+          </p>
+        ) : null}
+        {info.phone ? (
+          <a href={'tel:' + info.phone.replace(/[^0-9+]/g, '')} style={{ ...styles.link, display: 'block' }}>
+            {info.phone}
+          </a>
+        ) : null}
+        {info.email ? (
+          <a href={'mailto:' + info.email} style={{ ...styles.link, display: 'block' }}>
+            {info.email}
+          </a>
+        ) : null}
+        {info.address ? <p style={styles.contactLine}>{info.address}</p> : null}
+        {info.formUrl ? (
+          <a href={info.formUrl} target="_blank" rel="noreferrer" style={{ ...styles.link, display: 'block', marginTop: 10 }}>
+            Open {info.formLabel || 'the enrollment form'} →
+          </a>
+        ) : info.formLabel ? (
+          <p style={styles.missing}>{info.formLabel}: not linked yet.</p>
+        ) : null}
+      </div>
+      {draft ? (
+        <div data-modal="" data-modal-keep="" style={styles.backdrop} onClick={() => !saving && setDraft(null)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Edit benefits &amp; insurance</h2>
+            <p style={styles.modalBody}>Only executives and admins see this section.</p>
+            {INSURANCE_FIELDS.map(([key, label, placeholder]) => (
+              <React.Fragment key={key}>
+                <label style={styles.label}>{label}</label>
+                <input style={styles.input} value={draft[key] ?? ''} placeholder={placeholder} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} />
+              </React.Fragment>
+            ))}
+            <div style={styles.modalButtons}>
+              <button style={styles.buttonQuiet} onClick={() => setDraft(null)} disabled={saving}>
+                Cancel
+              </button>
+              <button style={styles.button} onClick={save} disabled={saving}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 

@@ -22,6 +22,7 @@ const { Readable } = require('stream');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const { notifyPeople, ACTION } = require('./notify');
 const R = require('./routing');
+const M = require('./accessMatrix.gen');
 const { requireLive } = require('./caller');
 
 const ZONE = 'America/Chicago';
@@ -34,15 +35,16 @@ const SHARED = { corpora: 'drive', driveId: DRIVE_ID, includeItemsFromAllDrives:
 const LISTS = {
   'taste-starkville': [
     ['host-opening', 'Host Opening'], ['server-opening', 'Server Opening'], ['bar-opening', 'Main Bar Opening'], ['veranda-opening', 'Veranda Opening'],
+    ['kitchen-opening', 'Kitchen Opening'],
     ['host-closing', 'Host Closing'], ['server-closing', 'Server / Food Runner Closing'], ['bar-closing', 'Bar Closing'], ['boh-closing', 'Kitchen Closing'],
   ],
   // Ridgeland, set up like Starkville (12 Oct 2026): its own kitchen sheets
   // and Starkville's front of house adapted for Ridgeland.
   'taste-ridgeland': [
-    ['ridgeland-host-opening', 'Host Opening'], ['ridgeland-server-opening', 'Server Opening'], ['ridgeland-bar-opening', 'Main Bar Opening'],
+    ['ridgeland-manager-opening', 'Manager Opening'], ['ridgeland-host-opening', 'Host Opening'], ['ridgeland-server-opening', 'Server Opening'], ['ridgeland-bar-opening', 'Main Bar Opening'],
     ['ridgeland-terrazza-opening', 'Terrazza Opening'], ['ridgeland-chef-opening', 'Kitchen Opening'],
     ['ridgeland-host-closing', 'Host Closing'], ['ridgeland-server-closing', 'Server / Food Runner Closing'], ['ridgeland-bar-closing', 'Bar Closing'],
-    ['ridgeland-chef-closing', 'Kitchen Closing'],
+    ['ridgeland-chef-closing', 'Kitchen Closing'], ['ridgeland-manager-closing', 'Manager Closing'],
   ],
 };
 const isClosing = (listId) => listId.endsWith('-closing');
@@ -161,20 +163,32 @@ async function drawPdf(r, locationName) {
   return pdf.save();
 }
 
+// Does this person work the daily checklists at this location?
+async function worksHere(me, brandId, locationId) {
+  const matrix = await R.liveMatrix();
+  const works = (job) => {
+    const row = M.rowForJob(job);
+    return !!row && (matrix[row.id] ?? row.d).dailyChecklists === 'work';
+  };
+  if (works(me.job) && R.seesLocation(me, brandId, locationId)) return true;
+  return works(me.alsoJob?.job) && me.alsoJob?.locationId === locationId;
+}
+
 exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, async (request) => {
   await requireLive(request);
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = admin.firestore();
   const me = (await db.collection('users').doc(request.auth.uid).get()).data() ?? {};
-  if (me.role !== 'admin' && !['General Manager', 'Assistant Manager'].includes(me.job)) {
-    throw new HttpsError('permission-denied', 'Only the manager on duty can sign a checklist off.');
-  }
   const ref = db.collection(COLLECTION).doc(String(request.data?.id ?? ''));
   const first = await ref.get();
   if (!first.exists) throw new HttpsError('not-found', 'No such checklist.');
-  // A manager at this location, not any GM anywhere (S10).
-  if (me.role !== 'admin' && !R.seesLocation(me, first.data().brandId, first.data().locationId)) {
-    throw new HttpsError('permission-denied', 'You are not a manager at this location.');
+  // Who signs off (14 Oct 2026): the Daily checklists column of Who sees
+  // what - GMs, AGMs and chefs by default - at this location, by their own
+  // job or by a second job here (Cameron, Starkville GM). The same answer
+  // the rules and the screens give.
+  const onDuty = await worksHere(me, first.data().brandId, first.data().locationId);
+  if (me.role !== 'admin' && !onDuty) {
+    throw new HttpsError('permission-denied', 'Only the manager on duty at this location can sign a checklist off.');
   }
 
   // Claimed in one step, so a double tap or a retry files one PDF, not two.
@@ -196,7 +210,7 @@ exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, a
   try {
 
   const filedAt = Date.now();
-  const managers = Array.from(new Set([...(r.managers ?? []), ...(['General Manager', 'Assistant Manager'].includes(me.job) ? [me.name] : [])]));
+  const managers = Array.from(new Set([...(r.managers ?? []), ...(onDuty ? [me.name] : [])]));
   const full = { ...r, managers, filedByName: me.name ?? '', filedAt };
   const locationName = await R.locationName(r.locationId);
   const bytes = await drawPdf(full, locationName.replace(/^Taste\s+/i, ''));

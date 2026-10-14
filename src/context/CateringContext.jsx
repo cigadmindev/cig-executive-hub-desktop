@@ -1,4 +1,4 @@
-import { accessLevel } from '../data/accessMatrix';
+import { accessLevel, seesEveryRestaurant } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, query, orderBy, where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -177,6 +177,15 @@ export function CateringProvider({ children }) {
       correctedByName: user?.name ?? '',
       correctedAt: Date.now(),
     });
+    // A new date moves it on the calendar too, if it is there.
+    if (fields.preferredDate && existing?.calendarEntryId) {
+      try {
+        await updateDoc(doc(db, 'schedules', existing.calendarEntryId), { dateTime: fields.preferredDate });
+      } catch {
+        return 'The date is changed here, but the calendar entry could not be moved - ask an admin to move it.';
+      }
+    }
+    return null;
   };
 
   const update = async (id, fields) => {
@@ -279,7 +288,7 @@ export function CateringProvider({ children }) {
     if (!user) return false;
     if (user.role === 'admin') return true;
     if (accessLevel(user, 'catering') === 'none') return false;
-    if (['all', 'brands'].includes(accessLevel(user, 'where'))) return true;
+    if (seesEveryRestaurant(user)) return true;
     if (!e.brandId || !(user.permissions?.brandIds ?? []).includes(e.brandId)) return false;
     const only = user.permissions?.locationsByBrand?.[e.brandId];
     return !Array.isArray(only) || only.length === 0 || only.includes(e.locationId);

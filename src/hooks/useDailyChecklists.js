@@ -1,3 +1,4 @@
+import { accessLevel } from '../data/accessMatrix';
 import { useEffect, useState } from 'react';
 import { collection, doc, onSnapshot, query, where, runTransaction, arrayUnion, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -18,19 +19,21 @@ export const recordId = (locationId, dateKey, listId) => `${locationId}_${dateKe
 export const todayKey = () =>
   new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
 
-// Who works the daily lists (12 Oct 2026): GMs, assistant managers and the
-// chefs - Executive Chef and Sous Chef - every list, at their own location.
-// Their own job, or a second job at this location (Cameron: IT & Training,
-// and also Starkville's GM). A login narrowed to some of a restaurant's
-// locations works only those; the rules cannot check the location, so the
-// app does.
-export const DAILY_JOBS = ['General Manager', 'Assistant Manager', 'Executive Chef', 'Sous Chef'];
+// Who works the daily lists: the Daily checklists column of Who sees what
+// (14 Oct 2026) - GMs, assistant managers and the chefs by default - at
+// their own location. Their own job, or a second job at this location
+// (Cameron: IT & Training, and also Starkville's GM). A login narrowed to
+// some of a restaurant's locations works only those; the rules cannot check
+// the location, so the app does.
+const works = (job) => !!job && accessLevel({ job, role: 'manager' }, 'dailyChecklists') === 'work';
 export const isManagerOnDuty = (user, locationId, brandId) => {
-  if (DAILY_JOBS.includes(user?.job)) {
-    const only = brandId ? user?.permissions?.locationsByBrand?.[brandId] ?? [] : [];
-    return !locationId || only.length === 0 || only.includes(locationId);
-  }
-  return DAILY_JOBS.includes(user?.alsoJob?.job) && (!locationId || user.alsoJob.locationId === locationId);
+  // Their own job, at a restaurant and location on their login...
+  const only = brandId ? user?.permissions?.locationsByBrand?.[brandId] ?? [] : [];
+  const hasBrand = !brandId || (user?.permissions?.brandIds ?? []).includes(brandId);
+  const own = works(user?.job) && hasBrand && (!locationId || only.length === 0 || only.includes(locationId));
+  // ...or their second job, at exactly that location.
+  const second = works(user?.alsoJob?.job) && (!locationId || user.alsoJob.locationId === locationId);
+  return own || second;
 };
 
 // Filtered on the restaurant as well: the rule only lets managers read their
@@ -50,7 +53,7 @@ export function useDailyRecords(locationId, brandId, dateKey) {
 }
 
 export function useDailyRecord(locationId, brandId, dateKey, listId) {
-  const { user } = useAuth();
+  const { user, viewAs } = useAuth();
   const [record, setRecord] = useState(null);
   const id = recordId(locationId, dateKey, listId);
   // Only a list this location runs.
@@ -63,8 +66,9 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
   }, [id]);
 
   // A manager on duty who opens a list before it is filed is signed onto it.
+  // Not while an admin is using View as - that is meant to be read-only.
   useEffect(() => {
-    if (!list || !user || (!isManagerOnDuty(user, locationId, brandId) && user.role !== 'admin')) return;
+    if (!list || !user || viewAs || (!isManagerOnDuty(user, locationId, brandId) && user.role !== 'admin')) return;
     (async () => {
       const ref = doc(db, COLLECTION, id);
       const snap = await getDoc(ref);
@@ -85,7 +89,7 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
         await updateDoc(ref, { managers: arrayUnion(user.name) });
       }
     })().catch((e) => console.error('[DailyChecklist open] ' + e.message));
-  }, [id, user?.uid]);
+  }, [id, user?.uid, viewAs]);
 
   const toggle = (index) =>
     runTransaction(db, async (tx) => {

@@ -183,6 +183,7 @@ function dedupe(people) {
 const without = (people, uid) => people.filter((p) => p.uid !== uid);
 
 module.exports = {
+  liveMatrix,
   activeUsers, brandForLocation, brandForTarget, locationName, seesLocation, hearsFolder, atLocation,
   approvers, admins, cateringTeam, cateringClaimers, renewalTeam, postAudience, folderPostAudience,
   dedupe, without, isAdmin, isCoo, isFinance, notGhost,

@@ -16,6 +16,9 @@ export const COLUMNS = [
   { key: 'where', label: 'Where', options: [['all', 'All'], ['brands', 'All brands'], ['own', 'Own location']] },
   { key: 'folders', label: 'Folders', folders: true },
   { key: 'openingChecklist', label: 'Pre-opening checklist', options: [['edit', 'Edit'], ['tick', 'Tick'], ['view', 'View'], ['none', '—']] },
+  // The daily opening and closing checklists (14 Oct 2026): Work ticks and
+  // signs them off, at the person's own location.
+  { key: 'dailyChecklists', label: 'Daily checklists', options: [['work', 'Work'], ['none', '—']] },
   { key: 'openingDates', label: 'Opening dates', options: [['full', 'Yes'], ['none', '—']] },
   { key: 'renewals', label: 'Renewals', options: [['full', 'Full'], ['view', 'View'], ['none', '—']] },
   { key: 'operationalPoc', label: 'Operational POC', options: [['full', 'Full'], ['view', 'View'], ['none', '—']] },
@@ -60,6 +63,27 @@ export const ROWS = [
   { id: 'realestate', label: 'Real Estate', jobs: ['Real Estate'], d: r('all', ['projects', 'compliance'], 'view', 'full', 'view', 'none', 'full', 'none', 'own', 'own', 'none', 'none', 'none', 'raise', 'none', 'read', 'none') },
 ];
 
+// Brought up to date 14 Oct 2026: the Daily checklists column (GMs,
+// assistant managers and chefs work them), everyone can open HR (only the
+// insurance section on it is executives-only), and notes that say what each
+// row actually does now.
+const DAILY_WORK = ['gm', 'agm', 'chef', 'sous'];
+const NOTES = {
+  coo: "Approves time off, events, devices; sees the restaurants' receipts (not executives') with a 7am email; hears when yesterday's daily checklists were not signed off",
+  financials: "Sees every receipt; looks after the accounts, entities and each person's default entity",
+  gm: 'Works the daily checklists and gets renewals for their location; sees catering, Catering & Events claims it',
+  agm: 'Works the daily checklists at their location',
+  chef: 'Works the daily checklists at their location; hears when an event is confirmed',
+  sous: 'Works the daily checklists at their location; gets catering for their location',
+  catering: 'Claims, works and edits catering and private events at their location; adds event costs',
+  it: 'Everything except the pre-opening checklist; handles Systems Help. Their restaurants come from their login',
+};
+ROWS.forEach((row) => {
+  row.d.dailyChecklists = DAILY_WORK.includes(row.id) ? 'work' : 'none';
+  if (row.d.hr === 'none') row.d.hr = 'read';
+  if (NOTES[row.id]) row.d.note = NOTES[row.id];
+});
+
 export function rowForJob(job) {
   return ROWS.find((row) => row.jobs.includes(job)) ?? null;
 }
@@ -79,10 +103,27 @@ export function accessLevel(user, column, matrix = LIVE) {
   if (user.role === 'admin') return col.folders ? ALL : col.options[0][0];
   const row = rowForJob(user.job);
   if (!row) return col.folders ? [] : 'none';
-  return (matrix?.[row.id] ?? row.d)[column];
+  const v = (matrix?.[row.id] ?? row.d)[column];
+  // Everyone can open HR (14 Oct 2026), even a row saved as "—" before.
+  if (column === 'hr' && (v === 'none' || v == null)) return 'read';
+  // A row saved before the Daily checklists column existed gets its default.
+  if (column === 'dailyChecklists' && v == null) return row.d.dailyChecklists;
+  return v;
 }
 
-const RANK = { none: 0, read: 1, raise: 1, ask: 1, view: 1, own: 1, tick: 2, team: 2, full: 3, claim: 3, all: 3, post: 3, handle: 3, approve: 4, edit: 4 };
+// Every restaurant, without needing them ticked on the login? Admins, and
+// executives whose row says All / All brands. A manager's own login always
+// decides their restaurants and locations (Brenner, 14 Oct 2026): taking a
+// location off Cameron's login has to take it away, even though her row
+// (IT & Training) says All. The server's emails already worked this way.
+export function seesEveryRestaurant(user) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (user.role === 'manager') return false;
+  return ['all', 'brands'].includes(accessLevel(user, 'where'));
+}
+
+const RANK = { work: 3, none: 0, read: 1, raise: 1, ask: 1, view: 1, own: 1, tick: 2, team: 2, full: 3, claim: 3, all: 3, post: 3, handle: 3, approve: 4, edit: 4 };
 
 // Does this person have at least this level? e.g. atLeast(user, 'availability', 'team').
 export function atLeast(user, column, level) {
