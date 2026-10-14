@@ -298,9 +298,16 @@ export default function IntegrationRequestsScreen() {
               }
             />
 
-            <button style={{ ...styles.primaryButton, flex: 'none', width: '100%' }} onClick={handleSubmit} disabled={!canSubmit || saving}>
-              {saving ? 'Sending…' : 'Send'}
-            </button>
+            {/* A way out without sending (14 Oct 2026): clicking outside a
+                form doesn't close it, so it needs its own Cancel. */}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button style={styles.secondaryButton} onClick={() => setFormOpen(false)} disabled={saving}>
+                Cancel
+              </button>
+              <button style={styles.primaryButton} onClick={handleSubmit} disabled={!canSubmit || saving}>
+                {saving ? 'Sending…' : 'Send'}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

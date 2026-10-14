@@ -52,8 +52,19 @@ export default function CalendarScreen() {
   })();
   const [selectedDate, setSelectedDate] = useState(linkedDate ?? null);
   const [editingOpeningDateId, setEditingOpeningDateId] = useState(null);
-  // One row open at a time, same as the checklist and renewals.
-  const [expandedEntryId, setExpandedEntryId] = useState(null);
+  // One row open at a time, same as the checklist and renewals. A link from
+  // Home's This week opens its entry: /calendar?date=…&entry=… (14 Oct 2026).
+  const [expandedEntryId, setExpandedEntryId] = useState(searchParams.get('entry'));
+  // Following another link while already here moves to its day and entry.
+  const linkKey = searchParams.get('date') + '|' + searchParams.get('entry');
+  useEffect(() => {
+    if (linkedDate) setSelectedDate(linkedDate);
+    const id = searchParams.get('entry');
+    if (!id) return;
+    setExpandedEntryId(id);
+    const t = setTimeout(() => document.getElementById('entry-' + id)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 150);
+    return () => clearTimeout(t);
+  }, [linkKey]);
   // One location's overdue list open at a time - opening every group at once
   // puts back the wall of red this folds away.
   const [expandedOverdueLocation, setExpandedOverdueLocation] = useState(null);
@@ -340,7 +351,7 @@ export default function CalendarScreen() {
                     ? e.dateTime < Date.now()
                     : isChecklist && !real.done && e.dateTime < Date.now();
                   return (
-                    <div key={e.id} style={styles.row}>
+                    <div key={e.id} id={'entry-' + e.id} style={styles.row}>
                       <div
                         data-row=""
                         style={{

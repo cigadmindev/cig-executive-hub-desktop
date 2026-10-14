@@ -7,6 +7,7 @@ import { useSchedule } from '../context/ScheduleContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
 import { fmtTime } from '../lib/dates';
+import { calendarLink } from '../hooks/useHomeSummary';
 
 // Everything you have been told, everything you have done, and what everyone
 // else has been up to.
@@ -66,9 +67,7 @@ export default function NotificationsPanel({ onClose }) {
         path:
           e.openingItem && brandId && e.locationId
             ? `/brand/${brandId}/location/${e.locationId}/opening-checklist`
-            : e.dateTime
-              ? '/calendar?date=' + new Date(e.dateTime).toISOString().slice(0, 10)
-              : '/calendar',
+            : calendarLink(e),
         createdAt: e.doneAt,
         readAt: e.doneAt,
       };

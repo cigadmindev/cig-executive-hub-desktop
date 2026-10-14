@@ -9,6 +9,16 @@ import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsCont
 import { RENEWAL_WARNING_WINDOW_DAYS } from '../data/renewalTypes';
 import { useWaitingOnYou } from './useWaitingOnYou';
 
+// The calendar on the entry's own day, with the entry open. The day is the
+// local one: toISOString gave the UTC day, so an evening event linked to the
+// next morning.
+export const calendarLink = (e) => {
+  if (!e.dateTime) return '/calendar';
+  const d = new Date(e.dateTime);
+  const day = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return '/calendar?date=' + day + (e.id ? '&entry=' + encodeURIComponent(e.id) : '');
+};
+
 const DAY = 24 * 60 * 60 * 1000;
 
 // Everything Home needs, aggregated across every brand and location.
@@ -209,9 +219,7 @@ export function useHomeSummary() {
           where: e.assignedToUid === user.uid ? `Assigned to you · ${loc.name}` : `Tagged · ${loc.name}`,
           to: e.openingItem
             ? `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`
-            : e.dateTime
-              ? '/calendar?date=' + new Date(e.dateTime).toISOString().slice(0, 10)
-              : '/calendar',
+            : calendarLink(e),
           sort: e.dateTime ?? Infinity,
         });
       }
@@ -275,9 +283,14 @@ export function useHomeSummary() {
         where: locById[e.locationId]
           ? `${locById[e.locationId].brandName} · ${locById[e.locationId].name}`
           : '',
-        to: locById[e.locationId]
+        // An opening task opens the opening checklist; anything else (an
+        // event, a renewal, a calendar entry) opens that day on the calendar
+        // with the entry open (14 Oct 2026). Before, every row went to the
+        // opening checklist, which a GM cannot open, so the click just landed
+        // back on Home.
+        to: e.openingItem && showChecklistItems
           ? `/brand/${locById[e.locationId].brandId}/location/${e.locationId}/opening-checklist`
-          : '/calendar',
+          : calendarLink(e),
       }));
 
     // Approximated from sign-off timestamps rather than a real activity log —

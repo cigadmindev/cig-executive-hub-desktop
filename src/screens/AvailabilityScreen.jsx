@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAvailability } from '../context/AvailabilityContext';
 import { brands } from '../data/mockData';
-import { atLeast } from '../data/accessMatrix';
+import { atLeast, accessLevel, rowForJob } from '../data/accessMatrix';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import DatePickerField from '../components/DatePickerField';
 import { useDialog } from '../hooks/useDialog';
@@ -161,13 +161,19 @@ export default function AvailabilityScreen() {
         .filter((u) => u.active !== false && !u.isGhost && (u.role === 'executive' || u.role === 'admin'))
         .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
     : (users ?? [])
-    .filter((u) => u.active !== false && u.role !== 'admin' && loc)
-    .filter((u) => (u.permissions?.brandIds ?? []).includes(loc.brandId))
+    .filter((u) => u.active !== false && !u.isGhost && u.role !== 'admin' && loc)
+    // A location's team is the people who work there. Outside people with a
+    // login - the agency (Ben, Erica, Laci), Nico - have no Availability in
+    // Who sees what, so they are left off (14 Oct 2026); a login with no job
+    // set stays on. The Executive team view is unchanged.
+    .filter((u) => !rowForJob(u.job) || accessLevel(u, 'availability') !== 'none')
     .filter((u) => {
+      // A second job at this location (Cameron, Starkville GM) puts them here.
+      if (u.alsoJob?.locationId === loc.id) return true;
+      if (u.role !== 'manager' || !(u.permissions?.brandIds ?? []).includes(loc.brandId)) return false;
       const only = u.permissions?.locationsByBrand?.[loc.brandId];
       return !Array.isArray(only) || only.length === 0 || only.includes(loc.id);
     })
-    .filter((u) => u.role === 'manager')
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
   const offOn = (uid, dayIndex) => {
     const t = teamMonday.getTime() + dayIndex * DAY + DAY / 2;
