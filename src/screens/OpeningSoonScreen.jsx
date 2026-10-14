@@ -6,6 +6,7 @@ import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useDialog } from '../hooks/useDialog';
 import { hasFeature } from '../data/mockData';
 import RequestAccessModal from '../components/RequestAccessModal';
+import RequestPill from '../components/RequestPill';
 import PageHeader from '../components/PageHeader';
 import { fmtDay } from '../lib/dates';
 
@@ -29,8 +30,8 @@ export default function OpeningSoonScreen() {
   // Opening dates are for everyone with "Opening dates" in Who sees what; the
   // progress and the checklist behind it only for those who have the checklist.
   const seesChecklist = hasFeature(user, 'openingChecklist');
+  // Without the checklist, a card asks for it instead of doing nothing.
   const handleClick = (loc) => {
-    if (!seesChecklist) return;
     if (hasFeature(user, 'openingChecklist')) {
       navigate(`/brand/${loc.brandId}/location/${loc.id}/opening-checklist`);
       return;
@@ -79,10 +80,13 @@ export default function OpeningSoonScreen() {
           <button
             key={loc.id}
             data-card=""
-            style={{ ...styles.card, ...(seesChecklist ? {} : { cursor: 'default' }) }}
+            style={styles.card}
             onClick={() => handleClick(loc)}
           >
-            <span style={styles.name}>{loc.brandName}</span>
+            <span style={styles.nameRow}>
+              <span style={styles.name}>{loc.brandName}</span>
+              {seesChecklist ? null : <RequestPill pending={!!user && hasPendingRequest(user.email, 'feature', 'openingChecklist')} />}
+            </span>
             <span style={styles.meta}>
               {loc.name} · {fmtDay(loc.openingDate)} ·{' '}
               {loc.daysOut} days out
@@ -137,7 +141,7 @@ export default function OpeningSoonScreen() {
 }
 
 const styles = {
-  wrap: { padding: '28px 32px 60px' },
+  wrap: { padding: '28px max(22px, min(36px, 4vw)) 60px' },
 
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 },
   card: {
@@ -145,12 +149,13 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'stretch',
     textAlign: 'left',
-    background: 'var(--bg-elevated)',
+    background: 'var(--bg-card)',
     border: '1px solid var(--border)',
     borderRadius: 12,
     padding: 16,
     cursor: 'pointer',
   },
+  nameRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   name: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' },
   meta: { fontSize: 12, color: 'var(--text-tertiary)' },
 

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDeviceRequests } from '../context/DeviceRequestsContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
-import { atLeast } from '../data/accessMatrix';
+import { atLeast, accessLevel } from '../data/accessMatrix';
 import { useDialog } from '../hooks/useDialog';
 import DatePickerField from '../components/DatePickerField';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
@@ -18,14 +18,14 @@ import { plainError } from '../lib/errors';
 const dateText = (t) => fmtDay(t);
 const ymd = (t) => (t ? new Date(t).toISOString().slice(0, 10) : '');
 const STEP = {
-  requested: ['Waiting', 'amber'],
+  requested: ['Pending', 'amber'],
   approved: ['Approved', 'green'],
   ordered: ['Ordered', 'cyan'],
   arrived: ['Done', 'grey'],
   declined: ['Declined', 'red'],
 };
 const FILTERS = [
-  ['requested', 'Waiting'],
+  ['requested', 'Pending'],
   ['approved', 'Approved'],
   ['ordered', 'Ordered'],
   ['arrived', 'Done'],
@@ -128,8 +128,8 @@ export default function DeviceRequestsScreen() {
           <div style={{ marginTop: 14 }}>
             <input style={d.input} autoFocus placeholder="Reason - they will see this" value={declineReason} onChange={(e) => setDeclineReason(e.target.value)} />
             <div style={d.actions}>
-              <button style={d.primary} disabled={busy || !declineReason.trim()} onClick={() => run(() => decide(selected.id, false, declineReason.trim()), () => { setDeclining(false); setDeclineReason(''); })}>Decline</button>
               <button style={d.ghost} onClick={() => setDeclining(false)}>Cancel</button>
+              <button style={d.primary} disabled={busy || !declineReason.trim()} onClick={() => run(() => decide(selected.id, false, declineReason.trim()), () => { setDeclining(false); setDeclineReason(''); })}>Decline</button>
             </div>
           </div>
         ) : (
@@ -145,8 +145,8 @@ export default function DeviceRequestsScreen() {
             <input style={d.input} placeholder="What was ordered, and where" value={order.notes} onChange={(e) => setOrder({ ...order, notes: e.target.value })} />
             <DatePickerField value={order.expected} onChange={(v) => setOrder({ ...order, expected: v })} placeholder="Expected arrival" />
             <div style={d.actions}>
-              <button style={d.primary} disabled={busy} onClick={() => run(() => markOrdered(selected.id, { orderNotes: order.notes, expectedArrival: order.expected ? new Date(order.expected + 'T12:00:00').getTime() : null }), () => { setOrdering(false); setOrder({ notes: '', expected: '' }); })}>Mark ordered</button>
               <button style={d.ghost} onClick={() => setOrdering(false)}>Cancel</button>
+              <button style={d.primary} disabled={busy} onClick={() => run(() => markOrdered(selected.id, { orderNotes: order.notes, expectedArrival: order.expected ? new Date(order.expected + 'T12:00:00').getTime() : null }), () => { setOrdering(false); setOrder({ notes: '', expected: '' }); })}>Mark ordered</button>
             </div>
           </div>
         ) : (
@@ -168,8 +168,8 @@ export default function DeviceRequestsScreen() {
               <input style={d.input} value={editing.setupNotes} onChange={(e) => setEditing({ ...editing, setupNotes: e.target.value })} placeholder="Set-up notes" />
               <DatePickerField value={editing.neededBy} onChange={(v) => setEditing({ ...editing, neededBy: v })} placeholder="Needed by" />
               <div style={d.actions}>
-                <button style={d.primary} disabled={busy} onClick={() => run(() => adminEdit(selected.id, { deviceType: editing.deviceType.trim(), forWhom: editing.forWhom.trim(), setupNotes: editing.setupNotes.trim(), neededBy: editing.neededBy ? new Date(editing.neededBy + 'T12:00:00').getTime() : null }), () => setEditing(null))}>Save details</button>
                 <button style={d.ghost} onClick={() => setEditing(null)}>Cancel</button>
+                <button style={d.primary} disabled={busy} onClick={() => run(() => adminEdit(selected.id, { deviceType: editing.deviceType.trim(), forWhom: editing.forWhom.trim(), setupNotes: editing.setupNotes.trim(), neededBy: editing.neededBy ? new Date(editing.neededBy + 'T12:00:00').getTime() : null }), () => setEditing(null))}>Save details</button>
               </div>
             </>
           ) : changing ? (
@@ -179,8 +179,8 @@ export default function DeviceRequestsScreen() {
               </select>
               <input style={d.input} autoFocus placeholder="Reason - emailed to the person who asked" value={changing.reason} onChange={(e) => setChanging({ ...changing, reason: e.target.value })} />
               <div style={d.actions}>
-                <button style={d.primary} disabled={busy || changing.status === selected.status || !changing.reason.trim()} onClick={() => run(() => adminSetStatus(selected.id, changing.status, changing.reason), () => { setChanging(null); setFilter(changing.status); })}>Change status</button>
                 <button style={d.ghost} onClick={() => setChanging(null)}>Cancel</button>
+                <button style={d.primary} disabled={busy || changing.status === selected.status || !changing.reason.trim()} onClick={() => run(() => adminSetStatus(selected.id, changing.status, changing.reason), () => { setChanging(null); setFilter(changing.status); })}>Change status</button>
               </div>
             </>
           ) : (
@@ -225,8 +225,17 @@ export default function DeviceRequestsScreen() {
         selectedId={selected?.id}
         onSelect={(id) => { setSelectedId(id); setDeclining(false); setOrdering(false); setEditing(null); setChanging(null); }}
         detail={detail}
-        empty="Nothing in this list."
-        note={decides || atLeast(user, 'deviceRequests', 'view') ? null : 'You see only your own requests.'}
+        empty="No device requests in this list."
+        phoneRow={(r) => (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>{r.deviceType}</span>
+              <span style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{r.requestedByName} · {r.locationName} · {dateText(r.createdAt)}</span>
+            </span>
+            <Pill tone={STEP[r.status]?.[1]}>{STEP[r.status]?.[0]}</Pill>
+          </span>
+        )}
+        note={decides || accessLevel(user, 'deviceRequests') === 'view' ? null : 'You see only your own requests.'}
       >
         {formOpen ? (
           <div style={{ ...d.card, position: 'static', marginBottom: 16 }}>
@@ -240,8 +249,8 @@ export default function DeviceRequestsScreen() {
             <input style={d.input} placeholder="Set-up notes (optional)" value={form.setupNotes} onChange={(e) => setForm({ ...form, setupNotes: e.target.value })} />
             <DatePickerField value={form.neededBy} onChange={(v) => setForm({ ...form, neededBy: v })} placeholder="Needed by (optional)" />
             <div style={d.actions}>
-              <button style={d.primary} disabled={busy} onClick={submit}>Send request</button>
               <button style={d.ghost} onClick={() => setFormOpen(false)}>Cancel</button>
+              <button style={d.primary} disabled={busy} onClick={submit}>Send request</button>
             </div>
           </div>
         ) : null}

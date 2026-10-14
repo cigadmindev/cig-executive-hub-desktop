@@ -1,4 +1,4 @@
-import { atLeast } from '../data/accessMatrix';
+import { accessLevel } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, addDoc, doc, updateDoc, query, orderBy , where } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -31,7 +31,9 @@ export function DeviceRequestsProvider({ children }) {
     }
     // Who sees what: "View" (IT & Training) and "Approve" (the COO, admins)
     // see every request; everyone else sees only the ones they raised.
-    const seesAll = user.role === 'admin' || atLeast(user, 'deviceRequests', 'view');
+    // View and Approve exactly - Ask ranks the same as View, so atLeast would
+    // let every asker run the full query, which the rules refuse (14 Oct).
+    const seesAll = user.role === 'admin' || ['view', 'approve'].includes(accessLevel(user, 'deviceRequests'));
     const source = seesAll
       ? query(collection(db, COLLECTION), orderBy('createdAt', 'desc'))
       : query(collection(db, COLLECTION), where('requestedByUid', '==', user.uid));

@@ -209,8 +209,8 @@ export default function AvailabilityScreen() {
         </div>
       ))}
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <button style={styles.primary} onClick={saveHours}>{editing === 'usual' ? 'Save my usual week' : 'Save for this week only'}</button>
         <button style={styles.ghost} onClick={() => setEditing(null)}>Cancel</button>
+        <button style={styles.primary} onClick={saveHours}>{editing === 'usual' ? 'Save my usual week' : 'Save for this week only'}</button>
       </div>
     </div>
   );
@@ -234,14 +234,14 @@ export default function AvailabilityScreen() {
           <p style={styles.label}>Reason (optional)</p>
           <input style={styles.input} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Family wedding" />
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button style={{ ...styles.primary, ...(from ? {} : { opacity: 0.4 }) }} disabled={!from} onClick={submit}>Send request</button>
             <button style={styles.ghost} onClick={() => setFormOpen(false)}>Cancel</button>
+            <button style={{ ...styles.primary, ...(from ? {} : { opacity: 0.4 }) }} disabled={!from} onClick={submit}>Send request</button>
           </div>
         </div>
       ) : null}
 
       {waiting.length > 0 ? (
-        <div style={{ ...styles.card, borderLeft: '3px solid #E8B93B' }}>
+        <div style={{ ...styles.card, borderLeft: '3px solid var(--warn)' }}>
           <p style={styles.cardTitle}>{waiting.length} request{waiting.length === 1 ? '' : 's'} waiting on you</p>
           {waiting.map((r) => (
             <div key={r.id} style={styles.row}>
@@ -251,14 +251,15 @@ export default function AvailabilityScreen() {
                 {denying === r.id ? (
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                     <input style={{ ...styles.input, flex: 1 }} autoFocus value={denyReason} onChange={(e) => setDenyReason(e.target.value)} placeholder="Reason - they will see this" />
-                    <button style={styles.ghost} onClick={async () => { await resolveTimeOff(r.id, 'denied', denyReason.trim()); setDenying(null); setDenyReason(''); }}>Decline</button>
+                    <button style={styles.ghost} onClick={() => { setDenying(null); setDenyReason(''); }}>Cancel</button>
+                    <button style={styles.primarySmall} onClick={async () => { await resolveTimeOff(r.id, 'denied', denyReason.trim()); setDenying(null); setDenyReason(''); }}>Decline</button>
                   </div>
                 ) : null}
               </div>
               {denying !== r.id ? (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button style={styles.primarySmall} onClick={() => resolveTimeOff(r.id, 'approved')}>Approve</button>
-                  <button style={styles.ghost} onClick={() => { setDenying(r.id); setDenyReason(''); }}>Deny…</button>
+                  <button style={styles.ghost} onClick={() => { setDenying(r.id); setDenyReason(''); }}>Decline…</button>
                 </div>
               ) : null}
             </div>
@@ -304,7 +305,7 @@ export default function AvailabilityScreen() {
                 {r.status === 'denied' && r.denialReason ? <div style={styles.muted}>“{r.denialReason}”</div> : null}
               </div>
               <Pill tone={r.status === 'approved' ? 'green' : r.status === 'denied' ? 'red' : 'amber'}>
-                {r.status === 'pending' ? 'Waiting' : r.status === 'approved' ? 'Approved' : 'Declined'}
+                {r.status === 'pending' ? 'Pending' : r.status === 'approved' ? 'Approved' : 'Declined'}
               </Pill>
               {r.status === 'pending' ? (
                 <button style={styles.linkDanger} onClick={() => confirm({ title: 'Withdraw this request?', confirmLabel: 'Withdraw', onConfirm: () => deleteTimeOffRequest(r.id) })}>Withdraw</button>
@@ -369,8 +370,8 @@ export default function AvailabilityScreen() {
 }
 
 const styles = {
-  page: { padding: '24px 28px 60px', maxWidth: 1100 },
-  card: { background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 16 },
+  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1100 },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 16 },
   cardTitle: { fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' },
   note: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.5 },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 },
@@ -378,10 +379,10 @@ const styles = {
   hourRow: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', padding: '8px 0', fontSize: 13, color: 'var(--text-secondary)' },
   strong: { color: 'var(--text-primary)', fontWeight: 700 },
   muted: { color: 'var(--text-tertiary)', fontSize: 13 },
-  badge: { display: 'inline-block', fontSize: 11, fontWeight: 800, color: '#E8B93B', background: '#3A2A0E', borderRadius: 5, padding: '3px 8px', margin: '0 0 8px' },
+  badge: { display: 'inline-block', fontSize: 11, fontWeight: 800, color: 'var(--warn)', background: '#3A2A0E', borderRadius: 5, padding: '3px 8px', margin: '0 0 8px' },
   primary: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '9px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
   primarySmall: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 7, padding: '6px 12px', fontWeight: 800, fontSize: 12, cursor: 'pointer' },
-  ghost: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
+  ghost: { minHeight: 40, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
   linkDanger: { background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer' },
   label: { fontSize: 12, color: 'var(--text-secondary)', margin: '10px 0 6px' },
   input: { width: '100%', boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: 'var(--text-primary)', fontFamily: 'inherit' },
@@ -395,5 +396,5 @@ const styles = {
   grid: { borderCollapse: 'collapse', width: '100%', minWidth: 760, fontSize: 12 },
   th: { color: 'var(--text-secondary)', fontWeight: 700, padding: '6px', textAlign: 'center', borderBottom: '1px solid var(--border)' },
   td: { border: '1px solid var(--border)', padding: '7px 6px', textAlign: 'center', color: 'var(--text-secondary)' },
-  offCell: { background: '#3A2A0E', color: '#E8B93B', fontWeight: 700 },
+  offCell: { background: '#3A2A0E', color: 'var(--warn)', fontWeight: 700 },
 };

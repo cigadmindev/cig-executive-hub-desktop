@@ -103,7 +103,7 @@ function Gate() {
         <Route path="/brand/:brandId/location/:locationId/category/:categoryId" element={<RequireCategory><CategoryDetailScreen /></RequireCategory>} />
         <Route
           path="/brand/:brandId/location/:locationId/category/:categoryId/announcements"
-          element={<AnnouncementsScreen />}
+          element={<RequireCategory><RequireColumn column="announcements" level="post"><AnnouncementsScreen /></RequireColumn></RequireCategory>}
         />
         <Route path="/announcements/new" element={<RequireColumn column="announcements" level="post"><HomeAnnouncementsScreen /></RequireColumn>} />
         <Route path="/messages" element={<MessagesScreen />} />

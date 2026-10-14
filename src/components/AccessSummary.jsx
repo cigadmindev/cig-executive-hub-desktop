@@ -90,7 +90,7 @@ export default function AccessSummary({ person }) {
 }
 
 const styles = {
-  box: { background: '#16161A', border: '1px solid var(--border)', borderLeft: '3px solid var(--neon)', borderRadius: 10, padding: '14px 16px', margin: '14px 0' },
+  box: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: '3px solid var(--neon)', borderRadius: 10, padding: '14px 16px', margin: '14px 0' },
   kicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--neon)', margin: '0 0 6px' },
   text: { fontSize: 14, lineHeight: 1.55, color: 'var(--text-primary)', margin: '0 0 6px' },
   muted: { color: 'var(--text-secondary)' },

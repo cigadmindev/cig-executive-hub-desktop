@@ -35,7 +35,7 @@ export default function ViewAsPicker() {
 }
 
 const styles = {
-  wrap: { background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 20, maxWidth: 520 },
+  wrap: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 20, maxWidth: 520 },
   title: { fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--text-primary)' },
   note: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 12px', lineHeight: 1.5 },
   input: { width: '100%', boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: 'var(--text-primary)', fontFamily: 'inherit', marginBottom: 8 },

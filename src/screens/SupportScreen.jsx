@@ -17,7 +17,7 @@ function getUrgency(timestamp, status, now) {
   if (status === 'completed') return { label: 'Completed', color: 'var(--success)', hoursRemaining: null };
   const hoursRemaining = 48 - (now - timestamp) / (1000 * 60 * 60);
   if (hoursRemaining > 24) return { label: `${Math.ceil(hoursRemaining)}h left`, color: 'var(--success)', hoursRemaining };
-  if (hoursRemaining > 12) return { label: `${Math.ceil(hoursRemaining)}h left`, color: '#C9A227', hoursRemaining };
+  if (hoursRemaining > 12) return { label: `${Math.ceil(hoursRemaining)}h left`, color: 'var(--warn)', hoursRemaining };
   if (hoursRemaining > 8) return { label: `${Math.ceil(hoursRemaining)}h left`, color: '#D9822B', hoursRemaining };
   if (hoursRemaining > 0) return { label: `${Math.ceil(hoursRemaining)}h left`, color: 'var(--danger)', hoursRemaining };
   return { label: 'Overdue', color: 'var(--danger)', hoursRemaining };
@@ -100,7 +100,7 @@ function RegularSupportView() {
           />
 
           <button style={styles.submitButton} onClick={handleSubmit} disabled={!description.trim()}>
-            Submit Request
+            Submit request
           </button>
         </div>
       ) : (
@@ -158,7 +158,7 @@ function RegularSupportView() {
       {confirmOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => setConfirmOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Request Sent</h2>
+            <h2 style={styles.modalTitle}>Request sent</h2>
             <p style={styles.modalBody}>
               Your request has been sent and will be reviewed within 48 hours. Thank you!
             </p>
@@ -224,7 +224,7 @@ function AdminSupportView() {
           Requests {requests.filter((r) => r.status !== 'completed').length > 0 ? `(${requests.filter((r) => r.status !== 'completed').length})` : ''}
         </button>
         <button style={{ ...styles.tab, ...(tab === 'post' ? styles.tabActive : {}) }} onClick={() => setTab('post')}>
-          Post Update
+          Post update
         </button>
       </div>
 
@@ -248,12 +248,12 @@ function AdminSupportView() {
                   <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
                     {r.status === 'new' ? (
                       <button style={styles.actionButton} onClick={() => setStatus(r.id, 'in_progress')}>
-                        Mark In Progress
+                        Mark in progress
                       </button>
                     ) : null}
                     {r.status !== 'completed' ? (
                       <button style={styles.actionButton} onClick={() => setStatus(r.id, 'completed')}>
-                        Mark Completed
+                        Mark completed
                       </button>
                     ) : null}
                   </div>
@@ -299,7 +299,7 @@ function AdminSupportView() {
             </div>
 
             <button style={styles.submitButton} onClick={handlePost} disabled={!message.trim()}>
-              Post Update
+              Post update
             </button>
           </div>
 

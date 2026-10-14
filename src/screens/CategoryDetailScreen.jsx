@@ -27,6 +27,10 @@ export default function CategoryDetailScreen() {
   const { getLink, setLink } = useCategoryDriveLinks();
   const [connectingItem, setConnectingItem] = useState(null);
   const [linkDraft, setLinkDraft] = useState('');
+  // Above the early returns: a hook after one crashes the page when a new
+  // location's list arrives a moment late (14 Oct 2026).
+  const [savingLink, setSavingLink] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   useEffect(() => {
     if (locationId && categoryId) markCategoryViewed(locationId, categoryId);
@@ -60,9 +64,6 @@ export default function CategoryDetailScreen() {
     }
     notify('Not connected yet', `"${itemName}" isn't linked to a Drive folder — ask an admin to connect it.`);
   };
-
-  const [savingLink, setSavingLink] = useState(false);
-  const [saveError, setSaveError] = useState(null);
 
   const saveLink = async () => {
     if (!linkDraft.trim()) return;
@@ -126,11 +127,11 @@ export default function CategoryDetailScreen() {
                       autoFocus
                       onKeyDown={(e) => e.key === 'Enter' && saveLink()}
                     />
-                    <button style={{ ...styles.connectSaveButton, ...nike.primaryButton }} onClick={saveLink} disabled={savingLink}>
-                      {savingLink ? 'Saving…' : 'Save'}
-                    </button>
                     <button style={styles.connectCancelButton} onClick={() => setConnectingItem(null)}>
                       ✕
+                    </button>
+                    <button style={{ ...styles.connectSaveButton, ...nike.primaryButton }} onClick={saveLink} disabled={savingLink}>
+                      {savingLink ? 'Saving…' : 'Save'}
                     </button>
                   </div>
                   {saveError ? <p style={styles.connectError}>Couldn't save — {saveError}</p> : null}
@@ -203,7 +204,7 @@ const styles = {
     outline: 'none',
   },
   connectSaveButton: { padding: '0 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
-  connectCancelButton: { padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
+  connectCancelButton: { minHeight: 40, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
   editLinkButton: { fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 8, marginLeft: 4 },
   postsSection: { marginTop: 28 },
   divider: { height: 1, background: 'var(--border)', marginBottom: 18 },

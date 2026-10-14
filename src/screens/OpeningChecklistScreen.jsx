@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { brands, canEditChecklists , hasFeature } from '../data/mockData';
+import { brands, canEditChecklists } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useSchedule } from '../context/ScheduleContext';
 import { useOpeningInfo } from '../context/OpeningInfoContext';
@@ -26,7 +26,7 @@ const formatDate = (ts) => (ts ? fmtDay(ts) : null);
 export default function OpeningChecklistScreen() {
   const { dialogNode, notify, confirm } = useDialog();
   const { brandId, locationId } = useParams();
-  const { user, activeUsers, hasBrandAccess } = useAuth();
+  const { user, activeUsers, hasLocationAccess } = useAuth();
   const isAdmin = user?.role === 'admin';
   // Admins, the COO and the beverage manager can restructure the list itself -
   // add an item, remove one, or put someone's name against it.
@@ -93,8 +93,9 @@ export default function OpeningChecklistScreen() {
   // Access to the location is not enough - they also need to be able to open
   // the checklist. Assigning someone a task they cannot reach would put a row
   // on their home screen that goes nowhere.
+  // This location, not just the restaurant, and able to tick (14 Oct 2026).
   const assignableUsers = (activeUsers ?? []).filter(
-    (u) => hasBrandAccess(u, brandId) && hasFeature(u, 'openingChecklist')
+    (u) => hasLocationAccess(u, brandId, locationId) && (u.role === 'admin' || atLeast(u, 'openingChecklist', 'tick'))
   );
 
   const handleAssign = async (item, uid) => {
@@ -430,7 +431,7 @@ export default function OpeningChecklistScreen() {
               <DatePickerField value={dateDraft} onChange={setDateDraft} placeholder="Set opening date" />
             </div>
             <button style={styles.setDateButton} onClick={handleSetOpeningDate} disabled={!dateDraft}>
-              {info.openingDate ? 'Update' : 'Set Date'}
+              {info.openingDate ? 'Update' : 'Set date'}
             </button>
           </div>
         ) : null}
@@ -510,6 +511,7 @@ export default function OpeningChecklistScreen() {
                         onClick={() => setExpandedItemId(isOpen ? null : item.id)}
                       >
                         <button
+                          className="hit-40"
                           style={{
                             ...styles.check,
                             ...(item.done ? styles.checkDone : {}),
@@ -667,6 +669,7 @@ export default function OpeningChecklistScreen() {
                       onClick={() => setExpandedItemId(isOpen ? null : item.id)}
                     >
                       <button
+                        className="hit-40"
                         style={{ ...styles.check, ...(item.done ? styles.checkDone : {}) }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -962,7 +965,7 @@ export default function OpeningChecklistScreen() {
 }
 
 const styles = {
-  waitingPill: { fontSize: 11, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: '#E8B93B', background: 'rgba(232,185,59,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap' },
+  waitingPill: { fontSize: 11, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--warn)', background: 'rgba(232,185,59,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap' },
   page: { padding: '28px max(22px, min(40px, 4vw))' },
   searchHint: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' },
   section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
@@ -1101,6 +1104,6 @@ const styles = {
   confirmTitle: { fontSize: 15, fontWeight: 700, marginBottom: 10 },
   confirmBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 },
   confirmButtonsRow: { display: 'flex', gap: 10 },
-  cancelBtnFull: { flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
+  cancelBtnFull: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
   saveBtnFull: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
 };

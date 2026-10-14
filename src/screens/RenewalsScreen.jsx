@@ -1,3 +1,4 @@
+import { atLeast } from '../data/accessMatrix';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +25,9 @@ export default function RenewalsScreen() {
   const { getByLocation, ensureSeeded, updateDates, markRenewed, addRenewal, setRenewalHidden } = useRenewals();
   // Same three as the checklist: admins, the COO and the beverage manager.
   const canEdit = canEditChecklists(user);
+  // Doing the renewal work - dates, documents, marking it renewed - is the
+  // Renewals column at Full (14 Oct 2026); View rows just see the list.
+  const canWork = user?.role === 'admin' || atLeast(user, 'renewals', 'full');
   const [showHidden, setShowHidden] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [newType, setNewType] = useState('');
@@ -49,7 +53,9 @@ export default function RenewalsScreen() {
       (e) => e.locationId === locationId && e.renewalItem && e.renewalType === type && !e.done
     );
     if (linked) {
-      updateEntry(linked.id, { done: true, doneBy: user?.name ?? 'Unknown', doneAt: Date.now() });
+      updateEntry(linked.id, { done: true, doneBy: user?.name ?? 'Unknown', doneAt: Date.now() }).catch((err) =>
+        console.error('[Renewals] calendar task not ticked: ' + (err?.code ?? err))
+      );
     }
   };
 
@@ -136,6 +142,9 @@ export default function RenewalsScreen() {
                 placeholder="Health Department Permit"
                 autoFocus
               />
+              <button style={styles.addCancel} onClick={() => { setAddOpen(false); setNewType(''); }}>
+                Cancel
+              </button>
               <button
                 style={styles.addConfirm}
                 disabled={!newType.trim()}
@@ -150,9 +159,6 @@ export default function RenewalsScreen() {
                 }}
               >
                 Add
-              </button>
-              <button style={styles.addCancel} onClick={() => { setAddOpen(false); setNewType(''); }}>
-                Cancel
               </button>
             </>
           ) : null}
@@ -208,14 +214,16 @@ export default function RenewalsScreen() {
 
                 {isOpen ? (
                   <div style={styles.rowBody} data-reveal="">
-                    <div style={styles.actionRow}>
-                      <button style={styles.cancelButton} onClick={() => openEdit(item)}>
-                        Edit Dates
-                      </button>
-                      <button style={styles.saveButton} onClick={() => openSignOff(item)}>
-                        Mark Renewed
-                      </button>
-                    </div>
+                    {canWork ? (
+                      <div style={styles.actionRow}>
+                        <button style={styles.cancelButton} onClick={() => openEdit(item)}>
+                          Edit dates
+                        </button>
+                        <button style={styles.saveButton} onClick={() => openSignOff(item)}>
+                          Mark renewed
+                        </button>
+                      </div>
+                    ) : null}
                     {item.signedOffBy ? (
                       <p style={styles.signOffNote}>Last renewed by {item.signedOffBy}</p>
                     ) : null}
@@ -244,6 +252,7 @@ export default function RenewalsScreen() {
                       itemKey={item.type.replace(/\s+/g, '-').toLowerCase()}
                       value={item.document ?? null}
                       userName={user?.name}
+                      readOnly={!canWork}
                       onChange={(docRef) => {
                         updateDates(item.id, item.approvedDate, item.expirationDate, docRef);
                         // Removing a permit should clear it everywhere it was
@@ -270,7 +279,7 @@ export default function RenewalsScreen() {
             <DatePickerField value={editApproved} onChange={setEditApproved} placeholder="Not set" />
             <label style={styles.label}>Expiration / Renewal Due Date</label>
             <DatePickerField value={editExpiration} onChange={setEditExpiration} placeholder="Not set" />
-            <p style={styles.modalNote}>Use this to correct a mistake. To actually renew, use "Mark Renewed" instead.</p>
+            <p style={styles.modalNote}>Use this to correct a mistake. To actually renew, use "Mark renewed" instead.</p>
             <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
               <button style={styles.cancelButton} onClick={() => setEditingItem(null)}>
                 Cancel
@@ -286,7 +295,7 @@ export default function RenewalsScreen() {
       {signOffItem ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => setSignOffItem(null)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Mark Renewed</h2>
+            <h2 style={styles.modalTitle}>Mark renewed</h2>
             <p style={styles.modalBody}>{signOffItem.type} — who's signing off?</p>
             <label style={styles.label}>Name</label>
             <input style={styles.input} value={signOffName} onChange={(e) => setSignOffName(e.target.value)} />
@@ -343,10 +352,10 @@ const styles = {
   removeLink: { background: 'none', border: 'none', padding: 0, color: 'var(--danger)', opacity: 0.75, fontSize: 11, cursor: 'pointer' },
   addRow: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 },
   addInput: { flex: 1, maxWidth: 280, height: 34, boxSizing: 'border-box', padding: '0 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
-  addConfirm: { height: 34, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
-  addCancel: { height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  addConfirm: { height: 40, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
+  addCancel: { height: 40, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   signOffNote: { fontSize: 11, color: 'var(--text-secondary)', margin: '6px 0 0' },
-  cancelButton: { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
+  cancelButton: { minHeight: 40, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
   saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
 
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },

@@ -33,7 +33,7 @@ export default function EmailPreviewScreen() {
   }, [current]);
 
   if (user?.role !== 'admin') {
-    return <div style={styles.page}><p style={{ color: 'var(--text-secondary)' }}>Admins only.</p></div>;
+    return <div style={styles.page}><PageHeader title="Email preview" subtitle="Only admins can see this page." /></div>;
   }
 
   const item = list.find((l) => l.id === current);
@@ -93,7 +93,7 @@ export default function EmailPreviewScreen() {
 }
 
 const styles = {
-  page: { padding: '24px 28px 60px', maxWidth: 1200 },
+  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1200 },
   columns: { display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' },
   listCard: { flex: '0 0 300px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '6px 0 10px' },
   group: { fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '14px 16px 4px' },

@@ -1,6 +1,6 @@
 import { accessLevel } from '../data/accessMatrix';
 import { useEffect, useState } from 'react';
-import { collection, doc, onSnapshot, query, where, runTransaction, arrayUnion, updateDoc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where, runTransaction, arrayUnion, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
@@ -69,11 +69,15 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
   // Not while an admin is using View as - that is meant to be read-only.
   useEffect(() => {
     if (!list || !user || viewAs || (!isManagerOnDuty(user, locationId, brandId) && user.role !== 'admin')) return;
-    (async () => {
+    // In one transaction (14 Oct 2026): two managers opening a new list at
+    // the same moment would otherwise each create it, the second wiping the
+    // first one's ticks.
+    const onDuty = isManagerOnDuty(user, locationId, brandId);
+    runTransaction(db, async (tx) => {
       const ref = doc(db, COLLECTION, id);
-      const snap = await getDoc(ref);
+      const snap = await tx.get(ref);
       if (!snap.exists()) {
-        await setDoc(ref, {
+        tx.set(ref, {
           locationId, brandId, dateKey, listId, kind: list.kind, title: list.title, subtitle: list.subtitle,
           intro: list.intro, sections: !!list.sections,
           workers: Object.fromEntries(list.workers.map((w) => [w, ''])),
@@ -82,13 +86,13 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
           // Their labels, copied in like the tasks, for the filed PDF.
           noteLabels: (list.notes ?? []).map(([key, label]) => ({ key, label })),
           tasks: tasksFor(list, dateKey).map((t) => ({ ...t, done: false, byName: null, at: null, note: '' })),
-          managers: isManagerOnDuty(user, locationId, brandId) ? [user.name] : [],
+          managers: onDuty ? [user.name] : [],
           status: 'open', createdAt: Date.now(),
         });
-      } else if (snap.data().status !== 'filed' && isManagerOnDuty(user, locationId, brandId) && !(snap.data().managers ?? []).includes(user.name)) {
-        await updateDoc(ref, { managers: arrayUnion(user.name) });
+      } else if (snap.data().status === 'open' && onDuty && !(snap.data().managers ?? []).includes(user.name)) {
+        tx.update(ref, { managers: arrayUnion(user.name) });
       }
-    })().catch((e) => console.error('[DailyChecklist open] ' + e.message));
+    }).catch((e) => console.error('[DailyChecklist open] ' + e.message));
   }, [id, user?.uid, viewAs]);
 
   const toggle = (index) =>

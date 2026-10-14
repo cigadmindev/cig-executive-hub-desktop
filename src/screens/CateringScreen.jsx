@@ -1,3 +1,4 @@
+import { accessLevel } from '../data/accessMatrix';
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useCatering } from '../context/CateringContext';
@@ -36,7 +37,6 @@ const FILTERS = Object.entries(STEP).map(([k, [l]]) => [k, l]);
 
 // The jobs that look after events at their location (firestore.rules,
 // handlesEventsFor): they see their location's enquiries and can add one.
-const HANDLER_JOBS = ['General Manager', 'Assistant Manager', 'Executive Chef', 'Sous Chef', 'Catering & Events', 'Kitchen Manager'];
 
 const BLANK = { kind: 'catering', locationId: '', name: '', email: '', phone: '', organisation: '', occasion: '', guests: '', date: '', preferredTime: '', fulfilment: '', address: '', about: '' };
 
@@ -48,10 +48,13 @@ export default function CateringScreen() {
   const isAdmin = user?.role === 'admin';
   // Only Catering & Events managers claim and work enquiries (Brenner,
   // 10 Oct 2026) - not GMs, chefs or admins. Admins keep the ADMIN section.
-  const canAct = user?.job === 'Catering & Events';
+  // The Catering column of Who sees what (14 Oct 2026): Claim works the
+  // enquiries, View sees and adds them.
+  const cateringLevel = accessLevel(user, 'catering');
+  const canAct = cateringLevel === 'claim';
   // Anyone who looks after events at a location, and every executive, can
   // add one that came in by phone or in person, and add costs to an event.
-  const canAdd = canAct || isAdmin || user?.role === 'executive' || HANDLER_JOBS.includes(user?.job);
+  const canAdd = isAdmin || ['view', 'claim'].includes(cateringLevel);
 
   const firstWithItems = ['new', 'talking', 'confirmed'].find((k) => enquiries.some((e) => e.status === k)) ?? 'new';
   const [filter, setFilter] = useState(null);
@@ -154,8 +157,8 @@ export default function CateringScreen() {
               <div style={{ marginTop: 14 }}>
                 <input style={d.input} autoFocus placeholder="Why they are not going ahead" value={changing?.reason ?? ''} onChange={(ev) => setChanging({ reason: ev.target.value })} />
                 <div style={{ ...d.actions, marginTop: 0 }}>
-                  <button style={d.primary} disabled={busy || !(changing?.reason ?? '').trim()} onClick={() => run(() => lose(e.id, changing.reason), () => { reset(); setSelectedId(e.id); setFilter('lost'); })}>Mark didn't book</button>
                   <button style={d.ghost} onClick={reset}>Cancel</button>
+                  <button style={d.primary} disabled={busy || !(changing?.reason ?? '').trim()} onClick={() => run(() => lose(e.id, changing.reason), () => { reset(); setSelectedId(e.id); setFilter('lost'); })}>Mark didn't book</button>
                 </div>
               </div>
             ) : (
@@ -223,8 +226,8 @@ export default function CateringScreen() {
                 </select>
                 <input style={d.input} autoFocus placeholder={e.ownerName ? 'Reason - emailed to ' + e.ownerName : "Reason - emailed to the location's catering team"} value={changing.reason} onChange={(ev) => setChanging({ ...changing, reason: ev.target.value })} />
                 <div style={{ ...d.actions, marginTop: 0 }}>
-                  <button style={d.primary} disabled={busy || changing.status === e.status || !changing.reason.trim()} onClick={() => run(() => adminSetStatus(e.id, changing.status, changing.reason), () => { setSelectedId(e.id); setFilter(changing.status); reset(); })}>Change status</button>
                   <button style={d.ghost} onClick={reset}>Cancel</button>
+                  <button style={d.primary} disabled={busy || changing.status === e.status || !changing.reason.trim()} onClick={() => run(() => adminSetStatus(e.id, changing.status, changing.reason), () => { setSelectedId(e.id); setFilter(changing.status); reset(); })}>Change status</button>
                 </div>
               </>
             ) : (
@@ -289,7 +292,20 @@ export default function CateringScreen() {
         selectedId={selected?.id}
         onSelect={(id) => { setSelectedId(id); reset(); }}
         detail={detail}
-        empty="Nothing in this list."
+        empty="No enquiries in this list."
+        phoneRow={(e) => (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>{e.name || 'No name'}</span>
+              <span style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                {e.preferredDate ? dateText(e.preferredDate) : e.preferredDateText || 'No date'}
+                {manyLocations && e.locationName ? ' · ' + e.locationName : ''}
+                {' · '}{e.ownerName || 'Unclaimed'}
+              </span>
+            </span>
+            <Pill tone={STEP[e.status]?.[1]}>{STEP[e.status]?.[0]}</Pill>
+          </span>
+        )}
         note={canAct ? null : canAdd ? 'You can add enquiries and event costs. Catering & Events claims and handles them.' : 'You can see these but not change them. Catering & Events handles them.'}
       >
         <div style={styles.howNote}>
@@ -412,10 +428,10 @@ export default function CateringScreen() {
 }
 
 const styles = {
-  howNote: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-primary)', background: '#16161A', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 },
+  howNote: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-primary)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 },
   link: { color: 'var(--neon)', textDecoration: 'none' },
   linkButton: { display: 'inline-block', background: 'none', border: '1px solid var(--border-strong)', color: 'var(--neon)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, textDecoration: 'none' },
-  done: { fontSize: 12, color: '#4ADE80', alignSelf: 'center' },
+  done: { fontSize: 12, color: 'var(--ok)', alignSelf: 'center' },
   hint: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '8px 0 0' },
   backdrop: { ...modalBackdrop, zIndex: 100 },
   modal: { padding: 22, ...modalSurface, width: 'min(460px, 100%)' },

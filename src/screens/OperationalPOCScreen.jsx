@@ -73,6 +73,16 @@ export default function OperationalPOCScreen() {
                 placeholder="Knife Sharpening"
               />
               <button
+                style={styles.addCancel}
+                onClick={() => {
+                  setAddOpen(false);
+                  setNewItem('');
+                  setNewSection('');
+                }}
+              >
+                Cancel
+              </button>
+              <button
                 style={styles.addConfirm}
                 disabled={!newSection || !newItem.trim()}
                 onClick={async () => {
@@ -87,16 +97,6 @@ export default function OperationalPOCScreen() {
                 }}
               >
                 Add
-              </button>
-              <button
-                style={styles.addCancel}
-                onClick={() => {
-                  setAddOpen(false);
-                  setNewItem('');
-                  setNewSection('');
-                }}
-              >
-                Cancel
               </button>
             </>
           ) : null}
@@ -204,7 +204,7 @@ const styles = {
   removeLink: { background: 'none', border: 'none', padding: 0, color: 'var(--danger)', opacity: 0.75, fontSize: 11, cursor: 'pointer' },
   addRow: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' },
   addInput: { flex: 1, minWidth: 180, maxWidth: 260, height: 34, boxSizing: 'border-box', padding: '0 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
-  addConfirm: { height: 34, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
-  addCancel: { height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  addConfirm: { height: 40, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
+  addCancel: { height: 40, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   hint: { fontSize: 13, color: 'var(--text-secondary)' },
 };

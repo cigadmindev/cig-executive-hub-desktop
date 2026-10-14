@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
+import Icon from './Icon';
 
 // Pages that can be switched to "under repair" while they are being worked
 // on. Admins still reach them - that is who is doing the work - and everyone
@@ -94,7 +95,7 @@ export function UnderRepairGate({ children }) {
   return (
     <div style={styles.wrap}>
       <div style={styles.card}>
-        <div style={styles.icon}>⚙</div>
+        <div style={styles.icon}><Icon name="gear" size={26} /></div>
         <p style={styles.kicker}>Being improved</p>
         <h1 style={styles.title}>{closed.label} is closed for a moment</h1>
         <p style={styles.body}>
@@ -198,8 +199,8 @@ const styles = {
   adminBanner: { background: 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 10, padding: '10px 14px', margin: '16px 24px 0', fontSize: 13 },
   wrap: { minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
   card: { maxWidth: 480, width: '100%', textAlign: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '40px 30px' },
-  icon: { width: 54, height: 54, borderRadius: 14, background: '#3A2A0E', color: '#E8B93B', fontSize: 26, lineHeight: '54px', margin: '0 auto 16px' },
-  kicker: { fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: '#E8B93B', margin: 0 },
+  icon: { width: 54, height: 54, borderRadius: 14, background: '#3A2A0E', color: 'var(--warn)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' },
+  kicker: { fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--warn)', margin: 0 },
   title: { fontSize: 24, fontWeight: 800, margin: '8px 0', color: 'var(--text-primary)' },
   body: { fontSize: 15, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '0 0 18px' },
   meanwhile: { textAlign: 'left', background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', fontSize: 14, lineHeight: 1.5, color: 'var(--text-primary)', marginBottom: 20 },
@@ -208,7 +209,7 @@ const styles = {
   panelTitle: { fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--text-primary)' },
   panelNote: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 12px', lineHeight: 1.5 },
   pageRow: { borderTop: '1px solid var(--border)', padding: '12px 0', color: 'var(--text-primary)', fontSize: 14 },
-  closedPill: { marginLeft: 6, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: '#E8B93B', background: '#3A2A0E', borderRadius: 5, padding: '3px 7px' },
+  closedPill: { marginLeft: 6, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--warn)', background: '#3A2A0E', borderRadius: 5, padding: '3px 7px' },
   rowButton: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   input: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: 'var(--text-primary)', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' },
   moreButton: { background: 'none', border: 'none', color: 'var(--neon)', fontWeight: 700, fontSize: 13, padding: '10px 0 0', cursor: 'pointer' },

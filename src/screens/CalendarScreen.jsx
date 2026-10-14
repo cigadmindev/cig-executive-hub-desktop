@@ -521,7 +521,7 @@ export default function CalendarScreen() {
       {formOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={closeForm}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>{editingEntry ? 'Edit Event' : 'Add Event'}</h2>
+            <h2 style={styles.modalTitle}>{editingEntry ? 'Edit event' : 'Add event'}</h2>
             {/* The day is already chosen — stating it is context, not another
                 field to fill in. */}
             <p style={styles.modalDate}>
@@ -695,6 +695,7 @@ const styles = {
   },
   modalButtonsRow: { display: 'flex', gap: 10, marginTop: 22 },
   cancelButton: {
+    minHeight: 40,
     flex: 1,
     padding: '10px 0',
     borderRadius: 10,

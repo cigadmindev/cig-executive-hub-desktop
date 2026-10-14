@@ -122,7 +122,7 @@ export default function HomeScreen() {
                 <div
                   style={{
                     ...styles.countValue,
-                    color: summary.counts.renewals > 0 ? '#C9A227' : 'var(--text-tertiary)',
+                    color: summary.counts.renewals > 0 ? 'var(--warn)' : 'var(--text-tertiary)',
                   }}
                 >
                   {summary.counts.renewals}
@@ -213,7 +213,7 @@ export default function HomeScreen() {
                       : {}),
                     ...(a.level === 'todo'
                       ? { background: 'transparent', border: '1.5px solid var(--text-tertiary)', boxSizing: 'border-box' }
-                      : { background: a.level === 'overdue' ? 'var(--danger)' : '#C9A227' }),
+                      : { background: a.level === 'overdue' ? 'var(--danger)' : 'var(--warn)' }),
                   }}
                 />
                 <span style={styles.attentionText}>{a.text}</span>
@@ -372,7 +372,7 @@ export default function HomeScreen() {
                     <span style={{ marginTop: 4 }}><RequestPill pending={pendingRequest} /></span>
                   ) : (
                     <span style={styles.cardMeta}>
-                      {totalLocations > 0 ? `${totalLocations} location${totalLocations > 1 ? 's' : ''}` : 'In Progress'}
+                      {totalLocations > 0 ? `${totalLocations} location${totalLocations > 1 ? 's' : ''}` : 'In progress'}
                     </span>
                   )}
                   {/* Each tile carries its own state, so the strip is a status
@@ -383,7 +383,7 @@ export default function HomeScreen() {
                       if (b.overdue > 0)
                         return <span style={{ ...styles.cardStat, color: 'var(--danger)' }}>{b.overdue} overdue</span>;
                       if (b.dueSoon > 0)
-                        return <span style={{ ...styles.cardStat, color: '#C9A227' }}>{b.dueSoon} due soon</span>;
+                        return <span style={{ ...styles.cardStat, color: 'var(--warn)' }}>{b.dueSoon} due soon</span>;
                       if (b.total > 0 && b.done < b.total)
                         return (
                           <span style={{ ...styles.cardStat, color: 'var(--neon)' }}>

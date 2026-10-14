@@ -106,6 +106,7 @@ export default function DailyChecklistScreen() {
                     {record?.sections ? <td style={{ ...styles.td, color: 'var(--text-secondary)' }}>{t.section ?? ''}</td> : null}
                     <td style={styles.td}>
                       <button
+                        className="hit-40"
                         disabled={!canWork}
                         onClick={() => toggle(i)}
                         style={{ ...styles.box, ...(t.done ? styles.boxOn : {}) }}
@@ -168,9 +169,9 @@ export default function DailyChecklistScreen() {
 }
 
 const styles = {
-  page: { padding: '24px 28px 60px', maxWidth: 1200 },
+  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1200 },
   columns: { display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start', marginTop: 10 },
-  sheet: { flex: '1 1 600px', minWidth: 0, background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 22px' },
+  sheet: { flex: '1 1 600px', minWidth: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 22px' },
   side: { flex: '0 1 320px', minWidth: 260, display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 16 },
   brand: { fontSize: 11, letterSpacing: 3, color: 'var(--text-secondary)', margin: 0 },
   h1: { fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: '6px 0 2px' },
@@ -186,13 +187,13 @@ const styles = {
   group: { borderTop: '1px solid var(--border)', padding: '14px 6px 6px', fontSize: 11, fontWeight: 800, letterSpacing: 2, color: 'var(--neon)' },
   taskTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' },
   details: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55, marginTop: 3, whiteSpace: 'pre-wrap' },
-  note: { fontSize: 12, color: '#E8B93B', marginTop: 4 },
+  note: { fontSize: 12, color: 'var(--warn)', marginTop: 4 },
   box: { width: 24, height: 24, borderRadius: 6, border: '2px solid var(--border-strong)', background: 'none', color: '#0A0A0B', fontWeight: 900, cursor: 'pointer', verticalAlign: 'middle' },
   boxOn: { background: 'var(--neon)', borderColor: 'var(--neon)' },
   stamp: { fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 6 },
   link: { background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 11, cursor: 'pointer', marginLeft: 6 },
-  ghost: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 7, padding: '6px 10px', fontSize: 12, cursor: 'pointer' },
-  card: { background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: 16 },
+  ghost: { minHeight: 40, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 7, padding: '6px 10px', fontSize: 12, cursor: 'pointer' },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 },
   big: { fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 },
   bar: { height: 5, background: 'var(--border)', borderRadius: 3, margin: '10px 0' },
   fill: { height: 5, background: 'var(--neon)', borderRadius: 3 },

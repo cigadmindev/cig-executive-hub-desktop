@@ -25,7 +25,7 @@ export default function OffboardingScreen() {
   if (user?.role !== 'admin') {
     return (
       <div style={styles.page}>
-        <p style={styles.hint}>Admins only.</p>
+        <PageHeader title="Offboarding" subtitle="Only admins can see this page." />
       </div>
     );
   }
@@ -97,7 +97,7 @@ export default function OffboardingScreen() {
 
               <div style={styles.steps}>
                 <div style={styles.stepRow}>
-                  <span style={driveDone ? styles.tickDone : styles.tick}>{driveDone ? '☑' : '☐'}</span>
+                  <span style={{ ...styles.tick, ...(driveDone ? styles.tickDone : {}) }}>{driveDone ? '✓' : ''}</span>
                   <div style={{ flex: 1 }}>
                     <p style={styles.stepLabel}>Drive access</p>
                     {running ? (
@@ -112,7 +112,7 @@ export default function OffboardingScreen() {
                       <p style={styles.stepMeta}>Removed automatically when someone is deactivated.</p>
                     )}
                     {!returning && r.driveRemoved?.failures?.length ? (
-                      <p style={{ ...styles.stepMeta, color: '#E8B93B' }}>
+                      <p style={{ ...styles.stepMeta, color: 'var(--warn)' }}>
                         {r.driveRemoved.failures.length} place{r.driveRemoved.failures.length === 1 ? '' : 's'} could not be changed — run it again. First: {r.driveRemoved.failures[0].error}
                       </p>
                     ) : null}
@@ -142,7 +142,7 @@ export default function OffboardingScreen() {
                       style={styles.stepRow}
                       onClick={() => setStep(r.uid, s.key, !done, which)}
                     >
-                      <span style={done ? styles.tickDone : styles.tick}>{done ? '☑' : '☐'}</span>
+                      <span style={{ ...styles.tick, ...(done ? styles.tickDone : {}) }}>{done ? '✓' : ''}</span>
                       <p style={{ ...styles.stepLabel, flex: 1, textAlign: 'left' }}>
                         {returning ? 'Restore ' + s.label.toLowerCase() : s.label}
                       </p>
@@ -173,8 +173,9 @@ const styles = {
 
   steps: { padding: '4px 14px 12px' },
   stepRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 0', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' },
-  tick: { fontSize: 16, color: 'var(--text-tertiary)' },
-  tickDone: { fontSize: 16, color: 'var(--neon)' },
+  // The same tick box as the checklists: an empty square, filled with a ✓ when done.
+  tick: { width: 20, height: 20, flexShrink: 0, boxSizing: 'border-box', borderRadius: 5, border: '1.5px solid var(--border-strong)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#0A0A0B' },
+  tickDone: { background: 'var(--neon)', borderColor: 'var(--neon)' },
   stepLabel: { fontSize: 13, color: 'var(--text-primary)', margin: 0 },
   stepMeta: { fontSize: 12, color: 'var(--text-secondary)', margin: '1px 0 0' },
   driveButton: { padding: '6px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },

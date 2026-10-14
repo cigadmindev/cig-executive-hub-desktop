@@ -172,7 +172,7 @@ export default function IntegrationRequestsScreen() {
     );
   };
 
-  const STATUS = { open: ['Waiting', 'amber'], in_progress: ['In progress', 'cyan'], done: ['Done', 'grey'] };
+  const STATUS = { open: ['Pending', 'amber'], in_progress: ['In progress', 'cyan'], done: ['Done', 'grey'] };
   const rows = requests.filter((r) => r.status === filter).sort((a, b) => b.createdAt - a.createdAt);
   const selected = requests.find((r) => r.id === openId) ?? rows[0] ?? null;
   const isAdmin = user?.role === 'admin';
@@ -218,7 +218,7 @@ export default function IntegrationRequestsScreen() {
       <RequestPage
         title="Systems Help"
         subtitle={handlesRequests ? 'Everything anyone has asked about Toast, R365 and OpenTable.' : 'Something that needs changing in Toast, R365 or OpenTable — or help with any of them.'}
-        actionLabel="+ New Request"
+        actionLabel="+ New request"
         onAction={() => setFormOpen(true)}
         filters={Object.entries(STATUS).map(([k, [l]]) => ({ key: k, label: l, count: requests.filter((r) => r.status === k).length }))}
         filter={filter}
@@ -233,14 +233,25 @@ export default function IntegrationRequestsScreen() {
         selectedId={selected?.id}
         onSelect={(id) => { setOpenId(id); setDraftResponse(requests.find((r) => r.id === id)?.response ?? ''); }}
         detail={detailPanel}
-        empty="Nothing in this list."
+        empty="No requests in this list."
+        phoneRow={(r) => (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>{r.system}</span>
+              <span style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                {r.kind === 'help' ? 'Help' : 'Change'}{handlesRequests ? ' · ' + r.createdByName : ''} · {when(r.createdAt)}
+              </span>
+            </span>
+            <Pill tone={STATUS[r.status]?.[1]}>{STATUS[r.status]?.[0]}</Pill>
+          </span>
+        )}
         note={handlesRequests ? null : 'You see only your own requests. IT & Training answers them, and you are emailed the reply.'}
       />
 
       {formOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.backdrop} onClick={() => !saving && setFormOpen(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>New Request</h2>
+            <h2 style={styles.modalTitle}>New request</h2>
 
             <p style={styles.label}>What kind</p>
             <div style={styles.kindRow}>
@@ -311,7 +322,7 @@ const styles = {
   detail: { fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 12px', whiteSpace: 'pre-wrap' },
 
   pillChange: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(34,211,238,0.14)', color: 'var(--neon)' },
-  pillHelp: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(201,162,39,0.16)', color: '#C9A227' },
+  pillHelp: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(201,162,39,0.16)', color: 'var(--warn)' },
 
   responseBlock: { borderLeft: '2px solid var(--border-strong)', paddingLeft: 12, margin: '0 0 12px' },
   responseLabel: { fontSize: 11, color: 'var(--text-tertiary)', margin: '0 0 4px' },

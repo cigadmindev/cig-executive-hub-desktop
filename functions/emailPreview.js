@@ -32,7 +32,7 @@ const CATALOG = [
     html: () => n({ kicker: 'Device request', title: 'Kevin asked for a MacBook', intro: 'Taste Starkville — for the new AGM', button: 'Approve or decline', footer: 'You got this because you approve device requests.' }) },
   { id: 'systemsHelp', group: 'Requests', name: 'Systems Help', to: 'IT & Training and admins', when: 'Someone raises a request', speed: 'urgent',
     html: () => n({ kicker: 'Systems Help', title: 'Help needed: Toast', intro: 'From Cassy · The printer on the line is not printing tickets', button: 'Open the request', footer: 'You got this because you handle Systems Help.' }) },
-  { id: 'catering', group: 'Requests', name: 'Catering enquiry', to: "That location's GM, Catering & Events and chefs", when: 'An enquiry is forwarded to catering@cigconcepts.com', speed: 'urgent',
+  { id: 'catering', group: 'Requests', name: 'Catering enquiry', to: "That location's Catering & Events managers (admins, if there are none)", when: 'An enquiry is forwarded to catering@cigconcepts.com', speed: 'urgent',
     html: () => n({ kicker: 'Catering', title: 'New catering enquiry · Taste Ridgeland', intro: 'Jordan Ellis · Catering for 40', details: [['Name', 'Jordan Ellis'], ['When', 'Sat Oct 24'], ['Guests', '40']], button: 'Claim it', footer: 'You got this because you look after catering at Taste Ridgeland.' }) },
   // Things to do
   { id: 'cateringChanged', group: 'Requests', name: 'Catering enquiry changed', to: 'Whoever claimed it, or the location\'s catering team', when: 'An admin changes its status', speed: 'urgent',

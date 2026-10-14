@@ -14,7 +14,6 @@ import { fmtDayTime } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
 import { plainError } from '../lib/errors';
 
-const STATUS_COLORS = { pending: '#C9A227', approved: '#5C7A52', denied: '#C0392B' };
 
 const formatDateTime = (dt) => fmtDayTime(dt);
 
@@ -177,7 +176,7 @@ export default function EventRequestsScreen() {
       await resolveRequest(denyingId, 'denied', denyReason.trim());
       setDenyingId(null);
     } catch (err) {
-      notify('Could not deny', plainError(err, 'Nothing was changed. Try again.'));
+      notify('Could not decline', plainError(err, 'Nothing was changed. Try again.'));
     }
   };
   const handleDelete = (r) => {
@@ -192,7 +191,7 @@ export default function EventRequestsScreen() {
 
   if (!brand || !location) return null;
 
-  const STATUS = { pending: ['Waiting', 'amber'], approved: ['Approved', 'green'], denied: ['Declined', 'red'] };
+  const STATUS = { pending: ['Pending', 'amber'], approved: ['Approved', 'green'], denied: ['Declined', 'red'] };
   const rows = sortedRequests.filter((r) => r.status === filter);
   const selected = sortedRequests.find((r) => r.id === selectedId) ?? rows[0] ?? null;
   const approvesHere = isAdmin || atLeast(user, 'eventRequests', 'approve');
@@ -219,7 +218,7 @@ export default function EventRequestsScreen() {
         {canResolve ? (
           <div style={d.actions}>
             <button style={d.primary} onClick={() => handleApprove(r)}>Approve</button>
-            <button style={d.ghost} onClick={() => openDeny(r.id)}>Deny…</button>
+            <button style={d.ghost} onClick={() => openDeny(r.id)}>Decline…</button>
           </div>
         ) : null}
         {isAdmin ? (
@@ -228,18 +227,18 @@ export default function EventRequestsScreen() {
             {changing ? (
               <>
                 <select style={d.input} value={changing.status} onChange={(e) => setChanging({ ...changing, status: e.target.value })}>
-                  <option value="pending">Waiting</option>
+                  <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
                   <option value="denied">Declined</option>
                 </select>
                 <input style={d.input} autoFocus placeholder="Reason - emailed to the person who asked" value={changing.reason} onChange={(e) => setChanging({ ...changing, reason: e.target.value })} />
-                {changing.status === 'approved' && r.status !== 'approved' ? <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 8px' }}>To put it on the calendar too, set it to Waiting and use Approve.</p> : null}
+                {changing.status === 'approved' && r.status !== 'approved' ? <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 8px' }}>To put it on the calendar too, set it to Pending and use Approve.</p> : null}
                 <div style={d.actions}>
+                  <button style={d.ghost} onClick={() => setChanging(null)}>Cancel</button>
                   <button style={d.primary} disabled={changing.status === r.status || !changing.reason.trim()} onClick={async () => {
                     try { await adminSetStatus(r.id, changing.status, changing.reason); setChanging(null); setFilter(changing.status); }
                     catch (err) { notify('Could not change it', plainError(err, 'Try again.')); }
                   }}>Change status</button>
-                  <button style={d.ghost} onClick={() => setChanging(null)}>Cancel</button>
                 </div>
               </>
             ) : (
@@ -269,7 +268,7 @@ export default function EventRequestsScreen() {
         back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
         title="Event / Promo Requests"
         subtitle={location.name + ' · ask for an event or promotion. The COO decides, and approved events go on the calendar.'}
-        actionLabel="+ Request an Event"
+        actionLabel="+ Request an event"
         onAction={openNewForm}
         filters={Object.entries(STATUS).map(([k, [l]]) => ({ key: k, label: l, count: sortedRequests.filter((r) => r.status === k).length }))}
         filter={filter}
@@ -284,14 +283,23 @@ export default function EventRequestsScreen() {
         selectedId={selected?.id}
         onSelect={(id) => { setSelectedId(id); setChanging(null); }}
         detail={detail}
-        empty="Nothing in this list."
+        empty="No event requests in this list."
+        phoneRow={(r) => (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>{r.title}</span>
+              <span style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{formatDateTime(r.dateTime)} · {r.requestedBy}</span>
+            </span>
+            <Pill tone={STATUS[r.status]?.[1]}>{STATUS[r.status]?.[0]}</Pill>
+          </span>
+        )}
         note={approvesHere ? null : 'You see your own requests, and ones that name you or need your job.'}
       />
 
       {formOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => setFormOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>{editingRequest ? 'Edit Event Request' : 'New Event Request'}</h2>
+            <h2 style={styles.modalTitle}>{editingRequest ? 'Edit event request' : 'New event request'}</h2>
 
             <label style={styles.label}>Title</label>
             <input style={styles.input} value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="e.g. Wine Dinner" autoFocus />
@@ -395,7 +403,7 @@ export default function EventRequestsScreen() {
                 Cancel
               </button>
               <button style={styles.saveButton} onClick={handleSaveForm}>
-                {editingRequest ? 'Save' : 'Submit Request'}
+                {editingRequest ? 'Save' : 'Send request'}
               </button>
             </div>
           </div>
@@ -405,14 +413,14 @@ export default function EventRequestsScreen() {
       {denyingId ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => setDenyingId(null)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Reason for Denial</h2>
+            <h2 style={styles.modalTitle}>Reason for declining</h2>
             <input style={styles.input} value={denyReason} onChange={(e) => setDenyReason(e.target.value)} placeholder="e.g. Kitchen is already booked that night" />
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button style={styles.cancelButton} onClick={() => setDenyingId(null)}>
                 Cancel
               </button>
               <button style={styles.saveButton} onClick={confirmDeny}>
-                Confirm Deny
+                Decline
               </button>
             </div>
           </div>
@@ -455,7 +463,7 @@ const styles = {
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
   needsMeBadge: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', margin: '0 0 8px' },
   saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
-  cancelButton: { padding: '8px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 },
+  cancelButton: { minHeight: 40, padding: '8px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 },
 
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },
   modalCard: { padding: 22, ...modalSurface, width: 'min(400px, 100%)' },

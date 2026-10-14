@@ -26,9 +26,15 @@ async function taggedPeople({ needs = [], notifyUids = [], brandId = null, locat
   const snap = await admin.firestore().collection('users').get();
   return snap.docs
     .map((d) => ({ uid: d.id, ...d.data() }))
-    .filter((u) => u.active !== false)
+    .filter((u) => u.active !== false && u.isGhost !== true)
     .filter((u) => u.uid !== exceptUid)
-    .filter((u) => notifyUids.includes(u.uid) || (u.job && needs.includes(u.job) && R.seesLocation(u, brandId, locationId)));
+    .filter(
+      (u) =>
+        notifyUids.includes(u.uid) ||
+        (u.job && needs.includes(u.job) && R.seesLocation(u, brandId, locationId)) ||
+        // A second job at exactly this location (Cameron: Starkville GM).
+        (u.alsoJob?.job && needs.includes(u.alsoJob.job) && u.alsoJob.locationId === locationId && R.seesLocation(u, brandId, locationId))
+    );
 }
 
 // Straight to the day it is on, rather than to today.

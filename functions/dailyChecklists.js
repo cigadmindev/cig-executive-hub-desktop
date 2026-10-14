@@ -171,7 +171,7 @@ async function worksHere(me, brandId, locationId) {
     return !!row && (matrix[row.id] ?? row.d).dailyChecklists === 'work';
   };
   if (works(me.job) && R.seesLocation(me, brandId, locationId)) return true;
-  return works(me.alsoJob?.job) && me.alsoJob?.locationId === locationId;
+  return works(me.alsoJob?.job) && me.alsoJob?.locationId === locationId && R.seesLocation(me, brandId, locationId);
 }
 
 exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, async (request) => {

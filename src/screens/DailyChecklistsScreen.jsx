@@ -76,13 +76,13 @@ export default function DailyChecklistsScreen() {
 }
 
 const styles = {
-  page: { padding: '24px 28px 60px', maxWidth: 1200 },
+  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1200 },
   dateBar: { display: 'flex', gap: 6, alignItems: 'center' },
   dateBtn: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', cursor: 'pointer' },
   date: { border: '1px solid var(--border-strong)', borderRadius: 8, padding: '7px 14px', color: 'var(--text-primary)', fontWeight: 700, fontSize: 13 },
   label: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '22px 0 10px' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 },
-  card: { textAlign: 'left', background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: 14, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, minHeight: 118 },
+  card: { textAlign: 'left', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, minHeight: 118 },
   cardTitle: { fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' },
   cardMeta: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 },
   bar: { height: 4, background: 'var(--border)', borderRadius: 2, display: 'block', marginTop: 'auto' },

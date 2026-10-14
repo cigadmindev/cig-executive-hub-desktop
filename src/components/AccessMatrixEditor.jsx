@@ -25,7 +25,7 @@ export default function AccessMatrixEditor() {
   const dot = (col, v) => {
     if (col.folders || col.key === 'where') return null;
     if (v === 'none') return null;
-    return <span style={{ color: FULL.has(v) ? 'var(--neon)' : '#E8B93B', marginRight: 4 }}>{FULL.has(v) ? '●' : '◐'}</span>;
+    return <span style={{ color: FULL.has(v) ? 'var(--neon)' : 'var(--warn)', marginRight: 4 }}>{FULL.has(v) ? '●' : '◐'}</span>;
   };
 
   return (
@@ -34,7 +34,7 @@ export default function AccessMatrixEditor() {
       <p style={styles.note}>
         One row per job. Everyone gets their job's row. Admins see everything and are not a row. Click any cell to change
         it — it applies to everyone with that job straight away. <span style={{ color: 'var(--neon)' }}>●</span> full ·{' '}
-        <span style={{ color: '#E8B93B' }}>◐</span> limited · — not shown
+        <span style={{ color: 'var(--warn)' }}>◐</span> limited · — not shown
       </p>
       <p style={styles.note}>
         <b>Where:</b> a manager always gets exactly the restaurants and locations ticked on their own login, whatever
@@ -117,7 +117,7 @@ export default function AccessMatrixEditor() {
 }
 
 const styles = {
-  wrap: { background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 20 },
+  wrap: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 20 },
   title: { fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--text-primary)' },
   note: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 14px', lineHeight: 1.5 },
   scroll: { overflowX: 'auto' },
@@ -130,7 +130,7 @@ const styles = {
   job: { fontWeight: 800, fontSize: 13.5, color: 'var(--text-primary)', minWidth: 170 },
   sub: { fontWeight: 400, fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, maxWidth: 200 },
   cell: { background: 'none', border: '1px solid transparent', borderRadius: 6, padding: '4px 6px', textAlign: 'left', cursor: 'pointer', fontSize: 12.5, fontFamily: 'inherit', maxWidth: 170 },
-  changed: { borderColor: '#E8B93B' },
+  changed: { borderColor: 'var(--warn)' },
   menu: { position: 'absolute', top: '100%', left: 0, zIndex: 5, background: '#1E1E24', border: '1px solid var(--border-strong)', borderRadius: 8, padding: 6, minWidth: 170, boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column' },
   menuItem: { background: 'none', border: 'none', textAlign: 'left', padding: '7px 8px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' },
   check: { fontSize: 13, color: 'var(--text-primary)', padding: '4px 8px', display: 'block' },

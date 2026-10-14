@@ -349,5 +349,5 @@ const styles = {
   textarea: { minHeight: 64, resize: 'vertical' },
   modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
   button: { padding: '9px 14px', borderRadius: 9, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  buttonQuiet: { padding: '9px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  buttonQuiet: { minHeight: 40, padding: '9px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
 };

@@ -20,5 +20,5 @@ const styles = {
     whiteSpace: 'nowrap',
     textTransform: 'none',
   },
-  pending: { color: '#E8B93B', borderColor: 'rgba(232,185,59,0.5)' },
+  pending: { color: 'var(--warn)', borderColor: 'rgba(232,185,59,0.5)' },
 };

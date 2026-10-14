@@ -9,6 +9,7 @@ import PageHeader from '../components/PageHeader';
 import Icon from '../components/Icon';
 import { useDialog } from '../hooks/useDialog';
 import { plainError } from '../lib/errors';
+import { fmtDay, fmtDayKey } from '../lib/dates';
 
 // My space (sketch approved 12 Oct 2026). A private page for one person -
 // Cameron first: her own Drive folder, files, notes and to-dos.
@@ -22,6 +23,7 @@ import { plainError } from '../lib/errors';
 // the Drive folder's own contents (Brenner, 12 Oct 2026): an upload passes
 // through Storage private/{uid}/ and the server moves it into the folder.
 const MAX_MB = 50;
+const SUBTITLE = 'Only you can see this - not admins, not anyone else in the Hub.';
 const call = async (name, data = {}) => (await httpsCallable(getFunctions(undefined, 'us-central1'), name)(data)).data;
 
 export default function MySpaceScreen() {
@@ -113,7 +115,7 @@ export default function MySpaceScreen() {
   if (viewAs) {
     return (
       <div style={styles.page}>
-        <PageHeader back={{ to: '/', label: 'Home' }} title="My space" />
+        <PageHeader back={{ to: '/', label: 'Home' }} title="My space" subtitle={SUBTITLE} />
         <p style={styles.muted}>This is {viewAs.name ?? 'their'}'s private space. Nobody else can open it - not even an admin viewing as them. They see it on their own login.</p>
       </div>
     );
@@ -122,7 +124,7 @@ export default function MySpaceScreen() {
   if (!on) {
     return (
       <div style={styles.page}>
-        <PageHeader back={{ to: '/', label: 'Home' }} title="My space" />
+        <PageHeader back={{ to: '/', label: 'Home' }} title="My space" subtitle={SUBTITLE} />
         <p style={styles.muted}>My space isn't switched on for your login.</p>
       </div>
     );
@@ -210,7 +212,7 @@ export default function MySpaceScreen() {
       <PageHeader
         back={{ to: '/', label: 'Home' }}
         title="My space"
-        subtitle="Only you can see this - not admins, not anyone else in the Hub."
+        subtitle={SUBTITLE}
         actionLabel={uploading ? 'Uploading…' : '+ Upload files'}
         actionDisabled={uploading || !folderUrl}
         onAction={() => fileRef.current?.click()}
@@ -232,7 +234,7 @@ export default function MySpaceScreen() {
             ) : !noFolder && files === null ? (
               <p style={styles.note}>Loading…</p>
             ) : !noFolder ? (
-              <p style={{ ...styles.note, color: '#F87171' }}>Your folder could not be reached{space?.loadError ? ' (' + space.loadError + ')' : ''}. Send Brenner a screenshot of this.</p>
+              <p style={{ ...styles.note, color: 'var(--bad)' }}>Your folder could not be reached{space?.loadError ? ' (' + space.loadError + ')' : ''}. Send Brenner a screenshot of this.</p>
             ) : (
               <>
                 <p style={styles.note}>The Hub makes a folder in the CIG shared drive that only you can open.</p>
@@ -247,17 +249,22 @@ export default function MySpaceScreen() {
           <div style={styles.card}>
             {!folderUrl ? <p style={styles.note}>Files go into your private Drive folder once it is made.</p> : null}
             {folderUrl && files === null ? <p style={styles.note}>Loading your folder…</p> : null}
-            {filesError ? <p style={{ ...styles.note, color: '#F87171' }}>{filesError}</p> : null}
-            {folderUrl && files && files.length === 0 && !filesError ? <p style={styles.note}>Nothing here yet.</p> : null}
+            {filesError ? <p style={{ ...styles.note, color: 'var(--bad)' }}>{filesError}</p> : null}
+            {folderUrl && files && files.length === 0 && !filesError ? (
+              <>
+                <p style={styles.note}>Nothing here yet.</p>
+                {/* Only when the folder is empty - otherwise + Upload files at the top does this. */}
+                <button style={styles.dashed} disabled={uploading} onClick={() => fileRef.current?.click()}>{uploading ? 'Uploading…' : '+ Upload files (several at once)'}</button>
+              </>
+            ) : null}
             {(files ?? []).map((f) => (
               <div key={f.id} style={styles.row}>
                 <span style={styles.badge}>{f.mimeType === 'application/vnd.google-apps.folder' ? 'DIR' : (f.name.includes('.') ? f.name.split('.').pop() : 'DOC').slice(0, 4).toUpperCase()}</span>
                 <button style={styles.fileName} onClick={() => openFile(f)}>{f.name}</button>
-                <span style={styles.note}>{f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
-                <button style={styles.x} aria-label={'Delete ' + f.name} onClick={() => removeFile(f)}>✕</button>
+                <span style={styles.note}>{fmtDay(f.modifiedTime)}</span>
+                <button style={styles.x} aria-label={'Delete ' + f.name} onClick={() => removeFile(f)}><Icon name="close" size={14} /></button>
               </div>
             ))}
-            <button style={styles.dashed} disabled={uploading || !folderUrl} onClick={() => fileRef.current?.click()}>{uploading ? 'Uploading…' : '+ Upload files (several at once)'}</button>
             {folderUrl ? <p style={styles.note}>These are the files in your Drive folder - including anything you add from Drive.</p> : null}
           </div>
         </div>
@@ -284,8 +291,8 @@ export default function MySpaceScreen() {
               <div key={t.id} style={{ ...styles.row, ...(t.done ? { opacity: 0.55 } : {}) }}>
                 <input type="checkbox" checked={!!t.done} onChange={() => toggleTodo(t)} aria-label={t.text} style={{ width: 18, height: 18 }} />
                 <span style={{ flex: 1, minWidth: 0, textDecoration: t.done ? 'line-through' : 'none' }}>{t.text}</span>
-                {t.due ? <span style={styles.note}>{new Date(t.due + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span> : null}
-                <button style={styles.x} aria-label={'Remove ' + t.text} onClick={() => removeTodo(t)}>✕</button>
+                {t.due ? <span style={styles.note}>{fmtDayKey(t.due)}</span> : null}
+                <button style={styles.x} aria-label={'Remove ' + t.text} onClick={() => removeTodo(t)}><Icon name="close" size={14} /></button>
               </div>
             ))}
             <div style={styles.addRow}>
@@ -317,7 +324,7 @@ export function MySpaceCard({ user }) {
   if (user?.privateSpace !== true) return null;
   return (
     <button style={styles.homeCard} onClick={() => navigate('/my-space')}>
-      <Icon name="lock" color="#E8B93B" />
+      <Icon name="lock" style={{ color: 'var(--warn)' }} />
       <span style={{ flex: 1, textAlign: 'left', fontWeight: 800 }}>My space</span>
       {openCount ? <span style={styles.note}>{openCount} to-do{openCount === 1 ? '' : 's'}</span> : null}
       <span style={{ color: 'var(--text-tertiary)' }}>›</span>
@@ -326,22 +333,22 @@ export function MySpaceCard({ user }) {
 }
 
 const styles = {
-  page: { padding: '28px max(16px, min(36px, 4vw))', maxWidth: 1180 },
+  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1180 },
   muted: { color: 'var(--text-secondary)', fontSize: 14 },
   cols: { display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start', marginTop: 8 },
   col: { flex: '1 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 },
   cap: { margin: 0, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
-  card: { background: '#1A1A20', border: '1px solid var(--border)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 },
   row: { display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: 'var(--text-primary)' },
   note: { margin: 0, fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 },
   link: { color: 'var(--neon)', fontSize: 13, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' },
   badge: { fontSize: 10, fontWeight: 800, color: 'var(--neon)', border: '1px solid rgba(34,211,238,0.5)', borderRadius: 4, padding: '2px 4px', flexShrink: 0 },
   fileName: { flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', color: 'var(--neon)', fontSize: 14, cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'inherit' },
-  x: { background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 13, minWidth: 32, minHeight: 32 },
+  x: { background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 13, minWidth: 40, minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   dashed: { minHeight: 44, border: '1px dashed var(--border-strong)', borderRadius: 10, background: 'rgba(255,255,255,0.03)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   primary: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '0 16px', minHeight: 44, fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
   notes: { width: '100%', boxSizing: 'border-box', minHeight: 160, resize: 'vertical', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: 8, padding: 12, color: 'var(--text-primary)', fontSize: 16, lineHeight: 1.6, fontFamily: 'inherit' },
   addRow: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
   input: { boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 12px', minHeight: 44, fontSize: 16, color: 'var(--text-primary)', fontFamily: 'inherit', colorScheme: 'dark' },
-  homeCard: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', background: '#1A1A20', border: '1px solid rgba(232,185,59,0.35)', borderRadius: 12, padding: '14px 16px', color: 'var(--text-primary)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 22 },
+  homeCard: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', background: 'var(--bg-card)', border: '1px solid rgba(232,185,59,0.35)', borderRadius: 12, padding: '14px 16px', color: 'var(--text-primary)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 22 },
 };

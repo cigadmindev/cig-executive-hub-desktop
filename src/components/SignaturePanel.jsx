@@ -144,11 +144,11 @@ export default function SignaturePanel({ item, me, canRequest, people, save, not
 
 const styles = {
   mine: { background: 'rgba(232,185,59,0.1)', border: '1px solid rgba(232,185,59,0.4)', borderRadius: 10, padding: '12px 14px', margin: '4px 0 12px' },
-  mineTitle: { margin: 0, fontSize: 14, fontWeight: 800, color: '#E8B93B' },
+  mineTitle: { margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--warn)' },
   text: { margin: '4px 0 0', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 },
   small: { margin: '4px 0 0', fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 },
-  waiting: { margin: '0 0 6px', fontSize: 12, color: '#E8B93B', lineHeight: 1.5 },
-  back: { margin: '0 0 6px', fontSize: 12, color: '#F87171', lineHeight: 1.5 },
+  waiting: { margin: '0 0 6px', fontSize: 12, color: 'var(--warn)', lineHeight: 1.5 },
+  back: { margin: '0 0 6px', fontSize: 12, color: 'var(--bad)', lineHeight: 1.5 },
   ask: { display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 420 },
   label: { fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
   row: { display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 8, alignItems: 'center' },

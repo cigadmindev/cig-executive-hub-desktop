@@ -81,24 +81,24 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
 export { default as Pill } from './Pill';
 
 export const detailStyles = {
-  card: { background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: 18, position: 'sticky', top: 16 },
-  kicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#E8B93B', margin: 0 },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18, position: 'sticky', top: 16 },
+  kicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--warn)', margin: 0 },
   title: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '6px 0 10px' },
   row: { display: 'flex', gap: 10, fontSize: 13, padding: '4px 0' },
   k: { width: 90, flexShrink: 0, color: 'var(--text-tertiary)' },
   v: { color: 'var(--text-primary)', minWidth: 0 },
   actions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 },
-  primary: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
-  ghost: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
+  primary: { minHeight: 40, background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
+  ghost: { minHeight: 40, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
   section: { borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 12 },
   sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, color: 'var(--text-tertiary)', margin: '0 0 8px' },
   input: { width: '100%', boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 11px', fontSize: 13, color: 'var(--text-primary)', fontFamily: 'inherit', marginBottom: 8 },
   history: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7 },
-  placeholder: { background: '#16161A', border: '1px dashed var(--border)', borderRadius: 12, padding: 24, color: 'var(--text-tertiary)', fontSize: 13, textAlign: 'center' },
+  placeholder: { background: 'var(--bg-card)', border: '1px dashed var(--border)', borderRadius: 12, padding: 24, color: 'var(--text-tertiary)', fontSize: 13, textAlign: 'center' },
 };
 
 const styles = {
-  page: { padding: '24px 28px 60px', maxWidth: 1200 },
+  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1200 },
   phoneRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--border)', padding: '12px 6px', color: 'var(--text-primary)', fontFamily: 'inherit', cursor: 'pointer' },
   phoneChevron: { color: 'var(--text-tertiary)', fontSize: 18 },
   phoneBack: { background: 'none', border: 'none', padding: '4px 0', marginBottom: 12, fontSize: 13, fontWeight: 600, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' },
@@ -106,7 +106,7 @@ const styles = {
   filter: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 16, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   filterOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
   columns: { display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' },
-  tableCard: { background: '#16161A', border: '1px solid var(--border)', borderRadius: 12, padding: '4px 8px' },
+  tableCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '4px 8px' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th: { textAlign: 'left', padding: '9px 10px', fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
   tr: { cursor: 'pointer', borderTop: '1px solid var(--border)' },

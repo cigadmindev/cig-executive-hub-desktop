@@ -34,14 +34,13 @@ function isFinance(u) {
   return u?.job === 'Financials';
 }
 
-// Who may submit receipts: admins and executives always; a manager when their
-// feature list includes expenses (no list at all still means everything, until
-// Phase 4 changes that default).
+// Who may submit receipts: the Expenses column of Who sees what (14 Oct
+// 2026) - it read an old per-person list nothing else uses, so Marketing
+// and Video were emailed about a page they cannot open. Ghost logins never.
+const M = require('./accessMatrix.gen');
 function canSubmitExpenses(u) {
-  if (u.active === false) return false;
-  if (u.role === 'admin' || u.role === 'executive') return true;
-  const f = u.permissions?.features;
-  return !Array.isArray(f) || f.includes('expenses');
+  if (u.active === false || u.isGhost === true) return false;
+  return M.accessLevel(u, 'expenses') !== 'none';
 }
 
 async function ghostUids(db) {

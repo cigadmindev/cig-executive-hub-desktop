@@ -6,6 +6,7 @@ import MessageReactions, { ReactionPicker } from '../components/MessageReactions
 import { ref as storageRef, uploadBytes } from 'firebase/storage';
 import { storage } from '../firebaseConfig';
 import ChatAttachment from '../components/ChatAttachment';
+import Icon from '../components/Icon';
 import { useDialog } from '../hooks/useDialog';
 import { nike } from '../theme/nike';
 import { fmtDay, fmtTime, fmtDayTime } from '../lib/dates';
@@ -294,11 +295,11 @@ export default function MessagesScreen() {
 
         <div style={styles.newButtonsRow}>
           <button style={{ ...styles.newButton, ...nike.primaryButton, ...(isNarrow ? { minHeight: 44 } : {}) }} onClick={() => openPicker('dm')}>
-            + New Message
+            + New message
           </button>
           {user?.role === 'admin' || user?.role === 'executive' ? (
             <button style={{ ...styles.newButton, ...nike.primaryButton, ...(isNarrow ? { minHeight: 44 } : {}) }} onClick={() => openPicker('group')}>
-              + New Group
+              + New group
             </button>
           ) : null}
         </div>
@@ -477,11 +478,11 @@ export default function MessagesScreen() {
                         <ReactionPicker onPick={(emoji) => toggleReaction(m.id, emoji, m.reactions ?? [])} />
                         {isMe ? (
                           <>
-                            <button style={styles.msgActionButton} onClick={() => startEditMessage(m)} title="Edit">
+                            <button style={styles.msgActionButton} onClick={() => startEditMessage(m)} title="Edit" aria-label="Edit">
                               ✎
                             </button>
-                            <button style={styles.msgActionButton} onClick={() => handleDeleteMessage(m.id)} title="Delete">
-                              ✕
+                            <button style={styles.msgActionButton} onClick={() => handleDeleteMessage(m.id)} title="Delete" aria-label="Delete">
+                              <Icon name="close" size={14} />
                             </button>
                           </>
                         ) : null}
@@ -580,7 +581,7 @@ export default function MessagesScreen() {
       {pickerOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={closePicker}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>{pickerMode === 'dm' ? 'New Message' : 'New Group'}</h2>
+            <h2 style={styles.modalTitle}>{pickerMode === 'dm' ? 'New message' : 'New group'}</h2>
 
             {pickerMode === 'group' ? (
               <input
@@ -614,7 +615,7 @@ export default function MessagesScreen() {
                   Cancel
                 </button>
                 <button style={styles.createButton} onClick={handleCreateGroup}>
-                  Create Group
+                  Create group
                 </button>
               </div>
             ) : null}
@@ -711,7 +712,7 @@ const styles = {
   threadHeaderRow: { display: 'flex', alignItems: 'center', gap: 6, paddingRight: 12, borderBottom: '1px solid var(--border)' },
   searchToggle: { width: 40, height: 40, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-inset)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 },
   searchToggleOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
-  threadSearchBar: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderBottom: '1px solid var(--border)', background: '#16161A' },
+  threadSearchBar: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)' },
   hitCount: { fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', minWidth: 44, textAlign: 'center' },
   stepButton: { width: 38, height: 38, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', flexShrink: 0 },
   bubbleHit: { boxShadow: '0 0 0 2px var(--neon)' },
@@ -789,7 +790,7 @@ const styles = {
   },
   msgTime: { fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: 'right' },
   msgActions: { display: 'flex', alignItems: 'center', gap: 4 },
-  msgActionButton: { fontSize: 11, color: 'var(--text-secondary)', padding: '4px 6px', borderRadius: 4 },
+  msgActionButton: { minWidth: 40, minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: 'var(--text-secondary)', padding: '4px 6px', borderRadius: 4 },
   editInput: {
     padding: '6px 8px',
     borderRadius: 6,
@@ -799,7 +800,7 @@ const styles = {
     fontSize: 13,
     outline: 'none',
   },
-  editSmallButton: { fontSize: 11, color: '#FFFFFF', padding: '2px 8px' },
+  editSmallButton: { minHeight: 40, fontSize: 11, color: '#FFFFFF', padding: '2px 10px' },
   attachButton: {
     height: 42,
     width: 42,
@@ -876,6 +877,6 @@ const styles = {
   },
   personRowSelected: { background: 'var(--accent-soft)' },
   personCheck: { color: 'var(--accent)', fontWeight: 700 },
-  cancelButton: { flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
+  cancelButton: { minHeight: 40, flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
   createButton: { flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
 };

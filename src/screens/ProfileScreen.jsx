@@ -115,7 +115,7 @@ export default function ProfileScreen() {
         <div style={styles.name}>{user?.name}</div>
         <div style={styles.role}>{isAdmin ? 'Admin' : isExecutive ? 'Executive' : 'Manager'}</div>
         <button style={styles.editProfileButton} onClick={openProfileEdit}>
-          Edit Profile
+          Edit profile
         </button>
       </div>
 
@@ -154,14 +154,14 @@ export default function ProfileScreen() {
         </button>
         <button style={styles.menuItem} onClick={() => setDeleteOpen(true)}>
           <Icon name="trash" color="var(--danger)" />
-          <span style={{ ...styles.menuItemText, color: 'var(--danger)' }}>Delete My Account</span>
+          <span style={{ ...styles.menuItemText, color: 'var(--danger)' }}>Delete my account</span>
         </button>
       </div>
 
       {editOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => !savingProfile && setEditOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Edit Profile</h2>
+            <h2 style={styles.modalTitle}>Edit profile</h2>
 
             <label style={styles.fieldLabel}>Email notifications from the Hub</label>
             <div style={styles.prefWrap}>
@@ -250,7 +250,7 @@ export default function ProfileScreen() {
       {deleteOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={closeDeleteModal}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Delete My Account</h2>
+            <h2 style={styles.modalTitle}>Delete my account</h2>
             <p style={styles.modalBody}>
               This permanently deletes your login. This cannot be undone. Confirm your password to continue.
             </p>
@@ -268,7 +268,7 @@ export default function ProfileScreen() {
                 Cancel
               </button>
               <button style={styles.dangerButton} disabled={deleting || !password} onClick={handleDeleteAccount}>
-                {deleting ? 'Deleting…' : 'Delete Account'}
+                {deleting ? 'Deleting…' : 'Delete account'}
               </button>
             </div>
           </div>
@@ -364,7 +364,7 @@ const styles = {
     boxSizing: 'border-box',
   },
   errorText: { color: 'var(--danger)', fontSize: 12, marginTop: 8 },
-  cancelButton: { flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
+  cancelButton: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
   dangerButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--danger)', color: '#FFFFFF', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
   prefWrap: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 },
   prefRow: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', textAlign: 'left' },

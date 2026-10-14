@@ -19,13 +19,8 @@ export default function AnnouncementsScreen() {
   const { getByBrand } = useCustomLocations();
   const [message, setMessage] = useState('');
 
-  if (user?.role !== 'admin' && user?.role !== 'executive') {
-    return (
-      <div style={styles.page}>
-        <p style={{ color: 'var(--text-secondary)' }}>Admins and executives only.</p>
-      </div>
-    );
-  }
+  // Who may post: the Announcements column (Post), checked on the route and
+  // by the rules (14 Oct 2026).
   if (!brand || !category) return null;
   const allLocations = [...brand.locations, ...getByBrand(brand.id).map((l) => ({ id: l.id, name: l.name }))];
   const location = allLocations.find((l) => l.id === locationId);
@@ -93,6 +88,6 @@ const styles = {
     fontFamily: 'inherit',
     resize: 'vertical',
   },
-  cancelButton: { flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
+  cancelButton: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
   postButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
 };

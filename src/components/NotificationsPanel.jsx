@@ -102,7 +102,7 @@ export default function NotificationsPanel({ onClose }) {
             </button>
           ) : null}
           <button style={styles.close} onClick={onClose} aria-label="Close">
-            ✕
+            <Icon name="close" size={16} />
           </button>
         </div>
 
@@ -206,7 +206,7 @@ const styles = {
   head: { display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px 10px' },
   title: { flex: 1, fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' },
   linkButton: { background: 'none', border: 'none', padding: 0, color: 'var(--neon)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  close: { background: 'none', border: 'none', padding: 4, color: 'var(--text-tertiary)', fontSize: 13, cursor: 'pointer' },
+  close: { minWidth: 40, minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 4, color: 'var(--text-tertiary)', fontSize: 13, cursor: 'pointer' },
 
   tabs: { display: 'flex', gap: 6, padding: '0 16px 12px', borderBottom: '1px solid var(--border)' },
   tab: { padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' },

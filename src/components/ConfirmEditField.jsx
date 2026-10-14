@@ -149,6 +149,6 @@ const styles = {
   confirmArrow: { color: 'var(--text-secondary)' },
   confirmNew: { color: 'var(--text-primary)', fontWeight: 700 },
   confirmButtonsRow: { display: 'flex', gap: 10 },
-  cancelBtnFull: { flex: 1, padding: '9px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
+  cancelBtnFull: { minHeight: 40, flex: 1, padding: '9px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
   saveBtnFull: { flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
 };

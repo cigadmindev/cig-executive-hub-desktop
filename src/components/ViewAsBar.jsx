@@ -39,6 +39,6 @@ export default function ViewAsBar() {
 }
 
 const styles = {
-  bar: { position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: '#3A2A0E', border: '1px solid #6B4E12', color: '#E8B93B', borderRadius: 10, padding: '10px 14px', margin: '12px 16px 0', fontSize: 14 },
-  button: { background: '#E8B93B', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '7px 14px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
+  bar: { position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: '#3A2A0E', border: '1px solid #6B4E12', color: 'var(--warn)', borderRadius: 10, padding: '10px 14px', margin: '12px 16px 0', fontSize: 14 },
+  button: { background: 'var(--warn)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '7px 14px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
 };

@@ -1,3 +1,4 @@
+import { featureAllowed } from '../data/accessMatrix';
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useWorkOrders } from '../context/WorkOrdersContext';
@@ -152,7 +153,7 @@ export default function WorkOrdersScreen() {
       ) : (
         <div>
           {sentByMe.length === 0 ? (
-            <p style={styles.hint}>You haven't sent any work orders yet.</p>
+            <p style={styles.hint}>You haven't sent any documents yet.</p>
           ) : (
             sentByMe.map((o) => (
               <div key={o.id} style={styles.card}>
@@ -172,7 +173,7 @@ export default function WorkOrdersScreen() {
                         removes the stored files itself - there is nothing to
                         remember to tidy up afterwards. */}
                     <button style={styles.downloadButton} onClick={() => handleDownload(o)}>
-                      Download Signed Document
+                      Download signed document
                     </button>
                     {!o.downloadedAt ? <span style={styles.readyDot} /> : null}
                   </div>
@@ -221,7 +222,7 @@ export default function WorkOrdersScreen() {
       {createOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => setCreateOpen(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>New Work Order</h2>
+            <h2 style={styles.modalTitle}>New document</h2>
             <p style={styles.modalSub}>Send a document out for signature</p>
 
             <label style={styles.label}>Title</label>
@@ -286,6 +287,8 @@ export default function WorkOrdersScreen() {
               <option value="">Add a signer…</option>
               {users
                 .filter((u) => !u.isGhost)
+                // Only people who can open Signatures - the email links there (14 Oct 2026).
+                .filter((u) => featureAllowed(u, 'workOrders'))
                 .filter((u) => u.uid !== user?.uid && u.active !== false && !assignedUids.includes(u.uid))
                 .map((u) => (
                   <option key={u.uid} value={u.uid}>
@@ -324,7 +327,7 @@ export default function WorkOrdersScreen() {
                 Cancel
               </button>
               <button style={styles.saveButton} onClick={handleCreate} disabled={!title.trim() || assignedUids.length === 0 || creating}>
-                {creating ? 'Uploading…' : 'Send for Signature'}
+                {creating ? 'Uploading…' : 'Send for signature'}
               </button>
             </div>
           </div>
@@ -334,11 +337,11 @@ export default function WorkOrdersScreen() {
       {signingOrder ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => { setSigningOrder(null); setSignatureImage(null); }}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Confirm Signature</h2>
+            <h2 style={styles.modalTitle}>Confirm signature</h2>
             <p style={styles.confirmBody}>
               You're signing off on <strong>{signingOrder.title}</strong> as <strong>{user?.name}</strong>. Draw
               your signature below — this records it along with your name and the current time, visible to
-              everyone on this work order.
+              everyone on this document.
             </p>
             <p style={styles.testNote}>
               {signingOrder.originalPath || signingOrder.originalFileUrl
@@ -351,7 +354,7 @@ export default function WorkOrdersScreen() {
                 Cancel
               </button>
               <button style={styles.saveButton} onClick={confirmSign} disabled={!signatureImage}>
-                Confirm Signature
+                Confirm signature
               </button>
             </div>
           </div>
@@ -494,7 +497,7 @@ const styles = {
     fontFamily: 'inherit',
   },
   modalButtonsRow: { display: 'flex', gap: 10, marginTop: 20 },
-  cancelButton: { flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
+  cancelButton: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
   saveButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
   successCard: { padding: 24, textAlign: 'center', ...modalSurface, width: 'min(400px, 100%)' },
   successIcon: { fontSize: 30, color: 'var(--success)', margin: '0 0 8px' },

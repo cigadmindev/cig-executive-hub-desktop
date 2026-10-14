@@ -13,7 +13,7 @@ export default function RequestAccessModal({ target, onSubmit, onClose }) {
   return (
     <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={onClose}>
       <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-        <h2 style={styles.modalTitle}>Request Access</h2>
+        <h2 style={styles.modalTitle}>Request access</h2>
         <p style={styles.modalBody}>
           Requesting access to <strong style={{ color: 'var(--text-primary)' }}>{target.label}</strong>
         </p>
@@ -32,7 +32,7 @@ export default function RequestAccessModal({ target, onSubmit, onClose }) {
             Cancel
           </button>
           <button style={styles.submitButton} onClick={handleSubmit}>
-            Send Request
+            Send request
           </button>
         </div>
       </div>
@@ -62,6 +62,7 @@ const styles = {
   },
   buttonsRow: { display: 'flex', gap: 10, marginTop: 18 },
   cancelButton: {
+    minHeight: 40,
     flex: 1,
     padding: '10px 0',
     borderRadius: 'var(--radius-sm)',
@@ -72,11 +73,13 @@ const styles = {
   },
   submitButton: {
     flex: 1,
+    minHeight: 40,
     padding: '10px 0',
     borderRadius: 'var(--radius-sm)',
-    background: 'var(--accent)',
-    color: '#FFFFFF',
-    fontWeight: 600,
+    border: 'none',
+    background: 'var(--neon)',
+    color: '#0A0A0B',
+    fontWeight: 800,
     fontSize: 13,
   },
 };

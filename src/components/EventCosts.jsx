@@ -150,7 +150,7 @@ export default function EventCosts({ enquiry, canAdd, notify }) {
 const styles = {
   row: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', padding: '8px 0', borderTop: '1px solid var(--border)' },
   muted: { color: 'var(--text-tertiary)' },
-  filed: { color: '#4ADE80' },
+  filed: { color: 'var(--ok)' },
   remove: { background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', width: 32, height: 32, borderRadius: 8 },
   add: { width: '100%', minHeight: 44, border: '1px dashed var(--border-strong)', borderRadius: 10, background: 'rgba(255,255,255,0.03)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 },
   hint: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '8px 0 0' },

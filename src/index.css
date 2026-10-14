@@ -27,6 +27,10 @@
   --accent-soft: rgba(255, 255, 255, 0.13);
   --danger: #E8524B;
   --success: #5FA377;
+  /* Status colours, one meaning each: warn = someone needs to act, ok = good to go, bad = stopped or late. */
+  --warn: #E8B93B;
+  --ok: #4ADE80;
+  --bad: #F87171;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -346,4 +350,20 @@ button:disabled {
 button[data-primary]:active:not(:disabled) {
   background-color: var(--neon) !important;
   filter: brightness(0.95);
+}
+
+/* A small tick box or close button keeps its look, but an invisible 40px
+   square around it takes the tap, so a finger does not have to land on
+   an 18px target. */
+.hit-40 {
+  position: relative;
+}
+.hit-40::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
 }

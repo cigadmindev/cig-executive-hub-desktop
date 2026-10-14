@@ -12,6 +12,7 @@ import { brands, categories, FEATURES } from '../data/mockData';
 import { JOB_OPTIONS } from '../context/EventRequestsContext';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import Icon from '../components/Icon';
 import { plainError } from '../lib/errors';
 
 function toggleInArray(arr, id) {
@@ -97,7 +98,7 @@ export default function AdminUsersScreen() {
   if (currentUser?.role !== 'admin') {
     return (
       <div style={styles.page}>
-        <p style={{ color: 'var(--text-secondary)' }}>Admins only.</p>
+        <PageHeader title="Manage Logins" subtitle="Only admins can see this page." />
       </div>
     );
   }
@@ -183,6 +184,16 @@ export default function AdminUsersScreen() {
     if (draft.alsoJob?.job && !draft.alsoJob.locationId) {
       notify('Choose where', 'Pick the location for ' + draft.alsoJob.job + ', or set "No second job".');
       return;
+    }
+    // A manager's places come from their login (14 Oct 2026), so the second
+    // job's location has to be ticked under Where or they can't reach it.
+    if (draft.alsoJob?.locationId && draft.role === 'manager') {
+      const b = brands.find((x) => locationsFor(x.id).some((l) => l.id === draft.alsoJob.locationId));
+      const only = b ? draft.locationsByBrand?.[b.id] ?? [] : [];
+      if (b && (!draft.brandIds.includes(b.id) || (only.length > 0 && !only.includes(draft.alsoJob.locationId)))) {
+        notify('Tick it under Where', 'Their second job is at ' + (allLocations.find((l) => l.id === draft.alsoJob.locationId)?.label ?? 'that location') + ', which is not ticked under Where. Tick it, then save.');
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -436,21 +447,21 @@ export default function AdminUsersScreen() {
       ) : null}
 
       <button style={styles.repairRow} onClick={() => setViewAsOpen((v) => !v)}>
-        <span>👁 See the Hub as someone</span>
+        <span style={styles.repairLabel}><Icon name="person" size={16} />See the Hub as someone</span>
         <span style={styles.chevron}>{viewAsOpen ? '▾' : '▸'}</span>
       </button>
       {viewAsOpen ? <ViewAsPicker /> : null}
       <button style={styles.repairRow} onClick={() => setMatrixOpen((v) => !v)}>
-        <span>▦ Who sees what — access by job</span>
+        <span style={styles.repairLabel}><Icon name="grid" size={16} />Who sees what — access by job</span>
         <span style={styles.chevron}>{matrixOpen ? '▾' : '▸'}</span>
       </button>
       {matrixOpen ? <AccessMatrixEditor /> : null}
       <button style={styles.repairRow} onClick={() => navigate('/admin/email-preview')}>
-        <span>✉️ Email preview — every email the Hub sends</span>
+        <span style={styles.repairLabel}><Icon name="message" size={16} />Email preview — every email the Hub sends</span>
         <span style={styles.chevron}>›</span>
       </button>
       <button style={styles.repairRow} onClick={() => setRepairOpen((v) => !v)}>
-        <span>⚙ Pages being improved</span>
+        <span style={styles.repairLabel}><Icon name="gear" size={16} />Pages being improved</span>
         <span style={styles.chevron}>{repairOpen ? '▾' : '▸'}</span>
       </button>
       {repairOpen ? <UnderRepairControls /> : null}
@@ -701,8 +712,9 @@ const styles = {
   rowHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)' },
   rowName: { fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap' },
   rowSummary: { flex: 1, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  ghostBadge: { fontSize: 10, fontWeight: 700, color: '#C9A227', letterSpacing: 0.5 },
+  ghostBadge: { fontSize: 10, fontWeight: 700, color: 'var(--warn)', letterSpacing: 0.5 },
   inactiveBadge: { fontSize: 10, fontWeight: 700, color: 'var(--danger)', letterSpacing: 0.5 },
+  repairLabel: { display: 'flex', alignItems: 'center', gap: 10 },
   chevron: { fontSize: 11, color: 'var(--text-tertiary)' },
   rowBody: { padding: '0 14px 14px' },
   email: { fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 10px' },
@@ -730,6 +742,6 @@ const styles = {
   linkButton: { background: 'none', border: 'none', padding: 0, color: 'var(--neon)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   note: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, margin: '6px 0 0' },
   panelFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 20, flexWrap: 'wrap' },
-  cancelButton: { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  cancelButton: { minHeight: 40, padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
   saveButton: { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer' },
 };

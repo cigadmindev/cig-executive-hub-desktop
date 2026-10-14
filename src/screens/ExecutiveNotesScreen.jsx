@@ -109,7 +109,7 @@ export default function ExecutiveNotesScreen() {
           </p>
           {isAdmin ? (
             <button style={{ ...styles.openButton, marginTop: 14 }} onClick={startEdit}>
-              Connect Drive Folder
+              Connect Drive folder
             </button>
           ) : null}
         </div>
@@ -136,7 +136,7 @@ const styles = {
   },
   openButton: { padding: '10px 18px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
   editButton: { padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
-  cancelButton: { padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
+  cancelButton: { minHeight: 40, padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
   previewBlock: { marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' },
   previewLabel: { fontSize: 11, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 10px' },
   previewCard: {

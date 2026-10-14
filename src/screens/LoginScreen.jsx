@@ -47,7 +47,7 @@ export default function LoginScreen() {
           />
           {error ? <p style={styles.error}>{error}</p> : null}
           <button type="submit" style={styles.button} disabled={submitting}>
-            {submitting ? 'Signing in…' : 'Sign In'}
+            {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
         {/* Self-serve rather than "ask an administrator": links expire after an

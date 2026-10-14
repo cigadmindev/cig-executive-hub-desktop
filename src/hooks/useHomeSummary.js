@@ -186,6 +186,8 @@ export function useHomeSummary() {
       !!user &&
       ((user.uid && (e.notifyUids ?? []).includes(user.uid)) ||
         (user.job && (e.needs ?? []).includes(user.job)) ||
+        // A second job at exactly this location (Cameron: Starkville GM).
+        (user.alsoJob?.job && (e.needs ?? []).includes(user.alsoJob.job) && e.locationId === user.alsoJob.locationId) ||
         (user.uid && e.assignedToUid && e.assignedToUid === user.uid));
 
     const mine = [];

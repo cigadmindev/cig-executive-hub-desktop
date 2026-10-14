@@ -117,9 +117,13 @@ exports.getExecutiveNotesFile = onCall({ secrets: ['DRIVE_SA_KEY'] }, async (req
   if (!callerDoc.exists) {
     throw new HttpsError('permission-denied', 'No profile found for this account.');
   }
-  const role = callerDoc.data().role;
-  // Executives, and IT & Training (Cameron, on her way to an executive role).
-  if (role !== 'admin' && role !== 'executive' && callerDoc.data().job !== 'IT & Training') {
+  // The Executive notes column of Who sees what, read live (14 Oct 2026) -
+  // the same answer the page gives.
+  const caller = callerDoc.data();
+  const M = require('./accessMatrix.gen');
+  const R = require('./routing');
+  const matrix = await R.liveMatrix();
+  if (caller.role !== 'admin' && M.accessLevel(caller, 'executiveNotes', matrix) === 'none') {
     throw new HttpsError('permission-denied', 'Executive Notes is restricted.');
   }
 

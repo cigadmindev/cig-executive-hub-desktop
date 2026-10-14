@@ -18,7 +18,7 @@
 // deviceRequest   approved, declined, ordered         the person who asked                             urgent
 // systemsHelp     a request is made                   IT & Training and admins                         urgent
 // systemsHelp     answered or done                    the person who asked                             urgent
-// catering        a new enquiry                       that location's GM, Catering & Events and chefs  urgent
+// catering        a new enquiry                       that location's Catering & Events (admins if none)  urgent
 // catering        confirmed (via its calendar entry)  that location's GM, AGMs, chefs, Catering & Ev.  urgent
 // catering        an admin changes its status         whoever claimed it; if nobody, the catering team urgent
 // tagged          a job is tagged on a calendar entry that job at that entry's location only           urgent
@@ -129,7 +129,7 @@ function atLocation(users, jobs, brandId, locationId) {
         u.role === 'manager') ||
       // A second job at exactly this location (Cameron: also Starkville's
       // GM, 12 Oct 2026).
-      (jobs.includes(u.alsoJob?.job) && u.alsoJob?.locationId === locationId)
+      (jobs.includes(u.alsoJob?.job) && u.alsoJob?.locationId === locationId && seesLocation(u, brandId, locationId))
   );
 }
 
@@ -146,10 +146,6 @@ async function cateringClaimers(users, locationId) {
   return atLocation(users, ['Catering & Events'], brandId, locationId);
 }
 
-async function cateringTeam(users, locationId) {
-  const brandId = await brandForLocation(locationId);
-  return atLocation(users, ['General Manager', 'Catering & Events', 'Executive Chef', 'Sous Chef'], brandId, locationId);
-}
 
 async function renewalTeam(users, locationId) {
   const brandId = await brandForLocation(locationId);
@@ -185,6 +181,6 @@ const without = (people, uid) => people.filter((p) => p.uid !== uid);
 module.exports = {
   liveMatrix,
   activeUsers, brandForLocation, brandForTarget, locationName, seesLocation, hearsFolder, atLocation,
-  approvers, admins, cateringTeam, cateringClaimers, renewalTeam, postAudience, folderPostAudience,
+  approvers, admins, cateringClaimers, renewalTeam, postAudience, folderPostAudience,
   dedupe, without, isAdmin, isCoo, isFinance, notGhost,
 };

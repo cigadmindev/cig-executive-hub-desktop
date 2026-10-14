@@ -128,7 +128,7 @@ export function AvailabilityProvider({ children }) {
     // Why someone is off is between them, the COO and admins (8 Oct, S6).
     // GMs and the rest of "Team" see the dates on the grid, not the reason.
     // Reasons live in their own collection, which the rule can lock.
-    const decides = user.role === 'admin' || user.job === 'COO';
+    const decides = user.role === 'admin' || atLeast(user, 'availability', 'approve');
     const reasonsSource = decides
       ? collection(db, 'timeOffReasons')
       : query(collection(db, 'timeOffReasons'), where('uid', '==', user.uid));

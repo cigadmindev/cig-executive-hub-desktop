@@ -5,6 +5,7 @@ import { useDialog } from '../hooks/useDialog';
 import { brands } from '../data/mockData';
 import { rowForJob, featureAllowed, canSeeFolder } from '../data/accessMatrix';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
+import PageHeader from '../components/PageHeader';
 import { fmtDay } from '../lib/dates';
 import { plainError } from '../lib/errors';
 
@@ -14,12 +15,12 @@ import { plainError } from '../lib/errors';
 const dateText = (t) => fmtDay(t);
 
 const STEP = {
-  pending: ['Waiting', 'amber'],
+  pending: ['Pending', 'amber'],
   approved: ['Approved', 'green'],
   denied: ['Declined', 'red'],
 };
 const FILTERS = [
-  ['pending', 'Waiting'],
+  ['pending', 'Pending'],
   ['approved', 'Approved'],
   ['denied', 'Declined'],
 ];
@@ -38,7 +39,11 @@ export default function AccessRequestsScreen() {
   const [busy, setBusy] = useState(false);
 
   if (!isAdmin) {
-    return <div style={{ padding: 28, color: 'var(--text-secondary)' }}>Access requests are decided by admins.</div>;
+    return (
+      <div style={{ padding: '28px max(22px, min(36px, 4vw)) 60px' }}>
+        <PageHeader title="Access requests" subtitle="Only admins can see this page." />
+      </div>
+    );
   }
 
   const run = async (fn, after) => {
@@ -104,9 +109,9 @@ export default function AccessRequestsScreen() {
       {where(selected) ? <div style={d.row}><span style={d.k}>Where</span><span style={d.v}>{where(selected)}</span></div> : null}
       <div style={d.row}><span style={d.k}>Why</span><span style={{ ...d.v, whiteSpace: 'pre-wrap' }}>{selected.reason || 'No reason given.'}</span></div>
       {allows ? (
-        <div style={d.row}><span style={d.k}>Job allows</span><span style={{ ...d.v, color: allows.ok ? '#4ADE80' : '#E8B93B' }}>{allows.text}</span></div>
+        <div style={d.row}><span style={d.k}>Job allows</span><span style={{ ...d.v, color: allows.ok ? 'var(--ok)' : 'var(--warn)' }}>{allows.text}</span></div>
       ) : (
-        <div style={d.row}><span style={d.k}>Login</span><span style={{ ...d.v, color: '#E8B93B' }}>No active login for {selected.userEmail}</span></div>
+        <div style={d.row}><span style={d.k}>Login</span><span style={{ ...d.v, color: 'var(--warn)' }}>No active login for {selected.userEmail}</span></div>
       )}
       {selected.status === 'denied' && selected.declineReason ? (
         <div style={d.row}><span style={d.k}>Reason</span><span style={d.v}>{selected.declineReason}</span></div>
@@ -117,8 +122,8 @@ export default function AccessRequestsScreen() {
           <div style={{ marginTop: 14 }}>
             <input style={d.input} autoFocus placeholder="Reason - emailed to them" value={changing?.reason ?? ''} onChange={(e) => setChanging({ reason: e.target.value })} />
             <div style={{ ...d.actions, marginTop: 0 }}>
-              <button style={d.primary} disabled={busy || !(changing?.reason ?? '').trim()} onClick={() => run(() => decline(selected, changing.reason), () => { setDeclining(null); setChanging(null); setFilter('denied'); })}>Decline</button>
               <button style={d.ghost} onClick={() => { setDeclining(null); setChanging(null); }}>Cancel</button>
+              <button style={d.primary} disabled={busy || !(changing?.reason ?? '').trim()} onClick={() => run(() => decline(selected, changing.reason), () => { setDeclining(null); setChanging(null); setFilter('denied'); })}>Decline</button>
             </div>
           </div>
         ) : (
@@ -144,8 +149,8 @@ export default function AccessRequestsScreen() {
             <input style={d.input} autoFocus placeholder="Reason - emailed to the person who asked" value={changing.reason} onChange={(e) => setChanging({ ...changing, reason: e.target.value })} />
             <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 8px' }}>Moving to Approved gives the access; moving away from Approved takes it back.</p>
             <div style={{ ...d.actions, marginTop: 0 }}>
-              <button style={d.primary} disabled={busy || changing.status === selected.status || !changing.reason.trim() || (changing.status === 'approved' && !person)} onClick={() => run(() => adminSetStatus(selected, changing.status, changing.reason), () => { setFilter(changing.status); setChanging(null); })}>Change status</button>
               <button style={d.ghost} onClick={() => setChanging(null)}>Cancel</button>
+              <button style={d.primary} disabled={busy || changing.status === selected.status || !changing.reason.trim() || (changing.status === 'approved' && !person)} onClick={() => run(() => adminSetStatus(selected, changing.status, changing.reason), () => { setFilter(changing.status); setChanging(null); })}>Change status</button>
             </div>
           </>
         ) : (
@@ -185,7 +190,16 @@ export default function AccessRequestsScreen() {
         selectedId={selected?.id}
         onSelect={(id) => { setSelectedId(id); setDeclining(null); setChanging(null); }}
         detail={detail}
-        empty="Nothing in this list."
+        empty="No access requests in this list."
+        phoneRow={(r) => (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>{r.targetLabel}</span>
+              <span style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{r.userName} · {dateText(r.timestamp)}</span>
+            </span>
+            <Pill tone={STEP[r.status]?.[1]}>{STEP[r.status]?.[0]}</Pill>
+          </span>
+        )}
         note="Only admins see this page. Decided requests stay here as the record of who was given what."
       />
       {dialogNode}

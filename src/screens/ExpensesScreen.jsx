@@ -14,6 +14,7 @@ import {
   periodRange,
 } from '../context/ExpensesContext';
 import { useDialog } from '../hooks/useDialog';
+import Icon from '../components/Icon';
 import { modalBackdrop, modalSurface } from '../theme/modal';
 import { plainError } from '../lib/errors';
 import { fmtDayKey, fmtDayTime } from '../lib/dates';
@@ -248,7 +249,7 @@ export default function ExpensesScreen() {
             {currentPeriod ? <p style={styles.small}>{periodRange(currentPeriod)} · report {fmtDayKey(addDay(currentPeriod.windowEndKey))}</p> : null}
           </div>
           <button style={{ ...styles.card, ...styles.cardButton, ...(uncodedCount ? styles.cardAmber : {}) }} onClick={() => setFilter('uncoded')}>
-            <p style={{ ...styles.kicker, ...(uncodedCount ? { color: '#E8B93B' } : {}) }}>{NOT_CODED}</p>
+            <p style={{ ...styles.kicker, ...(uncodedCount ? { color: 'var(--warn)' } : {}) }}>{NOT_CODED}</p>
             <p style={styles.big}>{uncodedCount} receipt{uncodedCount === 1 ? '' : 's'}</p>
             <p style={styles.small}>{uncodedCount ? 'Give each one an account before the report.' : 'Every receipt has an account.'}</p>
           </button>
@@ -342,7 +343,7 @@ export default function ExpensesScreen() {
           {urls[selected.id] && !isPdf(selected) ? <img src={urls[selected.id]} alt="" style={styles.thumbImg} /> : <span style={styles.small}>{isPdf(selected) ? 'PDF' : selected.imageDeletedAt ? 'Photo removed' : 'Photo'}</span>}
         </button>
         <div style={{ minWidth: 0 }}>
-          <p style={{ ...d.kicker, color: selected.voided ? '#F87171' : selected.accountCode ? 'var(--text-tertiary)' : '#E8B93B' }}>
+          <p style={{ ...d.kicker, color: selected.voided ? 'var(--bad)' : selected.accountCode ? 'var(--text-tertiary)' : 'var(--warn)' }}>
             {selected.voided ? 'Voided' : !selected.accountCode ? NOT_CODED : seesAll ? selected.accountHeading || 'Account' : 'Receipt'}
           </p>
           <p style={styles.amount}>{money(selected.amountCents)}</p>
@@ -372,7 +373,7 @@ export default function ExpensesScreen() {
           <div key={k} style={d.row}><span style={d.k}>{k}</span><span style={d.v}>{v}</span></div>
         ))}
       </div>
-      {selected.voided ? <p style={{ ...styles.small, color: '#F87171', marginTop: 10 }}>Voided by {selected.voidedBy}: {selected.voidedReason}</p> : null}
+      {selected.voided ? <p style={{ ...styles.small, color: 'var(--bad)', marginTop: 10 }}>Voided by {selected.voidedBy}: {selected.voidedReason}</p> : null}
       <div style={d.actions}>
         <button style={d.ghost} onClick={() => setViewing(selected)}>View receipt</button>
         {isEditable(selected) ? (
@@ -757,7 +758,7 @@ function ReceiptForm({ mode, receipt, accounts, locations, entities, defaultEnti
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHead}>
           <h2 style={styles.modalTitle}>{editing ? 'Edit receipt' : 'Add receipt'}</h2>
-          <button style={styles.close} aria-label="Close" onClick={onClose}>✕</button>
+          <button style={styles.close} aria-label="Close" onClick={onClose}><Icon name="close" size={16} /></button>
         </div>
 
         {editing ? (
@@ -922,7 +923,7 @@ function ManageAccounts({ accounts, notify, confirm, onClose, addAccount, setAcc
       <div style={{ ...styles.modal, width: 'min(560px, 100%)' }} onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHead}>
           <h2 style={styles.modalTitle}>Accounts</h2>
-          <button style={styles.close} aria-label="Close" onClick={onClose}>✕</button>
+          <button style={styles.close} aria-label="Close" onClick={onClose}><Icon name="close" size={16} /></button>
         </div>
         <p style={styles.small}>Sam's accounts, in his order. A retired account can't be picked for new receipts but stays on old receipts and reports.</p>
         <div style={styles.addAccountRow}>
@@ -998,7 +999,7 @@ function ManageEntities({ entities, defaults, locations, people, notify, onClose
       <div style={{ ...styles.modal, width: 'min(620px, 100%)' }} onClick={(e) => e.stopPropagation()}>
         <div style={styles.modalHead}>
           <h2 style={styles.modalTitle}>Entities</h2>
-          <button style={styles.close} aria-label="Close" onClick={onClose}>✕</button>
+          <button style={styles.close} aria-label="Close" onClick={onClose}><Icon name="close" size={16} /></button>
         </div>
         <div style={styles.accountsScroll}>
           <p style={styles.pickHead}>Entity numbers</p>
@@ -1039,17 +1040,17 @@ const styles = {
   nowrap: { whiteSpace: 'nowrap', color: 'var(--text-secondary)' },
   muted: { color: 'var(--text-tertiary)', fontSize: 12 },
   warn: { background: 'rgba(232,185,59,0.1)', border: '1px solid rgba(232,185,59,0.35)', color: 'var(--text-primary)', borderRadius: 12, padding: '12px 16px', fontSize: 13, marginBottom: 14 },
-  bar: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', background: '#1A1A20', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', marginBottom: 14 },
+  bar: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', marginBottom: 14 },
   barStats: { display: 'flex', gap: 28, flexWrap: 'wrap' },
   cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 14 },
-  card: { background: '#1A1A20', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', textAlign: 'left', color: 'var(--text-primary)', fontFamily: 'inherit' },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', textAlign: 'left', color: 'var(--text-primary)', fontFamily: 'inherit' },
   cardButton: { cursor: 'pointer' },
   cardAmber: { borderColor: 'rgba(232,185,59,0.4)' },
   cardActions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 },
   kicker: { margin: 0, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
   big: { margin: '4px 0 0', fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' },
   small: { margin: '4px 0 0', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.45 },
-  stale: { fontSize: 12, fontWeight: 700, color: '#E8B93B' },
+  stale: { fontSize: 12, fontWeight: 700, color: 'var(--warn)' },
   toolsRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 },
   selectLabel: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-tertiary)' },
   smallSelect: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, height: 32, color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 12, padding: '0 8px' },
@@ -1057,13 +1058,13 @@ const styles = {
   thumb: { width: 84, height: 112, borderRadius: 8, background: 'var(--bg-inset)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', padding: 0, cursor: 'pointer' },
   thumbImg: { width: '100%', height: '100%', objectFit: 'cover' },
   amount: { margin: '6px 0 2px', fontSize: 24, fontWeight: 900, color: 'var(--text-primary)' },
-  danger: { background: 'none', border: '1px solid rgba(232,82,75,0.5)', color: '#F87171', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
+  danger: { background: 'none', border: '1px solid rgba(232,82,75,0.5)', color: 'var(--bad)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
   dangerFill: { background: '#B42F28', border: 'none', color: '#FFFFFF', borderRadius: 8, padding: '8px 14px', fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
   backdrop: { ...modalBackdrop },
   modal: { ...modalSurface, width: 'min(460px, 100%)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 },
   modalHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   modalTitle: { margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' },
-  close: { background: 'none', border: 'none', color: 'var(--accent)', width: 32, height: 32, borderRadius: 8, fontSize: 16, cursor: 'pointer' },
+  close: { background: 'none', border: 'none', color: 'var(--accent)', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderRadius: 8, fontSize: 16, cursor: 'pointer' },
   modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 },
   choiceGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 },
   choice: { minHeight: 48, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '6px 10px' },

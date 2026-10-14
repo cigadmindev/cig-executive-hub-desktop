@@ -1,3 +1,4 @@
+import { accessLevel } from '../data/accessMatrix';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, addDoc, doc, updateDoc, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
@@ -33,7 +34,8 @@ export function IntegrationRequestsProvider({ children }) {
   // Whoever holds the job sees everything. Everyone else sees what they sent.
   // Job rather than person, because Cameron is moving into this role and the
   // routing should follow the job rather than her name.
-  const handlesRequests = user?.role === 'admin' || user?.job === 'IT & Training';
+  // The Systems Help column of Who sees what: Handle (14 Oct 2026).
+  const handlesRequests = user?.role === 'admin' || accessLevel(user, 'systemsHelp') === 'handle';
 
   useEffect(() => {
     if (!user) {

@@ -30,20 +30,6 @@ service cloud.firestore {
     function isSignedIn() {
       return isLive();
     }
-    // The rows that may post announcements in Who sees what (Announcements:
-    // Post). Mirrors the table's defaults; changing which rows post needs a
-    // rules deploy (S5/S8, 8 Oct).
-    function canPost() {
-      return isLive() && (me().role == 'admin' || me().job in ['Owner', 'CEO', 'COO', 'Financials',
-        'Culinary Director', 'Culinary Manager', 'Beverage Manager', 'IT & Training']);
-    }
-    // The rows whose folders include Financials, plus anyone given the folder
-    // by an approved access request.
-    function seesFinancials() {
-      return isLive() && ((me().role == 'admin' || me().job in ['Owner', 'CEO', 'COO', 'Financials',
-        'Culinary Director', 'Culinary Manager', 'Beverage Manager', 'General Manager', 'IT & Training']
-        || 'financials' in me().get('permissions', {}).get('extraFolders', [])));
-    }
     function isOwner(resource) {
       return isSignedIn() && resource.data.authorUid == request.auth.uid;
     }
@@ -108,17 +94,58 @@ service cloud.firestore {
       return isLive() && (me().role == 'admin' || checklistLevel() in ['tick', 'edit']);
     }
 
+    // ---- Who sees what, read live (14 Oct 2026) ------------------------
+    // Every column the rules depend on reads the table an admin edits in
+    // Manage Logins, falling back to the approved defaults below - so a
+    // changed cell changes what the database allows, not just the screen.
+    // The defaults mirror src/data/accessMatrix.js ('*' = every other row).
+    function colLevel(col, defaults) {
+      let row = matrixRow();
+      let path = /databases/$(database)/documents/accessMatrix/$(row);
+      let fallback = defaults.get(row, defaults.get('*', 'none'));
+      return exists(path) ? get(path).data.get(col, fallback) : fallback;
+    }
+    // Announcements: Post.
+    function canPost() {
+      return isLive() && (me().role == 'admin'
+        || colLevel('announcements', { 'owner': 'post', 'coo': 'post', 'financials': 'post', 'culinary': 'post', 'beverage': 'post', 'it': 'post', '*': 'read' }) == 'post');
+    }
+    // Folders including Financials, or the folder given by an approved
+    // access request.
+    function seesFinancials() {
+      let f = colLevel('folders', { 'owner': 'all', 'coo': 'all', 'financials': ['financials'], 'culinary': 'all', 'beverage': 'all', 'gm': 'all', 'it': 'all', '*': [] });
+      return isLive() && (me().role == 'admin' || f == 'all' || (f is list && 'financials' in f)
+        || 'financials' in me().get('permissions', {}).get('extraFolders', []));
+    }
+    // Device requests: View sees every request, Approve decides.
+    function deviceLevel() {
+      return colLevel('deviceRequests', { 'coo': 'approve', 'it': 'view', 'marketing': 'none', 'video': 'none', 'realestate': 'none', '*': 'ask' });
+    }
+    // Catering: View sees and adds at their places, Claim works them.
+    function cateringLevel() {
+      return colLevel('catering', { 'catering': 'claim', 'financials': 'none', 'marketing': 'none', 'video': 'none', 'hr': 'none', 'realestate': 'none', '*': 'view' });
+    }
+    // Availability: Team sees the team, Approve decides time off.
+    function availabilityLevel() {
+      return colLevel('availability', { 'coo': 'approve', 'owner': 'team', 'financials': 'team', 'culinary': 'team', 'beverage': 'team', 'gm': 'team', 'it': 'team', 'hr': 'team', 'marketing': 'none', 'video': 'none', 'realestate': 'none', '*': 'own' });
+    }
+    // Event requests: Approve decides.
+    function eventsLevel() {
+      return colLevel('eventRequests', { 'coo': 'approve', '*': 'ask' });
+    }
+    // Renewals: Full does the renewal work.
+    function renewalsLevel() {
+      return colLevel('renewals', { 'coo': 'full', 'gm': 'full', 'it': 'full', 'owner': 'view', 'culinary': 'view', 'beverage': 'view', 'agm': 'view', 'km': 'view', 'chef': 'view', 'realestate': 'view', '*': 'none' });
+    }
+    // Systems Help: Handle sees and works every request.
+    function systemsLevel() {
+      return colLevel('systemsHelp', { 'it': 'handle', '*': 'raise' });
+    }
+
     // Finance is a job, not a role - Sam is an executive whose job is
     // Financials. There is no fourth role.
     function hasJob(job) {
       return isLive() && me().job == job;
-    }
-    // Their job, or their second job (Cameron: IT & Training, also
-    // Starkville's GM - 12 Oct 2026). Where the second job applies is the
-    // app's to narrow, as with every location.
-    function hasJobOrAlso(job) {
-      let p = me();
-      return isLive() && (p.job == job || p.get('alsoJob', {}).get('job', '') == job);
     }
 
     function isCoo() {
@@ -152,10 +179,7 @@ service cloud.firestore {
     // Job rather than person, so the routing follows whoever holds IT /
     // Training rather than a name.
     function handlesIntegrations() {
-      return isLive() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.job == 'IT & Training'
-      );
+      return isLive() && (me().role == 'admin' || systemsLevel() == 'handle');
     }
 
     match /integrationRequests/{id} {
@@ -190,8 +214,7 @@ service cloud.firestore {
     // Whoever handles paying: finance, the owner, and admins.
     // Who decides on a new device: the COO and admins.
     function handlesDevices() {
-      let p = me();
-      return isLive() && (p.role == 'admin' || p.job == 'COO');
+      return isLive() && (me().role == 'admin' || deviceLevel() == 'approve');
     }
 
     // The HR page: form links and contacts, kept here so a changed contact
@@ -216,16 +239,13 @@ service cloud.firestore {
 
     // Looks after this side of things at a restaurant they have. One profile
     // read, since two in a single rule is enough to fail.
+    // The Catering column of Who sees what, read live (14 Oct 2026):
+    // executives anywhere, everyone else at the restaurants on their login.
     function handlesEventsFor(brandId) {
       let p = eventsProfile();
-      return isLive() && (
-        (p.role == 'admin' || p.role == 'executive')
-        // IT & Training goes by the restaurants on their login, like every
-        // manager (14 Oct 2026) - taking one off has to take it away.
-        || ((p.job == 'IT & Training' || p.job == 'General Manager' || p.job == 'Assistant Manager'
-             || p.job == 'Executive Chef' || p.job == 'Sous Chef'
-             || p.job == 'Catering & Events' || p.job == 'Kitchen Manager')
-            && brandId in p.permissions.brandIds));
+      return isLive() && (p.role == 'admin'
+        || (cateringLevel() in ['view', 'claim']
+            && (p.role == 'executive' || brandId in p.get('permissions', {}).get('brandIds', []))));
     }
 
     // By location, not just restaurant (Brenner, 10 Oct 2026): someone whose
@@ -249,7 +269,7 @@ service cloud.firestore {
       // Claiming and working an enquiry is Catering & Events' alone, at their
       // own locations (Brenner, 10 Oct 2026); admins can correct anything.
       allow update: if isAdmin() || (
-        isLive() && eventsProfile().job == 'Catering & Events'
+        isLive() && cateringLevel() == 'claim'
         && resource.data.brandId in eventsProfile().get('permissions', {}).get('brandIds', [])
         && eventsAtLocation(resource.data.brandId, resource.data.locationId));
       allow delete: if isAdmin();
@@ -280,7 +300,7 @@ service cloud.firestore {
     match /deviceRequests/{id} {
       // The COO, admins and IT & Training see every request; everyone else
       // sees only their own.
-      allow read: if isAdmin() || isCoo() || hasJob('IT & Training')
+      allow read: if isAdmin() || (isLive() && deviceLevel() in ['view', 'approve'])
         || (isSignedIn() && resource.data.requestedByUid == request.auth.uid);
       // Raised as yourself, and always starting at the beginning.
       allow create: if (isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands()))
@@ -539,6 +559,13 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document', 'documents', 'signature']) &&
         signatureAskOk()
       ) || (
+        // Renewing a permit ticks off its first-time calendar task (14 Oct
+        // 2026) - whoever does renewals at that restaurant. Only the tick.
+        isLive() && renewalsLevel() == 'full' &&
+        resource.data.get('renewalItem', false) == true &&
+        resource.data.brandId in myBrands() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt'])
+      ) || (
         // Catering & Events moving a confirmed event's date (14 Oct 2026) -
         // any catering entry at their restaurant, even one a colleague put
         // on the calendar. Only the date.
@@ -651,7 +678,7 @@ service cloud.firestore {
       let p = me();
       // The rows marked Team or Approve for Availability in Who sees what
       // (S6/S8), and every executive - they see each other (10 Oct 2026).
-      return isLive() && (p.role == 'admin' || p.role == 'executive' || p.job in ['Owner', 'CEO', 'COO', 'Financials', 'Culinary Director', 'Culinary Manager', 'Beverage Manager', 'General Manager', 'IT & Training', 'HR']);
+      return isLive() && (p.role == 'admin' || p.role == 'executive' || availabilityLevel() in ['team', 'approve']);
     }
 
     match /timeOffRequests/{requestId} {
@@ -668,7 +695,7 @@ service cloud.firestore {
       // pending in their hands and the decision fields stay untouched.
       // Decided by admins and the COO (who-sees-what table: Approve).
       allow update: if isAdmin()
-        || (isCoo() && resource.data.uid != request.auth.uid)
+        || (isLive() && availabilityLevel() == 'approve' && resource.data.uid != request.auth.uid)
         || (isSignedIn() && resource.data.uid == request.auth.uid
             && request.resource.data.uid == request.auth.uid
             && request.resource.data.status == 'pending'
@@ -680,7 +707,7 @@ service cloud.firestore {
     // Why someone is off: them, the COO and admins only (S6, 8 Oct). GMs and
     // the rest of the Team rows see the dates in timeOffRequests.
     match /timeOffReasons/{requestId} {
-      allow read: if isAdmin() || isCoo() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow read: if isAdmin() || (isLive() && availabilityLevel() == 'approve') || (isSignedIn() && resource.data.uid == request.auth.uid);
       // Your own reason, on your own request. The reason is saved just before
       // the request (so the email about it can include it), so a request
       // that doesn't exist yet is fine; one that exists must be yours.
@@ -706,14 +733,14 @@ service cloud.firestore {
 
     match /eventRequests/{requestId} {
       // Private (S6, 8 Oct): whoever asked, and the COO and admins who decide.
-      allow read: if isAdmin() || isCoo()
+      allow read: if isAdmin() || (isLive() && eventsLevel() == 'approve')
         || (isSignedIn() && resource.data.requestedByUid == request.auth.uid);
       allow create: if isSignedIn()
         && request.resource.data.requestedByUid == request.auth.uid
         && request.resource.data.status == 'pending';
       // Decided by admins and the COO (who-sees-what table: Approve).
       allow update: if isAdmin()
-        || (isCoo() && resource.data.requestedByUid != request.auth.uid)
+        || (isLive() && eventsLevel() == 'approve' && resource.data.requestedByUid != request.auth.uid)
         || (isSignedIn() && resource.data.requestedByUid == request.auth.uid
             && request.resource.data.requestedByUid == request.auth.uid
             && request.resource.data.status == 'pending'
@@ -736,8 +763,11 @@ service cloud.firestore {
       // Two branches. The three can change anything. Everyone else can do the
       // work - set dates, attach the permit, sign it off - but not add
       // 'hidden' or 'custom', which are what take a permit off the list.
+      // Since 14 Oct 2026: the Renewals column at Full, at a restaurant they
+      // have (it was anyone signed in, anywhere).
       allow update: if canEditChecklists() || (
-        isSignedIn() &&
+        isLive() && renewalsLevel() == 'full'
+        && (isAdminOrExecutive() || resource.data.brandId in myBrands()) &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['approvedDate', 'expirationDate', 'document', 'signedOffBy', 'signedOffAt'])
       );
