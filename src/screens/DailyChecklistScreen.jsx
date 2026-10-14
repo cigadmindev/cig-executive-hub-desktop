@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDailyRecord, todayKey, isManagerOnDuty } from '../hooks/useDailyChecklists';
 import { brands } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
-import { backLink } from '../theme/pageHeader';
+import PageHeader from '../components/PageHeader';
 import { fmtTime, fmtDayKey } from '../lib/dates';
 import { plainError } from '../lib/errors';
 
@@ -22,7 +22,9 @@ export default function DailyChecklistScreen() {
   const { dialogNode, notify, confirm } = useDialog();
   const { list, record, toggle, setNote, setWorker, setSheetNote, signOff } = useDailyRecord(locationId, brandId, dateKey, listId);
   // "Starkville", "Ridgeland" - for the sheet's heading and the Drive path.
-  const place = brands.find((b) => b.id === brandId)?.locations?.find((l) => l.id === locationId)?.name ?? '';
+  const brand = brands.find((b) => b.id === brandId);
+  const brandName = brand?.name ?? '';
+  const place = brand?.locations?.find((l) => l.id === locationId)?.name ?? '';
   const [noting, setNoting] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [filing, setFiling] = useState(false);
@@ -54,12 +56,15 @@ export default function DailyChecklistScreen() {
 
   return (
     <div style={styles.page}>
-      <Link to={`/brand/${brandId}/location/${locationId}/daily-checklists?date=${dateKey}`} style={backLink}>‹ Daily checklists</Link>
+      {/* Same header as every page (14 Oct 2026). The restaurant comes from
+          the location, so a Bluto's or Heritage list says so. */}
+      <PageHeader
+        back={{ to: `/brand/${brandId}/location/${locationId}/daily-checklists?date=${dateKey}`, label: 'Daily checklists' + (place ? ' · ' + place : '') }}
+        title={list.title}
+        subtitle={[brandName, place, pretty(dateKey)].filter(Boolean).join(' · ') + (list.subtitle ? ' — ' + list.subtitle : '')}
+      />
       <div style={styles.columns}>
         <div style={styles.sheet}>
-          <p style={styles.brand}>TASTE ITALIAN KITCHEN — {place.toUpperCase()}</p>
-          <h1 style={styles.h1}>{list.title.toUpperCase()}</h1>
-          <p style={styles.muted}>{list.subtitle}</p>
           <div style={styles.fields}>
             <div><p style={styles.fieldLabel}>DATE</p><p style={styles.fieldValue}>{pretty(dateKey)}</p></div>
             {(list.workers ?? []).map((w) => (
@@ -173,8 +178,6 @@ const styles = {
   columns: { display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start', marginTop: 10 },
   sheet: { flex: '1 1 600px', minWidth: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 22px' },
   side: { flex: '0 1 320px', minWidth: 260, display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 16 },
-  brand: { fontSize: 11, letterSpacing: 3, color: 'var(--text-secondary)', margin: 0 },
-  h1: { fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: '6px 0 2px' },
   muted: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0', lineHeight: 1.5 },
   fields: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, margin: '14px 0' },
   fieldLabel: { fontSize: 10, letterSpacing: 1, color: 'var(--text-tertiary)', margin: '0 0 4px' },

@@ -8,9 +8,9 @@ import { storage } from '../firebaseConfig';
 import ChatAttachment from '../components/ChatAttachment';
 import Icon from '../components/Icon';
 import { useDialog } from '../hooks/useDialog';
-import { nike } from '../theme/nike';
 import { fmtDay, fmtTime, fmtDayTime } from '../lib/dates';
 import { plainError } from '../lib/errors';
+import PageHeader from '../components/PageHeader';
 
 // Today: the time. Before today: the day.
 function formatTime(ts) {
@@ -288,21 +288,25 @@ export default function MessagesScreen() {
   const showList = !isNarrow || !activeId;
   const showThread = !isNarrow || !!activeId;
 
+  // Same header as every page (14 Oct 2026): "+ New message" top right,
+  // "+ New group" beside it. On a phone it shows over the chat list only;
+  // inside a chat nothing changes.
+  const canGroup = user?.role === 'admin' || user?.role === 'executive';
   return (
+    <div style={styles.shell}>
+      {showList ? (
+        <div style={isNarrow ? styles.headNarrow : styles.head}>
+          <PageHeader
+            title="Messages"
+            subtitle="Chats and groups with your team."
+            extras={canGroup ? <button style={styles.ghostAction} onClick={() => openPicker('group')}>+ New group</button> : null}
+            actionLabel="+ New message"
+            onAction={() => openPicker('dm')}
+          />
+        </div>
+      ) : null}
     <div style={isNarrow ? styles.pageNarrow : styles.page}>
       <div style={{ ...styles.list, ...(isNarrow ? styles.listNarrow : {}), ...(showList ? {} : { display: 'none' }) }}>
-        <div style={{ ...styles.listHeader, ...nike.pageTitleSm, fontSize: 20 }}>Messages</div>
-
-        <div style={styles.newButtonsRow}>
-          <button style={{ ...styles.newButton, ...nike.primaryButton, ...(isNarrow ? { minHeight: 44 } : {}) }} onClick={() => openPicker('dm')}>
-            + New message
-          </button>
-          {user?.role === 'admin' || user?.role === 'executive' ? (
-            <button style={{ ...styles.newButton, ...nike.primaryButton, ...(isNarrow ? { minHeight: 44 } : {}) }} onClick={() => openPicker('group')}>
-              + New group
-            </button>
-          ) : null}
-        </div>
 
         <div style={styles.searchWrap}>
           <input
@@ -624,16 +628,25 @@ export default function MessagesScreen() {
       ) : null}
       {dialogNode}
     </div>
+    </div>
   );
 }
 
 const styles = {
-  page: { display: 'flex', height: '100%' },
+  // The header on top, the two panes filling what is left.
+  shell: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 },
+  head: { padding: '24px max(22px, min(44px, 4vw)) 0', borderBottom: '1px solid var(--border)' },
+  headNarrow: { padding: '16px 16px 0' },
+  ghostAction: {
+    background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 10,
+    padding: '10px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 40,
+  },
+  page: { display: 'flex', flex: 1, minHeight: 0 },
   // On a phone the page must stay inside the space above the bottom bar: the
   // thread scrolls inside it rather than growing, or a long chat pushed the
   // typing box down behind the bar (10 Oct 2026). minHeight 0 is what lets a
   // flex child be shorter than its content.
-  pageNarrow: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' },
+  pageNarrow: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' },
   list: { width: 300, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' },
   listNarrow: { width: '100%', borderRight: 'none', flex: 1, minWidth: 0, minHeight: 0 },
   backToList: {
@@ -647,17 +660,6 @@ const styles = {
     cursor: 'pointer',
     alignSelf: 'flex-start',
     WebkitTapHighlightColor: 'transparent',
-  },
-  listHeader: { padding: '16px 16px 10px', fontSize: 16, fontWeight: 700 },
-  newButtonsRow: { display: 'flex', gap: 8, padding: '0 12px 10px' },
-  newButton: {
-    flex: 1,
-    padding: '8px 0',
-    borderRadius: 8,
-    background: 'var(--accent)',
-    color: '#FFFFFF',
-    fontWeight: 600,
-    fontSize: 12,
   },
   convoAvatar: {
     width: 32,

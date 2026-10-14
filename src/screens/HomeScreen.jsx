@@ -18,6 +18,7 @@ import PostCard from '../components/PostCard';
 import { accessLevel } from '../data/accessMatrix';
 import { brandIdForTarget } from '../data/mockData';
 import { fmtDay } from '../lib/dates';
+import PageHeader from '../components/PageHeader';
 
 export default function HomeScreen() {
   const isNarrow = useIsNarrow();
@@ -92,51 +93,53 @@ export default function HomeScreen() {
 
   return (
     <div style={styles.page}>
-      <header style={{ ...styles.header, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20 }}>
-        <div>
-          <p style={{ ...styles.eyebrow, color: 'var(--neon)' }}>
-            {new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
-          <h1 className="hub-page-title" style={{ margin: 0, textTransform: 'none' }}>Welcome back, {user?.name?.split(' ')[0]}</h1>
-        </div>
-        {/* The shape of the day in three numbers, before reading anything. */}
-        {/* Always shown, zeros included. A number that disappears when it
-            reaches zero reads as missing rather than as good news, and the
-            header changes shape depending on the day. Zero is grey - it is
-            not a warning. */}
-        <div style={styles.headerCounts}>
-            <div>
-                {summary.counts.overdue !== null ? (
-                <div
-                  style={{
-                    ...styles.countValue,
-                    color: summary.counts.overdue > 0 ? 'var(--danger)' : 'var(--text-tertiary)',
-                  }}
-                >
-                  {summary.counts.overdue}
-                </div>
-                ) : null}
-                <div style={styles.countLabel}>Overdue</div>
-            </div>
-            <div>
-                <div
-                  style={{
-                    ...styles.countValue,
-                    color: summary.counts.renewals > 0 ? 'var(--warn)' : 'var(--text-tertiary)',
-                  }}
-                >
-                  {summary.counts.renewals}
-                </div>
-                <div style={styles.countLabel}>Renewals</div>
-            </div>
-            <div>
-                <div style={{ ...styles.countValue, color: 'var(--text-tertiary)' }}>
-                  {summary.counts.thisWeek}
-                </div>
-                <div style={styles.countLabel}>This week</div>
-            </div>
-        </div>
-      </header>
+      {/* Same header as every page (14 Oct 2026): name as the title, the
+          date under it, and the day's three counts top right where other
+          pages put their button. */}
+      {/* The shape of the day in three numbers, before reading anything.
+          Always shown, zeros included. A number that disappears when it
+          reaches zero reads as missing rather than as good news, and the
+          header changes shape depending on the day. Zero is grey - it is
+          not a warning. */}
+      <PageHeader
+        plainCase
+        title={'Welcome back, ' + (user?.name?.split(' ')[0] ?? '')}
+        subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + ' · here\'s what needs you today'}
+        extras={
+          <div style={styles.headerCounts}>
+              <div>
+                  {summary.counts.overdue !== null ? (
+                  <div
+                    style={{
+                      ...styles.countValue,
+                      color: summary.counts.overdue > 0 ? 'var(--danger)' : 'var(--text-tertiary)',
+                    }}
+                  >
+                    {summary.counts.overdue}
+                  </div>
+                  ) : null}
+                  <div style={styles.countLabel}>Overdue</div>
+              </div>
+              <div>
+                  <div
+                    style={{
+                      ...styles.countValue,
+                      color: summary.counts.renewals > 0 ? 'var(--warn)' : 'var(--text-tertiary)',
+                    }}
+                  >
+                    {summary.counts.renewals}
+                  </div>
+                  <div style={styles.countLabel}>Renewals</div>
+              </div>
+              <div>
+                  <div style={{ ...styles.countValue, color: 'var(--text-tertiary)' }}>
+                    {summary.counts.thisWeek}
+                  </div>
+                  <div style={styles.countLabel}>This week</div>
+              </div>
+          </div>
+        }
+      />
 
       <MySpaceCard user={user} />
 
@@ -486,8 +489,6 @@ const styles = {
   countLabel: { fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
 
   page: { padding: '36px max(22px, min(44px, 4vw))', maxWidth: 1040 },
-  header: { marginBottom: 32 },
-  eyebrow: { fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.7, margin: '0 0 6px' },
   gridNarrow: { display: 'grid', gridTemplateColumns: '1fr', gap: 9 },
   grid: {
     display: 'grid',
