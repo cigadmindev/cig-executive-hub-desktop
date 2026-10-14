@@ -6,7 +6,7 @@ import { modalBackdrop, modalSurface } from '../theme/modal';
 // `type` accepts anything an <input> does — 'date' for expiries, 'text' for
 // everything else. `multiline` swaps in a textarea for notes, where a single
 // line would make anything longer than a sentence unreadable.
-export default function ConfirmEditField({ label, value, placeholder, onSave, type = 'text', multiline = false }) {
+export default function ConfirmEditField({ label, value, placeholder, onSave, type = 'text', multiline = false, readOnly = false }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value || '');
   const [confirming, setConfirming] = useState(false);
@@ -82,6 +82,18 @@ export default function ConfirmEditField({ label, value, placeholder, onSave, ty
             </div>
           </div>
         ) : null}
+      </div>
+    );
+  }
+
+  // Read-only: the value, no pencil (for someone who can see but not change).
+  if (readOnly) {
+    return (
+      <div style={styles.wrap}>
+        {label ? <span style={styles.label}>{label}</span> : null}
+        <div style={{ ...styles.displayButton, cursor: 'default' }}>
+          <span style={{ color: value ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>{value || '—'}</span>
+        </div>
       </div>
     );
   }

@@ -137,6 +137,11 @@ service cloud.firestore {
     function renewalsLevel() {
       return colLevel('renewals', { 'coo': 'full', 'gm': 'full', 'it': 'full', 'owner': 'view', 'culinary': 'view', 'beverage': 'view', 'agm': 'view', 'km': 'view', 'chef': 'view', 'realestate': 'view', '*': 'none' });
     }
+    // Operational POC: Full fills in, adds and removes contacts.
+    function editsPoc() {
+      return isLive() && (me().role == 'admin'
+        || colLevel('operationalPoc', { 'coo': 'full', 'culinary': 'full', 'beverage': 'full', 'gm': 'full', 'agm': 'full', 'sous': 'full', 'catering': 'full', 'it': 'full', '*': 'view' }) == 'full');
+    }
     // Systems Help: Handle sees and works every request.
     function systemsLevel() {
       return colLevel('systemsHelp', { 'it': 'handle', '*': 'raise' });
@@ -831,8 +836,9 @@ service cloud.firestore {
       // Seeding writes the standard list as whoever opens the screen, so
       // create stays open to anyone with that restaurant.
       allow create: if isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands());
-      allow update: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
-      allow delete: if canEditChecklists();
+      // Filling in and removing: Full on the Operational POC column, read
+      // live (14 Oct 2026). GMs, assistant managers, Shannon, Ronnie, Bobbie.
+      allow update, delete: if editsPoc() && (isAdminOrExecutive() || resource.data.brandId in myBrands());
     }
 
     match /openingOngoingContactsSeedMarker/{locationId} {

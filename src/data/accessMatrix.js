@@ -78,7 +78,13 @@ const NOTES = {
   catering: 'Claims, works and edits catering and private events at their location; adds event costs',
   it: 'Everything except the pre-opening checklist; handles Systems Help. Their restaurants come from their login',
 };
+// Operational POC (14 Oct 2026): Mark wants every location's contacts filled
+// in, and that is the job of the GMs, assistant managers, Shannon, Ronnie and
+// Bobbie - so they are Full (fill in, add and remove at their places). View
+// is now read-only on the page.
+const POC_FULL = ['coo', 'culinary', 'beverage', 'gm', 'agm'];
 ROWS.forEach((row) => {
+  if (POC_FULL.includes(row.id)) row.d.operationalPoc = 'full';
   row.d.dailyChecklists = DAILY_WORK.includes(row.id) ? 'work' : 'none';
   if (row.d.hr === 'none') row.d.hr = 'read';
   if (NOTES[row.id]) row.d.note = NOTES[row.id];

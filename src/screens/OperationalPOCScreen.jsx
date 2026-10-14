@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { useDialog } from '../hooks/useDialog';
 import { useParams } from 'react-router-dom';
-import { brands , canEditChecklists } from '../data/mockData';
+import { brands } from '../data/mockData';
+import { accessLevel } from '../data/accessMatrix';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
 import { useAuth } from '../context/AuthContext';
@@ -21,8 +22,11 @@ export default function OperationalPOCScreen() {
     useOpeningOngoingContacts();
   const { user } = useAuth();
   const { dialogNode, notify, confirm } = useDialog();
-  // Same three as the checklist and renewals.
-  const canEdit = canEditChecklists(user);
+  // Full on the Operational POC column of Who sees what fills in, adds and
+  // removes; View only reads (14 Oct 2026). Before, anyone could fill in but
+  // only the pre-opening checklist editors could add - so GMs and assistant
+  // managers could not add a contact.
+  const canEdit = user?.role === 'admin' || accessLevel(user, 'operationalPoc') === 'full';
   const [addOpen, setAddOpen] = useState(false);
   const [newSection, setNewSection] = useState('');
   const [newItem, setNewItem] = useState('');
@@ -126,12 +130,13 @@ export default function OperationalPOCScreen() {
                   </div>
                   {isOpen ? (
                     <div style={styles.rowBody} data-reveal="">
-                      <ConfirmEditField label="Who" value={c.who} onSave={(v) => updateContactField(c.id, 'who', v)} />
-                      <ConfirmEditField label="Vendor / Company" value={c.vendor} onSave={(v) => updateContactField(c.id, 'vendor', v)} />
+                      <ConfirmEditField label="Who" value={c.who} onSave={(v) => updateContactField(c.id, 'who', v)} readOnly={!canEdit} />
+                      <ConfirmEditField label="Vendor / Company" value={c.vendor} onSave={(v) => updateContactField(c.id, 'vendor', v)} readOnly={!canEdit} />
                       <ConfirmEditField
                         label="Contact Name / #"
                         value={c.contactNameNumber}
                         onSave={(v) => updateContactField(c.id, 'contactNameNumber', v)}
+                        readOnly={!canEdit}
                       />
                       {canEdit ? (
                         <div style={styles.removeWrap}>
