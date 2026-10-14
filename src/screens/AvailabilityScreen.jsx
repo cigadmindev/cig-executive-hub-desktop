@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAvailability } from '../context/AvailabilityContext';
 import { brands } from '../data/mockData';
-import { atLeast, accessLevel, rowForJob } from '../data/accessMatrix';
+import { atLeast, accessLevel, rowForJob, usesUnavailableDates } from '../data/accessMatrix';
 
 // Who sees what rows for people outside the company.
 const OUTSIDE_JOBS = ['marketing', 'video'];
@@ -55,13 +55,16 @@ function weekFor(record, mondayKey) {
 
 export default function AvailabilityScreen() {
   const { user, users, refreshUsers, hasLocationAccess, hasBrandAccess } = useAuth();
-  const { timeOffRequests, weeklyAvailability, submitTimeOff, resolveTimeOff, deleteTimeOffRequest, setMyWeeklyAvailability, setWeekOverride } = useAvailability();
+  const { timeOffRequests, weeklyAvailability, unavailableDates, addUnavailable, removeUnavailable, submitTimeOff, resolveTimeOff, deleteTimeOffRequest, setMyWeeklyAvailability, setWeekOverride } = useAvailability();
   const { getByBrand } = useCustomLocations();
   const { dialogNode, notify, confirm } = useDialog();
 
   const approves = user?.role === 'admin' || atLeast(user, 'availability', 'approve');
   const isExec = user?.role === 'admin' || user?.role === 'executive';
   const seesTeam = isExec || atLeast(user, 'availability', 'team');
+  // Executives put in when they're unavailable instead of asking for time
+  // off (14 Oct 2026). Not Cameron (IT & Training), Marketing or video.
+  const away = usesUnavailableDates(user);
 
   useEffect(() => {
     if (seesTeam && !(users ?? []).length && refreshUsers) refreshUsers().catch(() => {});
@@ -102,14 +105,17 @@ export default function AvailabilityScreen() {
     const e = to ? new Date(to + 'T12:00:00').getTime() : s;
     if (e < s) return notify('Check the dates', 'The last day is before the first.');
     try {
-      await submitTimeOff(s, e, reason.trim());
+      if (away) await addUnavailable(s, e, reason.trim());
+      else await submitTimeOff(s, e, reason.trim());
       setFormOpen(false);
       setFrom(''); setTo(''); setReason('');
-      notify('Sent', 'Ronnie or an admin will decide, and you will be emailed the answer.');
+      if (away) notify('Added', 'The executive team will see these dates.');
+      else notify('Sent', 'Ronnie or an admin will decide, and you will be emailed the answer.');
     } catch (err) {
-      notify('Could not send', plainError(err, 'Try again.'));
+      notify(away ? 'Could not add' : 'Could not send', plainError(err, 'Try again.'));
     }
   };
+  const myUnavailable = unavailableDates.filter((u) => u.uid === user?.uid).sort((a, b) => a.startDate - b.startDate);
   const myRequests = timeOffRequests.filter((r) => r.uid === user?.uid).sort((a, b) => b.startDate - a.startDate);
   const waiting = approves ? timeOffRequests.filter((r) => r.status === 'pending' && (user?.role === 'admin' || r.uid !== user?.uid)) : [];
   const [denying, setDenying] = useState(null);
@@ -187,6 +193,11 @@ export default function AvailabilityScreen() {
     const t = teamMonday.getTime() + dayIndex * DAY + DAY / 2;
     return timeOffRequests.some((r) => r.uid === uid && r.status === 'approved' && r.startDate - DAY / 2 <= t && t <= r.endDate + DAY / 2);
   };
+  // An executive's unavailable dates on that day, if any (shaded the same).
+  const unavailableOn = (uid, dayIndex) => {
+    const t = teamMonday.getTime() + dayIndex * DAY + DAY / 2;
+    return unavailableDates.find((u) => u.uid === uid && u.startDate - DAY / 2 <= t && t <= u.endDate + DAY / 2) ?? null;
+  };
 
   // Built only while editing - draft is empty the rest of the time.
   const dayEditor = () => (
@@ -233,23 +244,23 @@ export default function AvailabilityScreen() {
     <div style={styles.page}>
       <PageHeader
         title="Availability"
-        subtitle={`Your usual hours and your time off${seesTeam ? ', and your team\'s' : ''}.`}
-        actionLabel="+ Request time off"
+        subtitle={`Your usual hours and ${away ? 'when you\'re unavailable' : 'your time off'}${seesTeam ? ', and your team\'s' : ''}.`}
+        actionLabel={away ? '+ Add unavailable dates' : '+ Request time off'}
         onAction={() => setFormOpen(true)}
       />
 
       {formOpen ? (
         <div style={styles.card}>
-          <p style={styles.cardTitle}>Request time off</p>
+          <p style={styles.cardTitle}>{away ? 'Add unavailable dates' : 'Request time off'}</p>
           <div style={styles.formRow}>
             <div style={{ flex: 1 }}><p style={styles.label}>First day</p><DatePickerField value={from} onChange={setFrom} /></div>
             <div style={{ flex: 1 }}><p style={styles.label}>Last day (leave blank for one day)</p><DatePickerField value={to} onChange={setTo} min={from || undefined} /></div>
           </div>
-          <p style={styles.label}>Reason (optional)</p>
-          <input style={styles.input} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Family wedding" />
+          <p style={styles.label}>{away ? 'Note (optional)' : 'Reason (optional)'}</p>
+          <input style={styles.input} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={away ? 'e.g. Thanksgiving with family' : 'e.g. Family wedding'} />
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button style={styles.ghost} onClick={() => setFormOpen(false)}>Cancel</button>
-            <button style={{ ...styles.primary, ...(from ? {} : { opacity: 0.4 }) }} disabled={!from} onClick={submit}>Send request</button>
+            <button style={{ ...styles.primary, ...(from ? {} : { opacity: 0.4 }) }} disabled={!from} onClick={submit}>{away ? 'Add' : 'Send request'}</button>
           </div>
         </div>
       ) : null}
@@ -307,6 +318,27 @@ export default function AvailabilityScreen() {
           )}
         </div>
 
+        {away ? (
+          <div style={styles.card}>
+            <p style={styles.cardTitle}>When I'm unavailable · {new Date().getFullYear()}</p>
+            <p style={styles.note}>Add dates with the button at the top. Nobody approves them; the executive team sees them on its view.</p>
+            {myUnavailable.length === 0 ? <p style={styles.muted}>No dates added.</p> : null}
+            {myUnavailable.map((u) => {
+              const past = u.endDate < Date.now() - DAY / 2;
+              return (
+                <div key={u.id} style={{ ...styles.row, ...(past ? { opacity: 0.5 } : {}) }}>
+                  <div style={{ flex: 1 }}>
+                    <strong style={styles.strong}>{range(u)}</strong>
+                    {u.note ? <span style={styles.muted}> · {u.note}</span> : null}
+                  </div>
+                  {!past ? (
+                    <button style={styles.linkDanger} onClick={() => confirm({ title: 'Remove these dates?', confirmLabel: 'Remove', onConfirm: () => removeUnavailable(u.id) })}>Remove</button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
         <div style={styles.card}>
           <p style={styles.cardTitle}>My time off</p>
           <p style={styles.note}>Ask with the button at the top. Ronnie or an admin decides, and you're emailed the answer.</p>
@@ -327,6 +359,7 @@ export default function AvailabilityScreen() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {seesTeam && loc ? (
@@ -360,12 +393,13 @@ export default function AvailabilityScreen() {
                     <tr key={u.uid}>
                       <td style={{ ...styles.td, textAlign: 'left', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{u.name} <span style={styles.muted}>· {u.job ?? ''}</span></td>
                       {DAYS.map((d, i) => {
-                        const off = offOn(u.uid, i);
+                        const ua = unavailableOn(u.uid, i);
+                        const off = !ua && offOn(u.uid, i);
                         const s = span(rec?.[d]);
                         return (
-                          <td key={d} style={{ ...styles.td, ...(off ? styles.offCell : {}) }}>
-                            {off ? 'Off' : !rec ? <span style={styles.muted}>not set</span> : s ?? '—'}
-                            {!off && s && whereOf(rec?.[d]) ? <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{whereOf(rec?.[d])}</div> : null}
+                          <td key={d} title={ua?.note || undefined} style={{ ...styles.td, ...(off || ua ? styles.offCell : {}) }}>
+                            {ua ? 'Unavailable' : off ? 'Off' : !rec ? <span style={styles.muted}>not set</span> : s ?? '—'}
+                            {!off && !ua && s && whereOf(rec?.[d]) ? <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{whereOf(rec?.[d])}</div> : null}
                           </td>
                         );
                       })}
@@ -375,7 +409,7 @@ export default function AvailabilityScreen() {
               </tbody>
             </table>
           </div>
-          <p style={{ ...styles.note, marginTop: 8 }}>Amber is approved time off. “Not set” means they haven't filled in their usual week.</p>
+          <p style={{ ...styles.note, marginTop: 8 }}>Amber is approved time off{loc.id === EXEC ? ' or unavailable dates (hover for the note)' : ''}. “Not set” means they haven't filled in their usual week.</p>
         </div>
       ) : null}
       {dialogNode}

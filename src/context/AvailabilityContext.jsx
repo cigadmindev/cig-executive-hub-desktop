@@ -16,13 +16,32 @@ export function AvailabilityProvider({ children }) {
   const { user } = useAuth();
   const [timeOffRequests, setTimeOffRequests] = useState([]);
   const [weeklyAvailability, setWeeklyAvailability] = useState([]);
+  // Executives' unavailable dates (14 Oct 2026) - read by executives and
+  // admins only, for the Executive team view and their own list.
+  const [unavailableDates, setUnavailableDates] = useState([]);
 
   useEffect(() => {
     if (!user) {
       setTimeOffRequests([]);
       setWeeklyAvailability([]);
+      setUnavailableDates([]);
       return;
     }
+
+    const readsUnavailable = user.role === 'admin' || user.role === 'executive';
+    const unsubUnavailable = readsUnavailable
+      ? onSnapshot(
+          collection(db, 'unavailableDates'),
+          (snap) => {
+            const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.startDate - b.startDate);
+            setUnavailableDates(list);
+            // Your own dates from before this year are cleared out.
+            const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+            list.filter((u) => u.uid === user.uid && u.endDate < yearStart).forEach((u) => deleteDoc(doc(db, 'unavailableDates', u.id)).catch(() => {}));
+          },
+          (err) => console.error('[Unavailable dates] ' + err.code + ': ' + err.message)
+        )
+      : () => {};
 
     let latestRequests = [];
     let reasons = {};
@@ -142,6 +161,7 @@ export function AvailabilityProvider({ children }) {
     );
 
     return () => {
+      unsubUnavailable();
       unsubTimeOff();
       unsubAvailability();
       unsubReasons();
@@ -178,6 +198,17 @@ export function AvailabilityProvider({ children }) {
       resolvedAt: null,
       resolvedByUid: null,
     });
+  };
+
+  // Saved straight away - nobody approves an executive's dates.
+  const addUnavailable = async (startDate, endDate, note) => {
+    if (!user) return;
+    await setDoc(doc(collection(db, 'unavailableDates')), {
+      uid: user.uid, name: user.name, startDate, endDate, note: note ?? '', createdAt: Date.now(),
+    });
+  };
+  const removeUnavailable = async (id) => {
+    await deleteDoc(doc(db, 'unavailableDates', id));
   };
 
   const resolveTimeOff = async (id, status, denialReason) => {
@@ -235,6 +266,9 @@ export function AvailabilityProvider({ children }) {
       value={{
         timeOffRequests,
         weeklyAvailability,
+        unavailableDates,
+        addUnavailable,
+        removeUnavailable,
         submitTimeOff,
         resolveTimeOff,
         updateTimeOffRequest,

@@ -711,6 +711,23 @@ service cloud.firestore {
 
     // Why someone is off: them, the COO and admins only (S6, 8 Oct). GMs and
     // the rest of the Team rows see the dates in timeOffRequests.
+    // Executives' unavailable dates (14 Oct 2026): no approval. The executive
+    // team and admins see them; each executive adds and removes their own.
+    // Not IT & Training, Marketing or the videographer (matches
+    // usesUnavailableDates in src/data/accessMatrix.js).
+    function usesUnavailableDates() {
+      return isLive() && me().role == 'executive' && !(matrixRow() in ['it', 'marketing', 'video']);
+    }
+    match /unavailableDates/{id} {
+      allow read: if isAdminOrExecutive();
+      allow create: if usesUnavailableDates()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.startDate is number
+        && request.resource.data.endDate is number
+        && request.resource.data.endDate >= request.resource.data.startDate;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
     match /timeOffReasons/{requestId} {
       allow read: if isAdmin() || (isLive() && availabilityLevel() == 'approve') || (isSignedIn() && resource.data.uid == request.auth.uid);
       // Your own reason, on your own request. The reason is saved just before

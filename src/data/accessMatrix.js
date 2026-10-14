@@ -94,6 +94,16 @@ export function rowForJob(job) {
   return ROWS.find((row) => row.jobs.includes(job)) ?? null;
 }
 
+// Executives don't ask for time off; they put in the dates they'll be
+// unavailable (Brenner, 14 Oct 2026). Executive logins only - not IT &
+// Training (Cameron), Marketing or the videographer. Kept in step with
+// usesUnavailableDates() in firestore.rules.
+export const NOT_UNAVAILABLE_ROWS = ['it', 'marketing', 'video'];
+export function usesUnavailableDates(user) {
+  if (user?.role !== 'executive') return false;
+  return !NOT_UNAVAILABLE_ROWS.includes(rowForJob(user.job)?.id);
+}
+
 // The live table, set by AccessMatrixProvider whenever it changes, so plain
 // functions (hasFeature, hasCategoryAccess) can read it without a hook.
 let LIVE = null;
