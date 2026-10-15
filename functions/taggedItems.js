@@ -195,7 +195,7 @@ exports.onChecklistAssigned = onDocumentUpdated(
       'Assigned to you: ' + (after.title || 'a checklist item'),
       'Due ' + whenText(after.dateTime) + section + (others.length ? ' · shared with ' + others.join(', ') : ''),
       {
-        speed: ACTION, path, topic: 'assignment', ref: 'assignment/' + event.params.id + '/' + uid,
+        speed: ACTION, emailLater: true, path, topic: 'assignment', ref: 'assignment/' + event.params.id + '/' + uid,
         button: 'Open the checklist', why: 'You got this because this item was assigned to you.',
         locationId: after.locationId ?? null,
       }

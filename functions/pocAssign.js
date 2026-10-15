@@ -115,7 +115,7 @@ exports.assignPocContacts = onCall({ secrets: ['RESEND_API_KEY'], timeoutSeconds
       (me.name ?? 'The COO') + ' asked you to fill in ' + (items.length === 1 ? 'this Operational POC contact' : 'these Operational POC contacts') + ': ' + listOf(items) + '.'
         + (people.length > 1 ? ' Shared with ' + names.filter((n, i) => people[i].uid !== person.uid).join(', ') + '.' : ''),
       {
-        speed: ACTION, path, topic: 'pocAssignment', locationId,
+        speed: ACTION, emailLater: true, path, topic: 'pocAssignment', locationId,
         ref: items.length === 1 ? 'pocAssign/' + fresh[0].id + '/' + person.uid : null,
         button: 'Open Operational POC', why: 'You got this because these contacts were assigned to you.',
       });
