@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
@@ -37,6 +38,7 @@ const money = (cents) => '$' + Number((cents ?? 0) / 100).toLocaleString('en-US'
 export default function ExpensesScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const { user, users, hasBrandAccess } = useAuth();
+  const isNarrow = useIsNarrow();
   const { getByBrand } = useCustomLocations();
   const {
     receipts, reports, seesAll, seesStores, loading, periods, accounts,
@@ -217,24 +219,31 @@ export default function ExpensesScreen() {
       },
     });
 
+  // On a phone (15 Oct 2026): the summary cards two across with the report
+  // card full width, the two filters side by side, and Finance's buttons on
+  // their own row - instead of three tall cards and a jumble of controls.
+  const cardsStyle = isNarrow ? { ...styles.cards, gridTemplateColumns: '1fr 1fr', gap: 10 } : styles.cards;
+  const cardStyle = isNarrow ? { ...styles.card, padding: '12px 14px' } : styles.card;
+  const wide = isNarrow ? { gridColumn: '1 / -1' } : {};
+  const bigStyle = isNarrow ? { ...styles.big, fontSize: 16 } : styles.big;
   const top = (
     <>
       {!currentPeriod && periods.length > 0 ? (
         <div style={styles.warn}>Today is outside the fiscal calendar loaded in the Hub, so receipts can't be filed yet. Finance needs to load the next year.</div>
       ) : null}
       {seesStores ? (
-        <div style={styles.cards}>
-          <div style={styles.card}>
+        <div style={cardsStyle}>
+          <div style={cardStyle}>
             <p style={styles.kicker}>{currentPeriod ? currentPeriod.label + ' so far · stores' : 'This period · stores'}</p>
-            <p style={styles.big}>{money(sum(storeCurrent))}</p>
+            <p style={bigStyle}>{money(sum(storeCurrent))}</p>
             <p style={styles.small}>{storeCurrent.length} receipt{storeCurrent.length === 1 ? '' : 's'}{currentPeriod ? ' · ' + periodRange(currentPeriod) : ''}</p>
           </div>
-          <div style={styles.card}>
+          <div style={cardStyle}>
             <p style={styles.kicker}>Biggest location</p>
-            <p style={styles.big}>{topPlace ? topPlace[0] : '—'}</p>
+            <p style={bigStyle}>{topPlace ? topPlace[0] : '—'}</p>
             <p style={styles.small}>{topPlace ? money(topPlace[1]) + ' this period' : 'No store receipts yet this period.'}</p>
           </div>
-          <div style={styles.card}>
+          <div style={{ ...cardStyle, ...wide }}>
             <p style={styles.kicker}>Your 7am email</p>
             <p style={{ ...styles.big, fontSize: 15 }}>Same receipts as this page</p>
             <p style={styles.small}>Stores and Catering &amp; Events only</p>
@@ -242,22 +251,22 @@ export default function ExpensesScreen() {
         </div>
       ) : null}
       {seesAll ? (
-        <div style={styles.cards}>
-          <div style={styles.card}>
+        <div style={cardsStyle}>
+          <div style={cardStyle}>
             <p style={styles.kicker}>{currentPeriod ? currentPeriod.label + ' so far' : 'This period'}</p>
-            <p style={styles.big}>{money(sum(allCurrent))} · {allCurrent.length} receipt{allCurrent.length === 1 ? '' : 's'}</p>
+            <p style={bigStyle}>{money(sum(allCurrent))} · {allCurrent.length} receipt{allCurrent.length === 1 ? '' : 's'}</p>
             {currentPeriod ? <p style={styles.small}>{periodRange(currentPeriod)} · report {fmtDayKey(addDay(currentPeriod.windowEndKey))}</p> : null}
           </div>
-          <button style={{ ...styles.card, ...styles.cardButton, ...(uncodedCount ? styles.cardAmber : {}) }} onClick={() => setFilter('uncoded')}>
+          <button style={{ ...cardStyle, ...styles.cardButton, ...(uncodedCount ? styles.cardAmber : {}) }} onClick={() => setFilter('uncoded')}>
             <p style={{ ...styles.kicker, ...(uncodedCount ? { color: 'var(--warn)' } : {}) }}>{NOT_CODED}</p>
-            <p style={styles.big}>{uncodedCount} receipt{uncodedCount === 1 ? '' : 's'}</p>
+            <p style={bigStyle}>{uncodedCount} receipt{uncodedCount === 1 ? '' : 's'}</p>
             <p style={styles.small}>{uncodedCount ? 'Give each one an account before the report.' : 'Every receipt has an account.'}</p>
           </button>
-          <div style={styles.card}>
+          <div style={{ ...cardStyle, ...wide }}>
             <p style={styles.kicker}>{latest ? latest.label.split(' (')[0] + ' report' : 'Period reports'}</p>
             {latest ? (
               <>
-                <p style={styles.big}>
+                <p style={bigStyle}>
                   {(latest.downloadedByUids ?? []).includes(user?.uid) ? 'Downloaded' : 'Ready'}
                   {(latest.changedReceiptIds ?? []).length ? <span style={styles.stale}> · needs a rebuild</span> : null}
                 </p>
@@ -283,33 +292,38 @@ export default function ExpensesScreen() {
             <p style={{ ...styles.big, fontSize: 16 }}>{currentPeriod ? currentPeriod.label + ' · ' + periodRange(currentPeriod) : '—'}</p>
           </div>
           <div style={styles.barStats}>
-            <div><p style={styles.small}>Your receipts</p><p style={styles.big}>{myCurrent.length}</p></div>
-            <div><p style={styles.small}>Your total</p><p style={styles.big}>{money(sum(myCurrent))}</p></div>
-            {currentPeriod ? <div><p style={styles.small}>Report goes to Finance</p><p style={styles.big}>{fmtDayKey(addDay(currentPeriod.windowEndKey))}</p></div> : null}
+            <div><p style={styles.small}>Your receipts</p><p style={bigStyle}>{myCurrent.length}</p></div>
+            <div><p style={styles.small}>Your total</p><p style={bigStyle}>{money(sum(myCurrent))}</p></div>
+            {currentPeriod ? <div><p style={styles.small}>Report goes to Finance</p><p style={bigStyle}>{fmtDayKey(addDay(currentPeriod.windowEndKey))}</p></div> : null}
           </div>
         </div>
       )}
       {seesOthers ? (
-        <div style={styles.toolsRow}>
-          <label style={styles.selectLabel}>
+        <div style={isNarrow ? { ...styles.toolsRow, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } : styles.toolsRow}>
+          <label style={isNarrow ? { ...styles.selectLabel, flexDirection: 'column', alignItems: 'stretch', gap: 4 } : styles.selectLabel}>
             Person
-            <select style={styles.smallSelect} value={person} onChange={(e) => setPerson(e.target.value)}>
+            <select style={isNarrow ? { ...styles.smallSelect, height: 40, width: '100%' } : styles.smallSelect} value={person} onChange={(e) => setPerson(e.target.value)}>
               <option value="all">Everyone</option>
               {people.map(([uid, name]) => <option key={uid} value={uid}>{name}</option>)}
             </select>
           </label>
-          <label style={styles.selectLabel}>
+          <label style={isNarrow ? { ...styles.selectLabel, flexDirection: 'column', alignItems: 'stretch', gap: 4 } : styles.selectLabel}>
             Location
-            <select style={styles.smallSelect} value={place} onChange={(e) => setPlace(e.target.value)}>
+            <select style={isNarrow ? { ...styles.smallSelect, height: 40, width: '100%' } : styles.smallSelect} value={place} onChange={(e) => setPlace(e.target.value)}>
               <option value="all">All</option>
               <option value="corporate">Corporate</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
             </select>
           </label>
-          <span style={{ flex: 1 }} />
-          {isAdmin || isFinance ? <button style={d.ghost} onClick={() => setManaging(true)}>Manage accounts</button> : null}
-          {isAdmin || isFinance ? <button style={d.ghost} onClick={() => setManagingEntities(true)}>Entities</button> : null}
-          {older.length ? <button style={d.ghost} onClick={() => setPastOpen((v) => !v)}>{pastOpen ? 'Hide past reports' : `Past reports · ${older.length}`}</button> : null}
+          <span style={isNarrow ? { display: 'none' } : { flex: 1 }} />
+          {isNarrow ? <span style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap' }}>{[
+            isAdmin || isFinance ? <button key="a" style={d.ghost} onClick={() => setManaging(true)}>Manage accounts</button> : null,
+            isAdmin || isFinance ? <button key="e" style={d.ghost} onClick={() => setManagingEntities(true)}>Entities</button> : null,
+            older.length ? <button key="p" style={d.ghost} onClick={() => setPastOpen((v) => !v)}>{pastOpen ? 'Hide past reports' : `Past reports · ${older.length}`}</button> : null,
+          ]}</span> : null}
+          {!isNarrow && (isAdmin || isFinance) ? <button style={d.ghost} onClick={() => setManaging(true)}>Manage accounts</button> : null}
+          {!isNarrow && (isAdmin || isFinance) ? <button style={d.ghost} onClick={() => setManagingEntities(true)}>Entities</button> : null}
+          {!isNarrow && older.length ? <button style={d.ghost} onClick={() => setPastOpen((v) => !v)}>{pastOpen ? 'Hide past reports' : `Past reports · ${older.length}`}</button> : null}
         </div>
       ) : null}
       {seesAll && pastOpen ? (

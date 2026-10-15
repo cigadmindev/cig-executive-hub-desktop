@@ -187,7 +187,11 @@ const styles = {
   // and the home button poking out of the top.
   narrowContent: {
     height: '100dvh',
-    overflow: 'auto',
+    // Up and down only, and it stops at the ends instead of dragging the page.
+    overflowX: 'hidden',
+    overflowY: 'auto',
+    overscrollBehavior: 'contain',
+    WebkitOverflowScrolling: 'touch',
     paddingTop: 'env(safe-area-inset-top, 0px)',
     paddingBottom: 'calc(130px + env(safe-area-inset-bottom, 0px))',
   },

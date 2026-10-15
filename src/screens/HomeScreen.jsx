@@ -296,7 +296,7 @@ export default function HomeScreen() {
       <div style={isNarrow ? styles.topGridNarrow : styles.topGrid}>
         <div style={styles.zone}>
           <p style={styles.zoneLabel}>This week</p>
-          <div style={{ ...styles.panel, minHeight: 148 }}>
+          <div style={{ ...styles.panel, minHeight: isNarrow ? 0 : 148 }}>
             {summary.thisWeek.length === 0 ? (
               <p style={styles.emptyNote}>Nothing scheduled in the next seven days.</p>
             ) : (
@@ -332,7 +332,7 @@ export default function HomeScreen() {
 
         <div style={styles.zone}>
           <p style={styles.zoneLabel}>Recent</p>
-          <div style={{ ...styles.panel, minHeight: 148 }}>
+          <div style={{ ...styles.panel, minHeight: isNarrow ? 0 : 148 }}>
             {summary.recent.length === 0 ? (
               <p style={styles.emptyNote}>No recent sign-offs.</p>
             ) : (
@@ -500,7 +500,8 @@ const styles = {
   countLabel: { fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
 
   page: { padding: '36px max(22px, min(44px, 4vw))', maxWidth: 1040 },
-  gridNarrow: { display: 'grid', gridTemplateColumns: '1fr', gap: 9 },
+  // Restaurants two across on a phone (15 Oct 2026).
+  gridNarrow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 },
   grid: {
     display: 'grid',
     // min() caps the track minimum at the container width, so a narrow

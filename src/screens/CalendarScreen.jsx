@@ -727,6 +727,6 @@ const styles = {
     color: 'var(--neon-text)',
     fontWeight: 900,
     fontSize: 13,
-    textTransform: 'uppercase',
+    textTransform: 'none',
   },
 };

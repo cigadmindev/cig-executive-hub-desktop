@@ -203,7 +203,7 @@ const styles = {
     fontSize: 12,
     outline: 'none',
   },
-  connectSaveButton: { padding: '0 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
+  connectSaveButton: { padding: '0 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'none' },
   connectCancelButton: { minHeight: 40, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
   editLinkButton: { fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 8, marginLeft: 4 },
   postsSection: { marginTop: 28 },

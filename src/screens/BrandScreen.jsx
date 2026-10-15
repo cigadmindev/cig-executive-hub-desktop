@@ -306,7 +306,7 @@ const styles = {
   },
   stateChipActive: { background: 'var(--accent)', borderColor: 'var(--accent)', color: '#0A0A0B', fontWeight: 800 },
   cancelButton: { minHeight: 40, flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
-  saveButton: { flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
+  saveButton: { flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'none' },
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 },
   cardWrap: { position: 'relative' },

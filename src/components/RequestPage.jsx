@@ -30,9 +30,10 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
     <div style={styles.page}>
       <PageHeader back={back} title={title} subtitle={subtitle} actionLabel={actionLabel} onAction={onAction} />
       {children}
-      <div style={styles.filters}>
+      {/* One row that slides sideways on a phone (15 Oct 2026), not two. */}
+      <div style={isNarrow ? { ...styles.filters, ...styles.filtersNarrow } : styles.filters}>
         {filters.map((f) => (
-          <button key={f.key} style={{ ...styles.filter, ...(filter === f.key ? styles.filterOn : {}) }} onClick={() => onFilter(f.key)}>
+          <button key={f.key} style={{ ...styles.filter, ...(filter === f.key ? styles.filterOn : {}), flexShrink: 0, whiteSpace: 'nowrap' }} onClick={() => onFilter(f.key)}>
             {f.label}{f.count != null ? ' · ' + f.count : ''}
           </button>
         ))}
@@ -103,6 +104,7 @@ const styles = {
   phoneChevron: { color: 'var(--text-tertiary)', fontSize: 18 },
   phoneBack: { background: 'none', border: 'none', padding: '4px 0', marginBottom: 12, fontSize: 13, fontWeight: 600, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' },
   filters: { display: 'flex', gap: 6, flexWrap: 'wrap', margin: '4px 0 12px' },
+  filtersNarrow: { flexWrap: 'nowrap', overflowX: 'auto', scrollbarWidth: 'none', marginRight: -22, paddingRight: 22 },
   filter: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 16, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   filterOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
   columns: { display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' },

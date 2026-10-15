@@ -205,18 +205,22 @@ export default function AvailabilityScreen() {
   const dayEditor = () => (
     <div style={styles.editor}>
       {DAYS.map((d) => (
-        <div key={d} style={styles.editRow}>
+        <div key={d} style={isNarrow ? { ...styles.editRow, padding: '10px 0', rowGap: 8 } : styles.editRow}>
           <span style={styles.editDay}>{SHORT[d]}</span>
-          <label style={styles.offLabel}>
+          <label style={isNarrow ? { ...styles.offLabel, flex: 1 } : styles.offLabel}>
             <input type="checkbox" checked={!draft?.[d]?.off} onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], off: !e.target.checked } })} /> Working
           </label>
           {!draft?.[d]?.off ? (
             <>
-              <input type="time" style={styles.time} value={draft[d].start} onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], start: e.target.value } })} />
-              <span style={styles.muted}>to</span>
-              <input type="time" style={styles.time} value={draft[d].end} onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], end: e.target.value } })} />
+              {/* On a phone (15 Oct 2026): the day and Working on one line,
+                  the two times side by side under them, then where. */}
+              <span style={isNarrow ? { display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 100%' } : { display: 'contents' }}>
+                <input type="time" style={isNarrow ? { ...styles.time, flex: 1, minWidth: 0 } : styles.time} value={draft[d].start} onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], start: e.target.value } })} />
+                <span style={styles.muted}>to</span>
+                <input type="time" style={isNarrow ? { ...styles.time, flex: 1, minWidth: 0 } : styles.time} value={draft[d].end} onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], end: e.target.value } })} />
+              </span>
               <select
-                style={{ ...styles.select, minWidth: 190 }}
+                style={isNarrow ? { ...styles.select, flex: '1 1 100%', minWidth: 0, width: '100%' } : { ...styles.select, minWidth: 190 }}
                 aria-label={'Where on ' + SHORT[d]}
                 value={draft[d].where ?? ''}
                 onChange={(e) => setDraft({ ...draft, [d]: { ...draft[d], where: e.target.value || null } })}

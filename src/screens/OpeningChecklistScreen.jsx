@@ -385,10 +385,15 @@ export default function OpeningChecklistScreen() {
       {q ? <p style={styles.searchHint}>Showing results for "{searchQuery}" across Initial Set-Up and Timeline.</p> : null}
 
       <div style={styles.section}>
-        <button style={styles.infoToggle} onClick={() => setInfoOpen((v) => !v)}>
+        {/* Only the Show/Hide pill lights up when pressed (15 Oct 2026);
+            the whole bar used to, because the whole bar was the button.
+            Tapping the heading still opens it. */}
+        <div style={styles.infoToggle} onClick={() => setInfoOpen((v) => !v)}>
           <h2 style={styles.sectionHeader}>Location Info</h2>
-          <span style={styles.infoChevron}>{infoOpen ? 'Hide' : 'Show'}</span>
-        </button>
+          <button style={styles.infoChevron} onClick={(e) => { e.stopPropagation(); setInfoOpen((v) => !v); }} aria-expanded={infoOpen}>
+            {infoOpen ? 'Hide' : 'Show'}
+          </button>
+        </div>
         <div style={{ ...styles.grid2, display: infoOpen ? 'grid' : 'none' }}>
           <ConfirmEditField label="Property Manager" value={info.propertyManager} onSave={(v) => updateInfoField(locationId, 'propertyManager', v)} />
           <ConfirmEditField label="Property Manager Contact" value={info.propertyManagerContact} onSave={(v) => updateInfoField(locationId, 'propertyManagerContact', v)} />
@@ -977,7 +982,7 @@ const styles = {
   modalFieldLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 5px' },
   modalInput: { width: '100%', boxSizing: 'border-box', height: 36, padding: '0 11px', marginBottom: 14, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
   modalNote: { fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.6, margin: '4px 0 0' },
-  addConfirmButton: { width: '100%', marginTop: 18, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer' },
+  addConfirmButton: { width: '100%', marginTop: 18, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'none', cursor: 'pointer' },
   sectionHeaderRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 0 14px' },
   sectionHeader: { fontSize: 15, fontWeight: 700, margin: 0 },
   listChoice: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 16, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
@@ -1006,7 +1011,7 @@ const styles = {
   openingDateRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 },
   openingDateValue: { fontSize: 16, fontWeight: 700 },
   smallLinkButton: { fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 },
-  setDateButton: { padding: '9px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
+  setDateButton: { padding: '9px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
 
 
   // Rows, not cards. A card per item meant ~110px each and a 6000px page;
@@ -1014,7 +1019,8 @@ const styles = {
   // line rather than gaps and shadows, so the list reads as one thing.
   infoToggle: {
     display: 'flex',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    cursor: 'pointer',
     gap: 10,
     width: '100%',
     padding: 0,
@@ -1098,7 +1104,7 @@ const styles = {
   urgencyBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap', margin: 0, cursor: 'pointer' },
 
   dateEditRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' },
-  saveDateButton: { padding: '9px 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, flexShrink: 0, textTransform: 'uppercase' },
+  saveDateButton: { padding: '9px 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, flexShrink: 0, textTransform: 'none' },
   cancelDateButton: { padding: '9px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, flexShrink: 0 },
 
   confirmBackdrop: { ...modalBackdrop, zIndex: 200 },
@@ -1107,5 +1113,5 @@ const styles = {
   confirmBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 },
   confirmButtonsRow: { display: 'flex', gap: 10 },
   cancelBtnFull: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
-  saveBtnFull: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
+  saveBtnFull: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
 };

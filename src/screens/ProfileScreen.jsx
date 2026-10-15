@@ -365,7 +365,7 @@ const styles = {
   },
   errorText: { color: 'var(--danger)', fontSize: 12, marginTop: 8 },
   cancelButton: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
-  dangerButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--danger)', color: '#FFFFFF', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
+  dangerButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--danger)', color: '#FFFFFF', fontWeight: 900, fontSize: 13, textTransform: 'none' },
   prefWrap: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 },
   prefRow: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', textAlign: 'left' },
   prefRowOn: { borderColor: 'var(--neon)', background: 'rgba(34,211,238,0.08)' },

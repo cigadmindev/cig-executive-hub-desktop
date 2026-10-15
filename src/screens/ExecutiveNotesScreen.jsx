@@ -134,7 +134,7 @@ const styles = {
     outline: 'none',
     boxSizing: 'border-box',
   },
-  openButton: { padding: '10px 18px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
+  openButton: { padding: '10px 18px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
   editButton: { padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
   cancelButton: { minHeight: 40, padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
   previewBlock: { marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' },

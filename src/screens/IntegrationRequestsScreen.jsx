@@ -344,7 +344,7 @@ const styles = {
   kindButtonActive: { background: 'var(--neon)', color: 'var(--neon-text)', borderColor: 'var(--neon)' },
 
   actionRow: { display: 'flex', gap: 8, marginTop: 14 },
-  primaryButton: { flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer', marginTop: 18 },
+  primaryButton: { flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'none', cursor: 'pointer', marginTop: 18 },
   secondaryButton: { flex: 1, padding: '11px 0', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', marginTop: 18 },
 
   backdrop: { ...modalBackdrop, zIndex: 100 },

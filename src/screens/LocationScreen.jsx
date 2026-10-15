@@ -1,3 +1,4 @@
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import React, { useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -37,6 +38,7 @@ export default function LocationScreen() {
   const { getByBrand } = useCustomLocations();
   const { getByLocation } = useRenewals();
   const { user, hasCategoryAccess } = useAuth();
+  const isNarrow = useIsNarrow();
   const [settingUp, setSettingUp] = useState(false);
 
   // Creates whatever is missing in Drive for this location and connects every
@@ -173,7 +175,9 @@ export default function LocationScreen() {
           </button>
         ) : null}
       </div>
-      <div style={styles.grid}>
+      {/* Folders two across on a phone (15 Oct 2026) - eleven full-width
+          tiles were most of the page. */}
+      <div style={isNarrow ? styles.gridTwo : styles.grid}>
         {categories.map((cat) => {
           const allowed = hasCategoryAccess(user, cat.id);
           const pending = user ? hasPendingRequest(user.email, 'category', cat.id) : false;
@@ -182,19 +186,19 @@ export default function LocationScreen() {
             <button
               key={cat.id}
               data-card=""
-              style={{ ...styles.card, ...nike.card, opacity: allowed ? 1 : 0.6 }}
+              style={{ ...styles.card, ...nike.card, opacity: allowed ? 1 : 0.6, ...(isNarrow ? styles.cardSmall : {}) }}
               onClick={() => handleCategoryClick(cat)}
             >
-              <div style={styles.iconCircle}>
-                <Icon name={iconName(cat.icon)} color={allowed ? 'var(--neon)' : 'var(--text-tertiary)'} />
+              <div style={isNarrow ? styles.iconSmall : styles.iconCircle}>
+                <Icon name={iconName(cat.icon)} size={isNarrow ? 16 : undefined} color={allowed ? 'var(--neon)' : 'var(--text-tertiary)'} />
               </div>
               <div style={styles.textCol}>
-                <span style={nike.cardName}>{cat.label}</span>
+                <span style={isNarrow ? { ...nike.cardName, fontSize: 12 } : nike.cardName}>{cat.label}</span>
                 {!allowed ? <span style={styles.cardSubtitle}>You don't have this folder</span> : null}
               </div>
               <div style={styles.trailingCol}>
                 {showBadge ? <span style={nike.dot} /> : null}
-                {allowed ? <span style={nike.chevron}>›</span> : <RequestPill pending={pending} />}
+                {allowed ? (isNarrow ? null : <span style={nike.chevron}>›</span>) : <RequestPill pending={pending} />}
               </div>
             </button>
           );
@@ -215,6 +219,9 @@ const styles = {
   setupButton: { padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   sectionHeader: { margin: '32px 0 12px' },
   grid: { display: 'flex', flexDirection: 'column', gap: 10 },
+  gridTwo: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
+  cardSmall: { gap: 10, padding: '12px 12px', minHeight: 60, alignItems: 'center' },
+  iconSmall: { width: 32, height: 32, borderRadius: 16, background: 'rgba(34,211,238,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   card: {
     width: '100%',
     display: 'flex',

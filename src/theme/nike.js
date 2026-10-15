@@ -29,7 +29,7 @@ export const nike = {
     borderRadius: 10,
     color: 'var(--neon-text)',
     fontWeight: 900,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: 0.5,
   },
   secondaryButton: {
@@ -51,7 +51,8 @@ export const nike = {
     borderRadius: 20,
     color: 'var(--text-secondary)',
     fontWeight: 800,
-    textTransform: 'uppercase',
+    // Sentence case like every other filter pill (15 Oct 2026).
+    textTransform: 'none',
     letterSpacing: 0.3,
   },
   tabActive: {

@@ -743,5 +743,5 @@ const styles = {
   note: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, margin: '6px 0 0' },
   panelFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 20, flexWrap: 'wrap' },
   cancelButton: { minHeight: 40, padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
-  saveButton: { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'uppercase', cursor: 'pointer' },
+  saveButton: { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'none', cursor: 'pointer' },
 };

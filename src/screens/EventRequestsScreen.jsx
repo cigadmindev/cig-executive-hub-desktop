@@ -462,7 +462,7 @@ const styles = {
 
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
   needsMeBadge: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', margin: '0 0 8px' },
-  saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
+  saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'none' },
   cancelButton: { minHeight: 40, padding: '8px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 },
 
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },

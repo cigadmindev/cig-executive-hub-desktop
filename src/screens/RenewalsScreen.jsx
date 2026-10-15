@@ -372,7 +372,7 @@ const styles = {
   addCancel: { height: 40, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   signOffNote: { fontSize: 11, color: 'var(--text-secondary)', margin: '6px 0 0' },
   cancelButton: { minHeight: 40, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
-  saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
+  saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'none' },
 
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },
   modalCard: { padding: 22, ...modalSurface, width: 'min(400px, 100%)' },

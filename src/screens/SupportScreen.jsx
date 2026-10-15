@@ -340,7 +340,7 @@ function AdminSupportView() {
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 680 },
   tabRow: { display: 'flex', gap: 8, marginBottom: 20 },
-  tab: { padding: '7px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' },
+  tab: { padding: '7px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800, textTransform: 'none' },
   tabActive: { background: 'var(--neon)', color: 'var(--neon-text)' },
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
 
@@ -359,7 +359,7 @@ const styles = {
     fontFamily: 'inherit',
     resize: 'vertical',
   },
-  submitButton: { width: '100%', padding: '11px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 14, marginTop: 16, textTransform: 'uppercase' },
+  submitButton: { width: '100%', padding: '11px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 14, marginTop: 16, textTransform: 'none' },
 
   postCard: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 16, marginBottom: 12 },
   postHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
@@ -383,7 +383,7 @@ const styles = {
     fontSize: 12,
     outline: 'none',
   },
-  commentSendButton: { padding: '0 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'uppercase' },
+  commentSendButton: { padding: '0 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'none' },
 
   requestCard: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 16, marginBottom: 12 },
   requestHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },

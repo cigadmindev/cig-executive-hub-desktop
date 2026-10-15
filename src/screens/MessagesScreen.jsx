@@ -299,8 +299,11 @@ export default function MessagesScreen() {
           <PageHeader
             title="Messages"
             subtitle="Chats and groups with your team."
-            extras={canGroup ? <button style={styles.ghostAction} onClick={() => openPicker('group')}>+ New group</button> : null}
-            actionLabel="+ New message"
+            // Shorter labels on a phone so both buttons sit beside the title
+            // instead of "+ New group" on a row of its own (15 Oct 2026).
+            extras={canGroup ? <button style={styles.ghostAction} onClick={() => openPicker('group')}>{isNarrow ? '+ Group' : '+ New group'}</button> : null}
+            phoneExtras="inline"
+            actionLabel={isNarrow ? '+ Message' : '+ New message'}
             onAction={() => openPicker('dm')}
           />
         </div>
@@ -585,7 +588,13 @@ export default function MessagesScreen() {
       {pickerOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={closePicker}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>{pickerMode === 'dm' ? 'New message' : 'New group'}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h2 style={{ ...styles.modalTitle, flex: 1 }}>{pickerMode === 'dm' ? 'New message' : 'New group'}</h2>
+              {/* A way out without picking anyone (15 Oct 2026). */}
+              <button style={styles.pickerClose} onClick={closePicker} aria-label="Close">
+                <Icon name="close" size={16} />
+              </button>
+            </div>
 
             {pickerMode === 'group' ? (
               <input
@@ -637,6 +646,7 @@ const styles = {
   shell: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 },
   head: { padding: '24px max(22px, min(44px, 4vw)) 0', borderBottom: '1px solid var(--border)' },
   headNarrow: { padding: '16px 16px 0' },
+  pickerClose: { width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text-secondary)', flexShrink: 0 },
   ghostAction: {
     background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 10,
     padding: '10px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 40,
@@ -848,7 +858,7 @@ const styles = {
     color: 'var(--neon-text)',
     fontWeight: 900,
     fontSize: 13,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: 0.3,
   },
 
@@ -880,5 +890,5 @@ const styles = {
   personRowSelected: { background: 'var(--accent-soft)' },
   personCheck: { color: 'var(--accent)', fontWeight: 700 },
   cancelButton: { minHeight: 40, flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
-  createButton: { flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'uppercase' },
+  createButton: { flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
 };
