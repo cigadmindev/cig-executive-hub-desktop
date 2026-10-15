@@ -127,6 +127,11 @@ export function accessLevel(user, column, matrix = LIVE) {
   if (column === 'hr' && (v === 'none' || v == null)) return 'read';
   // A row saved before the Daily checklists column existed gets its default.
   if (column === 'dailyChecklists' && v == null) return row.d.dailyChecklists;
+  // Same for Operational POC (15 Oct 2026): the Assistant Manager, Catering
+  // and Executive Chef rows were saved before it was a column, so they read as
+  // blank - the page treated AGMs as unable to fill it in, while the rules
+  // (which fall back to the built-in) let them.
+  if (column === 'operationalPoc' && v == null) return row.d.operationalPoc;
   return v;
 }
 
