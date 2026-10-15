@@ -10,6 +10,7 @@ import { useCustomLocations } from '../context/CustomLocationsContext';
 import DatePickerField from '../components/DatePickerField';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { fmtDay } from '../lib/dates';
 import Pill from '../components/Pill';
 import { plainError } from '../lib/errors';
@@ -65,6 +66,7 @@ export default function AvailabilityScreen() {
   // Executives put in when they're unavailable instead of asking for time
   // off (14 Oct 2026). Not Cameron (IT & Training), Marketing or video.
   const away = usesUnavailableDates(user);
+  const isNarrow = useIsNarrow();
 
   useEffect(() => {
     if (seesTeam && !(users ?? []).length && refreshUsers) refreshUsers().catch(() => {});
@@ -269,8 +271,8 @@ export default function AvailabilityScreen() {
         <div style={{ ...styles.card, borderLeft: '3px solid var(--warn)' }}>
           <p style={styles.cardTitle}>{waiting.length} request{waiting.length === 1 ? '' : 's'} waiting on you</p>
           {waiting.map((r) => (
-            <div key={r.id} style={styles.row}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div key={r.id} style={{ ...styles.row, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                 <strong style={styles.strong}>{r.name}</strong>
                 <span style={styles.muted}> · {range(r)}{r.reason ? ' · “' + r.reason + '”' : ''}</span>
                 {denying === r.id ? (
@@ -364,21 +366,25 @@ export default function AvailabilityScreen() {
 
       {seesTeam && loc ? (
         <div style={styles.card}>
+          {/* On a phone: the title on its own line, then week back, which
+              team, week forward on one row (15 Oct 2026). */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <p style={{ ...styles.cardTitle, margin: 0, flex: 1 }}>
+            <p style={{ ...styles.cardTitle, margin: 0, flex: isNarrow ? '1 1 100%' : 1 }}>
               {loc.id === EXEC ? 'Executive team' : 'My team'} <span style={styles.muted}>· week of {teamMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
             </p>
-            <button style={styles.ghost} onClick={() => setWeekOffset(weekOffset - 1)}>‹</button>
-            <select style={styles.select} value={loc.id} onChange={(e) => setLocKey(e.target.value)}>
-              {teamChoices.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
-            </select>
-            <button style={styles.ghost} onClick={() => setWeekOffset(weekOffset + 1)}>›</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: isNarrow ? '1 1 100%' : 'none', minWidth: 0 }}>
+              <button style={styles.ghost} aria-label="Week before" onClick={() => setWeekOffset(weekOffset - 1)}>‹</button>
+              <select style={{ ...styles.select, ...(isNarrow ? { flex: 1, minWidth: 0 } : {}) }} value={loc.id} onChange={(e) => setLocKey(e.target.value)}>
+                {teamChoices.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+              </select>
+              <button style={styles.ghost} aria-label="Week after" onClick={() => setWeekOffset(weekOffset + 1)}>›</button>
+            </div>
           </div>
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table style={styles.grid}>
+            <table style={isNarrow ? { ...styles.grid, minWidth: 620 } : styles.grid}>
               <thead>
                 <tr>
-                  <th style={{ ...styles.th, textAlign: 'left' }}>Person</th>
+                  <th style={{ ...styles.th, textAlign: 'left', ...(isNarrow ? styles.stickyHead : {}) }}>Person</th>
                   {DAYS.map((d, i) => (
                     <th key={d} style={styles.th}>{SHORT[d]} {new Date(teamMonday.getTime() + i * DAY).getDate()}</th>
                   ))}
@@ -391,7 +397,16 @@ export default function AvailabilityScreen() {
                   const rec = weekFor(weeklyAvailability.find((w) => w.uid === u.uid), teamKey);
                   return (
                     <tr key={u.uid}>
-                      <td style={{ ...styles.td, textAlign: 'left', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{u.name} <span style={styles.muted}>· {u.job ?? ''}</span></td>
+                      {/* On a phone the name stays put while the days scroll,
+                          and the job sits under the name to keep it narrow. */}
+                      {isNarrow ? (
+                        <td style={{ ...styles.td, ...styles.stickyCell, textAlign: 'left', color: 'var(--text-primary)' }}>
+                          {u.name}
+                          {u.job ? <div style={{ ...styles.muted, fontSize: 11 }}>{u.job}</div> : null}
+                        </td>
+                      ) : (
+                        <td style={{ ...styles.td, textAlign: 'left', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{u.name} <span style={styles.muted}>· {u.job ?? ''}</span></td>
+                      )}
                       {DAYS.map((d, i) => {
                         const ua = unavailableOn(u.uid, i);
                         const off = !ua && offOn(u.uid, i);
@@ -409,7 +424,7 @@ export default function AvailabilityScreen() {
               </tbody>
             </table>
           </div>
-          <p style={{ ...styles.note, marginTop: 8 }}>Amber is approved time off{loc.id === EXEC ? ' or unavailable dates (hover for the note)' : ''}. “Not set” means they haven't filled in their usual week.</p>
+          <p style={{ ...styles.note, marginTop: 8 }}>Amber is approved time off{loc.id === EXEC ? ' or unavailable dates' + (isNarrow ? '' : ' (hover for the note)') : ''}. “Not set” means they haven't filled in their usual week.</p>
         </div>
       ) : null}
       {dialogNode}
@@ -444,5 +459,9 @@ const styles = {
   grid: { borderCollapse: 'collapse', width: '100%', minWidth: 760, fontSize: 12 },
   th: { color: 'var(--text-secondary)', fontWeight: 700, padding: '6px', textAlign: 'center', borderBottom: '1px solid var(--border)' },
   td: { border: '1px solid var(--border)', padding: '7px 6px', textAlign: 'center', color: 'var(--text-secondary)' },
+  // Solid: the card colour (--bg-card over the page) as one colour, so the
+  // days scrolling underneath don't show through.
+  stickyHead: { position: 'sticky', left: 0, background: '#202024', zIndex: 1 },
+  stickyCell: { position: 'sticky', left: 0, background: '#202024', zIndex: 1, minWidth: 96, maxWidth: 120 },
   offCell: { background: '#3A2A0E', color: 'var(--warn)', fontWeight: 700 },
 };

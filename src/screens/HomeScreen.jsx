@@ -311,8 +311,19 @@ export default function HomeScreen() {
                   <span style={styles.weekDay}>
                     {new Date(e.dateTime).toLocaleDateString([], { weekday: 'short', day: 'numeric' }).toUpperCase()}
                   </span>
-                  <span style={styles.attentionText}>{e.title}</span>
-                  <span style={styles.attentionWhere}>{e.where}</span>
+                  {/* On a phone the place goes under the title, so the title
+                      gets the width instead of wrapping word by word. */}
+                  {isNarrow ? (
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ ...styles.attentionText, display: 'block' }}>{e.title}</span>
+                      <span style={{ ...styles.attentionWhere, display: 'block', marginTop: 2 }}>{e.where}</span>
+                    </span>
+                  ) : (
+                    <>
+                      <span style={styles.attentionText}>{e.title}</span>
+                      <span style={styles.attentionWhere}>{e.where}</span>
+                    </>
+                  )}
                 </button>
               ))
             )}

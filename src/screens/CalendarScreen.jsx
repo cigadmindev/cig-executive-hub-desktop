@@ -277,9 +277,11 @@ export default function CalendarScreen() {
             openNewForm();
           }}
         />
-        <div style={styles.filterRow}>
+        {/* One row that slides sideways on a phone (15 Oct 2026), instead of
+            four rows of restaurants pushing the calendar down. */}
+        <div style={isNarrow ? { ...styles.filterRow, ...styles.filterRowNarrow } : styles.filterRow}>
           <button
-            style={{ ...styles.filterChip, ...(filterBrandId === 'all' ? styles.filterChipActive : {}) }}
+            style={{ ...styles.filterChip, ...(filterBrandId === 'all' ? styles.filterChipActive : {}), flexShrink: 0 }}
             onClick={() => setFilterBrandId('all')}
           >
             All
@@ -287,7 +289,7 @@ export default function CalendarScreen() {
           {visibleBrands.map((b) => (
             <button
               key={b.id}
-              style={{ ...styles.filterChip, ...(filterBrandId === b.id ? styles.filterChipActive : {}), position: 'relative' }}
+              style={{ ...styles.filterChip, ...(filterBrandId === b.id ? styles.filterChipActive : {}), position: 'relative', flexShrink: 0, whiteSpace: 'nowrap' }}
               onClick={() => setFilterBrandId(b.id)}
             >
               <span style={{ ...styles.filterDot, background: brandColors[b.name] ?? '#8A8A8A' }} />
@@ -650,6 +652,7 @@ const styles = {
   page: { padding: '32px max(22px, min(40px, 4vw))', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
   header: { marginBottom: 24 },
   filterRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },
+  filterRowNarrow: { flexWrap: 'nowrap', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2, marginRight: -22, paddingRight: 22 },
   filterChip: {
     display: 'flex',
     alignItems: 'center',

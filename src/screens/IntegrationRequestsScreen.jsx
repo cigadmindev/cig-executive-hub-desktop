@@ -119,7 +119,7 @@ export default function IntegrationRequestsScreen() {
               {r.locationName ? <span style={styles.cardWhere}> · {r.locationName}</span> : null}
             </div>
             <div style={styles.cardMeta}>
-              {handlesRequests ? `${r.createdByName} · ` : ''}
+              {handlesRequests && r.createdByName ? `${r.createdByName} · ` : ''}
               {when(r.createdAt)}
               {r.respondedByName ? ` · answered by ${r.respondedByName}` : ''}
             </div>

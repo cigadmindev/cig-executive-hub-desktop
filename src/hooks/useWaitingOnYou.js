@@ -66,7 +66,7 @@ export function useWaitingOnYou() {
     if (handlesRequests) {
       (helpRequests ?? [])
         .filter((r) => r.status !== 'done' && !r.respondedAt)
-        .forEach((r) => add('Systems Help', (r.system ?? 'Request') + ' · ' + (r.createdByName ?? ''), 'Answer', '/integration-requests', r.createdAt ?? 0));
+        .forEach((r) => add('Systems Help', [r.system ?? 'Request', r.createdByName].filter(Boolean).join(' · '), 'Answer', '/integration-requests', r.createdAt ?? 0));
     }
     // Only Catering & Events managers claim (10 Oct 2026) - never admins.
     if (accessLevel(user, 'catering') === 'claim') {

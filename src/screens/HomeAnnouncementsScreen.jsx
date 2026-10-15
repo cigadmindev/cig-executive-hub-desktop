@@ -8,6 +8,7 @@ import { accessLevel } from '../data/accessMatrix';
 import PostCard from '../components/PostCard';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { plainError } from '../lib/errors';
 
 // New announcement, in three steps: who it is for, what it says, and how long
@@ -88,6 +89,8 @@ export default function HomeAnnouncementsScreen() {
     }
   };
 
+  // One card per line on a phone (15 Oct 2026); three across squeezed the words.
+  const isNarrow = useIsNarrow();
   const scopeCard = (key, title, sub) => (
     <button style={{ ...styles.scope, ...(scope === key ? styles.scopeOn : {}) }} onClick={() => setScope(key)}>
       <span style={styles.scopeTitle}>{title}</span>
@@ -102,7 +105,7 @@ export default function HomeAnnouncementsScreen() {
         <div style={{ flex: '1 1 460px', minWidth: 0 }}>
 
           <p style={styles.step}>1 · Who is it for?</p>
-          <div style={styles.scopes}>
+          <div style={isNarrow ? { ...styles.scopes, gridTemplateColumns: '1fr' } : styles.scopes}>
             {scopeCard('all', 'Everyone', 'The whole company')}
             {scopeCard('brand', 'A restaurant', 'Every location of one')}
             {scopeCard('location', 'One location', 'Just that restaurant')}

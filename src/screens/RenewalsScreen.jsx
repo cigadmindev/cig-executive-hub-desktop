@@ -13,6 +13,7 @@ import { RENEWAL_TYPE_BY_KEY } from '../data/checklists';
 import PageHeader from '../components/PageHeader';
 import { fmtDay } from '../lib/dates';
 import Pill from '../components/Pill';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { modalBackdrop, modalSurface } from '../theme/modal';
 import { plainError } from '../lib/errors';
 
@@ -22,6 +23,7 @@ export default function RenewalsScreen() {
   const { brandId, locationId } = useParams();
   const { dialogNode, notify, confirm } = useDialog();
   const { user } = useAuth();
+  const isNarrow = useIsNarrow();
   const { getByLocation, ensureSeeded, updateDates, markRenewed, addRenewal, setRenewalHidden } = useRenewals();
   // Same three as the checklist: admins, the COO and the beverage manager.
   const canEdit = canEditChecklists(user);
@@ -170,7 +172,9 @@ export default function RenewalsScreen() {
       ) : null}
 
       <div style={styles.body}>
-        <div style={styles.headRow}>
+        {/* On a phone each permit is its name with its dates under it
+            (15 Oct 2026); three columns did not fit. */}
+        <div style={isNarrow ? { display: 'none' } : styles.headRow}>
           <span style={styles.headName}>Permit</span>
           <span style={styles.headCol}>Approved</span>
           <span style={styles.headCol}>Expires</span>
@@ -200,13 +204,25 @@ export default function RenewalsScreen() {
                   }}
                   onClick={() => setExpandedId(isOpen ? null : item.id)}
                 >
-                  <span style={styles.rowName}>{item.type}</span>
-                  <span style={styles.rowCol}>{item.approvedDate ? formatDate(item.approvedDate) : '—'}</span>
-                  <span style={{ ...styles.rowCol, color: dueSoon ? 'var(--danger)' : 'var(--text-secondary)' }}>
-                    {item.expirationDate ? formatDate(item.expirationDate) : '—'}
-                    {days != null && days >= 0 ? <span style={styles.daysNote}> · {days}d</span> : null}
-                  </span>
-                  <span style={styles.headStatus}>
+                  {isNarrow ? (
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ ...styles.rowName, display: 'block' }}>{item.type}</span>
+                      <span style={{ display: 'block', fontSize: 12, marginTop: 3, color: dueSoon ? 'var(--danger)' : 'var(--text-tertiary)' }}>
+                        {item.expirationDate ? 'Expires ' + formatDate(item.expirationDate) + (days != null && days >= 0 ? ' · ' + days + 'd' : '') : 'No expiry date yet'}
+                        {item.approvedDate ? ' · approved ' + formatDate(item.approvedDate) : ''}
+                      </span>
+                    </span>
+                  ) : (
+                    <>
+                      <span style={styles.rowName}>{item.type}</span>
+                      <span style={styles.rowCol}>{item.approvedDate ? formatDate(item.approvedDate) : '—'}</span>
+                      <span style={{ ...styles.rowCol, color: dueSoon ? 'var(--danger)' : 'var(--text-secondary)' }}>
+                        {item.expirationDate ? formatDate(item.expirationDate) : '—'}
+                        {days != null && days >= 0 ? <span style={styles.daysNote}> · {days}d</span> : null}
+                      </span>
+                    </>
+                  )}
+                  <span style={isNarrow ? { flexShrink: 0 } : styles.headStatus}>
                     {dueSoon ? (days != null && days < 0 ? <Pill tone="red">Overdue</Pill> : <Pill tone="amber">Due soon</Pill>) : null}
                   </span>
                   <span style={styles.headChevron}>{isOpen ? '▾' : '▸'}</span>

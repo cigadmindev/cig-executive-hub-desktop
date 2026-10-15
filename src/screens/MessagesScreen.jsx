@@ -308,7 +308,7 @@ export default function MessagesScreen() {
     <div style={isNarrow ? styles.pageNarrow : styles.page}>
       <div style={{ ...styles.list, ...(isNarrow ? styles.listNarrow : {}), ...(showList ? {} : { display: 'none' }) }}>
 
-        <div style={styles.searchWrap}>
+        <div style={isNarrow ? { ...styles.searchWrap, padding: '0 16px 10px' } : styles.searchWrap}>
           <input
             type="search"
             style={{ ...styles.search, ...(isNarrow ? { fontSize: 16, minHeight: 44 } : {}) }}

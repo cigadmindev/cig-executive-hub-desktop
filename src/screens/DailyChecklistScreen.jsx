@@ -5,6 +5,7 @@ import { useDailyRecord, todayKey, isManagerOnDuty } from '../hooks/useDailyChec
 import { brands } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { fmtTime, fmtDayKey } from '../lib/dates';
 import { plainError } from '../lib/errors';
 
@@ -19,6 +20,7 @@ export default function DailyChecklistScreen() {
   const [params] = useSearchParams();
   const dateKey = params.get('date') ?? todayKey();
   const { user } = useAuth();
+  const isNarrow = useIsNarrow();
   const { dialogNode, notify, confirm } = useDialog();
   const { list, record, toggle, setNote, setWorker, setSheetNote, signOff } = useDailyRecord(locationId, brandId, dateKey, listId);
   // "Starkville", "Ridgeland" - for the sheet's heading and the Drive path.
@@ -64,7 +66,7 @@ export default function DailyChecklistScreen() {
         subtitle={[brandName, place, pretty(dateKey)].filter(Boolean).join(' · ') + (list.subtitle ? ' — ' + list.subtitle : '')}
       />
       <div style={styles.columns}>
-        <div style={styles.sheet}>
+        <div style={isNarrow ? { ...styles.sheet, padding: '16px 14px' } : styles.sheet}>
           <div style={styles.fields}>
             <div><p style={styles.fieldLabel}>DATE</p><p style={styles.fieldValue}>{pretty(dateKey)}</p></div>
             {(list.workers ?? []).map((w) => (
@@ -143,7 +145,7 @@ export default function DailyChecklistScreen() {
             </div>
           ))}
         </div>
-        <div style={styles.side}>
+        <div style={isNarrow ? { ...styles.side, flex: '1 1 100%', position: 'static' } : styles.side}>
           <div style={styles.card}>
             <p style={styles.big}>{done} of {real.length} verified</p>
             <div style={styles.bar}><div style={{ ...styles.fill, width: (real.length ? (done / real.length) * 100 : 0) + '%' }} /></div>

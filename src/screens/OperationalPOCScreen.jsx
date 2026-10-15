@@ -11,6 +11,7 @@ import ConfirmEditField from '../components/ConfirmEditField';
 import SearchBar from '../components/SearchBar';
 import { useState } from 'react';
 import PageHeader from '../components/PageHeader';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { plainError } from '../lib/errors';
 
 export default function OperationalPOCScreen() {
@@ -21,6 +22,7 @@ export default function OperationalPOCScreen() {
   const { loaded, getByLocation: getContacts, ensureSeeded, updateContactField, addContact, deleteContact } =
     useOpeningOngoingContacts();
   const { user } = useAuth();
+  const isNarrow = useIsNarrow();
   const { dialogNode, notify, confirm } = useDialog();
   // Full on the Operational POC column of Who sees what fills in, adds and
   // removes; View only reads (14 Oct 2026). Before, anyone could fill in but
@@ -50,6 +52,7 @@ export default function OperationalPOCScreen() {
       <PageHeader
         back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
         title="Operational POC"
+        phoneExtras="inline"
         subtitle="Who to call for this location: vendors, service companies and suppliers."
         extras={<SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={contacts.map((c) => c.item)} placeholder="Search contacts…" />}
         actionLabel={canEdit && !addOpen ? '+ Add contact' : null}
@@ -123,9 +126,22 @@ export default function OperationalPOCScreen() {
                       on a contact list the number is the content, so hiding it
                       behind a disclosure would defeat the point. */}
                   <div style={styles.rowMain} data-row="" onClick={() => setExpandedId(isOpen ? null : c.id)}>
-                    <span style={styles.rowTitle}>{c.item}</span>
-                    <span style={styles.rowVendor}>{c.vendor || '—'}</span>
-                    <span style={styles.rowContact}>{c.contactNameNumber || '—'}</span>
+                    {/* On a phone the company and number go under the item
+                        (15 Oct 2026); three columns cut the number off. */}
+                    {isNarrow ? (
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ ...styles.rowTitle, display: 'block' }}>{c.item}</span>
+                        <span style={{ display: 'block', fontSize: 12, marginTop: 2, color: c.vendor || c.contactNameNumber ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}>
+                          {[c.vendor, c.contactNameNumber].filter(Boolean).join(' · ') || 'Not filled in yet'}
+                        </span>
+                      </span>
+                    ) : (
+                      <>
+                        <span style={styles.rowTitle}>{c.item}</span>
+                        <span style={styles.rowVendor}>{c.vendor || '—'}</span>
+                        <span style={styles.rowContact}>{c.contactNameNumber || '—'}</span>
+                      </>
+                    )}
                     <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
                   </div>
                   {isOpen ? (

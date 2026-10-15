@@ -377,6 +377,7 @@ export default function OpeningChecklistScreen() {
         back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
         title="Opening Checklist"
         subtitle="Everything that has to happen before this location opens, and who is doing it."
+        phoneExtras="inline"
         extras={<SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={searchSuggestions} placeholder="Search tasks…" />}
         actionLabel={canEdit && info.openingDate ? '+ Add item' : null}
         onAction={() => openAddForm('setup')}
@@ -396,6 +397,7 @@ export default function OpeningChecklistScreen() {
           <ConfirmEditField label="Contractor" value={info.contractor} onSave={(v) => updateInfoField(locationId, 'contractor', v)} />
           <ConfirmEditField label="Contractor Contact" value={info.contractorContact} onSave={(v) => updateInfoField(locationId, 'contractorContact', v)} />
           <ConfirmEditField label="Project Manager" value={info.projectManager} onSave={(v) => updateInfoField(locationId, 'projectManager', v)} />
+          <ConfirmEditField label="Address" value={info.address} placeholder="Street, city, state, ZIP" onSave={(v) => updateInfoField(locationId, 'address', v)} />
         </div>
 
         <p style={{ ...styles.label, display: infoOpen ? 'block' : 'none' }}>Important Numbers</p>

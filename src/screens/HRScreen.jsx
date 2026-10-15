@@ -81,6 +81,7 @@ export default function HRScreen() {
     <div style={styles.page}>
       <PageHeader
         title="HR"
+        phoneExtras="inline"
         subtitle="The same for every restaurant. Forms, and who to talk to."
         extras={
           isAdmin ? (
@@ -261,7 +262,7 @@ function InsuranceSection({ isAdmin, notify }) {
   return (
     <>
       <p style={styles.sectionLabel}>
-        Benefits &amp; insurance <span style={styles.contactTitle}>· executives only</span>
+        Benefits &amp; insurance · executives only
         {isAdmin ? (
           <button style={{ ...styles.editButton, marginLeft: 10 }} onClick={() => setDraft({ ...info })}>
             Edit
