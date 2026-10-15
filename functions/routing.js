@@ -92,7 +92,15 @@ async function brandForTarget(targetId) {
 // Admins and executives see every location; a manager sees what they were given.
 function seesLocation(u, brandId, locationId = null) {
   if (!brandId) return true;
-  if (u.role === 'admin' || u.role === 'executive') return true;
+  if (u.role === 'admin') return true;
+  // An executive sees every restaurant only when their job's row says Where:
+  // All or All brands - the same answer the screens give (15 Oct 2026). An
+  // executive login on a job row that is limited to its own place (a GM row,
+  // say) is limited by their login, like a manager. No job row: everywhere.
+  if (u.role === 'executive') {
+    const row = M.rowForJob(u.job);
+    if (!row || ['all', 'brands'].includes(row.d.where)) return true;
+  }
   if (!(u.permissions?.brandIds ?? []).includes(brandId)) return false;
   if (!locationId) return true;
   const only = u.permissions?.locationsByBrand?.[brandId];

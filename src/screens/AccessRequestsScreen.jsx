@@ -28,7 +28,7 @@ const KIND = { category: 'Folder', brand: 'Restaurant', location: 'Location', fe
 
 export default function AccessRequestsScreen() {
   const { user, hasBrandAccess, hasLocationAccess } = useAuth();
-  const { requests, approve, decline, adminSetStatus, personFor } = useAccessRequests();
+  const { requests, loaded, approve, decline, adminSetStatus, personFor } = useAccessRequests();
   const { dialogNode, notify } = useDialog();
   const isAdmin = user?.role === 'admin';
 
@@ -190,7 +190,7 @@ export default function AccessRequestsScreen() {
         selectedId={selected?.id}
         onSelect={(id) => { setSelectedId(id); setDeclining(null); setChanging(null); }}
         detail={detail}
-        empty="No access requests in this list."
+        empty={loaded ? 'No access requests in this list.' : 'Loading…'}
         phoneRow={(r) => (
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ flex: 1, minWidth: 0 }}>

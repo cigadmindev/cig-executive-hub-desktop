@@ -30,6 +30,10 @@ const IntegrationRequestsContext = createContext(undefined);
 export function IntegrationRequestsProvider({ children }) {
   const { user } = useAuth();
   const [requests, setRequests] = useState([]);
+  // Whether the list has arrived yet, so the page says Loading rather than
+  // "nothing here" for the first moment (15 Oct 2026).
+  const [loaded, setLoaded] = useState(false);
+  const setRequestsLoaded = (v) => { setLoaded(true); setRequests(v); };
 
   // Whoever holds the job sees everything. Everyone else sees what they sent.
   // Job rather than person, because Cameron is moving into this role and the
@@ -51,7 +55,7 @@ export function IntegrationRequestsProvider({ children }) {
     return onSnapshot(
       q,
       (snapshot) => {
-        setRequests(
+        setRequestsLoaded(
           snapshot.docs.map((d) => {
             const data = d.data();
             return {
@@ -127,7 +131,7 @@ export function IntegrationRequestsProvider({ children }) {
 
   return (
     <IntegrationRequestsContext.Provider
-      value={{ requests, handlesRequests, submitRequest, respond, markSeen, hasUnseen, openCount }}
+      value={{ requests, loaded, handlesRequests, submitRequest, respond, markSeen, hasUnseen, openCount }}
     >
       {children}
     </IntegrationRequestsContext.Provider>

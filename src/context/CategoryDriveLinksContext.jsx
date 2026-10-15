@@ -24,39 +24,6 @@ function keyFor(locationId, categoryId, itemName) {
 
 export function CategoryDriveLinksProvider({ children }) {
   const { user } = useAuth();
-  const [linksByKey, setLinksByKey] = useState({});
-
-  useEffect(() => {
-    if (!user) {
-      setLinksByKey({});
-      return;
-    }
-    // Only the restaurants this person has. 385 links, and every browser
-    // held all of them.
-    const seesAll = user.role === 'admin' || user.role === 'executive';
-    const mine = user.permissions?.brandIds ?? [];
-    if (!seesAll && mine.length === 0) {
-      setLinksByKey({});
-      return;
-    }
-    const source = seesAll
-      ? collection(db, COLLECTION)
-      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)));
-
-    const unsubscribe = onSnapshot(source, (snapshot) => {
-      const map = {};
-      snapshot.docs.forEach((d) => {
-        const data = d.data();
-        map[keyFor(data.locationId, data.categoryId, data.itemName)] = data.driveUrl;
-      });
-      setLinksByKey(map);
-    },
-      (err) => console.error('[CategoryDriveLinks listener] ' + err.code + ': ' + err.message)
-    );
-    return unsubscribe;
-  }, [user]);
-
-  const getLink = (locationId, categoryId, itemName) => linksByKey[keyFor(locationId, categoryId, itemName)] ?? null;
 
   const setLink = async (locationId, categoryId, itemName, rawUrl) => {
     const driveUrl = normaliseDriveUrl(rawUrl);
@@ -72,14 +39,45 @@ export function CategoryDriveLinksProvider({ children }) {
   };
 
   return (
-    <CategoryDriveLinksContext.Provider value={{ getLink, setLink }}>
+    <CategoryDriveLinksContext.Provider value={{ setLink }}>
       {children}
     </CategoryDriveLinksContext.Provider>
   );
 }
 
-export function useCategoryDriveLinks() {
+// Only the links for the one folder page that is open (15 Oct 2026). Every
+// page used to load all 553 links, for everyone, every time the Hub opened -
+// the biggest single share of the day's database reads. The restaurant is in
+// the query so the rule can see it is one of theirs.
+export function useCategoryDriveLinks(brandId, locationId, categoryId) {
   const ctx = useContext(CategoryDriveLinksContext);
   if (!ctx) throw new Error('useCategoryDriveLinks must be used within CategoryDriveLinksProvider');
-  return ctx;
+  const { user } = useAuth();
+  const [linksByKey, setLinksByKey] = useState({});
+
+  useEffect(() => {
+    setLinksByKey({});
+    if (!user || !brandId || !locationId || !categoryId) return undefined;
+    const source = query(
+      collection(db, COLLECTION),
+      where('brandId', '==', brandId),
+      where('locationId', '==', locationId),
+      where('categoryId', '==', categoryId)
+    );
+    return onSnapshot(
+      source,
+      (snapshot) => {
+        const map = {};
+        snapshot.docs.forEach((d) => {
+          const data = d.data();
+          map[keyFor(data.locationId, data.categoryId, data.itemName)] = data.driveUrl;
+        });
+        setLinksByKey(map);
+      },
+      (err) => console.error('[CategoryDriveLinks listener] ' + err.code + ': ' + err.message)
+    );
+  }, [user?.uid, brandId, locationId, categoryId]);
+
+  const getLink = (loc, cat, itemName) => linksByKey[keyFor(loc, cat, itemName)] ?? null;
+  return { getLink, setLink: ctx.setLink };
 }

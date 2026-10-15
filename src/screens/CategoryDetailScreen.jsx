@@ -24,7 +24,7 @@ export default function CategoryDetailScreen() {
   const isAdmin = user?.role === 'admin';
   const { getByCategory, toggleLike, addComment, toggleCommentLike, deletePost, deleteComment } = useAnnouncements();
   const { markCategoryViewed } = useViewTracking();
-  const { getLink, setLink } = useCategoryDriveLinks();
+  const { getLink, setLink } = useCategoryDriveLinks(brandId, locationId, categoryId);
   const [connectingItem, setConnectingItem] = useState(null);
   const [linkDraft, setLinkDraft] = useState('');
   // Above the early returns: a hook after one crashes the page when a new

@@ -24,10 +24,11 @@ export function NotificationsProvider({ children }) {
       setItems([]);
       return;
     }
-    // The most recent few hundred. Older than that belongs in the thing
-    // itself, not in a list of what you were told about it.
+    // The most recent 60 (was 200, 15 Oct 2026: each one is a database read
+    // every time the Hub opens). Older than that belongs in the thing itself,
+    // not in a list of what you were told about it.
     return onSnapshot(
-      query(collection(db, COLLECTION), where('uid', '==', user.uid), orderBy('createdAt', 'desc'), limit(200)),
+      query(collection(db, COLLECTION), where('uid', '==', user.uid), orderBy('createdAt', 'desc'), limit(60)),
       (snapshot) =>
         setItems(
           snapshot.docs.map((d) => {

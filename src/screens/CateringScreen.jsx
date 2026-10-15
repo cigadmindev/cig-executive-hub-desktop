@@ -43,7 +43,7 @@ const BLANK = { kind: 'catering', locationId: '', name: '', email: '', phone: ''
 export default function CateringScreen() {
   const { user, hasLocationAccess } = useAuth();
   const { getByBrand } = useCustomLocations();
-  const { enquiries, addEnquiry, claim, setStatus, lose, adminSetStatus, update, correct, markInvoiced, markPaid, putOnCalendar } = useCatering();
+  const { enquiries, loaded, addEnquiry, claim, setStatus, lose, adminSetStatus, update, correct, markInvoiced, markPaid, putOnCalendar } = useCatering();
   const { dialogNode, notify } = useDialog();
   const isAdmin = user?.role === 'admin';
   // Only Catering & Events managers claim and work enquiries (Brenner,
@@ -292,7 +292,7 @@ export default function CateringScreen() {
         selectedId={selected?.id}
         onSelect={(id) => { setSelectedId(id); reset(); }}
         detail={detail}
-        empty="No enquiries in this list."
+        empty={loaded ? 'No enquiries in this list.' : 'Loading…'}
         phoneRow={(e) => (
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ flex: 1, minWidth: 0 }}>

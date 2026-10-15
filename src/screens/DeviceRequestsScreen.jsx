@@ -34,7 +34,7 @@ const FILTERS = [
 
 export default function DeviceRequestsScreen() {
   const { user } = useAuth();
-  const { requests, addRequest, decide, markOrdered, markArrived, adminEdit, adminSetStatus } = useDeviceRequests();
+  const { requests, loaded, addRequest, decide, markOrdered, markArrived, adminEdit, adminSetStatus } = useDeviceRequests();
   const { getByBrand } = useCustomLocations();
   const { dialogNode, notify } = useDialog();
 
@@ -225,7 +225,7 @@ export default function DeviceRequestsScreen() {
         selectedId={selected?.id}
         onSelect={(id) => { setSelectedId(id); setDeclining(false); setOrdering(false); setEditing(null); setChanging(null); }}
         detail={detail}
-        empty="No device requests in this list."
+        empty={loaded ? 'No device requests in this list.' : 'Loading…'}
         phoneRow={(r) => (
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ flex: 1, minWidth: 0 }}>

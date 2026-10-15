@@ -15,14 +15,15 @@ import { useAuth } from './AuthContext';
 // or on its way.
 const COLLECTION = 'deviceRequests';
 
-// Ordered, because a request only ever moves forward.
-export const DEVICE_STATES = ['requested', 'approved', 'ordered', 'arrived', 'declined'];
-
 const DeviceRequestsContext = createContext(undefined);
 
 export function DeviceRequestsProvider({ children }) {
   const { user } = useAuth();
   const [requests, setRequests] = useState([]);
+  // Whether the list has arrived yet, so the page says Loading rather than
+  // "nothing here" for the first moment (15 Oct 2026).
+  const [loaded, setLoaded] = useState(false);
+  const setRequestsLoaded = (v) => { setLoaded(true); setRequests(v); };
 
   useEffect(() => {
     if (!user) {
@@ -41,7 +42,7 @@ export function DeviceRequestsProvider({ children }) {
     return onSnapshot(
       source,
       (snapshot) =>
-        setRequests(
+        setRequestsLoaded(
           snapshot.docs.map((d) => {
             const x = d.data();
             return {
@@ -158,7 +159,7 @@ export function DeviceRequestsProvider({ children }) {
   const closed = requests.filter((r) => r.status === 'arrived' || r.status === 'declined');
 
   return (
-    <DeviceRequestsContext.Provider value={{ requests, open, closed, addRequest, decide, markOrdered, markArrived, adminEdit, adminSetStatus }}>
+    <DeviceRequestsContext.Provider value={{ requests, loaded, open, closed, addRequest, decide, markOrdered, markArrived, adminEdit, adminSetStatus }}>
       {children}
     </DeviceRequestsContext.Provider>
   );

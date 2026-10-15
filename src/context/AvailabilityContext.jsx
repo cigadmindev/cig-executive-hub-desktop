@@ -7,11 +7,6 @@ import { useAuth } from './AuthContext';
 const AvailabilityContext = createContext(undefined);
 const DENIED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Seven days a year, company-wide. A constant rather than a per-user field
-// because it's currently uniform — when it stops being, this becomes a value
-// on the user document and the calculation reads it from there.
-export const PTO_ALLOWANCE_DAYS = 7;
-
 export function AvailabilityProvider({ children }) {
   const { user } = useAuth();
   const [timeOffRequests, setTimeOffRequests] = useState([]);
@@ -168,19 +163,6 @@ export function AvailabilityProvider({ children }) {
     };
   }, [user]);
 
-  // Days used this calendar year, derived from approved requests rather than
-  // a stored counter — a counter can drift from the requests it's meant to
-  // summarise, and then nobody knows which number is true.
-  const ptoUsed = (uid) => {
-    const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
-    return timeOffRequests
-      .filter((r) => r.uid === uid && r.status === 'approved' && r.startDate >= yearStart)
-      .reduce((days, r) => {
-        const span = Math.round((r.endDate - r.startDate) / (24 * 60 * 60 * 1000)) + 1;
-        return days + Math.max(span, 1);
-      }, 0);
-  };
-
   const submitTimeOff = async (startDate, endDate, reason) => {
     if (!user) return;
     // The reason first, under the same id, so the email to the COO and
@@ -276,7 +258,6 @@ export function AvailabilityProvider({ children }) {
         setMyWeeklyAvailability,
         setWeekOverride,
         getWeekStart,
-        ptoUsed,
       }}
     >
       {children}

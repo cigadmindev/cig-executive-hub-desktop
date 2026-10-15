@@ -43,6 +43,10 @@ export const EVENT_NEEDS_OPTIONS = JOB_OPTIONS;
 export function EventRequestsProvider({ children }) {
   const { user } = useAuth();
   const [requests, setRequests] = useState([]);
+  // Whether the list has arrived yet, so the page says Loading rather than
+  // "nothing here" for the first moment (15 Oct 2026).
+  const [loaded, setLoaded] = useState(false);
+  const setRequestsLoaded = (v) => { setLoaded(true); setRequests(v); };
 
   useEffect(() => {
     if (!user) {
@@ -82,7 +86,7 @@ export function EventRequestsProvider({ children }) {
           resolvedByUid: data.resolvedByUid ?? null,
         };
       });
-      setRequests(list);
+      setRequestsLoaded(list);
 
       // Same reactive cleanup as mobile — sweeps denied requests older
       // than 7 days whenever any signed-in device has this data loaded.
@@ -199,7 +203,7 @@ export function EventRequestsProvider({ children }) {
 
   return (
     <EventRequestsContext.Provider
-      value={{ requests, getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest, hasNeedMatchingJob, adminSetStatus }}
+      value={{ requests, loaded, getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest, hasNeedMatchingJob, adminSetStatus }}
     >
       {children}
     </EventRequestsContext.Provider>

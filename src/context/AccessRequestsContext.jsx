@@ -14,6 +14,10 @@ const COLLECTION = 'accessRequests';
 
 export function AccessRequestsProvider({ children }) {
   const [requests, setRequests] = useState([]);
+  // Whether the list has arrived yet, so the page says Loading rather than
+  // "nothing here" for the first moment (15 Oct 2026).
+  const [loaded, setLoaded] = useState(false);
+  const setRequestsLoaded = (v) => { setLoaded(true); setRequests(v); };
   const { user, users, updatePermissions } = useAuth();
   const isAdmin = user?.role === 'admin';
 
@@ -31,7 +35,7 @@ export function AccessRequestsProvider({ children }) {
     return onSnapshot(
       source,
       (snapshot) => {
-        setRequests(
+        setRequestsLoaded(
           snapshot.docs.map((d) => {
             const data = d.data();
             return {
@@ -170,7 +174,7 @@ export function AccessRequestsProvider({ children }) {
     requests.some((r) => r.userEmail === userEmail && r.type === type && r.targetId === targetId && r.status === 'pending');
 
   return (
-    <AccessRequestsContext.Provider value={{ requests, addRequest, approve, decline, adminSetStatus, hasPendingRequest, personFor }}>
+    <AccessRequestsContext.Provider value={{ requests, loaded, addRequest, approve, decline, adminSetStatus, hasPendingRequest, personFor }}>
       {children}
     </AccessRequestsContext.Provider>
   );

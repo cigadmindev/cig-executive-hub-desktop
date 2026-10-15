@@ -19,7 +19,7 @@ export default function IntegrationRequestsScreen() {
   const { user, hasBrandAccess } = useAuth();
   const { getByBrand } = useCustomLocations();
   const { dialogNode, notify } = useDialog();
-  const { requests, handlesRequests, submitRequest, respond, markSeen } = useIntegrationRequests();
+  const { requests, loaded, handlesRequests, submitRequest, respond, markSeen } = useIntegrationRequests();
 
   const [formOpen, setFormOpen] = useState(false);
   const [kind, setKind] = useState('change');
@@ -233,7 +233,7 @@ export default function IntegrationRequestsScreen() {
         selectedId={selected?.id}
         onSelect={(id) => { setOpenId(id); setDraftResponse(requests.find((r) => r.id === id)?.response ?? ''); }}
         detail={detailPanel}
-        empty="No requests in this list."
+        empty={loaded ? 'No requests in this list.' : 'Loading…'}
         phoneRow={(r) => (
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ flex: 1, minWidth: 0 }}>

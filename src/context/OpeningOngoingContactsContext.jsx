@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, setDoc, runTransaction, query, where, getDocs, writeBatch , addDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
 import { useCustomLocations } from './CustomLocationsContext';
-import { brands } from '../data/mockData';
+import { brands, hasFeature } from '../data/mockData';
 import { ALL_CONTACT_SECTIONS } from '../data/openingChecklistData';
 
 const OpeningOngoingContactsContext = createContext(undefined);
@@ -17,6 +17,16 @@ export function OpeningOngoingContactsProvider({ children }) {
   // True once the first answer has arrived, so an empty list can say "none
   // yet" instead of "Loading…" forever (V4).
   const [loaded, setLoaded] = useState(false);
+  // What to load (15 Oct 2026). Every contact used to load for everyone each
+  // time the Hub opened - 396 records, unused by most people. Now: a manager
+  // whose Home lists "Contacts to fill in" gets their restaurants' contacts;
+  // everyone else only the location whose POC page is open.
+  const homeNeedsThem = !!user && !hasFeature(user, 'openingChecklist') && hasFeature(user, 'operationalPoc');
+  const [watched, setWatched] = useState(null); // { brandId, locationId }
+  const watch = useCallback((brandId, locationId) => {
+    setWatched({ brandId, locationId });
+    return () => setWatched((w) => (w && w.locationId === locationId ? null : w));
+  }, []);
 
   // The rules cannot work out a contact's restaurant on their own - Chelsea's
   // id is a random string - so every contact carries brandId.
@@ -40,14 +50,22 @@ export function OpeningOngoingContactsProvider({ children }) {
     // lot; a manager with none takes nothing rather than everything.
     const seesAll = user.role === 'admin' || user.role === 'executive';
     const mine = user.permissions?.brandIds ?? [];
-    if (!seesAll && mine.length === 0) {
+    let source = null;
+    if (watched && !homeNeedsThem) {
+      // One location's page. The restaurant is in the query so the rule can
+      // see it is one of theirs.
+      source = query(collection(db, COLLECTION), where('brandId', '==', watched.brandId), where('locationId', '==', watched.locationId));
+    } else if (homeNeedsThem && (seesAll || mine.length > 0)) {
+      source = seesAll
+        ? collection(db, COLLECTION)
+        : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)));
+    }
+    if (!source) {
       setContacts([]);
-      setLoaded(true);
+      setLoaded(!watched);
       return;
     }
-    const source = seesAll
-      ? collection(db, COLLECTION)
-      : query(collection(db, COLLECTION), where('brandId', 'in', mine.slice(0, 30)));
+    setLoaded(false);
 
     const unsubscribe = onSnapshot(source, (snapshot) => {
       const list = snapshot.docs.map((d) => {
@@ -73,7 +91,7 @@ export function OpeningOngoingContactsProvider({ children }) {
       }
     );
     return unsubscribe;
-  }, [user]);
+  }, [user, homeNeedsThem, watched?.brandId, watched?.locationId]);
 
   const getByLocation = (locationId) =>
     contacts.filter((c) => c.locationId === locationId).sort((a, b) => a.order - b.order);
@@ -205,7 +223,7 @@ export function OpeningOngoingContactsProvider({ children }) {
 
   return (
     <OpeningOngoingContactsContext.Provider
-      value={{ loaded, getByLocation, ensureSeeded, updateContactField, regenerateForLocation, addContact, deleteContact }}
+      value={{ loaded, watch, getByLocation, ensureSeeded, updateContactField, regenerateForLocation, addContact, deleteContact }}
     >
       {children}
     </OpeningOngoingContactsContext.Provider>

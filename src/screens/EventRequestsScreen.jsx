@@ -28,7 +28,7 @@ export default function EventRequestsScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const { brandId, locationId } = useParams();
   const { user, activeUsers: users } = useAuth();
-  const { getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest, adminSetStatus } = useEventRequests();
+  const { loaded, getByLocation, submitRequest, resolveRequest, approveAndSchedule, updateEventRequest, deleteEventRequest, adminSetStatus } = useEventRequests();
   const [filter, setFilter] = useState('pending');
   const [selectedId, setSelectedId] = useState(null);
   const [changing, setChanging] = useState(null);
@@ -283,7 +283,7 @@ export default function EventRequestsScreen() {
         selectedId={selected?.id}
         onSelect={(id) => { setSelectedId(id); setChanging(null); }}
         detail={detail}
-        empty="No event requests in this list."
+        empty={loaded ? 'No event requests in this list.' : 'Loading…'}
         phoneRow={(r) => (
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ flex: 1, minWidth: 0 }}>

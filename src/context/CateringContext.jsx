@@ -15,15 +15,13 @@ import { useAuth } from './AuthContext';
 // phone, and who is handling it.
 const COLLECTION = 'cateringEnquiries';
 
-// A private event finishes when it happens. Catering has to be paid for -
-// private events are not charged.
-export const STATES = ['new', 'talking', 'confirmed', 'done', 'lost'];
-
 const CateringContext = createContext(undefined);
 
 export function CateringProvider({ children }) {
   const { user } = useAuth();
   const [enquiries, setEnquiries] = useState([]);
+  // Whether the list has arrived yet (15 Oct 2026).
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -53,6 +51,7 @@ export function CateringProvider({ children }) {
     const publish = () => {
       if (parts.some((x) => x === null)) return;
       setEnquiries(parts.flat().sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)));
+      setLoaded(true);
     };
 
     const unsubs = sources.map((source, i) => onSnapshot(
@@ -298,7 +297,7 @@ export function CateringProvider({ children }) {
 
   return (
     <CateringContext.Provider
-      value={{ enquiries: visible, addEnquiry, update, correct, claim, setStatus, lose, adminSetStatus, markInvoiced, markPaid, putOnCalendar }}
+      value={{ enquiries: visible, loaded, addEnquiry, update, correct, claim, setStatus, lose, adminSetStatus, markInvoiced, markPaid, putOnCalendar }}
     >
       {children}
     </CateringContext.Provider>

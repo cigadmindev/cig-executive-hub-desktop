@@ -19,8 +19,10 @@ export default function OperationalPOCScreen() {
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
   const [expandedId, setExpandedId] = useState(null);
-  const { loaded, getByLocation: getContacts, ensureSeeded, updateContactField, addContact, deleteContact } =
+  const { loaded, watch, getByLocation: getContacts, ensureSeeded, updateContactField, addContact, deleteContact } =
     useOpeningOngoingContacts();
+  // Load this location's contacts while the page is open (15 Oct 2026).
+  useEffect(() => watch(brandId, locationId), [brandId, locationId]);
   const { user } = useAuth();
   const isNarrow = useIsNarrow();
   const { dialogNode, notify, confirm } = useDialog();
