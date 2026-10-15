@@ -79,7 +79,13 @@ const NOTES = {
   catering: 'Claims, works and edits catering and private events at their location; adds event costs',
   it: 'Everything except the pre-opening checklist; handles Systems Help. Their restaurants come from their login',
 };
+// Operational POC (14 Oct 2026): Mark wants every location's contacts filled
+// in, and that is the job of the GMs, assistant managers, Shannon, Ronnie and
+// Bobbie - so they are Full (fill in, add and remove at their places). View
+// is now read-only on the page.
+const POC_FULL = ['coo', 'culinary', 'beverage', 'gm', 'agm'];
 ROWS.forEach((row) => {
+  if (POC_FULL.includes(row.id)) row.d.operationalPoc = 'full';
   row.d.dailyChecklists = DAILY_WORK.includes(row.id) ? 'work' : 'none';
   if (row.d.hr === 'none') row.d.hr = 'read';
   if (NOTES[row.id]) row.d.note = NOTES[row.id];
@@ -87,6 +93,16 @@ ROWS.forEach((row) => {
 
 function rowForJob(job) {
   return ROWS.find((row) => row.jobs.includes(job)) ?? null;
+}
+
+// Executives don't ask for time off; they put in the dates they'll be
+// unavailable (Brenner, 14 Oct 2026). Executive logins only - not IT &
+// Training (Cameron), Marketing or the videographer. Kept in step with
+// usesUnavailableDates() in firestore.rules.
+const NOT_UNAVAILABLE_ROWS = ['it', 'marketing', 'video'];
+function usesUnavailableDates(user) {
+  if (user?.role !== 'executive') return false;
+  return !NOT_UNAVAILABLE_ROWS.includes(rowForJob(user.job)?.id);
 }
 
 // The live table, set by AccessMatrixProvider whenever it changes, so plain
@@ -161,4 +177,4 @@ function featureAllowed(user, key) {
   return col ? accessLevel(user, col) !== 'none' : true;
 }
 
-module.exports = { ALL_FOLDERS, COLUMNS, ROWS, rowForJob, setLiveMatrix, accessLevel, seesEveryRestaurant, atLeast, canSeeFolder, featureAllowed };
+module.exports = { ALL_FOLDERS, COLUMNS, ROWS, rowForJob, NOT_UNAVAILABLE_ROWS, usesUnavailableDates, setLiveMatrix, accessLevel, seesEveryRestaurant, atLeast, canSeeFolder, featureAllowed };

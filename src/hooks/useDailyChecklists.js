@@ -101,7 +101,10 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
       const snap = await tx.get(ref);
       const tasks = [...snap.data().tasks];
       const t = tasks[index];
-      tasks[index] = t.done ? { ...t, done: false, byName: null, at: null } : { ...t, done: true, byName: user?.name ?? '', at: Date.now(), note: '' };
+      // Ticking keeps any note (15 Oct 2026, Mike): a note on a finished
+      // task is information for the team - the pars set, what the truck
+      // was short - not only "couldn't be done".
+      tasks[index] = t.done ? { ...t, done: false, byName: null, at: null } : { ...t, done: true, byName: user?.name ?? '', at: Date.now() };
       tx.update(ref, { tasks, ...(isManagerOnDuty(user, locationId, brandId) ? { managers: arrayUnion(user.name) } : {}) });
     });
   const setNote = (index, note) =>

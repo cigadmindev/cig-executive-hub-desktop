@@ -132,13 +132,16 @@ async function drawPdf(r, locationName) {
     }
     const lines = wrap(t.details ?? '', font, 8, taskW - 8);
     const titleLines = wrap(t.title, bold, 10, taskW - 8);
-    const h = 8 + titleLines.length * 13 + (t.details ? lines.length * 10 : 0) + (t.note ? 12 : 0) + 6;
+    // A ticked task's note is information; an unticked one's says why it
+    // couldn't be done (15 Oct 2026). Wrapped, so a long note stays on the page.
+    const noteLines = t.note ? wrap(clean((t.done ? 'Note: ' : "Couldn't be done: ") + t.note + (t.noteByName ? ' - ' + t.noteByName : '')), font, 8, taskW - 8) : [];
+    const h = 8 + titleLines.length * 13 + (t.details ? lines.length * 10 : 0) + noteLines.length * 10 + (noteLines.length ? 2 : 0) + 6;
     need(h);
     page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: line });
     let yy = y - 14;
     for (const l of titleLines) { page.drawText(l, { x: M, y: yy, size: 10, font: bold, color: ink }); yy -= 13; }
     if (t.details) for (const l of lines) { page.drawText(l, { x: M, y: yy, size: 8, font, color: soft }); yy -= 10; }
-    if (t.note) { page.drawText(clean("Couldn't be done: " + t.note + (t.noteByName ? ' - ' + t.noteByName : '')), { x: M, y: yy, size: 8, font, color: rgb(0.7, 0.45, 0) }); }
+    for (const l of noteLines) { page.drawText(l, { x: M, y: yy, size: 8, font, color: t.done ? soft : rgb(0.7, 0.45, 0) }); yy -= 10; }
     if (r.sections && t.section) page.drawText(clean(t.section), { x: M + taskW, y: y - 14, size: 9, font, color: ink });
     const bx = W - M - initW;
     page.drawRectangle({ x: bx, y: y - 22, width: 14, height: 14, borderColor: soft, borderWidth: 0.8 });

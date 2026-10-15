@@ -102,10 +102,12 @@ export default function DailyChecklistScreen() {
                     <td style={styles.td}>
                       <div style={styles.taskTitle}>{t.title}</div>
                       {t.details ? <div style={styles.details}>{t.details}</div> : null}
-                      {t.note ? <div style={styles.note}>Couldn't be done: {t.note}{t.noteByName ? ' — ' + t.noteByName : ''}</div> : null}
+                      {/* A note on a ticked task is information for the team;
+                          on an unticked one it says why it couldn't be done. */}
+                      {t.note ? <div style={t.done ? styles.infoNote : styles.note}>{t.done ? 'Note: ' : "Couldn't be done: "}{t.note}{t.noteByName ? ' — ' + t.noteByName : ''}</div> : null}
                       {noting === i ? (
                         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                          <input style={{ ...styles.input, flex: 1 }} autoFocus value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="What couldn't be done, and why" />
+                          <input style={{ ...styles.input, flex: 1 }} autoFocus value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder={t.done ? 'A note for the team' : "What couldn't be done, and why"} />
                           <button style={styles.ghost} onClick={async () => { await setNote(i, noteText.trim()); setNoting(null); }}>Save</button>
                         </div>
                       ) : null}
@@ -122,8 +124,8 @@ export default function DailyChecklistScreen() {
                         {t.done ? '✓' : ''}
                       </button>
                       {t.done ? <span style={styles.stamp}>{time(t.at)}</span> : null}
-                      {canWork && !t.done && noting !== i ? (
-                        <button style={styles.link} onClick={() => { setNoting(i); setNoteText(t.note ?? ''); }}>Note</button>
+                      {canWork && noting !== i ? (
+                        <button style={styles.link} onClick={() => { setNoting(i); setNoteText(t.note ?? ''); }}>{t.note ? 'Edit note' : 'Note'}</button>
                       ) : null}
                     </td>
                   </tr>
@@ -193,6 +195,7 @@ const styles = {
   taskTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' },
   details: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55, marginTop: 3, whiteSpace: 'pre-wrap' },
   note: { fontSize: 12, color: 'var(--warn)', marginTop: 4 },
+  infoNote: { fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 },
   box: { width: 24, height: 24, borderRadius: 6, border: '2px solid var(--border-strong)', background: 'none', color: '#0A0A0B', fontWeight: 900, cursor: 'pointer', verticalAlign: 'middle' },
   boxOn: { background: 'var(--neon)', borderColor: 'var(--neon)' },
   stamp: { fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 6 },
