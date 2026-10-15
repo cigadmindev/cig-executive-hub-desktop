@@ -11,6 +11,28 @@ const OpeningOngoingContactsContext = createContext(undefined);
 const COLLECTION = 'openingOngoingContacts';
 const SEED_MARKER_COLLECTION = 'openingOngoingContactsSeedMarker';
 
+function mapContact(d) {
+  const data = d.data();
+  return {
+    id: d.id,
+    brandId: data.brandId ?? null,
+    locationId: data.locationId,
+    section: data.section,
+    item: data.item,
+    who: data.who ?? '',
+    vendor: data.vendor ?? '',
+    contactNameNumber: data.contactNameNumber ?? '',
+    accountNumber: data.accountNumber ?? '',
+    // Who has been asked to fill it in (15 Oct 2026) - set by the server.
+    assignedToUid: data.assignedToUid ?? null,
+    assignedToName: data.assignedToName ?? '',
+    assignedByName: data.assignedByName ?? '',
+    assignedToUids: Array.isArray(data.assignedToUids) ? data.assignedToUids : null,
+    assignedToNames: Array.isArray(data.assignedToNames) ? data.assignedToNames : null,
+    order: data.order ?? 0,
+  };
+}
+
 export function OpeningOngoingContactsProvider({ children }) {
   const { user } = useAuth();
   const { getByBrand } = useCustomLocations();
@@ -69,26 +91,7 @@ export function OpeningOngoingContactsProvider({ children }) {
     setLoaded(false);
 
     const unsubscribe = onSnapshot(source, (snapshot) => {
-      const list = snapshot.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          locationId: data.locationId,
-          section: data.section,
-          item: data.item,
-          who: data.who ?? '',
-          vendor: data.vendor ?? '',
-          contactNameNumber: data.contactNameNumber ?? '',
-          accountNumber: data.accountNumber ?? '',
-          // Who has been asked to fill it in (15 Oct 2026) - set by the server.
-          assignedToUid: data.assignedToUid ?? null,
-          assignedToName: data.assignedToName ?? '',
-          assignedByName: data.assignedByName ?? '',
-          assignedToUids: Array.isArray(data.assignedToUids) ? data.assignedToUids : null,
-          assignedToNames: Array.isArray(data.assignedToNames) ? data.assignedToNames : null,
-          order: data.order ?? 0,
-        };
-      });
+      const list = snapshot.docs.map(mapContact);
       setContacts(list);
       setLoaded(true);
     },
@@ -99,6 +102,43 @@ export function OpeningOngoingContactsProvider({ children }) {
     );
     return unsubscribe;
   }, [user, homeNeedsThem, watched?.brandId, watched?.locationId]);
+
+  // Contacts assigned to this person, wherever they are (15 Oct 2026), so
+  // they reach Needs you on Home even for people whose Home never loads the
+  // full list - executives, admins, anyone with the opening checklist. Two
+  // small queries: the list of people, and the single-person field that
+  // contacts assigned before the list existed still use.
+  const [assignedToMe, setAssignedToMe] = useState([]);
+  useEffect(() => {
+    if (!user?.uid) {
+      setAssignedToMe([]);
+      return undefined;
+    }
+    const seesAll = user.role === 'admin' || user.role === 'executive';
+    const mine = (user.permissions?.brandIds ?? []).slice(0, 30);
+    if (!seesAll && !mine.length) {
+      setAssignedToMe([]);
+      return undefined;
+    }
+    // A manager's query names their restaurants so the rule can prove it.
+    const scoped = (clause) => (seesAll
+      ? query(collection(db, COLLECTION), clause)
+      : query(collection(db, COLLECTION), where('brandId', 'in', mine), clause));
+    const parts = { list: [], single: [] };
+    const merge = () => {
+      const byId = new Map();
+      for (const c of [...parts.list, ...parts.single]) byId.set(c.id, c);
+      setAssignedToMe([...byId.values()]);
+    };
+    const listen = (key, q) => onSnapshot(
+      q,
+      (snap) => { parts[key] = snap.docs.map(mapContact); merge(); },
+      (err) => console.error('[OpeningOngoingContacts mine] ' + err.code + ': ' + err.message)
+    );
+    const a = listen('list', scoped(where('assignedToUids', 'array-contains', user.uid)));
+    const b = listen('single', scoped(where('assignedToUid', '==', user.uid)));
+    return () => { a(); b(); };
+  }, [user?.uid, user?.role, (user?.permissions?.brandIds ?? []).join(',')]);
 
   // Hand contacts to one or more people (an empty list takes everyone off).
   // Named ids, or every unfilled, unassigned one in a section ('all' for
@@ -240,7 +280,7 @@ export function OpeningOngoingContactsProvider({ children }) {
 
   return (
     <OpeningOngoingContactsContext.Provider
-      value={{ loaded, watch, assignContacts, getByLocation, ensureSeeded, updateContactField, regenerateForLocation, addContact, deleteContact }}
+      value={{ loaded, watch, assignContacts, assignedToMe, getByLocation, ensureSeeded, updateContactField, regenerateForLocation, addContact, deleteContact }}
     >
       {children}
     </OpeningOngoingContactsContext.Provider>

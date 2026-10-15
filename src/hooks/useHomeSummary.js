@@ -34,7 +34,7 @@ export function useHomeSummary() {
   const { getInfo } = useOpeningInfo();
   const { getByBrand } = useCustomLocations();
   const { user, users, hasBrandAccess, hasLocationAccess } = useAuth();
-  const { getByLocation: contactsFor } = useOpeningOngoingContacts();
+  const { getByLocation: contactsFor, assignedToMe } = useOpeningOngoingContacts();
   // Decisions, signatures, claims and deadlines waiting on this person.
   const waiting = useWaitingOnYou();
 
@@ -171,12 +171,17 @@ export function useHomeSummary() {
     // A contact the COO assigned to this person goes in their own "Tagged for
     // you" list instead (15 Oct 2026); one assigned to someone else is theirs,
     // so it leaves everyone else's to-do list.
+    // Read from its own small listener, so it arrives for everyone - not
+    // only the managers whose Home loads every contact.
     const pocMine = [];
-    if (hasFeature(user, 'operationalPoc')) {
-      for (const loc of visibleLocations) {
-        for (const c of contactsFor(loc.id) ?? []) {
-          if ((c.vendor ?? '').trim() || (c.contactNameNumber ?? '').trim()) continue;
-          if (!isAssignedTo(c, user?.uid)) continue;
+    {
+      const locHere = Object.fromEntries(visibleLocations.map((l) => [l.id, l]));
+      for (const c of assignedToMe ?? []) {
+        const loc = locHere[c.locationId];
+        if (!loc) continue;
+        if ((c.vendor ?? '').trim() || (c.contactNameNumber ?? '').trim()) continue;
+        if (!isAssignedTo(c, user?.uid)) continue;
+        {
           pocMine.push({
             level: 'tagged',
             mine: true,
@@ -354,5 +359,5 @@ export function useHomeSummary() {
     };
     // user is a dependency: without it, someone whose permissions change
     // would keep seeing the old summary until they reloaded the app.
-  }, [entries, getByBrand, getInfo, renewalsFor, contactsFor, users, user, waiting]);
+  }, [entries, getByBrand, getInfo, renewalsFor, contactsFor, assignedToMe, users, user, waiting]);
 }
