@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useDialog } from '../hooks/useDialog';
 import ConfirmEditField from './ConfirmEditField';
 import DocumentsField, { documentsOf } from './DocumentsField';
+import AssigneePicker from './AssigneePicker';
+import { assigneesOf } from '../data/assignees';
 
 // The expanded body of a checklist row. The row itself owns whether this is
 // shown — one chevron per item rather than a separate Details button, which
@@ -106,18 +108,11 @@ export default function ItemDetails({
       {assignableUsers ? (
         <div style={styles.assignWrap}>
           <span style={styles.assignLabel}>Assigned to</span>
-          <select
-            style={styles.assignSelect}
-            value={item.assignedToUid ?? ''}
-            onChange={(e) => onAssign(item, e.target.value)}
-          >
-            <option value="">Nobody yet</option>
-            {assignableUsers.map((u) => (
-              <option key={u.uid} value={u.uid}>
-                {u.name}
-              </option>
-            ))}
-          </select>
+          <AssigneePicker
+            {...assigneesOf(item)}
+            people={assignableUsers}
+            onChange={(uids) => onAssign(item, uids)}
+          />
         </div>
       ) : null}
 

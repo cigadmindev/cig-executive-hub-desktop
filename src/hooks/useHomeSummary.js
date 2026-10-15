@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { assigneesOf, isAssignedTo, shortNames } from '../data/assignees';
 import { brands , hasFeature } from '../data/mockData';
 import { useSchedule } from '../context/ScheduleContext';
 import { useRenewals } from '../context/RenewalsContext';
@@ -94,7 +95,7 @@ export function useHomeSummary() {
         attention.push({
           level: 'overdue',
           text: item.title,
-          where: `${loc.brandName} · ${loc.name}${item.assignedToName ? ' · ' + item.assignedToName : ''}`,
+          where: `${loc.brandName} · ${loc.name}${assigneesOf(item).names.length ? ' · ' + shortNames(assigneesOf(item).names) : ''}`,
           to: `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`,
           sort: item.dateTime ?? 0,
         });
@@ -107,7 +108,7 @@ export function useHomeSummary() {
       // Overdue items are already pushed above, so this skips them rather
       // than listing the same task twice. Late is the more urgent framing.
       (canSeeChecklistItems ? items : [])
-        .filter((i) => !i.done && i.assignedToUid === user?.uid && i.dateTime >= now)
+        .filter((i) => !i.done && isAssignedTo(i, user?.uid) && i.dateTime >= now)
         .forEach((item) => {
           attention.push({
             level: 'assigned',
@@ -122,7 +123,7 @@ export function useHomeSummary() {
         attention.push({
           level: 'overdue',
           text: item.title,
-          where: `${loc.brandName} · ${loc.name}${item.assignedToName ? ' · ' + item.assignedToName : ''}`,
+          where: `${loc.brandName} · ${loc.name}${assigneesOf(item).names.length ? ' · ' + shortNames(assigneesOf(item).names) : ''}`,
           to: `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`,
           sort: item.dateTime ?? 0,
         });
@@ -175,7 +176,7 @@ export function useHomeSummary() {
       for (const loc of visibleLocations) {
         for (const c of contactsFor(loc.id) ?? []) {
           if ((c.vendor ?? '').trim() || (c.contactNameNumber ?? '').trim()) continue;
-          if (!user?.uid || c.assignedToUid !== user.uid) continue;
+          if (!isAssignedTo(c, user?.uid)) continue;
           pocMine.push({
             level: 'tagged',
             mine: true,
@@ -192,7 +193,7 @@ export function useHomeSummary() {
       for (const loc of visibleLocations) {
         for (const c of contactsFor(loc.id) ?? []) {
           if ((c.vendor ?? '').trim() || (c.contactNameNumber ?? '').trim()) continue;
-          if (c.assignedToUid) continue;
+          if (assigneesOf(c).uids.length) continue;
           todo.push({
             level: 'todo',
             text: c.item,
@@ -219,7 +220,7 @@ export function useHomeSummary() {
         (user.job && (e.needs ?? []).includes(user.job)) ||
         // A second job at exactly this location (Cameron: Starkville GM).
         (user.alsoJob?.job && (e.needs ?? []).includes(user.alsoJob.job) && e.locationId === user.alsoJob.locationId) ||
-        (user.uid && e.assignedToUid && e.assignedToUid === user.uid));
+        isAssignedTo(e, user.uid));
 
     const mine = [];
     if (user) {
@@ -237,7 +238,7 @@ export function useHomeSummary() {
           // Marks the row as this person's, whatever its urgency.
           mine: true,
           text: e.title,
-          where: e.assignedToUid === user.uid ? `Assigned to you · ${loc.name}` : `Tagged · ${loc.name}`,
+          where: isAssignedTo(e, user.uid) ? `Assigned to you · ${loc.name}` : `Tagged · ${loc.name}`,
           to: e.openingItem
             ? `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`
             : calendarLink(e),

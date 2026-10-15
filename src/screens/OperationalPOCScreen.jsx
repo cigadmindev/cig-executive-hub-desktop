@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import AssigneePicker from '../components/AssigneePicker';
+import { assigneesOf, shortNames } from '../data/assignees';
 import { useDialog } from '../hooks/useDialog';
 import { useParams } from 'react-router-dom';
 import { brands } from '../data/mockData';
@@ -37,7 +39,7 @@ export default function OperationalPOCScreen() {
   const canAssign = user?.role === 'admin' || accessLevel(user, 'operationalPoc') === 'assign';
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkSection, setBulkSection] = useState('all');
-  const [bulkUid, setBulkUid] = useState('');
+  const [bulkUids, setBulkUids] = useState([]);
   const [assigning, setAssigning] = useState(false);
   useEffect(() => {
     if (canAssign && !(activeUsers ?? []).length && refreshUsers) refreshUsers().catch(() => {});
@@ -60,13 +62,16 @@ export default function OperationalPOCScreen() {
   // People who can be given a contact here: managers on this location (or a
   // second job here) who can fill POC in. The server checks the same.
   const assignable = (activeUsers ?? [])
-    .filter((u) => ((u.role === 'manager' && hasLocationAccess(u, brandId, locationId)) || u.alsoJob?.locationId === locationId) && atLeast(u, 'operationalPoc', 'full'))
+    // The same people the opening checklist offers (15 Oct 2026): anyone who
+    // can open this location and edit its POC - its managers, executives like
+    // Shannon and Bobbie whose job reaches every restaurant, and admins.
+    .filter((u) => (hasLocationAccess(u, brandId, locationId) || u.alsoJob?.locationId === locationId) && atLeast(u, 'operationalPoc', 'full'))
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
   const isFilled = (c) => !!((c.vendor ?? '').trim() || (c.contactNameNumber ?? '').trim());
-  const bulkCount = contacts.filter((c) => !isFilled(c) && !c.assignedToUid && (bulkSection === 'all' || c.section === bulkSection)).length;
-  const assignOne = async (c, uid) => {
+  const bulkCount = contacts.filter((c) => !isFilled(c) && !assigneesOf(c).uids.length && (bulkSection === 'all' || c.section === bulkSection)).length;
+  const assignOne = async (c, uids) => {
     try {
-      await assignContacts({ brandId, locationId, contactIds: [c.id], uid });
+      await assignContacts({ brandId, locationId, contactIds: [c.id], uids });
     } catch (err) {
       notify('Could not assign', plainError(err, 'Try again.'));
     }
@@ -74,8 +79,8 @@ export default function OperationalPOCScreen() {
   const assignBulk = async () => {
     setAssigning(true);
     try {
-      const n = await assignContacts({ brandId, locationId, section: bulkSection, uid: bulkUid });
-      const who = assignable.find((u) => u.uid === bulkUid)?.name ?? 'them';
+      const n = await assignContacts({ brandId, locationId, section: bulkSection, uids: bulkUids });
+      const who = bulkUids.length === 1 ? assignable.find((u) => u.uid === bulkUids[0])?.name ?? 'them' : bulkUids.length + ' people';
       setBulkOpen(false);
       notify('Assigned', n + ' contact' + (n === 1 ? '' : 's') + ' given to ' + who + '. They have been emailed.');
     } catch (err) {
@@ -97,7 +102,7 @@ export default function OperationalPOCScreen() {
         extras={
           <>
             {canAssign ? (
-              <button style={styles.ghostAction} onClick={() => { setBulkSection('all'); setBulkUid(''); setBulkOpen(true); }}>Assign unfilled…</button>
+              <button style={styles.ghostAction} onClick={() => { setBulkSection('all'); setBulkUids([]); setBulkOpen(true); }}>Assign unfilled…</button>
             ) : null}
             <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={contacts.map((c) => c.item)} placeholder="Search contacts…" />
           </>
@@ -180,7 +185,7 @@ export default function OperationalPOCScreen() {
                         <span style={{ ...styles.rowTitle, display: 'block' }}>{c.item}</span>
                         <span style={{ display: 'block', fontSize: 12, marginTop: 2, color: c.vendor || c.contactNameNumber ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}>
                           {[c.vendor, c.contactNameNumber].filter(Boolean).join(' · ') || 'Not filled in yet'}
-                          {c.assignedToUid && !isFilled(c) ? <span style={{ color: 'var(--neon)' }}> · {c.assignedToName || 'Assigned'}</span> : null}
+                          {assigneesOf(c).uids.length && !isFilled(c) ? <span style={{ color: 'var(--neon)' }}> · {assigneesOf(c).names.join(', ')}</span> : null}
                         </span>
                       </span>
                     ) : (
@@ -190,7 +195,7 @@ export default function OperationalPOCScreen() {
                         <span style={styles.rowContact}>{c.contactNameNumber || '—'}</span>
                         {/* Who has it, while it is not filled in. */}
                         <span style={styles.rowAssigned}>
-                          {c.assignedToUid && !isFilled(c) ? <span style={styles.assignedChip}>{c.assignedToName || 'Assigned'}</span> : !isFilled(c) && canAssign ? <span style={styles.assignLink}>Assign</span> : null}
+                          {assigneesOf(c).uids.length && !isFilled(c) ? <span style={styles.assignedChip} title={assigneesOf(c).names.join(', ')}>{shortNames(assigneesOf(c).names)}</span> : !isFilled(c) && canAssign ? <span style={styles.assignLink}>Assign</span> : null}
                         </span>
                       </>
                     )}
@@ -209,14 +214,10 @@ export default function OperationalPOCScreen() {
                       {canAssign ? (
                         <div style={{ marginBottom: 10 }}>
                           <span style={styles.fieldLabel}>Assigned to</span>
-                          <select style={styles.assignSelect} value={c.assignedToUid ?? ''} onChange={(e) => assignOne(c, e.target.value)}>
-                            <option value="">Nobody</option>
-                            {assignable.map((u) => <option key={u.uid} value={u.uid}>{u.name}{u.job ? ' · ' + u.job : ''}</option>)}
-                            {c.assignedToUid && !assignable.some((u) => u.uid === c.assignedToUid) ? <option value={c.assignedToUid}>{c.assignedToName}</option> : null}
-                          </select>
+                          <AssigneePicker {...assigneesOf(c)} people={assignable} onChange={(uids) => assignOne(c, uids)} />
                         </div>
-                      ) : c.assignedToUid ? (
-                        <p style={styles.assignedNote}>Assigned to {c.assignedToName}{c.assignedByName ? ' by ' + c.assignedByName : ''}</p>
+                      ) : assigneesOf(c).uids.length ? (
+                        <p style={styles.assignedNote}>Assigned to {assigneesOf(c).names.join(', ')}{c.assignedByName ? ' by ' + c.assignedByName : ''}</p>
                       ) : null}
                       {canEdit ? (
                         <div style={styles.removeWrap}>
@@ -258,22 +259,31 @@ export default function OperationalPOCScreen() {
         <div data-modal="" data-modal-keep="" style={styles.bulkBackdrop} onClick={() => !assigning && setBulkOpen(false)}>
           <div style={styles.bulkCard} onClick={(e) => e.stopPropagation()}>
             <p style={styles.bulkTitle}>Assign unfilled contacts</p>
-            <p style={styles.assignedNote}>Every contact at {location.name} that is not filled in and not already assigned goes to one person. They get one email listing them.</p>
+            <p style={styles.assignedNote}>Every contact at {location.name} that is not filled in and not already assigned goes to the people you tick. Each gets one email listing them.</p>
             <span style={styles.fieldLabel}>Section</span>
             <select style={{ ...styles.assignSelect, marginBottom: 12 }} value={bulkSection} onChange={(e) => setBulkSection(e.target.value)}>
               <option value="all">All sections</option>
               {ALL_CONTACT_SECTIONS.map((sec) => <option key={sec.key} value={sec.label}>{sec.label}</option>)}
             </select>
             <span style={styles.fieldLabel}>To</span>
-            <select style={{ ...styles.assignSelect, marginBottom: 12 }} value={bulkUid} onChange={(e) => setBulkUid(e.target.value)}>
-              <option value="">Choose a person</option>
-              {assignable.map((u) => <option key={u.uid} value={u.uid}>{u.name}{u.job ? ' · ' + u.job : ''}</option>)}
-            </select>
+            <div style={styles.tickList}>
+              {assignable.map((u) => (
+                <label key={u.uid} style={styles.tickRow}>
+                  <input
+                    type="checkbox"
+                    checked={bulkUids.includes(u.uid)}
+                    onChange={(e) => setBulkUids((l) => (e.target.checked ? [...l, u.uid] : l.filter((x) => x !== u.uid)))}
+                  />
+                  <span>{u.name}</span>
+                  {u.job ? <span style={styles.tickJob}>{u.job}</span> : null}
+                </label>
+              ))}
+            </div>
             {assignable.length === 0 ? <p style={styles.assignedNote}>Nobody at this location can fill in contacts yet.</p> : null}
             <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
               <button style={styles.ghostAction} disabled={assigning} onClick={() => setBulkOpen(false)}>Cancel</button>
-              <button data-primary="" style={{ ...styles.ghostAction, background: 'var(--neon)', color: 'var(--neon-text)', border: 'none', fontWeight: 800 }} disabled={!bulkUid || !bulkCount || assigning} onClick={assignBulk}>
-                {assigning ? 'Assigning…' : 'Assign ' + bulkCount + ' contact' + (bulkCount === 1 ? '' : 's')}
+              <button data-primary="" style={{ ...styles.ghostAction, background: 'var(--neon)', color: 'var(--neon-text)', border: 'none', fontWeight: 800 }} disabled={!bulkUids.length || !bulkCount || assigning} onClick={assignBulk}>
+                {assigning ? 'Assigning…' : 'Assign ' + bulkCount + ' contact' + (bulkCount === 1 ? '' : 's') + (bulkUids.length > 1 ? ' to ' + bulkUids.length + ' people' : '')}
               </button>
             </div>
           </div>
@@ -316,6 +326,9 @@ const styles = {
   ghostAction: { background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 10, padding: '10px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 40 },
   bulkBackdrop: { ...modalBackdrop },
   bulkCard: { ...modalSurface, padding: 22, width: 'min(460px, 100%)' },
+  tickList: { maxHeight: 260, overflowY: 'auto', marginBottom: 12, display: 'flex', flexDirection: 'column' },
+  tickRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 2px', fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer' },
+  tickJob: { fontSize: 12, color: 'var(--text-tertiary)' },
   bulkTitle: { fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
   chevron: { fontSize: 10, color: 'var(--text-tertiary)' },
   rowBody: { padding: '4px 14px 14px 14px', maxWidth: 420 },

@@ -853,14 +853,14 @@ service cloud.firestore {
       // Seeding writes the standard list as whoever opens the screen, so
       // create stays open to anyone with that restaurant.
       allow create: if (isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands()))
-        && !request.resource.data.keys().hasAny(['assignedToUid', 'assignedToName', 'assignedByName', 'assignedAt']);
+        && !request.resource.data.keys().hasAny(['assignedToUid', 'assignedToName', 'assignedToUids', 'assignedToNames', 'assignedByName', 'assignedAt']);
       // Filling in and removing: Full on the Operational POC column, read
       // live (14 Oct 2026). GMs, assistant managers, Shannon, Ronnie, Bobbie.
       // Who a contact is assigned to is set only by the server
       // (assignPocContacts, 15 Oct 2026), so nobody can hand work to
       // someone else from the browser.
       allow update: if editsPoc() && (isAdminOrExecutive() || resource.data.brandId in myBrands())
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['assignedToUid', 'assignedToName', 'assignedByName', 'assignedAt']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['assignedToUid', 'assignedToName', 'assignedToUids', 'assignedToNames', 'assignedByName', 'assignedAt']);
       allow delete: if editsPoc() && (isAdminOrExecutive() || resource.data.brandId in myBrands());
     }
 

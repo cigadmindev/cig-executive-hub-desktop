@@ -66,6 +66,8 @@ export function ScheduleProvider({ children }) {
           // find work assigned to someone.
           assignedToUid: data.assignedToUid ?? null,
           assignedToName: data.assignedToName ?? null,
+          assignedToUids: Array.isArray(data.assignedToUids) ? data.assignedToUids : null,
+          assignedToNames: Array.isArray(data.assignedToNames) ? data.assignedToNames : null,
           // Other items at this location that must be signed off first. Set on
           // the record rather than in the template, because an item added in
           // the app has no template entry - and a permit in one city can

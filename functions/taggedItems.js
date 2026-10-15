@@ -147,49 +147,59 @@ exports.onChecklistAssigned = onDocumentUpdated(
   const after = event.data?.after?.data();
   if (!before || !after) return;
 
-  // Done, or handed to someone else: it is no longer waiting on the person
-  // who held it.
-  if (before.assignedToUid && (before.assignedToUid !== after.assignedToUid || (!before.done && after.done))) {
-    await resolveRef('assignment/' + event.params.id + '/' + before.assignedToUid);
+  // Several people can share an item (15 Oct 2026). The lists hold them; an
+  // item assigned before then has one person in assignedToUid.
+  const holders = (d) => (Array.isArray(d.assignedToUids) && d.assignedToUids.length ? d.assignedToUids : d.assignedToUid ? [d.assignedToUid] : []);
+  const holderNames = (d) => (Array.isArray(d.assignedToNames) && d.assignedToNames.length ? d.assignedToNames : d.assignedToName ? [d.assignedToName] : []);
+  const was = holders(before);
+  const now = holders(after);
+  const removed = was.filter((u) => !now.includes(u));
+  const added = now.filter((u) => !was.includes(u));
+
+  // Done: it is no longer waiting on anyone who held it.
+  if (!before.done && after.done) {
+    for (const uid of was) await resolveRef('assignment/' + event.params.id + '/' + uid);
   }
 
-  // Taken off it: tell the person who was holding it.
-  if (before.assignedToUid && before.assignedToUid !== after.assignedToUid) {
-    const oldSnap = await admin.firestore().collection('users').doc(before.assignedToUid).get();
+  // Taken off it: tell each person who was holding it.
+  const names = holderNames(after);
+  for (const uid of removed) {
+    await resolveRef('assignment/' + event.params.id + '/' + uid);
+    const oldSnap = await admin.firestore().collection('users').doc(uid).get();
     if (oldSnap.exists && oldSnap.data().active !== false) {
       await notifyPeople(
-        [{ uid: before.assignedToUid, ...oldSnap.data() }],
+        [{ uid, ...oldSnap.data() }],
         'No longer assigned to you: ' + (after.title || 'a checklist item'),
-        after.assignedToName ? 'It is now with ' + after.assignedToName : 'Nobody is on it now',
+        names.length ? 'It is now with ' + names.join(', ') : 'Nobody is on it now',
         { speed: AMBIENT, path: '/', topic: 'assignment', locationId: after.locationId ?? null }
       );
     }
   }
 
-  const uid = after.assignedToUid;
-  if (!uid || uid === before.assignedToUid) return;
-
-  const snap = await admin.firestore().collection('users').doc(uid).get();
-  if (!snap.exists || snap.data().active === false) return;
-  const person = { uid, ...snap.data() };
+  if (!added.length || after.done) return;
 
   const brandId = after.openingItem ? await brandForLocation(after.locationId) : null;
   const path =
     brandId && after.locationId
       ? '/brand/' + brandId + '/location/' + after.locationId + '/opening-checklist'
       : dayPath(after.dateTime);
-
   const section = after.openingSection ? ' · ' + after.openingSection : '';
 
-  await notifyPeople(
-    [person],
-    'Assigned to you: ' + (after.title || 'a checklist item'),
-    'Due ' + whenText(after.dateTime) + section,
-    {
-      speed: ACTION, path, topic: 'assignment', ref: 'assignment/' + event.params.id + '/' + uid,
-      button: 'Open the checklist', why: 'You got this because this item was assigned to you.',
-      locationId: after.locationId ?? null,
-    }
-  );
+  for (const uid of added) {
+    const snap = await admin.firestore().collection('users').doc(uid).get();
+    if (!snap.exists || snap.data().active === false) continue;
+    const person = { uid, ...snap.data() };
+    const others = names.filter((n, i) => now[i] !== uid);
+    await notifyPeople(
+      [person],
+      'Assigned to you: ' + (after.title || 'a checklist item'),
+      'Due ' + whenText(after.dateTime) + section + (others.length ? ' · shared with ' + others.join(', ') : ''),
+      {
+        speed: ACTION, path, topic: 'assignment', ref: 'assignment/' + event.params.id + '/' + uid,
+        button: 'Open the checklist', why: 'You got this because this item was assigned to you.',
+        locationId: after.locationId ?? null,
+      }
+    );
+  }
   }
 );

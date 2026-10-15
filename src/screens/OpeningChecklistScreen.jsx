@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { assigneesOf, assigneeFields, shortNames } from '../data/assignees';
 import { useParams } from 'react-router-dom';
 import { brands, canEditChecklists } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
@@ -98,13 +99,14 @@ export default function OpeningChecklistScreen() {
     (u) => hasLocationAccess(u, brandId, locationId) && (u.role === 'admin' || atLeast(u, 'openingChecklist', 'tick'))
   );
 
-  const handleAssign = async (item, uid) => {
-    const person = assignableUsers.find((u) => u.uid === uid);
+  // One or several people (15 Oct 2026). The server emails whoever was added
+  // and tells whoever was taken off.
+  const handleAssign = async (item, uids) => {
     try {
-      await updateEntry(item.id, {
-        assignedToUid: uid || null,
-        assignedToName: person?.name ?? null,
-      });
+      // Someone already on it who is no longer in the list keeps their name.
+      const current = assigneesOf(item);
+      const known = [...assignableUsers, ...current.uids.map((uid, i) => ({ uid, name: current.names[i] }))];
+      await updateEntry(item.id, assigneeFields(uids, known));
     } catch (err) {
       notify('Could not assign', plainError(err, 'Nothing was changed. Try again.'));
     }
@@ -540,8 +542,8 @@ export default function OpeningChecklistScreen() {
 
                         {/* A dot rather than a count — you only need to know
                             something's there, and the number isn't meaningful. */}
-                        {item.assignedToName && !isOpen ? (
-                          <span style={styles.assignedChip}>{item.assignedToName}</span>
+                        {assigneesOf(item).uids.length && !isOpen ? (
+                          <span style={styles.assignedChip}>{shortNames(assigneesOf(item).names)}</span>
                         ) : null}
                         {hasDetails && !isOpen ? <span style={styles.detailDot} /> : null}
 

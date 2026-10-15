@@ -84,6 +84,8 @@ export function OpeningOngoingContactsProvider({ children }) {
           assignedToUid: data.assignedToUid ?? null,
           assignedToName: data.assignedToName ?? '',
           assignedByName: data.assignedByName ?? '',
+          assignedToUids: Array.isArray(data.assignedToUids) ? data.assignedToUids : null,
+          assignedToNames: Array.isArray(data.assignedToNames) ? data.assignedToNames : null,
           order: data.order ?? 0,
         };
       });
@@ -98,13 +100,13 @@ export function OpeningOngoingContactsProvider({ children }) {
     return unsubscribe;
   }, [user, homeNeedsThem, watched?.brandId, watched?.locationId]);
 
-  // Hand contacts to a person (or take them off with uid null). Named ids, or
-  // every unfilled, unassigned one in a section ('all' for every section).
-  // The server checks who may assign and who may hold them, and sends one
-  // email (15 Oct 2026).
-  const assignContacts = async ({ brandId, locationId, contactIds = null, section = null, uid }) => {
+  // Hand contacts to one or more people (an empty list takes everyone off).
+  // Named ids, or every unfilled, unassigned one in a section ('all' for
+  // every section). The server checks who may assign and who may hold them,
+  // and sends each new person one email (15 Oct 2026).
+  const assignContacts = async ({ brandId, locationId, contactIds = null, section = null, uids }) => {
     const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'assignPocContacts');
-    const res = await fn({ brandId, locationId, contactIds, section, uid: uid || null });
+    const res = await fn({ brandId, locationId, contactIds, section, uids: uids ?? [] });
     return res.data?.assigned ?? 0;
   };
 
