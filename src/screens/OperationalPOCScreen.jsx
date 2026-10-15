@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import { useDialog } from '../hooks/useDialog';
 import { useParams } from 'react-router-dom';
 import { brands } from '../data/mockData';
-import { accessLevel } from '../data/accessMatrix';
+import { accessLevel, atLeast } from '../data/accessMatrix';
+import { modalBackdrop, modalSurface } from '../theme/modal';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
 import { useAuth } from '../context/AuthContext';
@@ -19,18 +20,28 @@ export default function OperationalPOCScreen() {
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
   const [expandedId, setExpandedId] = useState(null);
-  const { loaded, watch, getByLocation: getContacts, ensureSeeded, updateContactField, addContact, deleteContact } =
+  const { loaded, watch, assignContacts, getByLocation: getContacts, ensureSeeded, updateContactField, addContact, deleteContact } =
     useOpeningOngoingContacts();
   // Load this location's contacts while the page is open (15 Oct 2026).
   useEffect(() => watch(brandId, locationId), [brandId, locationId]);
-  const { user } = useAuth();
+  const { user, activeUsers, hasLocationAccess, refreshUsers } = useAuth();
   const isNarrow = useIsNarrow();
   const { dialogNode, notify, confirm } = useDialog();
   // Full on the Operational POC column of Who sees what fills in, adds and
   // removes; View only reads (14 Oct 2026). Before, anyone could fill in but
   // only the pre-opening checklist editors could add - so GMs and assistant
   // managers could not add a contact.
-  const canEdit = user?.role === 'admin' || accessLevel(user, 'operationalPoc') === 'full';
+  const canEdit = user?.role === 'admin' || atLeast(user, 'operationalPoc', 'full');
+  // Assign (15 Oct 2026, Ronnie): the COO and admins hand contacts to the
+  // people at this location who fill POC in.
+  const canAssign = user?.role === 'admin' || accessLevel(user, 'operationalPoc') === 'assign';
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkSection, setBulkSection] = useState('all');
+  const [bulkUid, setBulkUid] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  useEffect(() => {
+    if (canAssign && !(activeUsers ?? []).length && refreshUsers) refreshUsers().catch(() => {});
+  }, [canAssign]);
   const [addOpen, setAddOpen] = useState(false);
   const [newSection, setNewSection] = useState('');
   const [newItem, setNewItem] = useState('');
@@ -46,6 +57,33 @@ export default function OperationalPOCScreen() {
   if (!location) return null;
 
   const contacts = getContacts(locationId);
+  // People who can be given a contact here: managers on this location (or a
+  // second job here) who can fill POC in. The server checks the same.
+  const assignable = (activeUsers ?? [])
+    .filter((u) => ((u.role === 'manager' && hasLocationAccess(u, brandId, locationId)) || u.alsoJob?.locationId === locationId) && atLeast(u, 'operationalPoc', 'full'))
+    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+  const isFilled = (c) => !!((c.vendor ?? '').trim() || (c.contactNameNumber ?? '').trim());
+  const bulkCount = contacts.filter((c) => !isFilled(c) && !c.assignedToUid && (bulkSection === 'all' || c.section === bulkSection)).length;
+  const assignOne = async (c, uid) => {
+    try {
+      await assignContacts({ brandId, locationId, contactIds: [c.id], uid });
+    } catch (err) {
+      notify('Could not assign', plainError(err, 'Try again.'));
+    }
+  };
+  const assignBulk = async () => {
+    setAssigning(true);
+    try {
+      const n = await assignContacts({ brandId, locationId, section: bulkSection, uid: bulkUid });
+      const who = assignable.find((u) => u.uid === bulkUid)?.name ?? 'them';
+      setBulkOpen(false);
+      notify('Assigned', n + ' contact' + (n === 1 ? '' : 's') + ' given to ' + who + '. They have been emailed.');
+    } catch (err) {
+      notify('Could not assign', plainError(err, 'Try again.'));
+    } finally {
+      setAssigning(false);
+    }
+  };
   const q = searchQuery.trim().toLowerCase();
   const visibleContacts = contacts.filter((c) => !q || c.item.toLowerCase().includes(q));
 
@@ -54,9 +92,16 @@ export default function OperationalPOCScreen() {
       <PageHeader
         back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
         title="Operational POC"
-        phoneExtras="inline"
+        phoneExtras={canAssign ? 'below' : 'inline'}
         subtitle="Who to call for this location: vendors, service companies and suppliers."
-        extras={<SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={contacts.map((c) => c.item)} placeholder="Search contacts…" />}
+        extras={
+          <>
+            {canAssign ? (
+              <button style={styles.ghostAction} onClick={() => { setBulkSection('all'); setBulkUid(''); setBulkOpen(true); }}>Assign unfilled…</button>
+            ) : null}
+            <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={contacts.map((c) => c.item)} placeholder="Search contacts…" />
+          </>
+        }
         actionLabel={canEdit && !addOpen ? '+ Add contact' : null}
         onAction={() => setAddOpen(true)}
       />
@@ -135,6 +180,7 @@ export default function OperationalPOCScreen() {
                         <span style={{ ...styles.rowTitle, display: 'block' }}>{c.item}</span>
                         <span style={{ display: 'block', fontSize: 12, marginTop: 2, color: c.vendor || c.contactNameNumber ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}>
                           {[c.vendor, c.contactNameNumber].filter(Boolean).join(' · ') || 'Not filled in yet'}
+                          {c.assignedToUid && !isFilled(c) ? <span style={{ color: 'var(--neon)' }}> · {c.assignedToName || 'Assigned'}</span> : null}
                         </span>
                       </span>
                     ) : (
@@ -142,6 +188,10 @@ export default function OperationalPOCScreen() {
                         <span style={styles.rowTitle}>{c.item}</span>
                         <span style={styles.rowVendor}>{c.vendor || '—'}</span>
                         <span style={styles.rowContact}>{c.contactNameNumber || '—'}</span>
+                        {/* Who has it, while it is not filled in. */}
+                        <span style={styles.rowAssigned}>
+                          {c.assignedToUid && !isFilled(c) ? <span style={styles.assignedChip}>{c.assignedToName || 'Assigned'}</span> : !isFilled(c) && canAssign ? <span style={styles.assignLink}>Assign</span> : null}
+                        </span>
                       </>
                     )}
                     <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
@@ -156,6 +206,18 @@ export default function OperationalPOCScreen() {
                         onSave={(v) => updateContactField(c.id, 'contactNameNumber', v)}
                         readOnly={!canEdit}
                       />
+                      {canAssign ? (
+                        <div style={{ marginBottom: 10 }}>
+                          <span style={styles.fieldLabel}>Assigned to</span>
+                          <select style={styles.assignSelect} value={c.assignedToUid ?? ''} onChange={(e) => assignOne(c, e.target.value)}>
+                            <option value="">Nobody</option>
+                            {assignable.map((u) => <option key={u.uid} value={u.uid}>{u.name}{u.job ? ' · ' + u.job : ''}</option>)}
+                            {c.assignedToUid && !assignable.some((u) => u.uid === c.assignedToUid) ? <option value={c.assignedToUid}>{c.assignedToName}</option> : null}
+                          </select>
+                        </div>
+                      ) : c.assignedToUid ? (
+                        <p style={styles.assignedNote}>Assigned to {c.assignedToName}{c.assignedByName ? ' by ' + c.assignedByName : ''}</p>
+                      ) : null}
                       {canEdit ? (
                         <div style={styles.removeWrap}>
                           <button
@@ -192,6 +254,31 @@ export default function OperationalPOCScreen() {
       {contacts.length === 0 ? (
         <p style={styles.hint}>{loaded ? 'No contacts for this location yet.' + (canEdit ? ' Add the first one with + Add contact.' : '') : 'Loading…'}</p>
       ) : null}
+      {bulkOpen ? (
+        <div data-modal="" data-modal-keep="" style={styles.bulkBackdrop} onClick={() => !assigning && setBulkOpen(false)}>
+          <div style={styles.bulkCard} onClick={(e) => e.stopPropagation()}>
+            <p style={styles.bulkTitle}>Assign unfilled contacts</p>
+            <p style={styles.assignedNote}>Every contact at {location.name} that is not filled in and not already assigned goes to one person. They get one email listing them.</p>
+            <span style={styles.fieldLabel}>Section</span>
+            <select style={{ ...styles.assignSelect, marginBottom: 12 }} value={bulkSection} onChange={(e) => setBulkSection(e.target.value)}>
+              <option value="all">All sections</option>
+              {ALL_CONTACT_SECTIONS.map((sec) => <option key={sec.key} value={sec.label}>{sec.label}</option>)}
+            </select>
+            <span style={styles.fieldLabel}>To</span>
+            <select style={{ ...styles.assignSelect, marginBottom: 12 }} value={bulkUid} onChange={(e) => setBulkUid(e.target.value)}>
+              <option value="">Choose a person</option>
+              {assignable.map((u) => <option key={u.uid} value={u.uid}>{u.name}{u.job ? ' · ' + u.job : ''}</option>)}
+            </select>
+            {assignable.length === 0 ? <p style={styles.assignedNote}>Nobody at this location can fill in contacts yet.</p> : null}
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              <button style={styles.ghostAction} disabled={assigning} onClick={() => setBulkOpen(false)}>Cancel</button>
+              <button data-primary="" style={{ ...styles.ghostAction, background: 'var(--neon)', color: 'var(--neon-text)', border: 'none', fontWeight: 800 }} disabled={!bulkUid || !bulkCount || assigning} onClick={assignBulk}>
+                {assigning ? 'Assigning…' : 'Assign ' + bulkCount + ' contact' + (bulkCount === 1 ? '' : 's')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {dialogNode}
     </div>
   );
@@ -220,6 +307,16 @@ const styles = {
   rowTitle: { fontSize: 14, color: 'var(--text-primary)', flex: '0 0 190px' },
   rowVendor: { fontSize: 13, color: 'var(--text-secondary)', flex: 1, minWidth: 0 },
   rowContact: { fontSize: 13, color: 'var(--text-secondary)', flex: '0 0 150px' },
+  rowAssigned: { flex: '0 0 96px', display: 'flex', justifyContent: 'flex-start' },
+  assignedChip: { fontSize: 11, fontWeight: 700, color: 'var(--neon)', background: 'rgba(34,211,238,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 96 },
+  assignLink: { fontSize: 12, color: 'var(--accent)' },
+  fieldLabel: { display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 4 },
+  assignSelect: { width: '100%', height: 40, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', padding: '0 10px', fontFamily: 'inherit', fontSize: 13 },
+  assignedNote: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px' },
+  ghostAction: { background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 10, padding: '10px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 40 },
+  bulkBackdrop: { ...modalBackdrop },
+  bulkCard: { ...modalSurface, padding: 22, width: 'min(460px, 100%)' },
+  bulkTitle: { fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
   chevron: { fontSize: 10, color: 'var(--text-tertiary)' },
   rowBody: { padding: '4px 14px 14px 14px', maxWidth: 420 },
 

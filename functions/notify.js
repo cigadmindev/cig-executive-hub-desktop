@@ -138,7 +138,7 @@ const TOPIC_LABEL = {
   timeOff: 'Time off', eventRequest: 'Event request', accessRequest: 'Access request',
   deviceRequest: 'Device request', systemsHelp: 'Systems Help', catering: 'Catering',
   renewal: 'Renewal', signature: 'Signature', message: 'Message', tagged: 'Calendar',
-  assignment: 'Opening checklist', expenses: 'Expenses', post: 'Post', folderPost: 'Post', calendar: 'Calendar',
+  assignment: 'Opening checklist', pocAssignment: 'Operational POC', expenses: 'Expenses', post: 'Post', folderPost: 'Post', calendar: 'Calendar',
 };
 
 /**

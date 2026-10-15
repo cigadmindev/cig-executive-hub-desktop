@@ -21,7 +21,8 @@ export const COLUMNS = [
   { key: 'dailyChecklists', label: 'Daily checklists', options: [['work', 'Work'], ['none', '—']] },
   { key: 'openingDates', label: 'Opening dates', options: [['full', 'Yes'], ['none', '—']] },
   { key: 'renewals', label: 'Renewals', options: [['full', 'Full'], ['view', 'View'], ['none', '—']] },
-  { key: 'operationalPoc', label: 'Operational POC', options: [['full', 'Full'], ['view', 'View'], ['none', '—']] },
+  // Assign (15 Oct 2026): Full, plus handing contacts to people to fill in.
+  { key: 'operationalPoc', label: 'Operational POC', options: [['assign', 'Assign'], ['full', 'Full'], ['view', 'View'], ['none', '—']] },
   { key: 'calendar', label: 'Calendar & messages', options: [['full', 'Yes'], ['none', '—']] },
   { key: 'availability', label: 'Availability', options: [['approve', 'Approve'], ['team', 'Team'], ['own', 'Own'], ['none', '—']] },
   { key: 'expenses', label: 'Expenses', options: [['all', 'All'], ['own', 'Own'], ['none', '—']] },
@@ -85,6 +86,8 @@ const NOTES = {
 const POC_FULL = ['coo', 'culinary', 'beverage', 'gm', 'agm'];
 ROWS.forEach((row) => {
   if (POC_FULL.includes(row.id)) row.d.operationalPoc = 'full';
+  // The COO also assigns who fills each contact in (Brenner, 15 Oct 2026).
+  if (row.id === 'coo') row.d.operationalPoc = 'assign';
   row.d.dailyChecklists = DAILY_WORK.includes(row.id) ? 'work' : 'none';
   if (row.d.hr === 'none') row.d.hr = 'read';
   if (NOTES[row.id]) row.d.note = NOTES[row.id];
@@ -139,7 +142,7 @@ export function seesEveryRestaurant(user) {
   return ['all', 'brands'].includes(accessLevel(user, 'where'));
 }
 
-const RANK = { work: 3, none: 0, read: 1, raise: 1, ask: 1, view: 1, own: 1, tick: 2, team: 2, full: 3, claim: 3, all: 3, post: 3, handle: 3, approve: 4, edit: 4 };
+const RANK = { assign: 4, work: 3, none: 0, read: 1, raise: 1, ask: 1, view: 1, own: 1, tick: 2, team: 2, full: 3, claim: 3, all: 3, post: 3, handle: 3, approve: 4, edit: 4 };
 
 // Does this person have at least this level? e.g. atLeast(user, 'availability', 'team').
 export function atLeast(user, column, level) {

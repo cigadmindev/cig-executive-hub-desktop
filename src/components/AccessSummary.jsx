@@ -9,7 +9,7 @@ const NAMES = {
   openingChecklist: { edit: 'the pre-opening checklist (edit)', tick: 'the pre-opening checklist (tick items off)', view: 'the pre-opening checklist (view)' },
   openingDates: { full: 'opening dates' },
   renewals: { full: 'renewals', view: 'renewals (view)' },
-  operationalPoc: { full: 'Operational POC', view: 'Operational POC (view)' },
+  operationalPoc: { assign: 'Operational POC (assigns)', full: 'Operational POC', view: 'Operational POC (view)' },
   calendar: { full: 'calendar and messages' },
   availability: { approve: "the team's availability, and approving time off", team: "the team's availability", own: 'their own availability and time off' },
   expenses: { all: 'every expense report', own: 'their own expenses' },

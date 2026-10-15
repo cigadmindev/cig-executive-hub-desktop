@@ -167,11 +167,32 @@ export function useHomeSummary() {
     //
     // "Unfilled" is no company and no contact name or number - a row with
     // only Who filled in still needs doing.
+    // A contact the COO assigned to this person goes in their own "Tagged for
+    // you" list instead (15 Oct 2026); one assigned to someone else is theirs,
+    // so it leaves everyone else's to-do list.
+    const pocMine = [];
+    if (hasFeature(user, 'operationalPoc')) {
+      for (const loc of visibleLocations) {
+        for (const c of contactsFor(loc.id) ?? []) {
+          if ((c.vendor ?? '').trim() || (c.contactNameNumber ?? '').trim()) continue;
+          if (!user?.uid || c.assignedToUid !== user.uid) continue;
+          pocMine.push({
+            level: 'tagged',
+            mine: true,
+            text: `Assigned to you · ${c.item}`,
+            where: `POC · ${loc.name}`,
+            to: `/brand/${loc.brandId}/location/${loc.id}/operational-poc`,
+            sort: Infinity,
+          });
+        }
+      }
+    }
     if (!hasFeature(user, 'openingChecklist') && hasFeature(user, 'operationalPoc')) {
       const todo = [];
       for (const loc of visibleLocations) {
         for (const c of contactsFor(loc.id) ?? []) {
           if ((c.vendor ?? '').trim() || (c.contactNameNumber ?? '').trim()) continue;
+          if (c.assignedToUid) continue;
           todo.push({
             level: 'todo',
             text: c.item,
@@ -224,6 +245,7 @@ export function useHomeSummary() {
         });
       }
       mine.sort((a, b2) => a.sort - b2.sort);
+      mine.push(...pocMine);
       if (mine.length > 0) {
         // Anything in the tagged section, so it is not repeated below.
         const mineText = new Set(mine.map((m) => m.text));

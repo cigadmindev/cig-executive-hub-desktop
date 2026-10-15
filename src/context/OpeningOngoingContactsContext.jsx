@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, doc, setDoc, runTransaction, query, where, getDocs, writeBatch , addDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from './AuthContext';
 import { useCustomLocations } from './CustomLocationsContext';
 import { brands, hasFeature } from '../data/mockData';
@@ -79,6 +80,10 @@ export function OpeningOngoingContactsProvider({ children }) {
           vendor: data.vendor ?? '',
           contactNameNumber: data.contactNameNumber ?? '',
           accountNumber: data.accountNumber ?? '',
+          // Who has been asked to fill it in (15 Oct 2026) - set by the server.
+          assignedToUid: data.assignedToUid ?? null,
+          assignedToName: data.assignedToName ?? '',
+          assignedByName: data.assignedByName ?? '',
           order: data.order ?? 0,
         };
       });
@@ -92,6 +97,16 @@ export function OpeningOngoingContactsProvider({ children }) {
     );
     return unsubscribe;
   }, [user, homeNeedsThem, watched?.brandId, watched?.locationId]);
+
+  // Hand contacts to a person (or take them off with uid null). Named ids, or
+  // every unfilled, unassigned one in a section ('all' for every section).
+  // The server checks who may assign and who may hold them, and sends one
+  // email (15 Oct 2026).
+  const assignContacts = async ({ brandId, locationId, contactIds = null, section = null, uid }) => {
+    const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'assignPocContacts');
+    const res = await fn({ brandId, locationId, contactIds, section, uid: uid || null });
+    return res.data?.assigned ?? 0;
+  };
 
   const getByLocation = (locationId) =>
     contacts.filter((c) => c.locationId === locationId).sort((a, b) => a.order - b.order);
@@ -223,7 +238,7 @@ export function OpeningOngoingContactsProvider({ children }) {
 
   return (
     <OpeningOngoingContactsContext.Provider
-      value={{ loaded, watch, getByLocation, ensureSeeded, updateContactField, regenerateForLocation, addContact, deleteContact }}
+      value={{ loaded, watch, assignContacts, getByLocation, ensureSeeded, updateContactField, regenerateForLocation, addContact, deleteContact }}
     >
       {children}
     </OpeningOngoingContactsContext.Provider>
