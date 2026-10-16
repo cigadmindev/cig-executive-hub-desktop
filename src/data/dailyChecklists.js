@@ -410,13 +410,16 @@ DAILY_CHECKLISTS.push(
       'Close Out the iPads': '– Clear all tables and server assignments, unless still busy — then check with the manager.\n– Clear all open apps; charge the iPad with the lowest battery.\n– Store the iPads at the host stand, unless the manager wants one.',
       'Sweep the Rugs': '– Sweep the rug at the host stand and the rug inside the front door.',
       'Sweep Foyer / Front Hallway': '– Sweep the entry thoroughly, including behind any propped doors.',
+      // Conner, 15 Oct 2026: not part of Ridgeland's host close.
+      'Pass Along Manager Notes': null,
     },
   }),
   forRidgeland('server-closing', 'ridgeland-server-closing', {
     edits: {
       'Bread Warmer': 'Turn off the warmer. Wrap unsliced half loaves, date them and store in the walk-in. Sanitize and scrub all stainless surfaces and the interior.',
-      'Clean the cotton candy machine / surrounding area': null,
-      'Clean the vent beside the dish area': 'Use a rag and sanitizer spray to remove any dirt/food/dust from the vents near the dish area.',
+      // Conner, 15 Oct 2026: the cotton candy machine is cleaned at Ridgeland
+      // too, and the dish-area vent is not front of house's job.
+      'Clean the vent beside the dish area': null,
       'Polish all silverware and glassware': 'Return polished items to their areas: bar glassware to the bar, rocks glasses to the server station, silverware to mise en place trays then the holders; spread extra B&B plates and oil dishes between the bar, the dining room and the Terrazza.',
       'Ice Well Items': 'Wrap and put away the lemons, heavy whipping cream and butter chips from the ice well.',
       'Wipe down the entire server counter space in the kitchen': 'Throw away any trash and sanitize the whole server counter in the kitchen, from the POS to the bread warmer and the drink area.',
@@ -425,12 +428,31 @@ DAILY_CHECKLISTS.push(
   }),
   forRidgeland('bar-closing', 'ridgeland-bar-closing', {
     edits: {
-      'Clean the Vents': 'Using a fresh rag and sanitizer spray, every vent in the bar area.',
+      // Conner, 15 Oct 2026: not done at Ridgeland.
+      'Clean the Vents': null,
+      'Clean the Bar Top': null,
+      'Replenish Wine Room Sales': null,
       'Polish Silverware & Glassware': '– Bar glassware back to the bar; rocks glasses to the server station; silverware to mise en place trays then the holders; extra B&B plates and oil dishes spread between the bar, the dining room and the Terrazza.',
       'Mop the Entire Bar Area': 'From the entrance to the far corner of the bar area.',
     },
   }),
 );
+
+// Conner's changes to Ridgeland's lists (15 Oct 2026, from his notes).
+{
+  const list = (id) => DAILY_CHECKLISTS.find((l) => l.id === id);
+  const task = (id, title) => list(id).tasks.find((t) => t.title === title);
+  // Drink station ice is burned on Sundays and Wednesdays, so it only shows then.
+  Object.assign(task('ridgeland-server-closing', 'Drink Station Ice'), {
+    details: 'Burn the ice in the drink station bin, empty and sanitize the bin, then stock it back to 100%.',
+    days: [0, 3],
+  });
+  // The server station at Ridgeland includes the butler tables.
+  task('ridgeland-server-closing', 'Clean server station').details =
+    'Clean the server station and the butler tables: wipe the lower shelf and countertop with sanitizer; empty and rinse the trash bucket; take soiled rags to the linen bags.\n– Refill the salt and pepper shakers.\n– Refill the pizza caddies.\n– Reset the smallwares.\n– Clean the glass shelves.\n– Sweep underneath.';
+  // The risers are a weekly job - Mondays.
+  task('ridgeland-bar-closing', 'Clean the Risers').day = 1;
+}
 
 // Ridgeland's AI devices (Brenner, 14 Oct 2026): the manager on duty hands
 // them out and checks they are on at opening, and collects them, turns them
@@ -474,5 +496,6 @@ export const dayName = (d) => DAY_NAMES[d];
 export function tasksFor(list, dateKey) {
   const [y, m, d] = dateKey.split('-').map(Number);
   const weekday = new Date(y, m - 1, d).getDay();
-  return list.tasks.filter((t) => t.day === undefined || t.day === weekday);
+  // day: one weekday (0 = Sunday); days: several (16 Oct 2026).
+  return list.tasks.filter((t) => (t.day === undefined || t.day === weekday) && (t.days === undefined || t.days.includes(weekday)));
 }

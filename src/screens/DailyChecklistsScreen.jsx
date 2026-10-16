@@ -33,7 +33,9 @@ export default function DailyChecklistsScreen() {
     const tasks = r?.tasks ?? tasksFor(list, dateKey);
     const real = tasks.filter((t) => !t.group);
     const done = real.filter((t) => t.done).length;
-    const dayTasks = tasksFor(list, dateKey).filter((t) => t.day !== undefined);
+    // Tasks that only show on some days (one weekday, or a few - 16 Oct 2026).
+    const dayTasks = tasksFor(list, dateKey).filter((t) => t.day !== undefined || t.days !== undefined);
+    const todayName = dayName(new Date(dateKey + 'T12:00:00').getDay());
     let pill = ['Not started', 'amber'];
     if (r?.status === 'filed') pill = ['Done · filed to Drive', 'grey'];
     else if (done > 0) pill = ['In progress', 'cyan'];
@@ -44,7 +46,7 @@ export default function DailyChecklistsScreen() {
         <span style={styles.cardMeta}>
           {r?.status === 'filed'
             ? Object.entries(r.workers ?? {}).filter(([, v]) => v).map(([k, v]) => k + ': ' + v).join(' · ') + ' · signed off by ' + (r.filedByName ?? '') + ' ' + time(r.filedAt)
-            : real.length + ' tasks' + (done ? ' · ' + done + ' ticked' : '') + (dayTasks.length ? ' · incl. ' + dayName(dayTasks[0].day) + ': ' + dayTasks.map((t) => t.title.toLowerCase()).join(', ') : '')}
+            : real.length + ' tasks' + (done ? ' · ' + done + ' ticked' : '') + (dayTasks.length ? ' · incl. ' + todayName + ': ' + dayTasks.map((t) => t.title.toLowerCase()).join(', ') : '')}
         </span>
         <span style={styles.bar}><span style={{ ...styles.fill, width: (real.length ? (done / real.length) * 100 : 0) + '%' }} /></span>
         <span style={{ alignSelf: 'flex-start' }}><Pill tone={pill[1]}>{pill[0]}</Pill></span>
