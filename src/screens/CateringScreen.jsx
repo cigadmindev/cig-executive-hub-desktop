@@ -376,6 +376,17 @@ export default function CateringScreen() {
           <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
             <h2 style={styles.modalTitle}>Edit details</h2>
             <p style={styles.hint}>Fix anything that came through wrong. What they originally sent is kept on the record.</p>
+            {/* Which restaurant it is for (16 Oct 2026) - an enquiry that came
+                in through Taste but is really for Bluto's moves across. */}
+            {locationOptions.length > 1 ? (
+              <>
+                <label style={styles.fieldLabel}>Location</label>
+                <select style={d.input} value={editing.locationId ?? ''} onChange={(ev) => setEditing({ ...editing, locationId: ev.target.value })}>
+                  {!locationOptions.some((l) => l.id === editing.locationId) ? <option value={editing.locationId ?? ''}>{editing.locationName || 'No location'}</option> : null}
+                  {locationOptions.map((l) => <option key={l.id} value={l.id}>{l.brandName} · {l.name}</option>)}
+                </select>
+              </>
+            ) : null}
             {[
               ['name', 'Name'], ['email', 'Email'], ['phone', 'Phone'], ['organisation', 'Organisation'], ['occasion', 'Occasion'],
               ['guests', 'Guests'], ['preferredTime', 'Time'], ['space', 'Space'], ['style', 'Style'],
@@ -401,6 +412,12 @@ export default function CateringScreen() {
                     () =>
                       correct(editing.id, {
                         ...Object.fromEntries(['name', 'email', 'phone', 'organisation', 'occasion', 'guests', 'preferredTime', 'space', 'style', 'about', 'fulfilment', 'address'].map((k) => [k, editing[k] ?? ''])),
+                        ...(() => {
+                          const place = locationOptions.find((l) => l.id === editing.locationId);
+                          return place && place.id !== enquiries.find((x) => x.id === editing.id)?.locationId
+                            ? { locationId: place.id, locationName: place.name, brandId: place.brandId, brandName: place.brandName }
+                            : {};
+                        })(),
                         ...(editing.dateInput && editing.dateInput !== toDateInput(editing.preferredDate)
                           ? (() => {
                               const [y, m, dd] = editing.dateInput.split('-').map(Number);

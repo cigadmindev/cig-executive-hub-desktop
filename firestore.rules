@@ -279,10 +279,14 @@ service cloud.firestore {
         && eventsAtLocation(request.resource.data.brandId, request.resource.data.locationId);
       // Claiming and working an enquiry is Catering & Events' alone, at their
       // own locations (Brenner, 10 Oct 2026); admins can correct anything.
+      // Moving one to another of their restaurants (16 Oct 2026, Sarah):
+      // where it ends up must be theirs too.
       allow update: if isAdmin() || (
         isLive() && cateringLevel() == 'claim'
         && resource.data.brandId in eventsProfile().get('permissions', {}).get('brandIds', [])
-        && eventsAtLocation(resource.data.brandId, resource.data.locationId));
+        && eventsAtLocation(resource.data.brandId, resource.data.locationId)
+        && request.resource.data.brandId in eventsProfile().get('permissions', {}).get('brandIds', [])
+        && eventsAtLocation(request.resource.data.brandId, request.resource.data.locationId));
       allow delete: if isAdmin();
 
       // What an event cost (10 Oct 2026): receipts added on the event, filed
@@ -580,12 +584,14 @@ service cloud.firestore {
       ) || (
         // Catering & Events moving a confirmed event's date (14 Oct 2026) -
         // any catering entry at their restaurant, even one a colleague put
-        // on the calendar. Only the date.
+        // on the calendar. Only the date - or, when the event moves to another
+        // of their restaurants (16 Oct 2026), its place.
         hasJob('Catering & Events') &&
         resource.data.get('openingItem', false) != true &&
         'Catering & Events' in resource.data.get('needs', []) &&
         resource.data.brandId in myBrands() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dateTime'])
+        request.resource.data.brandId in myBrands() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dateTime', 'locationId', 'brandId'])
       ) || (
         // The person asked to sign a finished item (10 Oct 2026): they sign it
         // (which ticks it off), send it back, or add the signed copy - even

@@ -176,12 +176,17 @@ export function CateringProvider({ children }) {
       correctedByName: user?.name ?? '',
       correctedAt: Date.now(),
     });
-    // A new date moves it on the calendar too, if it is there.
-    if (fields.preferredDate && existing?.calendarEntryId) {
+    // A new date or a new restaurant (16 Oct 2026, Sarah: Taste to Bluto's)
+    // moves it on the calendar too, if it is there.
+    const moved = fields.locationId && fields.locationId !== existing?.locationId;
+    if ((fields.preferredDate || moved) && existing?.calendarEntryId) {
       try {
-        await updateDoc(doc(db, 'schedules', existing.calendarEntryId), { dateTime: fields.preferredDate });
+        await updateDoc(doc(db, 'schedules', existing.calendarEntryId), {
+          ...(fields.preferredDate ? { dateTime: fields.preferredDate } : {}),
+          ...(moved ? { locationId: fields.locationId, brandId: fields.brandId } : {}),
+        });
       } catch {
-        return 'The date is changed here, but the calendar entry could not be moved - ask an admin to move it.';
+        return 'The details are changed here, but the calendar entry could not be moved - ask an admin to move it.';
       }
     }
     return null;
