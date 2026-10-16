@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
+import Icon from '../components/Icon';
+import { printPocSheet } from '../lib/printSheet';
 import AssigneePicker from '../components/AssigneePicker';
-import { assigneesOf, shortNames } from '../data/assignees';
+import { assigneesOf, shortNames, isAssignedTo } from '../data/assignees';
+import { assignedWorkOnly } from '../data/accessMatrix';
 import { useDialog } from '../hooks/useDialog';
 import { useParams } from 'react-router-dom';
 import { brands } from '../data/mockData';
@@ -37,6 +40,9 @@ export default function OperationalPOCScreen() {
   // Assign (15 Oct 2026, Ronnie): the COO and admins hand contacts to the
   // people at this location who fill POC in.
   const canAssign = user?.role === 'admin' || accessLevel(user, 'operationalPoc') === 'assign';
+  // Assigned work only (16 Oct 2026, Ben): just the contacts given to him,
+  // which he can fill in. Nothing else on the list shows.
+  const mineOnly = assignedWorkOnly(user, 'operationalPoc');
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkSection, setBulkSection] = useState('all');
   const [bulkUids, setBulkUids] = useState([]);
@@ -50,7 +56,7 @@ export default function OperationalPOCScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    ensureSeeded(locationId);
+    if (!mineOnly) ensureSeeded(locationId);
   }, [locationId]);
 
   if (!brand) return null;
@@ -58,14 +64,14 @@ export default function OperationalPOCScreen() {
   const location = allLocations.find((l) => l.id === locationId);
   if (!location) return null;
 
-  const contacts = getContacts(locationId);
+  const contacts = getContacts(locationId).filter((c) => !mineOnly || isAssignedTo(c, user?.uid));
   // People who can be given a contact here: managers on this location (or a
   // second job here) who can fill POC in. The server checks the same.
   const assignable = (activeUsers ?? [])
     // The same people the opening checklist offers (15 Oct 2026): anyone who
     // can open this location and edit its POC - its managers, executives like
     // Shannon and Bobbie whose job reaches every restaurant, and admins.
-    .filter((u) => (hasLocationAccess(u, brandId, locationId) || u.alsoJob?.locationId === locationId) && atLeast(u, 'operationalPoc', 'full'))
+    .filter((u) => (hasLocationAccess(u, brandId, locationId) || u.alsoJob?.locationId === locationId) && (atLeast(u, 'operationalPoc', 'full') || u.assignedWork === true))
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
   const isFilled = (c) => !!((c.vendor ?? '').trim() || (c.contactNameNumber ?? '').trim());
   const bulkCount = contacts.filter((c) => !isFilled(c) && !assigneesOf(c).uids.length && (bulkSection === 'all' || c.section === bulkSection)).length;
@@ -89,6 +95,11 @@ export default function OperationalPOCScreen() {
       setAssigning(false);
     }
   };
+  const printIt = () => printPocSheet({
+    location: location?.name ?? '',
+    brand: brand?.name ?? '',
+    sections: ALL_CONTACT_SECTIONS.map((sec) => ({ label: sec.label, items: contacts.filter((c) => c.section === sec.label) })),
+  }) || notify('Print window blocked', 'Your browser stopped the print window from opening. Allow pop-ups for the Hub and try again.');
   const q = searchQuery.trim().toLowerCase();
   const visibleContacts = contacts.filter((c) => !q || c.item.toLowerCase().includes(q));
 
@@ -101,6 +112,12 @@ export default function OperationalPOCScreen() {
         subtitle="Who to call for this location: vendors, service companies and suppliers."
         extras={
           <>
+            {/* A sheet to fill in by hand (16 Oct 2026). */}
+            {contacts.length && !mineOnly ? (
+              <button style={{ ...styles.ghostAction, display: 'inline-flex', alignItems: 'center', gap: 7 }} onClick={printIt} title="Print a fill-in sheet">
+                <Icon name="printer" size={16} /><span>Print fill-in sheet</span>
+              </button>
+            ) : null}
             {canAssign ? (
               <button style={styles.ghostAction} onClick={() => { setBulkSection('all'); setBulkUids([]); setBulkOpen(true); }}>Assign unfilled…</button>
             ) : null}
@@ -162,6 +179,7 @@ export default function OperationalPOCScreen() {
         </div>
       ) : null}
 
+      {mineOnly ? <p style={styles.assignedNote}>Showing only what's assigned to you at {location.name}.</p> : null}
       {ALL_CONTACT_SECTIONS.map((section) => {
         const items = visibleContacts.filter((c) => c.section === section.label);
         if (items.length === 0) return null;
@@ -203,13 +221,13 @@ export default function OperationalPOCScreen() {
                   </div>
                   {isOpen ? (
                     <div style={styles.rowBody} data-reveal="">
-                      <ConfirmEditField label="Who" value={c.who} onSave={(v) => updateContactField(c.id, 'who', v)} readOnly={!canEdit} />
-                      <ConfirmEditField label="Vendor / Company" value={c.vendor} onSave={(v) => updateContactField(c.id, 'vendor', v)} readOnly={!canEdit} />
+                      <ConfirmEditField label="Who" value={c.who} onSave={(v) => updateContactField(c.id, 'who', v)} readOnly={!canEdit && !mineOnly} />
+                      <ConfirmEditField label="Vendor / Company" value={c.vendor} onSave={(v) => updateContactField(c.id, 'vendor', v)} readOnly={!canEdit && !mineOnly} />
                       <ConfirmEditField
                         label="Contact Name / #"
                         value={c.contactNameNumber}
                         onSave={(v) => updateContactField(c.id, 'contactNameNumber', v)}
-                        readOnly={!canEdit}
+                        readOnly={!canEdit && !mineOnly}
                       />
                       {canAssign ? (
                         <div style={{ marginBottom: 10 }}>
@@ -253,7 +271,7 @@ export default function OperationalPOCScreen() {
       })}
 
       {contacts.length === 0 ? (
-        <p style={styles.hint}>{loaded ? 'No contacts for this location yet.' + (canEdit ? ' Add the first one with + Add contact.' : '') : 'Loading…'}</p>
+        <p style={styles.hint}>{!loaded ? 'Loading…' : mineOnly ? 'Nothing here is assigned to you.' : 'No contacts for this location yet.' + (canEdit ? ' Add the first one with + Add contact.' : '')}</p>
       ) : null}
       {bulkOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.bulkBackdrop} onClick={() => !assigning && setBulkOpen(false)}>

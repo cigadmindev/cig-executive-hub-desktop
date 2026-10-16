@@ -11,6 +11,24 @@ import React from 'react';
 const base = { fill: 'none', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
 
 const PATHS = {
+  camera: (
+    <>
+      <path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
+  printer: (
+    <>
+      <path d="M7 9V3.5h10V9" />
+      <rect x="3.5" y="9" width="17" height="8" rx="2" />
+      <rect x="7" y="14" width="10" height="6.5" />
+    </>
+  ),
+  folder: (
+    <>
+      <path d="M3.5 6.5a1.5 1.5 0 0 1 1.5-1.5h4l2 2.5h8a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5v-11z" />
+    </>
+  ),
   bell: (
     <>
       <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />

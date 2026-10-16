@@ -3,6 +3,7 @@ import { useDialog } from '../hooks/useDialog';
 import ConfirmEditField from './ConfirmEditField';
 import DocumentsField, { documentsOf } from './DocumentsField';
 import AssigneePicker from './AssigneePicker';
+import DependencyPicker from './DependencyPicker';
 import { assigneesOf } from '../data/assignees';
 
 // The expanded body of a checklist row. The row itself owns whether this is
@@ -138,35 +139,12 @@ export default function ItemDetails({
               })}
             </div>
           ) : null}
-          <select
-            style={styles.assignSelect}
-            value=""
-            onChange={(e) => {
-              if (!e.target.value) return;
-              onChangeDependencies(item, [...resolvedDependencies, e.target.value]);
-            }}
-          >
-            <option value="">{resolvedDependencies.length ? 'Add another…' : 'Nothing — add one'}</option>
-            {/* Grouped the way the checklist itself is grouped. A flat list of
-                seventy-nine items is unusable; the section headings are how
-                people already think about the list. */}
-            {[...new Set(dependencyOptions.map((o) => o.openingSection))].map((section) => (
-              <optgroup key={section} label={section}>
-                {dependencyOptions
-                  .filter(
-                    (o) =>
-                      o.openingSection === section &&
-                      o.id !== item.id &&
-                      !resolvedDependencies.includes(o.id)
-                  )
-                  .map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.title}
-                    </option>
-                  ))}
-              </optgroup>
-            ))}
-          </select>
+          <DependencyPicker
+            options={dependencyOptions}
+            selected={resolvedDependencies}
+            selfId={item.id}
+            onAdd={(ids) => onChangeDependencies(item, [...resolvedDependencies, ...ids.filter((x) => !resolvedDependencies.includes(x))])}
+          />
         </div>
       ) : null}
 

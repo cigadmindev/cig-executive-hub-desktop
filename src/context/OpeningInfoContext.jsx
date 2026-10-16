@@ -54,6 +54,9 @@ export function OpeningInfoProvider({ children }) {
           address: data.address ?? '',
           openingDate: data.openingDate ?? null,
           importantNumbers: data.importantNumbers ?? ['', '', '', ''],
+          // An admin has checked this location's pre-opening checklist is
+          // right for its area (16 Oct 2026): { byName, at } or null.
+          checkedForArea: data.checkedForArea ?? null,
         };
       });
       setInfoByLocation(map);

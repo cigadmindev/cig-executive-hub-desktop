@@ -33,6 +33,8 @@ async function fetchProfile(uid, email) {
     // My space (12 Oct 2026): a private page and Drive folder. Switched on
     // per person by an admin; switching it on does not let the admin in.
     privateSpace: data.privateSpace === true,
+    // Assigned work only (16 Oct 2026): see accessMatrix assignedWorkOnly.
+    assignedWork: data.assignedWork === true,
     // A test login. Hidden from every list, picker and feed, and from
     // reports and activity - so testing does not clutter anyone else's Hub.
     isGhost: data.isGhost === true,
@@ -79,6 +81,7 @@ export function AuthProvider({ children }) {
           job: data.job ?? null,
           alsoJob: data.alsoJob ?? null,
           privateSpace: data.privateSpace === true,
+          assignedWork: data.assignedWork === true,
           isGhost: data.isGhost === true,
           // default | all | action | none. Absent is the default: immediate for
           // anything waiting on you, one 8am summary for everything else.

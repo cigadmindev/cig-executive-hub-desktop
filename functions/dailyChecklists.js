@@ -4,13 +4,13 @@
 //                        a PDF in the layout of the printed sheet and filed to
 //                        the location's Drive, Operations › Opening & Closing
 //                        Checklists › YYYY-MM, then locked.
-//   dailyChecklistWatch  22:00: today's OPENING lists not signed off → that
-//                        location's GM. Anything from yesterday still not
-//                        signed off → the COO and admins.
-//   dailyClosingWatch    10:00: yesterday's CLOSING lists not signed off →
-//                        that location's GM. (At 10pm the closing lists are
-//                        never done yet, so checking them then emailed the GM
-//                        about all four every night - S10, 8 Oct.)
+//   dailyChecklistWatch  17:00: today's OPENING lists not signed off → that
+//                        location's GM (16 Oct 2026; was 22:00).
+//   dailyClosingWatch    00:00: tonight's CLOSING lists not signed off yet →
+//                        that location's GM (16 Oct 2026; was 10:00 next day).
+//   dailyLateWatch       10:00: anything from yesterday still not signed off
+//                        → the COO and admins.
+//   dailyChecklistWeekly Monday 08:00: last week's sign-off rates → the COO.
 //
 // A "day" runs 4am to 4am, so a closing list finished at 12:30am still
 // belongs to the night before. Same rule in src/hooks/useDailyChecklists.js.
@@ -20,7 +20,7 @@ const admin = require('firebase-admin');
 const { google } = require('googleapis');
 const { Readable } = require('stream');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
-const { notifyPeople, ACTION } = require('./notify');
+const { notifyPeople, sendEmail, ACTION } = require('./notify');
 const R = require('./routing');
 const M = require('./accessMatrix.gen');
 const { requireLive } = require('./caller');
@@ -48,6 +48,8 @@ const LISTS = {
   ],
 };
 const isClosing = (listId) => listId.endsWith('-closing');
+// Lists that can be marked "not open today" (16 Oct 2026): Starkville's Veranda.
+const NOT_OPEN_LISTS = ['veranda-opening'];
 
 const centralKey = (d) => {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
@@ -86,7 +88,8 @@ async function checklistsFolder(locationId) {
 }
 
 // ---- The PDF: the printed sheet, filled in ----
-async function drawPdf(r, locationName) {
+// photos: { [taskIndex]: [{ bytes, type }] } - from the notes (16 Oct 2026).
+async function drawPdf(r, locationName, photos = {}) {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -124,7 +127,24 @@ async function drawPdf(r, locationName) {
   if (r.sections) page.drawText('SECTION', { x: M + taskW, y, size: 7, font: bold, color: soft });
   page.drawText('INITIAL', { x: W - M - initW, y, size: 7, font: bold, color: soft });
   y -= 8;
-  for (const t of r.tasks) {
+  // The Veranda was not open (16 Oct 2026): a one-page record, no tasks.
+  if (r.notOpen) {
+    y -= 10;
+    text('NOT OPEN TODAY', M, 16, bold, accent); y -= 20;
+    text('Marked by ' + (r.filedByName ?? '') + ' at ' + timeOf(r.filedAt) + ', ' + r.dateKey + '.', M, 10, font, ink); y -= 14;
+    text('Nothing on this list was needed. It counts as done for the week.', M, 9, font, soft); y -= 30;
+    text('CIG Executive Hub', M, 8, font, soft);
+    return pdf.save();
+  }
+  const embedded = {};
+  for (const [i, list] of Object.entries(photos)) {
+    embedded[i] = [];
+    for (const ph of list) {
+      try { embedded[i].push(ph.type === 'png' ? await pdf.embedPng(ph.bytes) : await pdf.embedJpg(ph.bytes)); } catch (e) { /* an unreadable photo is skipped, not fatal */ }
+    }
+  }
+  const PH = 96; // photo row height
+  for (const [ti, t] of r.tasks.entries()) {
     if (t.group) {
       need(24); y -= 14;
       text(t.group.toUpperCase(), M, 9, bold, accent); y -= 6;
@@ -135,13 +155,23 @@ async function drawPdf(r, locationName) {
     // A ticked task's note is information; an unticked one's says why it
     // couldn't be done (15 Oct 2026). Wrapped, so a long note stays on the page.
     const noteLines = t.note ? wrap(clean((t.done ? 'Note: ' : "Couldn't be done: ") + t.note + (t.noteByName ? ' - ' + t.noteByName : '')), font, 8, taskW - 8) : [];
-    const h = 8 + titleLines.length * 13 + (t.details ? lines.length * 10 : 0) + noteLines.length * 10 + (noteLines.length ? 2 : 0) + 6;
+    const pics = embedded[ti] ?? [];
+    const h = 8 + titleLines.length * 13 + (t.details ? lines.length * 10 : 0) + noteLines.length * 10 + (noteLines.length ? 2 : 0) + 6 + (pics.length ? PH + 8 : 0);
     need(h);
     page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: line });
     let yy = y - 14;
     for (const l of titleLines) { page.drawText(l, { x: M, y: yy, size: 10, font: bold, color: ink }); yy -= 13; }
     if (t.details) for (const l of lines) { page.drawText(l, { x: M, y: yy, size: 8, font, color: soft }); yy -= 10; }
     for (const l of noteLines) { page.drawText(l, { x: M, y: yy, size: 8, font, color: t.done ? soft : rgb(0.7, 0.45, 0) }); yy -= 10; }
+    // The note's photos in a row underneath it.
+    let px = M;
+    for (const img of pics) {
+      const w = Math.min((img.width / img.height) * PH, 150);
+      const hh = (w / img.width) * img.height;
+      if (px + w > M + taskW) break;
+      page.drawImage(img, { x: px, y: yy - hh - 2, width: w, height: hh });
+      px += w + 6;
+    }
     if (r.sections && t.section) page.drawText(clean(t.section), { x: M + taskW, y: y - 14, size: 9, font, color: ink });
     const bx = W - M - initW;
     page.drawRectangle({ x: bx, y: y - 22, width: 14, height: 14, borderColor: soft, borderWidth: 0.8 });
@@ -185,6 +215,19 @@ exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, a
   const ref = db.collection(COLLECTION).doc(String(request.data?.id ?? ''));
   const first = await ref.get();
   if (!first.exists) throw new HttpsError('not-found', 'No such checklist.');
+  // "The Veranda wasn't open today" (16 Oct 2026) - only on lists that can
+  // be closed for the day.
+  const notOpen = request.data?.notOpen === true;
+  if (notOpen && !NOT_OPEN_LISTS.includes(first.data().listId)) throw new HttpsError('invalid-argument', 'This list cannot be marked as not open.');
+  // An admin taking a "not open" back, the same day it was marked.
+  if (request.data?.undoNotOpen === true) {
+    if (me.role !== 'admin') throw new HttpsError('permission-denied', 'Only an admin can undo this.');
+    const x = first.data();
+    if (!x.notOpen) throw new HttpsError('failed-precondition', 'This list was not marked as not open.');
+    if (x.fileId) await (await drive()).files.update({ fileId: x.fileId, requestBody: { trashed: true }, supportsAllDrives: true }).catch(() => {});
+    await ref.update({ status: 'open', notOpen: false, fileId: null, fileUrl: null, filedAt: null, filedByName: null });
+    return { ok: true };
+  }
   // Who signs off (14 Oct 2026): the Daily checklists column of Who sees
   // what - GMs, AGMs and chefs by default - at this location, by their own
   // job or by a second job here (Cameron, Starkville GM). The same answer
@@ -201,7 +244,7 @@ exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, a
     const x = s.data();
     if (x.status === 'filed') return { already: true, r: x };
     if (x.status === 'filing' && Date.now() - (x.filingAt ?? 0) < 5 * 60 * 1000) return { busy: true };
-    const open = (x.tasks ?? []).filter((t) => !t.group && !t.done && !t.note);
+    const open = notOpen ? [] : (x.tasks ?? []).filter((t) => !t.group && !t.done && !t.note);
     if (open.length) return { open: open.length };
     tx.update(ref, { status: 'filing', filingAt: Date.now() });
     return { r: x };
@@ -214,14 +257,29 @@ exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, a
 
   const filedAt = Date.now();
   const managers = Array.from(new Set([...(r.managers ?? []), ...(onDuty ? [me.name] : [])]));
-  const full = { ...r, managers, filedByName: me.name ?? '', filedAt };
+  const full = { ...r, managers, filedByName: me.name ?? '', filedAt, notOpen };
   const locationName = await R.locationName(r.locationId);
-  const bytes = await drawPdf(full, locationName.replace(/^Taste\s+/i, ''));
+  // Photos on notes (16 Oct 2026), read from Storage for the PDF and copied
+  // next to it in Drive.
+  const photos = {};
+  const bucket = admin.storage().bucket();
+  if (!notOpen) {
+    for (const [i, t] of (r.tasks ?? []).entries()) {
+      for (const ph of (t.photos ?? []).slice(0, 6)) {
+        if (typeof ph?.path !== 'string' || !ph.path.startsWith('dailyChecklistPhotos/' + ref.id + '/')) continue;
+        try {
+          const [bytes] = await bucket.file(ph.path).download();
+          (photos[i] = photos[i] ?? []).push({ bytes, type: /\.png$/i.test(ph.path) ? 'png' : 'jpg', title: t.title });
+        } catch (e) { console.error('Photo ' + ph.path + ': ' + e.message); }
+      }
+    }
+  }
+  const bytes = await drawPdf(full, locationName.replace(/^Taste\s+/i, ''), photos);
 
   const d = await drive();
   const parent = await checklistsFolder(r.locationId);
   const month = await ensureChild(d, parent, r.dateKey.slice(0, 7));
-  const name = r.dateKey + ' ' + r.title.replace(' Checklist', '') + '.pdf';
+  const name = r.dateKey + ' ' + r.title.replace(' Checklist', '') + (notOpen ? ' (not open)' : '') + '.pdf';
   // Already in Drive from a run that uploaded but did not finish? Use that
   // one rather than filing a second copy.
   const esc = name.replace(/'/g, "\\'");
@@ -234,7 +292,23 @@ exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, a
         fields: 'id, webViewLink',
         supportsAllDrives: true,
       });
-  await ref.update({ status: 'filed', managers, filedByName: me.name ?? '', filedAt, fileId: file.data.id, fileUrl: file.data.webViewLink, filingAt: null });
+  // The photos themselves, beside the PDF: "2026-10-16 Kitchen Opening - Fryer 1.jpg".
+  let n = 0;
+  for (const list of Object.values(photos)) {
+    for (const ph of list) {
+      n++;
+      const pname = r.dateKey + ' ' + r.title.replace(' Checklist', '') + ' - ' + String(ph.title).replace(/[\\/:*?"<>|]/g, '').slice(0, 40) + ' ' + n + '.' + ph.type;
+      const pesc = pname.replace(/'/g, "\\'");
+      const dupe = await d.files.list({ q: `'${month}' in parents and name = '${pesc}' and trashed = false`, fields: 'files(id)', pageSize: 1, ...SHARED });
+      if (dupe.data.files?.[0]) continue;
+      await d.files.create({
+        requestBody: { name: pname, parents: [month] },
+        media: { mimeType: ph.type === 'png' ? 'image/png' : 'image/jpeg', body: Readable.from(ph.bytes) },
+        fields: 'id', supportsAllDrives: true,
+      }).catch((e) => console.error('Photo to Drive: ' + e.message));
+    }
+  }
+  await ref.update({ status: 'filed', notOpen, managers, filedByName: me.name ?? '', filedAt, fileId: file.data.id, fileUrl: file.data.webViewLink, filingAt: null });
   return { ok: true, fileUrl: file.data.webViewLink };
   } catch (err) {
     // Handed back so it can be tried again.
@@ -253,58 +327,130 @@ async function missingLists(db, locationId, lists, day) {
 const names = (ls) => ls.map(([, n]) => n).join(', ');
 const daysAgo = (n) => centralKey(new Date(Date.now() - n * 24 * 60 * 60 * 1000));
 
+// When people are told (16 Oct 2026): the GM at 5pm about today's openings
+// and at midnight about tonight's closings, while there is still time to get
+// them done; the COO and admins at 10am about anything from yesterday that
+// still never got signed off. A day runs 4am to 4am, so a closing list
+// finished at 12:30am still clears the next morning's email.
 exports.dailyChecklistWatch = onSchedule(
-  { schedule: '0 22 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
+  { schedule: '0 17 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
   async () => {
     const db = admin.firestore();
     const users = await R.activeUsers();
-    // 10pm: the business day and the calendar day are the same.
     const today = centralKey(new Date());
-    const yesterday = daysAgo(1);
     for (const [locationId, lists] of Object.entries(LISTS)) {
       const brandId = await R.brandForLocation(locationId);
       const where = await R.locationName(locationId);
       const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
-
       const openingMissing = (await missingLists(db, locationId, lists, today)).filter(([id]) => !isClosing(id));
-      if (openingMissing.length) {
-        const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
-        await notifyPeople(gms.length ? gms : R.admins(users), openingMissing.length + ' opening checklist' + (openingMissing.length === 1 ? '' : 's') + ' not signed off · ' + where, names(openingMissing), {
-          speed: ACTION, topic: 'assignment', path: path + '?date=' + today, button: 'Open the checklists',
-          why: gms.length ? 'You got this because you are the GM at ' + where + '.' : 'You got this because ' + where + ' has no GM in the Hub.',
-          throttleKey: 'daily-' + locationId + '-' + today,
-        });
-      }
-      const lateMissing = await missingLists(db, locationId, lists, yesterday);
-      if (lateMissing.length) {
-        await notifyPeople(R.approvers(users), 'Yesterday\'s checklists were never signed off · ' + where, names(lateMissing), {
-          speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'See them',
-          why: 'You got this because you are the COO or an admin.', throttleKey: 'daily-late-' + locationId + '-' + yesterday,
-        });
-      }
+      if (!openingMissing.length) continue;
+      const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
+      await notifyPeople(gms.length ? gms : R.admins(users), openingMissing.length + ' opening checklist' + (openingMissing.length === 1 ? '' : 's') + ' not signed off · ' + where, names(openingMissing), {
+        speed: ACTION, topic: 'assignment', path: path + '?date=' + today, button: 'Open the checklists',
+        why: gms.length ? 'You got this because you are the GM at ' + where + '.' : 'You got this because ' + where + ' has no GM in the Hub.',
+        throttleKey: 'daily-' + locationId + '-' + today,
+      });
     }
   }
 );
 
 exports.dailyClosingWatch = onSchedule(
+  { schedule: '0 0 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
+  async () => {
+    const db = admin.firestore();
+    const users = await R.activeUsers();
+    // Midnight: the business day that is closing is yesterday's date.
+    const tonight = daysAgo(1);
+    for (const [locationId, lists] of Object.entries(LISTS)) {
+      const brandId = await R.brandForLocation(locationId);
+      const where = await R.locationName(locationId);
+      const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
+      const closingMissing = (await missingLists(db, locationId, lists, tonight)).filter(([id]) => isClosing(id));
+      if (!closingMissing.length) continue;
+      const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
+      await notifyPeople(gms.length ? gms : R.admins(users), 'Tonight\'s closing checklist' + (closingMissing.length === 1 ? '' : 's') + ' not signed off yet · ' + where, names(closingMissing), {
+        speed: ACTION, topic: 'assignment', path: path + '?date=' + tonight, button: 'Open the checklists',
+        why: gms.length ? 'You got this because you are the GM at ' + where + '.' : 'You got this because ' + where + ' has no GM in the Hub.',
+        throttleKey: 'daily-closing-' + locationId + '-' + tonight,
+      });
+    }
+  }
+);
+
+// 10am: yesterday's lists that never got signed off, openings and closings.
+exports.dailyLateWatch = onSchedule(
   { schedule: '0 10 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
   async () => {
     const db = admin.firestore();
     const users = await R.activeUsers();
-    // 10am: last night's closing belongs to yesterday's business day.
     const yesterday = daysAgo(1);
     for (const [locationId, lists] of Object.entries(LISTS)) {
       const brandId = await R.brandForLocation(locationId);
       const where = await R.locationName(locationId);
       const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
-      const closingMissing = (await missingLists(db, locationId, lists, yesterday)).filter(([id]) => isClosing(id));
-      if (!closingMissing.length) continue;
-      const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
-      await notifyPeople(gms.length ? gms : R.admins(users), 'Last night\'s closing checklist' + (closingMissing.length === 1 ? '' : 's') + ' not signed off · ' + where, names(closingMissing), {
-        speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'Open the checklists',
-        why: gms.length ? 'You got this because you are the GM at ' + where + '.' : 'You got this because ' + where + ' has no GM in the Hub.',
-        throttleKey: 'daily-closing-' + locationId + '-' + yesterday,
+      const lateMissing = await missingLists(db, locationId, lists, yesterday);
+      if (!lateMissing.length) continue;
+      await notifyPeople(R.approvers(users), 'Yesterday\'s checklists were never signed off · ' + where, names(lateMissing), {
+        speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'See them',
+        why: 'You got this because you are the COO or an admin.', throttleKey: 'daily-late-' + locationId + '-' + yesterday,
       });
     }
+  }
+);
+
+// Monday 8am: last week's sign-off rate at each location, for the COO
+// (16 Oct 2026). A day counts when the list was filed - including a
+// Veranda day marked "not open".
+exports.dailyChecklistWeekly = onSchedule(
+  { schedule: '0 8 * * 1', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
+  async () => {
+    const db = admin.firestore();
+    const users = await R.activeUsers();
+    const days = [7, 6, 5, 4, 3, 2, 1].map(daysAgo); // last Monday .. Sunday
+    const label = (k) => new Date(k + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
+    const pct = (a, b) => (b ? Math.round((100 * a) / b) : 0);
+    const T = require('./emailTemplate');
+    const parts = [];
+    const summary = [];
+    for (const [locationId, lists] of Object.entries(LISTS)) {
+      const where = await R.locationName(locationId);
+      const filed = {}; // listId -> set of days
+      for (const day of days) {
+        const snap = await db.collection(COLLECTION).where('locationId', '==', locationId).where('dateKey', '==', day).get();
+        snap.docs.filter((x) => x.data().status === 'filed').forEach((x) => { (filed[x.data().listId] = filed[x.data().listId] ?? new Set()).add(day); });
+      }
+      const rows = lists.map(([id, name]) => {
+        const got = filed[id] ?? new Set();
+        return { id, name, got: got.size, missed: days.filter((d) => !got.has(d)) };
+      });
+      const sum = (rs) => rs.reduce((n, r) => n + r.got, 0);
+      const open = rows.filter((r) => !isClosing(r.id)), close = rows.filter((r) => isClosing(r.id));
+      const all = pct(sum(rows), rows.length * 7);
+      summary.push([where, all + '%']);
+      const items = rows.map((r) => ({
+        title: r.name + ' · ' + r.got + ' of 7',
+        line: r.missed.length ? 'Missed: ' + r.missed.map(label).join(', ') : 'Every day signed off',
+        url: T.WEB_URL, action: pct(r.got, 7) + '%',
+      }));
+      parts.push(T.section(where + ' · ' + all + '% (openings ' + pct(sum(open), open.length * 7) + '%, closings ' + pct(sum(close), close.length * 7) + '%)', rows.length, T.itemList(items)));
+    }
+    const coo = users.filter(R.isCoo);
+    const to = (coo.length ? coo : R.admins(users)).filter((u) => u.email);
+    const range = label(days[0]) + ' to ' + label(days[6]);
+    for (const person of to) {
+      await sendEmail({
+        to: [person.email],
+        subject: 'Daily checklists last week · ' + summary.map(([w, p]) => w.replace(/^Taste\s+/i, '') + ' ' + p).join(' · '),
+        html: T.layout({
+          kicker: 'Weekly checklist report · ' + range,
+          title: 'How much of each daily checklist got signed off',
+          intro: summary.map(([w, p]) => w + ': ' + p).join(' · ') + '. A day counts when the list was signed off and filed.',
+          bodyHtml: parts.join(''),
+          button: { label: 'Open the Hub', url: T.WEB_URL },
+          footer: 'Sent Monday at 8am, for the Monday to Sunday just finished.',
+        }),
+      });
+    }
+    console.log('Weekly checklist report sent to ' + to.length + '.');
   }
 );

@@ -2,7 +2,8 @@ import { accessLevel } from '../data/accessMatrix';
 import { useEffect, useState } from 'react';
 import { collection, doc, onSnapshot, query, where, runTransaction, arrayUnion, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { db } from '../firebaseConfig';
+import { ref as storageRef, uploadBytes, deleteObject } from 'firebase/storage';
+import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { listsFor, tasksFor } from '../data/dailyChecklists';
 
@@ -121,6 +122,66 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
     const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'fileDailyChecklist', { timeout: 120000 });
     return (await fn({ id })).data;
   };
+  // "The Veranda wasn't open today" (16 Oct 2026), and an admin taking it back.
+  const markNotOpen = async () => {
+    const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'fileDailyChecklist', { timeout: 120000 });
+    return (await fn({ id, notOpen: true })).data;
+  };
+  const undoNotOpen = async () => {
+    const fn = httpsCallable(getFunctions(undefined, 'us-central1'), 'fileDailyChecklist', { timeout: 120000 });
+    return (await fn({ id, undoNotOpen: true })).data;
+  };
 
-  return { list, record, toggle, setNote, setWorker, setSheetNote, signOff };
+  // Photos on a task's note (16 Oct 2026). Shrunk to at most 1600px as a
+  // JPEG before upload, so a phone photo is ~300KB rather than 4MB. Stored
+  // at dailyChecklistPhotos/{list}/..., listed on the task.
+  const addPhotos = async (index, files) => {
+    const added = [];
+    for (const file of Array.from(files).slice(0, 6)) {
+      const blob = await shrink(file);
+      const path = 'dailyChecklistPhotos/' + id + '/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
+      await uploadBytes(storageRef(storage, path), blob, { contentType: 'image/jpeg' });
+      added.push({ path, at: Date.now(), byName: user?.name ?? '' });
+    }
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, COLLECTION, id);
+      const snap = await tx.get(ref);
+      const tasks = [...snap.data().tasks];
+      tasks[index] = { ...tasks[index], photos: [...(tasks[index].photos ?? []), ...added].slice(0, 6) };
+      tx.update(ref, { tasks });
+    });
+  };
+  const removePhoto = async (index, path) => {
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, COLLECTION, id);
+      const snap = await tx.get(ref);
+      const tasks = [...snap.data().tasks];
+      tasks[index] = { ...tasks[index], photos: (tasks[index].photos ?? []).filter((p) => p.path !== path) };
+      tx.update(ref, { tasks });
+    });
+    await deleteObject(storageRef(storage, path)).catch(() => {});
+  };
+
+  return { list, record, toggle, setNote, setWorker, setSheetNote, signOff, markNotOpen, undoNotOpen, addPhotos, removePhoto };
+}
+
+// A photo, scaled so its long side is at most 1600px, as a JPEG.
+async function shrink(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('That file is not a photo this browser can read.'));
+      i.src = url;
+    });
+    const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * scale);
+    c.height = Math.round(img.naturalHeight * scale);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise((resolve) => c.toBlob((b) => resolve(b), 'image/jpeg', 0.82));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }

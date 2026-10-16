@@ -138,6 +138,12 @@ service cloud.firestore {
       return colLevel('renewals', { 'coo': 'full', 'gm': 'full', 'it': 'full', 'owner': 'view', 'culinary': 'view', 'beverage': 'view', 'agm': 'view', 'km': 'view', 'chef': 'view', 'realestate': 'view', '*': 'none' });
     }
     // Operational POC: Full fills in, adds and removes contacts.
+    // A login switched to "assigned work only" (16 Oct 2026, Ben), on a record
+    // that is assigned to them - by the list, or the older single field.
+    function assignedHere(d) {
+      return me().get('assignedWork', false) == true
+        && (request.auth.uid in d.get('assignedToUids', []) || d.get('assignedToUid', '') == request.auth.uid);
+    }
     function editsPoc() {
       return isLive() && (me().role == 'admin'
         || colLevel('operationalPoc', { 'coo': 'assign', 'culinary': 'full', 'beverage': 'full', 'gm': 'full', 'agm': 'full', 'sous': 'full', 'catering': 'full', 'it': 'full', '*': 'view' }) in ['full', 'assign']);
@@ -558,8 +564,9 @@ service cloud.firestore {
       ) || (
         // Ticking off, filling in, attaching a document or moving a date on a
         // pre-opening item: the rows at Tick or Edit (it was anyone signed
-        // in, at any restaurant - S7, 8 Oct 2026).
-        canTickChecklists() &&
+        // in, at any restaurant - S7, 8 Oct 2026) - and an assigned-work-only
+        // login on an item assigned to them (16 Oct 2026, Ben).
+        (canTickChecklists() || (isLive() && assignedHere(resource.data))) &&
         resource.data.get('openingItem', false) == true &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document', 'documents', 'signature']) &&
         signatureAskOk()
@@ -839,8 +846,11 @@ service cloud.firestore {
       // Contractor, landlord and property manager details for a location.
       // Anyone with that restaurant; brandId is written with every change.
       allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
-      allow create: if isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands());
-      allow update: if isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands());
+      // "Checked for this area" (16 Oct 2026) is set and cleared by admins only.
+      allow create: if (isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands()))
+        && (isAdmin() || !request.resource.data.keys().hasAny(['checkedForArea']));
+      allow update: if (isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands()))
+        && (isAdmin() || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['checkedForArea']));
       allow delete: if isAdmin();
     }
 
@@ -859,8 +869,12 @@ service cloud.firestore {
       // Who a contact is assigned to is set only by the server
       // (assignPocContacts, 15 Oct 2026), so nobody can hand work to
       // someone else from the browser.
-      allow update: if editsPoc() && (isAdminOrExecutive() || resource.data.brandId in myBrands())
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['assignedToUid', 'assignedToName', 'assignedToUids', 'assignedToNames', 'assignedByName', 'assignedAt']);
+      allow update: if (editsPoc() && (isAdminOrExecutive() || resource.data.brandId in myBrands())
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['assignedToUid', 'assignedToName', 'assignedToUids', 'assignedToNames', 'assignedByName', 'assignedAt']))
+        // Assigned work only (16 Oct 2026, Ben): fills in a contact given to
+        // him, and nothing else about it.
+        || (isLive() && assignedHere(resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['who', 'vendor', 'contactNameNumber', 'accountNumber']));
       allow delete: if editsPoc() && (isAdminOrExecutive() || resource.data.brandId in myBrands());
     }
 

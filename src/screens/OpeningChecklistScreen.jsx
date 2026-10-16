@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { assigneesOf, assigneeFields, shortNames } from '../data/assignees';
+import Icon from '../components/Icon';
+import { printOpeningSheet } from '../lib/printSheet';
+import { assigneesOf, assigneeFields, shortNames, isAssignedTo } from '../data/assignees';
+import { assignedWorkOnly } from '../data/accessMatrix';
 import { useParams } from 'react-router-dom';
 import { brands, canEditChecklists } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
@@ -35,7 +38,10 @@ export default function OpeningChecklistScreen() {
   // Tick or Edit can change dates, notes and documents. View rows (Financials,
   // Real Estate) only read - the database refuses their saves, so the screen
   // doesn't offer them (8 Oct 2026).
-  const canTick = atLeast(user, 'openingChecklist', 'tick');
+  // Assigned work only (16 Oct 2026, Ben): just the items given to him, which
+  // he can tick off and fill in. Nothing else on the list shows.
+  const mineOnly = assignedWorkOnly(user, 'openingChecklist');
+  const canTick = atLeast(user, 'openingChecklist', 'tick') || mineOnly;
 
   // Adding items in the app is what removes the need for a per-city template.
   // Birmingham adds its own permits rather than someone writing a checklist
@@ -96,7 +102,7 @@ export default function OpeningChecklistScreen() {
   // on their home screen that goes nowhere.
   // This location, not just the restaurant, and able to tick (14 Oct 2026).
   const assignableUsers = (activeUsers ?? []).filter(
-    (u) => hasLocationAccess(u, brandId, locationId) && (u.role === 'admin' || atLeast(u, 'openingChecklist', 'tick'))
+    (u) => hasLocationAccess(u, brandId, locationId) && (u.role === 'admin' || atLeast(u, 'openingChecklist', 'tick') || u.assignedWork === true)
   );
 
   // One or several people (15 Oct 2026). The server emails whoever was added
@@ -197,8 +203,28 @@ export default function OpeningChecklistScreen() {
     return null;
   };
   const info = getInfo(locationId);
-  const openingItems = getOpeningItemsByLocation(locationId);
+  const openingItems = getOpeningItemsByLocation(locationId).filter((i) => !mineOnly || isAssignedTo(i, user?.uid));
   const setupItems = openingItems.filter((i) => i.openingItemType === 'setup');
+
+  const printIt = () => {
+    const bySection = (items) => [...new Set(items.map((i) => i.openingSection))].map((section) => ({
+      section,
+      items: items.filter((i) => i.openingSection === section),
+    }));
+    const dueText = (t) => (t ? new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+    const ok = printOpeningSheet({
+      location: location?.name ?? '',
+      brand: brand?.name ?? '',
+      setup: bySection(setupItems).map((g) => ({ section: g.section, items: g.items.map((i) => ({ title: i.title, done: i.done, fields: i.openingFields ?? {} })) })),
+      timeline: TIMELINE_BUCKETS.map((b) => ({
+        section: b.label,
+        items: openingItems.filter((i) => i.openingItemType === 'timeline' && i.openingSection === b.label)
+          .sort((x, y) => (x.dateTime ?? 0) - (y.dateTime ?? 0))
+          .map((i) => ({ title: i.title, done: i.done, due: dueText(i.dateTime) })),
+      })),
+    });
+    if (!ok) notify('Print window blocked', 'Your browser stopped the print window from opening. Allow pop-ups for the Hub and try again.');
+  };
 
   const handleSetOpeningDate = () => {
     if (!dateDraft) return;
@@ -380,12 +406,26 @@ export default function OpeningChecklistScreen() {
         title="Opening Checklist"
         subtitle="Everything that has to happen before this location opens, and who is doing it."
         phoneExtras="inline"
-        extras={<SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={searchSuggestions} placeholder="Search tasks…" />}
+        extras={
+          <>
+            {/* A sheet to fill in by hand (16 Oct 2026). */}
+            {openingItems.length && !mineOnly ? (
+              <button style={styles.printButton} onClick={printIt} title="Print a fill-in sheet">
+                <Icon name="printer" size={16} /><span>Print fill-in sheet</span>
+              </button>
+            ) : null}
+            <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={searchSuggestions} placeholder="Search tasks…" />
+          </>
+        }
         actionLabel={canEdit && info.openingDate ? '+ Add item' : null}
         onAction={() => openAddForm('setup')}
       />
       {q ? <p style={styles.searchHint}>Showing results for "{searchQuery}" across Initial Set-Up and Timeline.</p> : null}
 
+      {mineOnly ? (
+        <p style={styles.mineOnlyNote}>Showing only what's assigned to you at {location?.name ?? 'this location'}.</p>
+      ) : (
+      <>
       <div style={styles.section}>
         {/* Only the Show/Hide pill lights up when pressed (15 Oct 2026);
             the whole bar used to, because the whole bar was the button.
@@ -459,20 +499,45 @@ export default function OpeningChecklistScreen() {
             so it has a working checklist on day one. Mississippi permits are
             not Alabama's or Tennessee's, and a borrowed list that looks
             authoritative is worse than one that admits what it is. */}
-        {isProvisionalTemplate(locationId) ? (
-          <div style={styles.provisionalNote}>
-            This checklist is based on Starkville and has not been verified for this city. Permits and timelines may
-            differ — check with the local authority before relying on it.
+        {/* Until an admin checks it for this area (16 Oct 2026). Then the
+            yellow note goes for everyone, and a line says who checked it. */}
+        {isProvisionalTemplate(locationId) && !info.checkedForArea ? (
+          <>
+            <div style={styles.provisionalNote}>
+              This checklist is based on Starkville and has not been verified for this city. Permits and timelines may
+              differ — check with the local authority before relying on it.
+            </div>
+            {isAdmin ? (
+              <button style={styles.checkAreaButton} onClick={() => confirm({
+                title: 'Mark as checked for ' + (location?.name ?? 'this location') + '?',
+                body: 'You have gone through this checklist and it is right for this area. The yellow note goes away for everyone.',
+                confirmLabel: 'Mark as checked',
+                onConfirm: () => updateInfoField(locationId, 'checkedForArea', { byName: user?.name ?? '', at: Date.now() })
+                  .catch((err) => notify('Could not save', plainError(err, 'Try again.'))),
+              })}>
+                Mark as checked for {location?.name ?? 'this location'}
+              </button>
+            ) : null}
+          </>
+        ) : null}
+        {isProvisionalTemplate(locationId) && info.checkedForArea ? (
+          <div style={styles.checkedNote}>
+            <span>Checked for {location?.name ?? 'this location'} by {info.checkedForArea.byName} · {new Date(info.checkedForArea.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            {isAdmin ? (
+              <button style={styles.checkedUndo} onClick={() => updateInfoField(locationId, 'checkedForArea', null).catch((err) => notify('Could not save', plainError(err, 'Try again.')))}>Undo</button>
+            ) : null}
           </div>
         ) : null}
       </div>
+      </>
+      )}
 
       <div style={styles.section}>
         <div style={styles.sectionHeaderRow}>
           <h2 style={styles.sectionHeader}>Initial Set-Up POC</h2>
         </div>
         {setupItems.length === 0 ? (
-          <p style={styles.hint}>Set an opening date above to generate this checklist.</p>
+          <p style={styles.hint}>{mineOnly ? 'Nothing in Initial Set-Up is assigned to you.' : 'Set an opening date above to generate this checklist.'}</p>
         ) : visibleSetupItems.length === 0 ? (
           <p style={styles.hint}>No Initial Set-Up items match "{searchQuery}".</p>
         ) : (
@@ -604,7 +669,7 @@ export default function OpeningChecklistScreen() {
                           <SignaturePanel
                             item={item}
                             me={user}
-                            canRequest={canTick}
+                            canRequest={canTick && !mineOnly}
                             people={assignableUsers}
                             save={(fields) => updateEntry(item.id, fields)}
                             notify={notify}
@@ -639,6 +704,9 @@ export default function OpeningChecklistScreen() {
         <div style={styles.sectionHeaderRow}>
           <h2 style={styles.sectionHeader}>Opening Timeline</h2>
         </div>
+        {mineOnly && !openingItems.some((i) => i.openingItemType === 'timeline') ? (
+          <p style={styles.hint}>Nothing in the timeline is assigned to you.</p>
+        ) : null}
         {q && visibleTimelineItems.length === 0 && openingItems.some((i) => i.openingItemType === 'timeline') ? (
           <p style={styles.hint}>No Timeline items match "{searchQuery}".</p>
         ) : null}
@@ -728,7 +796,7 @@ export default function OpeningChecklistScreen() {
                         <SignaturePanel
                           item={item}
                           me={user}
-                          canRequest={canTick}
+                          canRequest={canTick && !mineOnly}
                           people={assignableUsers}
                           save={(fields) => updateEntry(item.id, fields)}
                           notify={notify}
@@ -1003,6 +1071,11 @@ const styles = {
   },
   // Sits below the fields inside an open item. Visible only to admins, the
   // COO and the beverage manager.
+  mineOnlyNote: { fontSize: 13, color: 'var(--text-secondary)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', margin: '0 0 16px' },
+  printButton: { display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 14px', borderRadius: 8, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
+  checkAreaButton: { marginTop: 10, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', textTransform: 'none' },
+  checkedNote: { marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, fontSize: 13, color: '#9FD3B0', background: 'rgba(95,163,119,0.12)', border: '1px solid rgba(95,163,119,0.45)', borderRadius: 8, padding: '10px 14px' },
+  checkedUndo: { background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer', textTransform: 'none' },
   assignedChip: {
     fontSize: 11,
     color: 'var(--text-tertiary)',

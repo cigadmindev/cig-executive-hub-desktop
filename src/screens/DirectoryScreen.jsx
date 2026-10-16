@@ -36,7 +36,7 @@ export default function DirectoryScreen() {
   const GROUPS = [
     { label: 'Day to day', keys: ['catering', 'availability', 'expenses', 'waresInventory'] },
     { label: 'Requests', keys: ['integrationRequests', 'deviceRequests', 'workOrders'] },
-    { label: 'Reference', keys: ['hr', 'emergency'] },
+    { label: 'Reference', keys: ['hr', 'emergency', 'preOpeningDocs'] },
     { label: 'Executive', keys: ['executiveNotes', 'announcement', 'pendingRequests'] },
   ];
 
@@ -82,10 +82,18 @@ export default function DirectoryScreen() {
       onClick: () => navigate('/emergency'),
     },
     {
+      // Blank forms and templates for opening a new location (16 Oct 2026).
+      key: 'preOpeningDocs',
+      icon: 'folder',
+      title: 'Pre-Opening Documents',
+      subtitle: 'Blank forms and templates for a new location',
+      onClick: () => navigate('/pre-opening-documents'),
+    },
+    {
       key: 'hr',
       icon: 'clipboard',
-      title: 'HR',
-      subtitle: 'Forms, and who to talk to',
+      title: 'HR & Insurance',
+      subtitle: 'Forms, benefits, and who to talk to',
       onClick: () => navigate('/hr'),
     },
     {
@@ -170,6 +178,8 @@ export default function DirectoryScreen() {
               emergency: 'hr',
               executiveNotes: 'executiveNotes',
             }[item.key];
+            // Executives and admins only.
+            if (item.key === 'preOpeningDocs') return user?.role === 'admin' || user?.role === 'executive';
             if (!column) return true;
             return accessLevel(user, column) !== 'none';
           });

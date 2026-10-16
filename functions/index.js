@@ -364,3 +364,4 @@ Object.assign(exports, require('./privateSpace'));
 // Operational POC: the COO assigns who fills each contact in (15 Oct 2026).
 Object.assign(exports, require('./pocAssign'));
 Object.assign(exports, require('./assignmentSummary'));
+Object.assign(exports, require('./preOpeningDocs'));

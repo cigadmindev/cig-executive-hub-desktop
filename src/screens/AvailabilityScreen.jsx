@@ -170,6 +170,10 @@ export default function AvailabilityScreen() {
   const team = loc?.id === EXEC
     ? (users ?? [])
         .filter((u) => u.active !== false && !u.isGhost && (u.role === 'executive' || u.role === 'admin'))
+        // Not people who never set their own times (16 Oct 2026): the agency
+        // and videographer (Ben) and the owners (Michele) - by job, so a new
+        // login on those jobs is left off too.
+        .filter((u) => !OUTSIDE_JOBS.includes(rowForJob(u.job)?.id) && u.job !== 'Owner')
         .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
     : (users ?? [])
     .filter((u) => u.active !== false && !u.isGhost && u.role !== 'admin' && loc)

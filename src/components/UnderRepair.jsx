@@ -32,7 +32,7 @@ export const REPAIRABLE_PAGES = [
   { key: 'wares', label: 'Wares Inventory', test: /^\/wares-inventory/ },
   { key: 'catering', label: 'Catering', test: /^\/catering/ },
   { key: 'deviceRequests', label: 'Device Requests', test: /^\/device-requests/ },
-  { key: 'hr', label: 'HR', test: /^\/hr/ },
+  { key: 'hr', label: 'HR & Insurance', test: /^\/hr/ },
   { key: 'emergency', label: 'Emergency Procedures', test: /^\/emergency/ },
   { key: 'executiveNotes', label: 'Executive Notes', test: /^\/executive-notes/ },
   { key: 'announcements', label: 'New Announcement', test: /^\/announcements/ },

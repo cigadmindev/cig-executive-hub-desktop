@@ -5,6 +5,7 @@ import { useDailyRecord, todayKey, isManagerOnDuty } from '../hooks/useDailyChec
 import { brands } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
+import NotePhotos from '../components/NotePhotos';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { fmtTime, fmtDayKey } from '../lib/dates';
 import { plainError } from '../lib/errors';
@@ -13,6 +14,8 @@ import { plainError } from '../lib/errors';
 // ticks each task once it's verified; every GM or assistant manager who
 // opens it before it is filed is signed onto it as a manager on duty.
 const time = (t) => fmtTime(t);
+// Lists that can be marked "not open today" - the same list as the server's.
+const NOT_OPEN_LISTS = ['veranda-opening'];
 const pretty = (key) => fmtDayKey(key);
 
 export default function DailyChecklistScreen() {
@@ -22,7 +25,7 @@ export default function DailyChecklistScreen() {
   const { user } = useAuth();
   const isNarrow = useIsNarrow();
   const { dialogNode, notify, confirm } = useDialog();
-  const { list, record, toggle, setNote, setWorker, setSheetNote, signOff } = useDailyRecord(locationId, brandId, dateKey, listId);
+  const { list, record, toggle, setNote, setWorker, setSheetNote, signOff, markNotOpen, undoNotOpen, addPhotos, removePhoto } = useDailyRecord(locationId, brandId, dateKey, listId);
   // "Starkville", "Ridgeland" - for the sheet's heading and the Drive path.
   const brand = brands.find((b) => b.id === brandId);
   const brandName = brand?.name ?? '';
@@ -52,6 +55,38 @@ export default function DailyChecklistScreen() {
           notify('Could not file it', plainError(err, 'Try again.'));
         } finally {
           setFiling(false);
+        }
+      },
+    });
+
+  // The Veranda only (16 Oct 2026): filed as "not open", counts as done.
+  const notOpenIt = () =>
+    confirm({
+      title: 'Mark the Veranda as not open on ' + pretty(dateKey) + '?',
+      body: 'The list is locked and a one-page "not open" record is filed to Drive. Nobody is alerted, and it counts as done for the week.',
+      confirmLabel: 'Mark as not open',
+      onConfirm: async () => {
+        setFiling(true);
+        try {
+          await markNotOpen();
+          notify('Marked as not open', 'Filed to Drive.');
+        } catch (err) {
+          notify('Could not mark it', plainError(err, 'Try again.'));
+        } finally {
+          setFiling(false);
+        }
+      },
+    });
+  const undoIt = () =>
+    confirm({
+      title: 'Undo "not open"?',
+      body: 'The list opens again so it can be worked and signed off, and the "not open" PDF is moved to Drive\'s trash.',
+      confirmLabel: 'Undo',
+      onConfirm: async () => {
+        try {
+          await undoNotOpen();
+        } catch (err) {
+          notify('Could not undo it', plainError(err, 'Try again.'));
         }
       },
     });
@@ -111,6 +146,14 @@ export default function DailyChecklistScreen() {
                           <button style={styles.ghost} onClick={async () => { await setNote(i, noteText.trim()); setNoting(null); }}>Save</button>
                         </div>
                       ) : null}
+                      {/* Photos with the note (16 Oct 2026): added while the
+                          note is open, shown under it afterwards. */}
+                      <NotePhotos
+                        photos={t.photos ?? []}
+                        canEdit={canWork && noting === i}
+                        onAdd={(files) => addPhotos(i, files)}
+                        onRemove={(path) => removePhoto(i, path)}
+                      />
                     </td>
                     {record?.sections ? <td style={{ ...styles.td, color: 'var(--text-secondary)' }}>{t.section ?? ''}</td> : null}
                     <td style={styles.td}>
@@ -151,7 +194,12 @@ export default function DailyChecklistScreen() {
           <div style={styles.card}>
             <p style={styles.big}>{done} of {real.length} verified</p>
             <div style={styles.bar}><div style={{ ...styles.fill, width: (real.length ? (done / real.length) * 100 : 0) + '%' }} /></div>
-            {record?.status === 'filed' ? (
+            {record?.status === 'filed' && record.notOpen ? (
+              <>
+                <p style={styles.okLine}>Not open today · marked by {record.filedByName} at {time(record.filedAt)} · filed to Drive</p>
+                {user?.role === 'admin' ? <button style={{ ...styles.ghost, marginTop: 10 }} onClick={undoIt}>Undo - it was open</button> : null}
+              </>
+            ) : record?.status === 'filed' ? (
               <p style={styles.muted}>
                 Signed off by {record.filedByName} at {time(record.filedAt)}.{' '}
                 {record.fileUrl ? <a href={record.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--neon)' }}>Open in Drive ↗</a> : null}
@@ -163,6 +211,11 @@ export default function DailyChecklistScreen() {
                   {filing ? 'Filing…' : 'Sign off and file to Drive'}
                 </button>
                 <p style={styles.small}>Unlocks when every task is ticked, or each missing one has a note.</p>
+                {NOT_OPEN_LISTS.includes(listId) ? (
+                  <button style={{ ...styles.ghost, width: '100%', marginTop: 14, ...(!canWork || filing ? { opacity: 0.4 } : {}) }} disabled={!canWork || filing} onClick={notOpenIt}>
+                    The Veranda wasn't open today
+                  </button>
+                ) : null}
               </>
             )}
           </div>
@@ -206,5 +259,6 @@ const styles = {
   bar: { height: 5, background: 'var(--border)', borderRadius: 3, margin: '10px 0' },
   fill: { height: 5, background: 'var(--neon)', borderRadius: 3 },
   primary: { marginTop: 12, background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
+  okLine: { fontSize: 13, color: '#9FD3B0', background: 'rgba(95,163,119,0.12)', border: '1px solid rgba(95,163,119,0.45)', borderRadius: 8, padding: '10px 12px', margin: '6px 0 0', lineHeight: 1.5 },
   small: { fontSize: 12, color: 'var(--text-tertiary)', margin: '8px 0 0', lineHeight: 1.5 },
 };

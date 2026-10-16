@@ -80,7 +80,7 @@ export default function HRScreen() {
   return (
     <div style={styles.page}>
       <PageHeader
-        title="HR"
+        title="HR & Insurance"
         phoneExtras="inline"
         subtitle="The same for every restaurant. Forms, and who to talk to."
         extras={

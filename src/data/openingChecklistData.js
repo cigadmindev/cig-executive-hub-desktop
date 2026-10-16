@@ -192,7 +192,9 @@ export const OPERATIONAL_POC_SECTIONS = [
   {
     key: 'other_tasks_numbers',
     label: 'Other Tasks / Numbers',
-    items: ['Emergency Ice', 'Glass Replacement', 'Landscape Service', 'Flowers/Fresh/Artificial', 'Floor Chart/Stations', 'Coordinate Kitchen Install'],
+    // Trash Service added 16 Oct 2026 (hub-migrations/add-trash-service.js put
+    // it on every location already set up).
+    items: ['Emergency Ice', 'Glass Replacement', 'Landscape Service', 'Flowers/Fresh/Artificial', 'Floor Chart/Stations', 'Coordinate Kitchen Install', 'Trash Service'],
   },
 ];
 

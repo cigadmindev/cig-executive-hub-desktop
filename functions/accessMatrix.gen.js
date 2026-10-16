@@ -175,6 +175,14 @@ const FEATURE_COLUMN = {
   workOrders: 'signatures',
   expenses: 'expenses',
 };
+// Assigned work only (16 Oct 2026, Ben): a login switched on by an admin can
+// be given opening checklist items and POC contacts, and sees just those -
+// on Home and on those pages - without the rest of either list.
+const ASSIGNED_WORK_FEATURES = ['openingChecklist', 'operationalPoc'];
+function assignedWorkOnly(user, key) {
+  return !!user && user.assignedWork === true && ASSIGNED_WORK_FEATURES.includes(key) && !featureAllowed(user, key);
+}
+
 function featureAllowed(user, key) {
   if (!user) return false;
   if (user.role === 'admin') return true;
@@ -185,4 +193,4 @@ function featureAllowed(user, key) {
   return col ? accessLevel(user, col) !== 'none' : true;
 }
 
-module.exports = { ALL_FOLDERS, COLUMNS, ROWS, rowForJob, NOT_UNAVAILABLE_ROWS, usesUnavailableDates, setLiveMatrix, accessLevel, seesEveryRestaurant, atLeast, canSeeFolder, featureAllowed };
+module.exports = { ALL_FOLDERS, COLUMNS, ROWS, rowForJob, NOT_UNAVAILABLE_ROWS, usesUnavailableDates, setLiveMatrix, accessLevel, seesEveryRestaurant, atLeast, canSeeFolder, assignedWorkOnly, featureAllowed };

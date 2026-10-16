@@ -1,4 +1,5 @@
 import React from 'react';
+import { assignedWorkOnly } from './data/accessMatrix';
 import { HashRouter, BrowserRouter, Routes, Route, Navigate , useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { hasFeature } from './data/mockData';
@@ -60,6 +61,7 @@ import CateringScreen from './screens/CateringScreen';
 import DeviceRequestsScreen from './screens/DeviceRequestsScreen';
 import EmergencyScreen from './screens/EmergencyScreen';
 import HRScreen from './screens/HRScreen';
+import PreOpeningDocsScreen from './screens/PreOpeningDocsScreen';
 import OffboardingScreen from './screens/OffboardingScreen';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
@@ -132,6 +134,7 @@ function Gate() {
         <Route path="/catering" element={<RequireColumn column="catering" level="read"><CateringScreen /></RequireColumn>} />
         <Route path="/emergency" element={<RequireColumn column="hr" level="read"><EmergencyScreen /></RequireColumn>} />
         <Route path="/hr" element={<RequireColumn column="hr" level="read"><HRScreen /></RequireColumn>} />
+        <Route path="/pre-opening-documents" element={<RequireExecutive><PreOpeningDocsScreen /></RequireExecutive>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </UnderRepairGate>
@@ -238,6 +241,13 @@ function RequireCategory({ children }) {
 }
 
 // A page that follows a column of the who-sees-what table.
+// Executives and admins only (Pre-Opening Documents, 16 Oct 2026).
+function RequireExecutive({ children }) {
+  const { user } = useAuth();
+  if (!(user?.role === 'admin' || user?.role === 'executive')) return <Navigate to="/" replace />;
+  return children;
+}
+
 function RequireColumn({ column, level, children }) {
   const { user } = useAuth();
   if (!atLeast(user, column, level)) return <Navigate to="/" replace />;
@@ -246,7 +256,7 @@ function RequireColumn({ column, level, children }) {
 
 function RequireFeature({ feature, children }) {
   const { user } = useAuth();
-  if (!hasFeature(user, feature)) return <Navigate to="/" replace />;
+  if (!hasFeature(user, feature) && !assignedWorkOnly(user, feature)) return <Navigate to="/" replace />;
   return children;
 }
 

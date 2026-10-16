@@ -32,7 +32,8 @@ const listOf = (items) => (items.length <= 8 ? items.join(', ') : items.slice(0,
 function canHold(u, brandId, locationId, matrix) {
   if (!u || u.active === false || u.isGhost) return false;
   const here = R.seesLocation(u, brandId, locationId) || u.alsoJob?.locationId === locationId;
-  return here && ['full', 'assign'].includes(pocLevel(u, matrix));
+  // Or a login switched to assigned work only (16 Oct 2026, Ben).
+  return here && (['full', 'assign'].includes(pocLevel(u, matrix)) || u.assignedWork === true);
 }
 
 exports.assignPocContacts = onCall({ secrets: ['RESEND_API_KEY'], timeoutSeconds: 120 }, async (request) => {

@@ -1,4 +1,5 @@
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { assignedWorkOnly } from '../data/accessMatrix';
 import React, { useState } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -139,7 +140,7 @@ export default function LocationScreen() {
             'opening-checklist': 'openingChecklist',
             'operational-poc': 'operationalPoc',
             integrations: 'integrations',
-          }[item.key])
+          }[item.key]) || assignedWorkOnly(user, { 'opening-checklist': 'openingChecklist', 'operational-poc': 'operationalPoc' }[item.key])
         ).map((item) => {
           const showRenewalBadge = item.key === 'renewals' && hasUpcomingRenewal;
           const showEventBadge = item.key === 'event-requests' && hasUnseenEventRequests(locationId);

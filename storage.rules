@@ -54,6 +54,27 @@ service firebase.storage {
       allow delete: if false;
     }
 
+    // Photos on a daily checklist note (16 Oct 2026) - the broken fryer.
+    // Seen by anyone with that restaurant, or an admin or executive; added
+    // and taken off only while the list is still open. On sign-off the
+    // server prints them in the PDF and copies them to Drive.
+    function checklist(id) {
+      return firestore.get(/databases/(default)/documents/dailyChecklists/$(id)).data;
+    }
+    function hasChecklistBrand(id) {
+      let me = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+      return me.role in ['admin', 'executive'] || checklist(id).brandId in me.get('permissions', {}).get('brandIds', []);
+    }
+    match /dailyChecklistPhotos/{checklistId}/{fileName} {
+      allow read: if live() && hasChecklistBrand(checklistId);
+      allow create: if live() && hasChecklistBrand(checklistId)
+        && checklist(checklistId).status == 'open'
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png)');
+      allow delete: if live() && hasChecklistBrand(checklistId) && checklist(checklistId).status == 'open';
+      allow update: if false;
+    }
+
     // Chat attachments. Deleted by a scheduled function once every member of
     // the conversation has viewed them — photos in a busy thread accumulate
     // faster than anyone notices, and the bill arrives quietly.
