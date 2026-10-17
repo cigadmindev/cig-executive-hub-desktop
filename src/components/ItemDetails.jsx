@@ -5,6 +5,7 @@ import DocumentsField, { documentsOf } from './DocumentsField';
 import AssigneePicker from './AssigneePicker';
 import DependencyPicker from './DependencyPicker';
 import { assigneesOf } from '../data/assignees';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 
 // The expanded body of a checklist row. The row itself owns whether this is
 // shown — one chevron per item rather than a separate Details button, which
@@ -42,6 +43,10 @@ export default function ItemDetails({
   readOnly = false,
   // The person asked to sign can still add the signed copy (10 Oct 2026).
   canAddDocuments = false,
+  // The action bar's buttons (Mark done, the date, Needs a signature) and
+  // what shows under it (description, date editor) - 17 Oct 2026.
+  actions = null,
+  intro = null,
 }) {
   const { dialogNode, confirm } = useDialog();
   // Fields added this session but not yet saved — without this they'd vanish
@@ -72,125 +77,159 @@ export default function ItemDetails({
     });
   };
 
-  return (
-    <div style={styles.wrap}>
-      {visible.length > 0 ? (
-        <div style={styles.fieldRow}>
-          {visible.map((f) => (
-            <div key={f.key} style={f.wide ? styles.fieldWide : styles.field}>
-              {readOnly ? (
-                <p style={styles.readOnlyField}>
-                  <span style={styles.readOnlyLabel}>{f.label}</span>
-                  {item.openingFields?.[f.key]}
-                </p>
-              ) : (
-                <>
+  const isNarrow = useIsNarrow();
+  const assignees = assigneesOf(item);
+  const docs = documentsOf(item);
+
+  // One labelled row per part of the item (17 Oct 2026, sketch 20): label and
+  // count on the left, the thing itself on the right. On a phone the label
+  // sits above. Read-only people only see rows that hold something.
+  const prop = (labelText, count, body, key) => (
+    <div key={key} style={{ ...(isNarrow ? styles.propNarrow : styles.prop), ...(rows.length ? {} : { borderTop: 'none' }) }}>
+      <div style={isNarrow ? styles.propLabelNarrow : styles.propLabel}>
+        {labelText}
+        {count ? <span style={styles.count}>{count}</span> : null}
+      </div>
+      <div style={styles.propValue}>{body}</div>
+    </div>
+  );
+
+  const rows = [];
+  if (assignableUsers) {
+    rows.push(prop('Assigned to', assignees.uids.length, (
+      <AssigneePicker {...assignees} people={assignableUsers} onChange={(uids) => onAssign(item, uids)} />
+    ), 'a'));
+  } else if (assignees.uids.length) {
+    rows.push(prop('Assigned to', assignees.uids.length, <span style={styles.plain}>{assignees.names.join(', ')}</span>, 'a'));
+  }
+
+  if (dependencyOptions) {
+    rows.push(prop('Waits for', resolvedDependencies.length, (
+      <div style={styles.stack}>
+        {resolvedDependencies.length > 0 ? (
+          <div style={styles.chipRow}>
+            {resolvedDependencies.map((id) => {
+              const dep = dependencyOptions.find((o) => o.id === id);
+              return (
+                <span key={id} style={styles.dep}>
+                  <span style={{ ...styles.depDot, background: dep?.done ? 'var(--ok)' : 'var(--warn)' }} />
+                  <span style={styles.depName}>{dep?.title ?? 'Removed item'}</span>
+                  <span style={styles.depState}>{dep?.done ? 'done' : 'not done'}</span>
                   <button
-                    style={styles.remove}
-                    onClick={() => removeField(f.key, f.label)}
-                    title={`Remove ${f.label}`}
+                    type="button"
+                    style={styles.depX}
+                    aria-label={'Take ' + (dep?.title ?? 'it') + ' off'}
+                    onClick={() => onChangeDependencies(item, resolvedDependencies.filter((x) => x !== id))}
                   >
                     ×
                   </button>
-                  <ConfirmEditField
-                    label={f.label}
-                    type={f.type}
-                    multiline={f.multiline}
-                    value={item.openingFields?.[f.key]}
-                    onSave={(v) => onSave(item, f.key, v)}
-                  />
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {assignableUsers ? (
-        <div style={styles.assignWrap}>
-          <span style={styles.assignLabel}>Assigned to</span>
-          <AssigneePicker
-            {...assigneesOf(item)}
-            people={assignableUsers}
-            onChange={(uids) => onAssign(item, uids)}
-          />
-        </div>
-      ) : null}
-
-      {dependencyOptions ? (
-        <div style={styles.assignWrap}>
-          <span style={styles.assignLabel}>Waits for</span>
-          {resolvedDependencies.length > 0 ? (
-            <div style={styles.chipRow}>
-              {resolvedDependencies.map((id) => {
-                const dep = dependencyOptions.find((o) => o.id === id);
-                return (
-                  <button
-                    key={id}
-                    style={styles.chip}
-                    onClick={() =>
-                      onChangeDependencies(item, resolvedDependencies.filter((x) => x !== id))
-                    }
-                    title="Remove"
-                  >
-                    {dep?.title ?? 'Removed item'} ×
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-          <DependencyPicker
-            options={dependencyOptions}
-            selected={resolvedDependencies}
-            selfId={item.id}
-            onAdd={(ids) => onChangeDependencies(item, [...resolvedDependencies, ...ids.filter((x) => !resolvedDependencies.includes(x))])}
-          />
-        </div>
-      ) : null}
-
-      {/* The permit itself. Kept out of the field picker because it isn't
-          one of several optional notes — it's the artifact the task exists
-          to produce, and it travels into the renewal record afterwards. */}
-      {/* Every item can hold its document - items added in the Hub (no
-          setupKey) too, filed under the item's own id (8 Oct 2026). */}
-      {locationId ? (
-        <DocumentsField
-          locationId={locationId}
-          itemKey={item.setupKey || item.id}
-          value={documentsOf(item)}
-          userName={userName}
-          readOnly={readOnly && !canAddDocuments}
-          onChange={(list) => onSave(item, '__documents', list)}
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
+        <DependencyPicker
+          options={dependencyOptions}
+          selected={resolvedDependencies}
+          selfId={item.id}
+          onAdd={(ids) => onChangeDependencies(item, [...resolvedDependencies, ...ids.filter((x) => !resolvedDependencies.includes(x))])}
         />
-      ) : null}
+      </div>
+    ), 'w'));
+  }
 
-      {!readOnly && available.length > 0 ? (
-        <div style={styles.pickerWrap}>
-        <span style={styles.pickerLabel}>Add a field</span>
-        <select
-          style={styles.picker}
-          value=""
-          onChange={(e) => {
-            if (e.target.value) setAdded((a) => [...a, e.target.value]);
-          }}
-        >
-          <option value="">Choose a field</option>
-          {available.map((f) => (
-            <option key={f.key} value={f.key}>
-              {f.label}
-            </option>
-          ))}
-        </select>
+  // Every item can hold its documents - items added in the Hub (no setupKey)
+  // too, filed under the item's own id (8 Oct 2026).
+  const docsReadOnly = readOnly && !canAddDocuments;
+  if (locationId && (!docsReadOnly || docs.length)) {
+    rows.push(prop('Documents', docs.length, (
+      <DocumentsField
+        hideLabel
+        locationId={locationId}
+        itemKey={item.setupKey || item.id}
+        value={docs}
+        userName={userName}
+        readOnly={docsReadOnly}
+        onChange={(list) => onSave(item, '__documents', list)}
+      />
+    ), 'd'));
+  }
+
+  if (visible.length > 0 || (!readOnly && available.length > 0)) {
+    rows.push(prop('Details', FIELDS.filter(hasValue).length, (
+      <div style={styles.stack}>
+        {visible.length > 0 ? (
+          <div style={isNarrow ? styles.fieldGridNarrow : styles.fieldGrid}>
+            {visible.map((f) => (
+              <div key={f.key} style={f.wide ? styles.fieldWide : styles.field}>
+                {readOnly ? (
+                  <p style={styles.readOnlyField}>
+                    <span style={styles.readOnlyLabel}>{f.label}</span>
+                    {item.openingFields?.[f.key]}
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      style={styles.remove}
+                      onClick={() => removeField(f.key, f.label)}
+                      title={`Remove ${f.label}`}
+                    >
+                      ×
+                    </button>
+                    <ConfirmEditField
+                      label={f.label}
+                      type={f.type}
+                      multiline={f.multiline}
+                      value={item.openingFields?.[f.key]}
+                      onSave={(v) => onSave(item, f.key, v)}
+                    />
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {!readOnly && available.length > 0 ? (
+          <select
+            style={styles.picker}
+            value=""
+            aria-label="Add a field"
+            onChange={(e) => {
+              if (e.target.value) setAdded((a) => [...a, e.target.value]);
+            }}
+          >
+            <option value="">Add a field…</option>
+            {available.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </div>
+    ), 'f'));
+  }
+
+  const removeButton = onDeleteItem ? (
+    <button style={styles.removeItem} onClick={() => onDeleteItem(item)}>
+      Remove item
+    </button>
+  ) : null;
+
+  return (
+    <div style={styles.wrap}>
+      {/* What you do to the item, in one bar at the top. Remove sits apart on
+          the right - at the very bottom on a phone, away from thumbs. */}
+      {actions || (removeButton && !isNarrow) ? (
+        <div style={isNarrow ? { ...styles.bar, gap: 6, padding: '10px' } : styles.bar}>
+          {actions}
+          {isNarrow ? null : <span style={{ flex: 1 }} />}
+          {isNarrow ? null : removeButton}
         </div>
       ) : null}
-      {onDeleteItem ? (
-        <div style={styles.removeItemWrap}>
-          <button style={styles.removeItemLink} onClick={() => onDeleteItem(item)}>
-            Remove this item from the checklist
-          </button>
-        </div>
-      ) : null}
-
+      {intro ? <div style={styles.intro}>{intro}</div> : null}
+      {rows.length ? <div style={styles.rows}>{rows}</div> : null}
+      {isNarrow && removeButton ? <div style={styles.bottom}>{removeButton}</div> : null}
       {dialogNode}
     </div>
   );
@@ -199,15 +238,38 @@ export default function ItemDetails({
 const styles = {
   readOnlyField: { margin: '4px 0', fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' },
   readOnlyLabel: { display: 'block', fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 2 },
-  wrap: { padding: '10px 16px 14px 46px' },
-  // Stacked rather than side by side — a row of narrow boxes reads as a form
-  // to fill out; a short vertical list reads as the few things this item
-  // actually holds.
-  fieldRow: { display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 10, maxWidth: 420 },
-  field: { position: 'relative' },
-  fieldWide: { position: 'relative' },
-  // Sits on the label line rather than floating over the field's corner,
-  // and uses flex centring so the glyph is actually centred in its circle.
+  wrap: { display: 'flex', flexDirection: 'column' },
+  bar: {
+    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+    padding: '12px 14px', borderBottom: '1px solid var(--border)',
+  },
+  intro: { padding: '12px 14px 2px' },
+  rows: { display: 'flex', flexDirection: 'column', padding: '4px 0 6px' },
+  prop: {
+    display: 'grid', gridTemplateColumns: '130px minmax(0, 1fr)', gap: 12, alignItems: 'start',
+    padding: '12px 14px', borderTop: '1px solid var(--border)',
+  },
+  propNarrow: { display: 'flex', flexDirection: 'column', gap: 8, padding: '12px', borderTop: '1px solid var(--border)' },
+  propLabel: { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', paddingTop: 8, display: 'flex', alignItems: 'center', gap: 8 },
+  propLabelNarrow: { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 },
+  count: { fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', background: 'var(--bg-inset)', borderRadius: 5, padding: '1px 6px' },
+  propValue: { minWidth: 0 },
+  plain: { fontSize: 13, color: 'var(--text-primary)', lineHeight: '34px' },
+  stack: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start', minWidth: 0 },
+  chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  dep: {
+    display: 'inline-flex', alignItems: 'center', gap: 7, maxWidth: '100%',
+    background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8,
+    padding: '4px 2px 4px 10px', fontSize: 13, color: 'var(--text-primary)',
+  },
+  depDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  depName: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  depState: { fontSize: 11.5, color: 'var(--text-tertiary)', flexShrink: 0 },
+  depX: { background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 16, lineHeight: 1, padding: '2px 7px', cursor: 'pointer', textTransform: 'none' },
+  fieldGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '2px 12px', width: '100%' },
+  fieldGridNarrow: { display: 'flex', flexDirection: 'column', gap: 2, width: '100%' },
+  field: { position: 'relative', minWidth: 0 },
+  fieldWide: { position: 'relative', minWidth: 0, gridColumn: '1 / -1' },
   remove: {
     position: 'absolute',
     top: 0,
@@ -226,71 +288,30 @@ const styles = {
     padding: 0,
     zIndex: 1,
   },
-  assignWrap: { marginBottom: 12, maxWidth: 420 },
-  assignLabel: {
-    display: 'block',
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: 'var(--text-tertiary)',
-    marginBottom: 5,
-  },
-  assignSelect: {
-    width: '100%',
-    boxSizing: 'border-box',
-    height: 36,
-    padding: '0 11px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid transparent',
-    background: 'var(--bg-inset)',
-    color: 'var(--text-primary)',
-    fontSize: 13,
-  },
-  chipRow: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
-  chip: {
-    background: 'var(--bg-inset)',
-    border: '1px solid var(--border)',
-    borderRadius: 14,
-    color: 'var(--text-secondary)',
-    fontSize: 11,
-    padding: '4px 9px',
-    cursor: 'pointer',
-  },
-  removeItemWrap: {
-    marginTop: 4,
-    paddingTop: 10,
-    borderTop: '1px solid var(--border)',
-    maxWidth: 420,
-  },
-  removeItemLink: {
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    color: 'var(--danger)',
-    opacity: 0.75,
-    fontSize: 11,
-    cursor: 'pointer',
-  },
-  pickerWrap: { marginBottom: 14, maxWidth: 420 },
-  pickerLabel: {
-    display: 'block',
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: 'var(--text-tertiary)',
-    marginBottom: 5,
-  },
   picker: {
-    width: '100%',
+    minWidth: 180,
     boxSizing: 'border-box',
-    height: 36,
+    height: 34,
     padding: '0 11px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px dashed var(--border-strong)',
-    background: 'transparent',
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-inset)',
     color: 'var(--text-secondary)',
     fontSize: 13,
+    fontFamily: 'inherit',
   },
+  removeItem: {
+    flex: '0 0 auto',
+    minHeight: 36,
+    padding: '0 10px',
+    borderRadius: 8,
+    border: '1px solid transparent',
+    background: 'transparent',
+    color: 'var(--danger)',
+    fontSize: 12.5,
+    fontWeight: 700,
+    cursor: 'pointer',
+    textTransform: 'none',
+  },
+  bottom: { display: 'flex', justifyContent: 'flex-end', padding: '6px 8px', borderTop: '1px solid var(--border)' },
 };

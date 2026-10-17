@@ -14,7 +14,7 @@ import { arrayUnion } from 'firebase/firestore';
 export const waitingOn = (item) =>
   item?.signature?.status === 'waiting' && !item.done ? item.signature.requestedOfName : null;
 
-export default function SignaturePanel({ item, me, canRequest, people, save, notify }) {
+export default function SignaturePanel({ item, me, canRequest, people, save, notify, compact = false }) {
   const s = item.signature ?? null;
   const [asking, setAsking] = useState(false);
   const [who, setWho] = useState('');
@@ -105,7 +105,7 @@ export default function SignaturePanel({ item, me, canRequest, people, save, not
   }
 
   return (
-    <div style={{ margin: '4px 0 12px' }}>
+    <div style={{ margin: 0 }}>
       {s?.status === 'waiting' && !item.done ? (
         <p style={styles.waiting}>
           Waiting on {s.requestedOfName} to sign · asked by {s.requestedByName}{s.note ? ' · "' + s.note + '"' : ''}
@@ -135,7 +135,7 @@ export default function SignaturePanel({ item, me, canRequest, people, save, not
             </div>
           </div>
         ) : (
-          <button style={styles.ghost} onClick={() => setAsking(true)}>Needs a signature…</button>
+          <button style={styles.ghost} onClick={() => setAsking(true)}>{compact ? 'Signature…' : 'Needs a signature…'}</button>
         )
       ) : null}
     </div>
@@ -154,6 +154,6 @@ const styles = {
   row: { display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 8, alignItems: 'center' },
   input: { flex: 1, minWidth: 160, boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px', minHeight: 40, fontSize: 13, color: 'var(--text-primary)', fontFamily: 'inherit' },
   primary: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '0 14px', minHeight: 40, fontWeight: 800, fontSize: 13, cursor: 'pointer' },
-  ghost: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '0 12px', minHeight: 40, fontWeight: 700, fontSize: 12, cursor: 'pointer' },
+  ghost: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '0 12px', minHeight: 36, whiteSpace: 'nowrap', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
   link: { background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer', marginLeft: 8, textDecoration: 'underline' },
 };

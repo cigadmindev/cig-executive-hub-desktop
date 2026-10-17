@@ -30,19 +30,25 @@ export default function DependencyPicker({ options, selected, selfId, onAdd }) {
 
   return (
     <div ref={wrap} style={styles.wrap}>
-      <div style={{ ...styles.field, ...(open ? styles.fieldOn : {}) }}>
-        <Icon name="search" size={15} color="var(--text-tertiary)" />
-        <input
-          style={styles.input}
-          value={q}
-          placeholder={selected.length ? 'Add another: search items or sections…' : 'Search items or sections…'}
-          onFocus={() => setOpen(true)}
-          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
-          onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
-        />
-      </div>
+      {/* A box like the other drop-downs (17 Oct 2026); the search lives
+          inside the list it opens. */}
+      <button type="button" style={{ ...styles.box, ...(open ? styles.fieldOn : {}) }} onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span>Add dependencies…</span>
+        <span style={styles.caret}>▾</span>
+      </button>
       {open ? (
         <div style={styles.panel}>
+          <div style={styles.field}>
+            <Icon name="search" size={15} color="var(--text-tertiary)" />
+            <input
+              style={styles.input}
+              value={q}
+              autoFocus={typeof window !== 'undefined' && window.innerWidth >= 768}
+              placeholder="Search items or sections"
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
+            />
+          </div>
           {groups.length === 0 ? <p style={styles.empty}>Nothing matches “{q}”.</p> : null}
           {groups.map((g) => (
             <div key={g.section}>
@@ -69,13 +75,20 @@ export default function DependencyPicker({ options, selected, selfId, onAdd }) {
 }
 
 const styles = {
-  wrap: { position: 'relative' },
-  field: { display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 11px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-inset)', border: '1px solid transparent' },
-  fieldOn: { borderColor: 'var(--neon)' },
+  wrap: { position: 'relative', minWidth: 0 },
+  box: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+    minWidth: 180, height: 34, padding: '0 12px', boxSizing: 'border-box',
+    borderRadius: 8, background: 'var(--bg-inset)', border: '1px solid var(--border)',
+    color: 'var(--text-secondary)', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer', textTransform: 'none',
+  },
+  caret: { fontSize: 11, color: 'var(--text-tertiary)' },
+  field: { display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 10px', borderRadius: 7, background: 'var(--bg-inset)', margin: '2px 2px 4px' },
+  fieldOn: { borderColor: 'var(--neon)', color: 'var(--text-primary)' },
   input: { flex: 1, minWidth: 0, background: 'none', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit' },
   // In the page's flow rather than floating, so nothing below shows through
   // it and it scrolls with the item.
-  panel: { marginTop: 6, maxHeight: 300, overflowY: 'auto', background: 'var(--bg-inset)', border: '1px solid var(--border-strong)', borderRadius: 10, padding: 4 },
+  panel: { marginTop: 8, maxWidth: 420, maxHeight: 340, overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 10, padding: 4, boxShadow: '0 10px 28px rgba(0,0,0,.35)' },
   secRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 10px 4px' },
   secName: { fontSize: 10, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
   secAdd: { background: 'none', border: 'none', color: 'var(--neon)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0, textTransform: 'none' },

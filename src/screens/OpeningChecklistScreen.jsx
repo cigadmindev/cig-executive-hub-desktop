@@ -16,6 +16,7 @@ import { useRenewals, renewalDocId } from '../context/RenewalsContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmEditField from '../components/ConfirmEditField';
 import ItemDetails from '../components/ItemDetails';
+import LocationDetails from '../components/LocationDetails';
 import SignaturePanel, { waitingOn } from '../components/SignaturePanel';
 import DatePickerField from '../components/DatePickerField';
 import SearchBar from '../components/SearchBar';
@@ -175,6 +176,10 @@ export default function OpeningChecklistScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingRegenerate, setConfirmingRegenerate] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  // Filter chips and the section list (17 Oct 2026, sketch 19).
+  const [filter, setFilter] = useState('all');
+  const [hideDone, setHideDone] = useState(false);
+  const [activeSection, setActiveSection] = useState(null);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60000);
@@ -401,6 +406,237 @@ export default function OpeningChecklistScreen() {
     ...openingItems.filter((i) => i.openingItemType === 'timeline').map((i) => i.title),
   ];
 
+  // ---- The page's numbers, filters and sections (17 Oct 2026) ----
+  const DAY = 24 * 60 * 60 * 1000;
+  const timelineItems = openingItems.filter((i) => i.openingItemType === 'timeline');
+  const allDone = openingItems.filter((i) => i.done).length;
+  const allPct = openingItems.length ? Math.round((allDone / openingItems.length) * 100) : 0;
+  const daysToOpen = info.openingDate ? Math.ceil((info.openingDate - now) / DAY) : null;
+  const isOverdue = (i) => !i.done && i.dateTime && i.dateTime < now;
+  const isWaitingSignature = (i) => !i.done && i.signature?.status === 'waiting';
+  const counts = {
+    overdue: openingItems.filter(isOverdue).length,
+    mine: openingItems.filter((i) => !i.done && isAssignedTo(i, user?.uid)).length,
+    signature: openingItems.filter(isWaitingSignature).length,
+  };
+  const passes = (i) =>
+    (!hideDone || !i.done) &&
+    (filter === 'all' ||
+      (filter === 'overdue' && isOverdue(i)) ||
+      (filter === 'mine' && isAssignedTo(i, user?.uid)) ||
+      (filter === 'signature' && isWaitingSignature(i)));
+  const slug = (t) => 'sec-' + String(t ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const sectionOf = (prefix, name, all, visible) => ({
+    id: slug(prefix + '-' + name),
+    name,
+    total: all.length,
+    done: all.filter((i) => i.done).length,
+    shown: visible.filter(passes),
+  });
+  const navGroups = [
+    {
+      label: 'Initial set-up',
+      sections: [...new Set(setupItems.map((i) => i.openingSection))].map((name) =>
+        sectionOf('setup', name, setupItems.filter((i) => i.openingSection === name), visibleSetupItems.filter((i) => i.openingSection === name))
+      ),
+    },
+    {
+      label: 'Opening timeline',
+      sections: TIMELINE_BUCKETS.filter((b) => timelineItems.some((i) => i.openingSection === b.label)).map((b) =>
+        sectionOf('timeline', b.label, timelineItems.filter((i) => i.openingSection === b.label), visibleTimelineItems.filter((i) => i.openingSection === b.label))
+      ),
+    },
+  ].filter((g) => g.sections.length);
+
+  // Jump to a section. If the filter is hiding it, clear the filter first.
+  const jumpTo = (id) => {
+    setActiveSection(id);
+    const go = () => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!document.getElementById(id)) {
+      setFilter('all');
+      setHideDone(false);
+      setSearchQuery('');
+      setTimeout(go, 60);
+    } else go();
+  };
+
+  const initial = (n) => (n ?? '?').trim().charAt(0).toUpperCase();
+  // Under the title on a computer; across the whole card on a phone.
+  const heroStats = (
+    <div style={isNarrow ? styles.heroStatsNarrow : styles.heroStats}>
+      <div><b style={styles.heroNum}>{setupItems.filter((i) => i.done).length}/{setupItems.length}</b><span style={styles.heroLabel}>Set-up</span></div>
+      <div><b style={styles.heroNum}>{timelineItems.filter((i) => i.done).length}/{timelineItems.length}</b><span style={styles.heroLabel}>Timeline</span></div>
+      <div><b style={{ ...styles.heroNum, color: counts.overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>{counts.overdue}</b><span style={styles.heroLabel}>Overdue</span></div>
+      <div><b style={{ ...styles.heroNum, color: counts.signature ? 'var(--warn)' : 'var(--text-tertiary)' }}>{counts.signature}</b><span style={styles.heroLabel}>Awaiting signature</span></div>
+    </div>
+  );
+
+  // One row, the same for Set-up and Timeline. Who has it (initials), one
+  // status pill only when something is off, and the date. Opened, it shows
+  // the item card from sketch 20.
+  const renderItem = (item) => {
+    const isSetup = item.openingItemType === 'setup';
+    const blockedBy = isSetup ? getBlockingDependencies(item, setupItems, template) : [];
+    const isLocked = blockedBy.length > 0 && !item.done;
+    const neededFor = isSetup ? getDependentParents(item, template) : [];
+    const isOpen = expandedItemId === item.id;
+    const overdue = isOverdue(item);
+    const daysLate = overdue ? Math.max(1, Math.floor((now - item.dateTime) / DAY)) : 0;
+    const who = assigneesOf(item);
+    const description = describeItem(item.setupKey);
+    const waiting = !item.done ? waitingOn(item) : null;
+
+    const pill = item.done ? (
+      <span style={styles.rowMeta}>{item.doneBy || 'Done'}</span>
+    ) : waiting ? (
+      <span style={styles.waitingPill}>Waiting on {waiting.split(' ')[0]}</span>
+    ) : isLocked ? (
+      <span style={styles.lockedPill} title={'Needs ' + blockedBy.join(', ')}>
+        Needs {blockedBy[0]}{blockedBy.length > 1 ? ' +' + (blockedBy.length - 1) : ''}
+      </span>
+    ) : overdue ? (
+      <span style={styles.latePill}>{daysLate === 1 ? '1 day late' : daysLate + ' days late'}</span>
+    ) : null;
+
+    const openDateEditor = (e) => {
+      e?.stopPropagation();
+      setExpandedItemId(item.id);
+      startEditItemDate(item);
+    };
+
+    const actions = (
+      <>
+        {canTick && !isLocked ? (
+          <button style={item.done ? styles.ghostSmall : styles.primarySmall} onClick={() => requestToggleDone(item)}>
+            {item.done ? 'Undo done' : isNarrow ? '✓ Done' : '✓ Mark done'}
+          </button>
+        ) : null}
+        {canTick && !item.done ? (
+          <button style={styles.ghostSmall} onClick={openDateEditor}>
+            {isNarrow ? fmtDay(item.dateTime) : fmtDay(item.dateTime) + ' · Change date'}
+          </button>
+        ) : (
+          <span style={styles.barDate}>{fmtDay(item.dateTime)}</span>
+        )}
+        <SignaturePanel
+          compact={isNarrow}
+          item={item}
+          me={user}
+          canRequest={canTick && !mineOnly}
+          people={assignableUsers}
+          save={(fields) => updateEntry(item.id, fields)}
+          notify={notify}
+        />
+      </>
+    );
+
+    const intro =
+      description || neededFor.length || isLocked || (item.done && item.doneBy) || editingDateItemId === item.id ? (
+        <>
+          {/* Looked up from the template rather than stored on each record:
+              one description per item type, so a wording change reaches
+              every location at once. */}
+          {description ? <p style={styles.itemDescription}>{description}</p> : null}
+          {isLocked ? <p style={styles.neededForNote}>Can't be ticked until {blockedBy.join(', ')} {blockedBy.length > 1 ? 'are' : 'is'} done.</p> : null}
+          {neededFor.length > 0 ? <p style={styles.neededForNote}>Needed for {neededFor.join(', ')}</p> : null}
+          {item.done && item.doneBy ? <p style={styles.neededForNote}>Signed off by {item.doneBy}</p> : null}
+          {editingDateItemId === item.id ? (
+            <div style={styles.dateEditRow}>
+              <DatePickerField value={itemDateDraft} onChange={setItemDateDraft} />
+              <button style={styles.saveDateButton} onClick={() => requestItemDateChange(item)}>
+                Save
+              </button>
+              <button style={styles.cancelDateButton} onClick={() => setEditingDateItemId(null)}>
+                Cancel
+              </button>
+            </div>
+          ) : null}
+        </>
+      ) : null;
+
+    return (
+      <div key={item.id} style={styles.row}>
+        {/* The whole row toggles - a chevron alone is a tiny target. */}
+        <div
+          style={{
+            ...styles.rowMain,
+            ...(overdue ? styles.rowOverdue : {}),
+            ...(isOpen ? styles.rowOpen : {}),
+          }}
+          data-row=""
+          onClick={() => setExpandedItemId(isOpen ? null : item.id)}
+        >
+          <button
+            className="hit-40"
+            style={{
+              ...styles.check,
+              ...(item.done ? styles.checkDone : {}),
+              ...(isLocked ? styles.checkLocked : {}),
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isLocked) requestToggleDone(item);
+            }}
+            disabled={isLocked}
+            aria-label={item.done ? 'Undo ' + item.title : 'Tick off ' + item.title}
+            title={isLocked ? `Locked — requires: ${blockedBy.join(', ')}` : undefined}
+          >
+            {item.done ? '✓' : isLocked ? '–' : ''}
+          </button>
+
+          <span style={styles.rowText}>
+            <span style={{ ...styles.rowTitle, ...(item.done ? styles.rowTitleDone : {}), ...(isOpen ? { fontWeight: 700 } : {}) }}>{item.title}</span>
+            {isNarrow ? (
+              <span style={styles.rowSub}>
+                {[who.uids.length ? shortNames(who.names) : null, fmtDay(item.dateTime)].filter(Boolean).join(' · ')}
+              </span>
+            ) : null}
+          </span>
+
+          {!isNarrow && who.uids.length ? (
+            <span style={styles.avatars} title={who.names.join(', ')}>
+              {who.names.slice(0, 3).map((n, i) => (
+                <span key={i} style={{ ...styles.avatar, ...(i ? { marginLeft: -6 } : {}) }}>{initial(n)}</span>
+              ))}
+              {who.names.length > 3 ? <span style={{ ...styles.avatar, marginLeft: -6 }}>+{who.names.length - 3}</span> : null}
+            </span>
+          ) : null}
+
+          {pill}
+
+          {isNarrow || item.done ? null : canTick ? (
+            <button style={styles.rowDateButton} onClick={openDateEditor}>{fmtDay(item.dateTime)}</button>
+          ) : (
+            <span style={styles.rowMeta}>{fmtDay(item.dateTime)}</span>
+          )}
+
+          <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
+        </div>
+
+        {isOpen ? (
+          <div style={isNarrow ? styles.detailCardNarrow : styles.detailCard} data-reveal="">
+            <ItemDetails
+              item={item}
+              actions={actions}
+              intro={intro}
+              onSave={updateSetupField}
+              readOnly={!canTick}
+              canAddDocuments={item.signature?.status === 'waiting' && item.signature.requestedOfUid === user?.uid}
+              locationId={locationId}
+              userName={user?.name}
+              assignableUsers={canEdit ? assignableUsers : null}
+              onAssign={canEdit ? handleAssign : null}
+              onDeleteItem={canEdit ? handleDeleteItem : null}
+              dependencyOptions={canEdit ? openingItems : null}
+              onChangeDependencies={canEdit ? handleChangeDependencies : null}
+              templateDependencyIds={canEdit ? resolveDependencyIds(item, openingItems, template) : null}
+            />
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
   return (
     <div style={styles.page}>
       <PageHeader
@@ -429,84 +665,81 @@ export default function OpeningChecklistScreen() {
       {mineOnly ? (
         <p style={styles.mineOnlyNote}>Showing only what's assigned to you at {location?.name ?? 'this location'}.</p>
       ) : (
-      <>
-      <div style={styles.section}>
-        {/* Only the Show/Hide pill lights up when pressed (15 Oct 2026);
-            the whole bar used to, because the whole bar was the button.
-            Tapping the heading still opens it. */}
-        <div style={styles.infoToggle} onClick={() => setInfoOpen((v) => !v)}>
-          <h2 style={styles.sectionHeader}>Location Info</h2>
-          <button style={styles.infoChevron} onClick={(e) => { e.stopPropagation(); setInfoOpen((v) => !v); }} aria-expanded={infoOpen}>
-            {infoOpen ? 'Hide' : 'Show'}
-          </button>
-        </div>
-        <div style={{ ...styles.grid2, display: infoOpen ? 'grid' : 'none' }}>
-          <ConfirmEditField label="Property Manager" value={info.propertyManager} onSave={(v) => updateInfoField(locationId, 'propertyManager', v)} />
-          <ConfirmEditField label="Property Manager Contact" value={info.propertyManagerContact} onSave={(v) => updateInfoField(locationId, 'propertyManagerContact', v)} />
-          <ConfirmEditField label="Landlord" value={info.landlord} onSave={(v) => updateInfoField(locationId, 'landlord', v)} />
-          <ConfirmEditField label="Landlord Contact" value={info.landlordContact} onSave={(v) => updateInfoField(locationId, 'landlordContact', v)} />
-          <ConfirmEditField label="Contractor" value={info.contractor} onSave={(v) => updateInfoField(locationId, 'contractor', v)} />
-          <ConfirmEditField label="Contractor Contact" value={info.contractorContact} onSave={(v) => updateInfoField(locationId, 'contractorContact', v)} />
-          <ConfirmEditField label="Project Manager" value={info.projectManager} onSave={(v) => updateInfoField(locationId, 'projectManager', v)} />
-          <ConfirmEditField label="Address" value={info.address} placeholder="Street, city, state, ZIP" onSave={(v) => updateInfoField(locationId, 'address', v)} />
-        </div>
-
-        <p style={{ ...styles.label, display: infoOpen ? 'block' : 'none' }}>Important Numbers</p>
-        <div style={{ ...styles.grid2, display: infoOpen ? 'grid' : 'none' }}>
-          {info.importantNumbers.map((num, i) => (
-            <ConfirmEditField
-              key={i}
-              label={['GM', 'KM / Chef', 'MGR', 'Other'][i]}
-              value={num}
-              onSave={(v) => {
-                const next = [...info.importantNumbers];
-                next[i] = v;
-                updateInfoField(locationId, 'importantNumbers', next);
-              }}
-            />
-          ))}
-        </div>
-
-        <p style={styles.label}>Projected Opening Date</p>
-        {info.openingDate ? (
-          <div style={styles.openingDateRow}>
-            <span style={styles.openingDateValue}>{formatDate(info.openingDate)}</span>
-            {isAdmin ? (
-              <button style={styles.smallLinkButton} onClick={() => setDateDraft(new Date(info.openingDate).toISOString().slice(0, 10))}>
-                Change
+      <div style={styles.summaryCard}>
+        {/* One summary card (17 Oct 2026, sketch 19): the opening date and
+            countdown, how far along it is, and the numbers that matter. The
+            location details people use most show at a glance; the rest fold
+            away behind "Show all location details". */}
+        <div style={isNarrow ? styles.heroNarrow : styles.hero}>
+          {/* A thin ring drawn around the number, with nothing behind the
+              number itself, so the percent always reads (17 Oct 2026). */}
+          <div style={{ ...styles.ring, ...(isNarrow ? styles.ringSmall : {}) }}>
+            <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }} aria-hidden="true">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
+              <circle cx="50" cy="50" r="44" fill="none" stroke="var(--neon)" strokeWidth="8" strokeLinecap="round"
+                strokeDasharray={`${(allPct / 100) * 2 * Math.PI * 44} ${2 * Math.PI * 44}`} style={{ display: allPct ? 'block' : 'none' }} />
+            </svg>
+            <span style={isNarrow ? styles.ringTextSmall : styles.ringText}>{allPct}%</span>
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={styles.heroTitle}>
+              {info.openingDate ? 'Opens ' + new Date(info.openingDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'No opening date yet'}
+            </div>
+            <div style={styles.heroSub}>
+              {info.openingDate ? (daysToOpen >= 0 ? daysToOpen + (daysToOpen === 1 ? ' day' : ' days') + ' to go · ' : 'Opened · ') : ''}
+              {allDone} of {openingItems.length} done
+            </div>
+            {isNarrow ? null : heroStats}
+          </div>
+          {isNarrow ? heroStats : null}
+          <div style={isNarrow ? styles.heroSideNarrow : styles.heroSide}>
+            {isProvisionalTemplate(locationId) && info.checkedForArea ? (
+              <div style={styles.checkedNote}>
+                <span>Checked for {location?.name ?? 'this location'} by {info.checkedForArea.byName} · {new Date(info.checkedForArea.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                {isAdmin ? (
+                  <button style={styles.checkedUndo} onClick={() => updateInfoField(locationId, 'checkedForArea', null).catch((err) => notify('Could not save', plainError(err, 'Try again.')))}>Undo</button>
+                ) : null}
+              </div>
+            ) : null}
+            {isAdmin && info.openingDate && !dateDraft ? (
+              <button style={styles.textLink} onClick={() => setDateDraft(new Date(info.openingDate).toISOString().slice(0, 10))}>
+                Change opening date
               </button>
             ) : null}
           </div>
-        ) : null}
+        </div>
+
         {isAdmin && (dateDraft || !info.openingDate) ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <DatePickerField value={dateDraft} onChange={setDateDraft} placeholder="Set opening date" />
+          <div style={styles.cardBlock}>
+            <p style={styles.label}>Projected opening date</p>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1, maxWidth: 360 }}>
+                <DatePickerField value={dateDraft} onChange={setDateDraft} placeholder="Set opening date" />
+              </div>
+              <button style={styles.setDateButton} onClick={handleSetOpeningDate} disabled={!dateDraft}>
+                {info.openingDate ? 'Update' : 'Set date'}
+              </button>
+              {info.openingDate ? (
+                <button style={styles.cancelDateButton} onClick={() => setDateDraft('')}>Cancel</button>
+              ) : null}
             </div>
-            <button style={styles.setDateButton} onClick={handleSetOpeningDate} disabled={!dateDraft}>
-              {info.openingDate ? 'Update' : 'Set date'}
-            </button>
+            {/* Shown only while the date is being changed. */}
+            {dateDraft ? (
+              <p style={styles.hint}>
+                {info.openingDate
+                  ? 'Re-spreads unfinished tasks across the new window and adds anything missing. Completed work keeps its date.'
+                  : 'Builds the checklist and spreads it across the calendar, with permits landing after everything they depend on.'}
+              </p>
+            ) : null}
           </div>
         ) : null}
-        {/* Shown only while the date is being changed — this is surprising
-            enough to warrant explaining, but only at the moment it applies. */}
-        {dateDraft ? (
-          <p style={styles.hint}>
-            {info.openingDate
-              ? 'Re-spreads unfinished tasks across the new window and adds anything missing. Completed work keeps its date.'
-              : 'Builds the checklist and spreads it across the calendar, with permits landing after everything they depend on.'}
-          </p>
-        ) : null}
-        {!isAdmin && !info.openingDate ? <p style={styles.hint}>Ask an admin to set the opening date to generate the checklist below.</p> : null}
+        {!isAdmin && !info.openingDate ? <div style={styles.cardBlock}><p style={styles.hint}>Ask an admin to set the opening date to generate the checklist below.</p></div> : null}
 
-        {/* A location with no template of its own falls back to Starkville's
-            so it has a working checklist on day one. Mississippi permits are
-            not Alabama's or Tennessee's, and a borrowed list that looks
-            authoritative is worse than one that admits what it is. */}
-        {/* Until an admin checks it for this area (16 Oct 2026). Then the
-            yellow note goes for everyone, and a line says who checked it. */}
+        {/* A location with no template of its own falls back to Starkville's.
+            Until an admin checks it for this area (16 Oct 2026) the yellow
+            note stays, for everyone. */}
         {isProvisionalTemplate(locationId) && !info.checkedForArea ? (
-          <>
+          <div style={styles.cardBlock}>
             <div style={styles.provisionalNote}>
               This checklist is based on Starkville and has not been verified for this city. Permits and timelines may
               differ — check with the local authority before relying on it.
@@ -522,328 +755,99 @@ export default function OpeningChecklistScreen() {
                 Mark as checked for {location?.name ?? 'this location'}
               </button>
             ) : null}
-          </>
-        ) : null}
-        {isProvisionalTemplate(locationId) && info.checkedForArea ? (
-          <div style={styles.checkedNote}>
-            <span>Checked for {location?.name ?? 'this location'} by {info.checkedForArea.byName} · {new Date(info.checkedForArea.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-            {isAdmin ? (
-              <button style={styles.checkedUndo} onClick={() => updateInfoField(locationId, 'checkedForArea', null).catch((err) => notify('Could not save', plainError(err, 'Try again.')))}>Undo</button>
-            ) : null}
           </div>
         ) : null}
+
+        <LocationDetails
+          info={info}
+          canEdit={canTick && !mineOnly}
+          onSave={(field, value) => updateInfoField(locationId, field, value)}
+          notify={notify}
+        />
       </div>
-      </>
       )}
 
-      <div style={styles.section}>
-        <div style={styles.sectionHeaderRow}>
-          <h2 style={styles.sectionHeader}>Initial Set-Up POC</h2>
+      {openingItems.length === 0 ? (
+        <div style={styles.section}>
+          <p style={styles.hint}>{mineOnly ? 'Nothing on this checklist is assigned to you.' : 'Set an opening date above to generate this checklist.'}</p>
         </div>
-        {setupItems.length === 0 ? (
-          <p style={styles.hint}>{mineOnly ? 'Nothing in Initial Set-Up is assigned to you.' : 'Set an opening date above to generate this checklist.'}</p>
-        ) : visibleSetupItems.length === 0 ? (
-          <p style={styles.hint}>No Initial Set-Up items match "{searchQuery}".</p>
+      ) : (
+      <div style={isNarrow ? styles.layoutNarrow : styles.layout}>
+        {/* Every section with its progress (17 Oct 2026). A column on a
+            computer; chips you scroll sideways on a phone. Tapping one jumps
+            to it. */}
+        {isNarrow ? (
+          <div style={styles.navChips}>
+            {navGroups.flatMap((g) => g.sections).map((s) => (
+              <button key={s.id} style={{ ...styles.navChip, ...(activeSection === s.id ? styles.navChipOn : {}) }} onClick={() => jumpTo(s.id)}>
+                {s.name} <span style={styles.navChipCount}>{s.done}/{s.total}</span>
+              </button>
+            ))}
+          </div>
         ) : (
-          [...new Set(visibleSetupItems.map((i) => i.openingSection))].map((sectionName) => (
-            <div key={sectionName} style={{ marginBottom: 22 }}>
-              {(() => {
-                // Progress per section, so you can see how far along Health
-                // Dept is without counting rows.
-                const inSection = visibleSetupItems.filter((i) => i.openingSection === sectionName);
-                const doneCount = inSection.filter((i) => i.done).length;
-                const pct = inSection.length ? Math.round((doneCount / inSection.length) * 100) : 0;
-                return (
-                  <div style={styles.sectionHead}>
-                    <span style={styles.sectionName}>{sectionName}</span>
-                    <span style={styles.sectionCount}>
-                      {doneCount} of {inSection.length}
-                    </span>
-                    <div style={styles.sectionBarTrack}>
-                      <div style={{ ...styles.sectionBarFill, width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })()}
-              {visibleSetupItems
-                .filter((i) => i.openingSection === sectionName)
-                .map((item) => {
-                  const urgency = getOpeningItemUrgency(item, now);
-                  const blockedBy = getBlockingDependencies(item, setupItems, template);
-                  const isLocked = blockedBy.length > 0 && !item.done;
-                  const neededFor = getDependentParents(item, template);
-                  const isOpen = expandedItemId === item.id;
-                  const hasDetails = Object.values(item.openingFields ?? {}).some(Boolean);
-                  const overdue = !item.done && item.dateTime < now;
-                  return (
-                    <div key={item.id} style={styles.row}>
-                      {/* The whole row toggles — a chevron alone is a tiny target,
-                          and there's nothing else on the row to click. */}
-                      <div
-                        style={{
-                          ...styles.rowMain,
-                          ...(overdue ? styles.rowOverdue : {}),
-                          ...(item.done ? styles.rowDone : {}),
-                        }}
-                        data-row=""
-                        onClick={() => setExpandedItemId(isOpen ? null : item.id)}
-                      >
-                        <button
-                          className="hit-40"
-                          style={{
-                            ...styles.check,
-                            ...(item.done ? styles.checkDone : {}),
-                            ...(isLocked ? styles.checkLocked : {}),
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isLocked) requestToggleDone(item);
-                          }}
-                          disabled={isLocked}
-                          title={isLocked ? `Locked — requires: ${blockedBy.join(', ')}` : undefined}
-                        >
-                          {item.done ? '✓' : isLocked ? '–' : ''}
-                        </button>
-
-                        <span style={{ ...styles.rowTitle, ...(item.done ? styles.rowTitleDone : {}) }}>
-                          {item.title}
-                        </span>
-
-                        {/* A dot rather than a count — you only need to know
-                            something's there, and the number isn't meaningful. */}
-                        {assigneesOf(item).uids.length && !isOpen ? (
-                          <span style={styles.assignedChip}>{shortNames(assigneesOf(item).names)}</span>
-                        ) : null}
-                        {hasDetails && !isOpen ? <span style={styles.detailDot} /> : null}
-
-                        {/* Status by exception. A pending item on schedule says
-                            nothing but its date; red is reserved for actually
-                            overdue, so it means something when it appears. */}
-                        {item.done ? (
-                          <span style={styles.rowMeta}>{item.doneBy || 'Done'}</span>
-                        ) : waitingOn(item) ? (
-                          <span style={styles.waitingPill}>Waiting on {waitingOn(item).split(' ')[0]}</span>
-                        ) : overdue ? (
-                          <span style={styles.rowOverdueLabel}>Overdue</span>
-                        ) : !canTick ? (
-                          <span style={styles.rowMeta}>
-                            {fmtDay(item.dateTime)}
-                          </span>
-                        ) : (
-                          <button
-                            style={styles.rowDateButton}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditItemDate(item);
-                            }}
-                          >
-                            {fmtDay(item.dateTime)}
-                          </button>
-                        )}
-
-                        <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
-                      </div>
-
-                      {/* Dependencies stay visible when collapsed — whether you
-                          can start something matters more than its details. */}
-                      {isLocked ? <p style={styles.blockedNote}>Requires {blockedBy.join(', ')}</p> : null}
-
-                      {isOpen ? (
-                        <div style={styles.rowBody} data-reveal="">
-                          {/* Looked up from the template rather than stored on
-                              each record: one description per item type, so a
-                              wording change reaches every location at once. */}
-                          {describeItem(item.setupKey) ? (
-                            <p style={styles.itemDescription}>{describeItem(item.setupKey)}</p>
-                          ) : null}
-                          {neededFor.length > 0 ? (
-                            <p style={styles.neededForNote}>Needed for {neededFor.join(', ')}</p>
-                          ) : null}
-                          {editingDateItemId === item.id ? (
-                            <div style={styles.dateEditRow}>
-                              <DatePickerField value={itemDateDraft} onChange={setItemDateDraft} />
-                              <button style={styles.saveDateButton} onClick={() => requestItemDateChange(item)}>
-                                Save
-                              </button>
-                              <button style={styles.cancelDateButton} onClick={() => setEditingDateItemId(null)}>
-                                ✕
-                              </button>
-                            </div>
-                          ) : null}
-                          <SignaturePanel
-                            item={item}
-                            me={user}
-                            canRequest={canTick && !mineOnly}
-                            people={assignableUsers}
-                            save={(fields) => updateEntry(item.id, fields)}
-                            notify={notify}
-                          />
-                          <ItemDetails
-                            item={item}
-                            onSave={updateSetupField}
-                            readOnly={!canTick}
-                            canAddDocuments={item.signature?.status === 'waiting' && item.signature.requestedOfUid === user?.uid}
-                            locationId={locationId}
-                            userName={user?.name}
-                            assignableUsers={canEdit ? assignableUsers : null}
-                            onAssign={canEdit ? handleAssign : null}
-                            onDeleteItem={canEdit ? handleDeleteItem : null}
-                            dependencyOptions={canEdit ? openingItems : null}
-                            onChangeDependencies={canEdit ? handleChangeDependencies : null}
-                            templateDependencyIds={
-                              canEdit ? resolveDependencyIds(item, openingItems, template) : null
-                            }
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-            </div>
-          ))
+          <div style={styles.nav}>
+            {navGroups.map((g) => (
+              <div key={g.label}>
+                <p style={styles.navGroup}>{g.label}</p>
+                {g.sections.map((s) => (
+                  <button key={s.id} style={{ ...styles.navItem, ...(activeSection === s.id ? styles.navItemOn : {}) }} onClick={() => jumpTo(s.id)}>
+                    <span style={styles.navName}>{s.name}</span>
+                    <span style={styles.navMini}><span style={{ ...styles.navMiniFill, width: (s.total ? Math.round((s.done / s.total) * 100) : 0) + '%' }} /></span>
+                    <span style={{ ...styles.navCount, ...(activeSection === s.id ? { color: 'var(--neon)' } : {}) }}>{s.done}/{s.total}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
         )}
-      </div>
 
-      <div style={styles.section}>
-        <div style={styles.sectionHeaderRow}>
-          <h2 style={styles.sectionHeader}>Opening Timeline</h2>
+        <div style={styles.listCard}>
+          <div style={styles.filters}>
+            {[
+              ['all', 'All', null],
+              ['overdue', 'Overdue', counts.overdue],
+              ['mine', 'Assigned to me', counts.mine],
+              ['signature', 'Waiting on a signature', counts.signature],
+            ].filter(([key]) => !(mineOnly && key === 'mine')).map(([key, label, n]) => (
+              <button key={key} style={{ ...styles.filterChip, ...(filter === key ? styles.filterChipOn : {}) }} onClick={() => setFilter(key)}>
+                {label}{n != null ? <span style={styles.filterCount}>{n}</span> : null}
+              </button>
+            ))}
+            <button style={{ ...styles.filterChip, ...(hideDone ? styles.filterChipOn : {}) }} onClick={() => setHideDone((v) => !v)} aria-pressed={hideDone}>
+              Hide done
+            </button>
+          </div>
+
+          {navGroups.every((g) => g.sections.every((s) => s.shown.length === 0)) ? (
+            <p style={{ ...styles.hint, padding: '16px' }}>
+              {q ? `Nothing matches "${searchQuery}".` : 'Nothing here with this filter.'}
+            </p>
+          ) : null}
+
+          {navGroups.map((g) =>
+            g.sections.some((s) => s.shown.length) ? (
+              <div key={g.label}>
+                <p style={styles.listGroup}>{g.label}</p>
+                {g.sections.map((s) =>
+                  s.shown.length ? (
+                    <div key={s.id} id={s.id} style={styles.sectionBlock}>
+                      <div style={styles.sectionHead}>
+                        <span style={styles.sectionName}>{s.name}</span>
+                        <span style={styles.sectionCount}>{s.done} of {s.total}</span>
+                        <div style={styles.sectionBarTrack}>
+                          <div style={{ ...styles.sectionBarFill, width: `${s.total ? Math.round((s.done / s.total) * 100) : 0}%` }} />
+                        </div>
+                      </div>
+                      {s.shown.map((item) => renderItem(item))}
+                    </div>
+                  ) : null
+                )}
+              </div>
+            ) : null
+          )}
         </div>
-        {mineOnly && !openingItems.some((i) => i.openingItemType === 'timeline') ? (
-          <p style={styles.hint}>Nothing in the timeline is assigned to you.</p>
-        ) : null}
-        {q && visibleTimelineItems.length === 0 && openingItems.some((i) => i.openingItemType === 'timeline') ? (
-          <p style={styles.hint}>No Timeline items match "{searchQuery}".</p>
-        ) : null}
-        {TIMELINE_BUCKETS.map((bucket) => {
-          const items = visibleTimelineItems.filter((i) => i.openingSection === bucket.label);
-          if (items.length === 0) return null;
-          return (
-            <div key={bucket.key} style={{ marginBottom: 22 }}>
-              {(() => {
-                const doneCount = items.filter((i) => i.done).length;
-                const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
-                return (
-                  <div style={styles.sectionHead}>
-                    <span style={styles.sectionName}>{bucket.label}</span>
-                    <span style={styles.sectionCount}>
-                      {doneCount} of {items.length}
-                    </span>
-                    <div style={styles.sectionBarTrack}>
-                      <div style={{ ...styles.sectionBarFill, width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })()}
-              {items.map((item) => {
-                const overdue = !item.done && item.dateTime < now;
-                const isOpen = expandedItemId === item.id;
-                const description = describeItem(item.setupKey);
-                return (
-                  <div key={item.id} style={styles.row}>
-                    <div
-                      style={{
-                        ...styles.rowMain,
-                        ...(overdue ? styles.rowOverdue : {}),
-                        ...(item.done ? styles.rowDone : {}),
-                      }}
-                      data-row=""
-                      onClick={() => setExpandedItemId(isOpen ? null : item.id)}
-                    >
-                      <button
-                        className="hit-40"
-                        style={{ ...styles.check, ...(item.done ? styles.checkDone : {}) }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          requestToggleDone(item);
-                        }}
-                      >
-                        {item.done ? '✓' : ''}
-                      </button>
-                      <span style={{ ...styles.rowTitle, ...(item.done ? styles.rowTitleDone : {}) }}>
-                        {item.title}
-                      </span>
-                      {item.done ? (
-                        <span style={styles.rowMeta}>{item.doneBy || 'Done'}</span>
-                      ) : waitingOn(item) ? (
-                        <span style={styles.waitingPill}>Waiting on {waitingOn(item).split(' ')[0]}</span>
-                      ) : overdue ? (
-                        <span style={styles.rowOverdueLabel}>Overdue</span>
-                      ) : !canTick ? (
-                        <span style={styles.rowMeta}>
-                          {fmtDay(item.dateTime)}
-                        </span>
-                      ) : (
-                        <button
-                          style={styles.rowDateButton}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditItemDate(item);
-                          }}
-                        >
-                          {fmtDay(item.dateTime)}
-                        </button>
-                      )}
-
-                      <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
-                    </div>
-
-                    {isOpen ? (
-                      <div style={styles.rowBody} data-reveal="">
-                        {description ? <p style={styles.itemDescription}>{description}</p> : null}
-                        {item.done && item.doneBy ? (
-                          <p style={styles.neededForNote}>Signed off by {item.doneBy}</p>
-                        ) : null}
-                        {/* Same panel as the setup list. A timeline task is as
-                            likely to need assigning as a setup one, and having
-                            the controls on one list but not the other would
-                            read as a bug. */}
-                        <SignaturePanel
-                          item={item}
-                          me={user}
-                          canRequest={canTick && !mineOnly}
-                          people={assignableUsers}
-                          save={(fields) => updateEntry(item.id, fields)}
-                          notify={notify}
-                        />
-                        <ItemDetails
-                          item={item}
-                          onSave={updateSetupField}
-                          readOnly={!canTick}
-                          canAddDocuments={item.signature?.status === 'waiting' && item.signature.requestedOfUid === user?.uid}
-                          locationId={locationId}
-                          userName={user?.name}
-                          assignableUsers={canEdit ? assignableUsers : null}
-                          onAssign={canEdit ? handleAssign : null}
-                          onDeleteItem={canEdit ? handleDeleteItem : null}
-                          dependencyOptions={canEdit ? openingItems : null}
-                          onChangeDependencies={canEdit ? handleChangeDependencies : null}
-                          templateDependencyIds={
-                            canEdit ? resolveDependencyIds(item, openingItems, template) : null
-                          }
-                        />
-                      </div>
-                    ) : null}
-                    {editingDateItemId === item.id ? (
-                      <div style={styles.dateEditRow}>
-                        <DatePickerField value={itemDateDraft} onChange={setItemDateDraft} />
-                        <button style={styles.saveDateButton} onClick={() => requestItemDateChange(item)}>
-                          Save
-                        </button>
-                        <button style={styles.cancelDateButton} onClick={() => setEditingDateItemId(null)}>
-                          ✕
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
-        {openingItems.filter((i) => i.openingItemType === 'timeline').length === 0 ? (
-          <p style={styles.hint}>Set an opening date above to generate this checklist.</p>
-        ) : null}
       </div>
+      )}
 
       {confirmingDate ? (
         <div data-modal="" style={styles.confirmBackdrop} onClick={() => setConfirmingDate(false)}>
@@ -1046,6 +1050,63 @@ export default function OpeningChecklistScreen() {
 }
 
 const styles = {
+  // ---- Summary card, section list, filters (17 Oct 2026) ----
+  summaryCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 16, overflow: 'hidden' },
+  hero: { display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 22, alignItems: 'center', padding: '18px 20px' },
+  heroNarrow: { display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: 14, alignItems: 'center', padding: 14 },
+  ring: { position: 'relative', width: 84, height: 84, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  ringText: { position: 'relative', fontSize: 19, fontWeight: 800, color: 'var(--text-primary)' },
+  ringTextSmall: { position: 'relative', fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' },
+  ringSmall: { width: 64, height: 64 },
+  ringInner: { width: 66, height: 66, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800 },
+  ringInnerSmall: { width: 50, height: 50, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800 },
+  heroTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' },
+  heroSub: { fontSize: 12.5, color: 'var(--text-tertiary)', marginTop: 3 },
+  heroStats: { display: 'flex', gap: 28, marginTop: 12, flexWrap: 'wrap' },
+  heroStatsNarrow: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px 14px', padding: '10px 0 0', borderTop: '1px solid var(--border)' },
+  heroNum: { display: 'block', fontSize: 19, fontWeight: 800, color: 'var(--text-primary)' },
+  heroLabel: { fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  heroSide: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, maxWidth: 320 },
+  heroSideNarrow: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 },
+  textLink: { background: 'none', border: 'none', padding: '6px 0', color: 'var(--neon)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textTransform: 'none' },
+  cardBlock: { padding: '0 20px 14px' },
+  glance: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px 18px', padding: '14px 20px', borderTop: '1px solid var(--border)' },
+  glanceNarrow: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px 14px', padding: 14, borderTop: '1px solid var(--border)' },
+  glanceLabel: { display: 'block', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 3 },
+  glanceValue: { display: 'block', fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+
+  layout: { display: 'grid', gridTemplateColumns: '230px minmax(0, 1fr)', gap: 16, alignItems: 'start' },
+  layoutNarrow: { display: 'flex', flexDirection: 'column', gap: 10 },
+  nav: { position: 'sticky', top: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 8 },
+  navGroup: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: 0, padding: '12px 10px 6px' },
+  navItem: { width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, textAlign: 'left', cursor: 'pointer', textTransform: 'none', fontFamily: 'inherit' },
+  navItemOn: { background: 'rgba(34,211,238,0.1)', color: 'var(--neon)' },
+  navName: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  navMini: { width: 34, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.1)', overflow: 'hidden', flexShrink: 0 },
+  navMiniFill: { display: 'block', height: 4, background: 'var(--neon)' },
+  navCount: { fontSize: 11.5, color: 'var(--text-tertiary)', fontWeight: 700, flexShrink: 0, minWidth: 30, textAlign: 'right' },
+  navChips: { display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch' },
+  navChip: { flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', textTransform: 'none' },
+  navChipOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
+  navChipCount: { fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 700 },
+
+  listCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', minWidth: 0 },
+  filters: { display: 'flex', gap: 6, flexWrap: 'wrap', padding: '12px 14px', borderBottom: '1px solid var(--border)' },
+  filterChip: { display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
+  filterChipOn: { background: 'var(--neon)', borderColor: 'var(--neon)', color: 'var(--neon-text)' },
+  filterCount: { fontWeight: 800, opacity: 0.7 },
+  listGroup: { margin: 0, padding: '16px 14px 0', fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--neon)' },
+  sectionBlock: { scrollMarginTop: 12, marginBottom: 6 },
+  rowOpen: { background: 'rgba(255,255,255,0.035)', boxShadow: 'inset 3px 0 0 var(--neon)' },
+  rowText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
+  rowSub: { fontSize: 11.5, color: 'var(--text-tertiary)' },
+  avatars: { display: 'inline-flex', alignItems: 'center', flexShrink: 0 },
+  avatar: { width: 24, height: 24, borderRadius: 12, background: '#3A3A44', border: '2px solid var(--bg-card)', color: '#fff', fontSize: 10.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' },
+  lockedPill: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: '#B4B4C0', background: '#24242B', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 1, minWidth: 0 },
+  latePill: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--danger)', background: 'rgba(232,82,75,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap', flexShrink: 0 },
+  primarySmall: { height: 36, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', textTransform: 'none', whiteSpace: 'nowrap' },
+  ghostSmall: { height: 36, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textTransform: 'none', whiteSpace: 'nowrap' },
+  barDate: { fontSize: 12.5, color: 'var(--text-secondary)', padding: '0 4px' },
   waitingPill: { fontSize: 11, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--warn)', background: 'rgba(232,185,59,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap' },
   page: { padding: '28px max(22px, min(40px, 4vw))' },
   searchHint: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' },
@@ -1161,6 +1222,24 @@ const styles = {
   chevron: { fontSize: 10, color: 'var(--text-tertiary)', flexShrink: 0 },
   blockedNote: { fontSize: 11, color: 'var(--text-tertiary)', margin: '0 0 8px 44px' },
   rowBody: { paddingBottom: 4 },
+  // The open item as its own card under the row (17 Oct 2026), lined up with
+  // the item's title rather than floating at an odd indent.
+  detailCard: {
+    margin: '2px 14px 12px 44px',
+    padding: 0,
+    overflow: 'hidden',
+    borderRadius: 12,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-window)',
+  },
+  detailCardNarrow: {
+    margin: '2px 8px 12px',
+    padding: 0,
+    overflow: 'hidden',
+    borderRadius: 12,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-window)',
+  },
 
   sectionHead: {
     display: 'flex',
@@ -1179,11 +1258,11 @@ const styles = {
   sectionCount: { fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0 },
   sectionBarTrack: { flex: 1, height: 3, background: 'var(--border)', borderRadius: 2, minWidth: 40 },
   sectionBarFill: { height: 3, background: 'var(--neon)', borderRadius: 2 },
-  itemDescription: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55, margin: '4px 0 8px' },
-  neededForNote: { fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic', margin: '2px 0 0' },
+  itemDescription: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, margin: '0 0 8px' },
+  neededForNote: { fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 6px' },
   urgencyBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap', margin: 0, cursor: 'pointer' },
 
-  dateEditRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' },
+  dateEditRow: { display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 8px', flexWrap: 'wrap' },
   saveDateButton: { padding: '9px 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, flexShrink: 0, textTransform: 'none' },
   cancelDateButton: { padding: '9px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, flexShrink: 0 },
 

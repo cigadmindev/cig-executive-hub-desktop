@@ -50,6 +50,7 @@ export function OpeningInfoProvider({ children }) {
           contractor: data.contractor ?? '',
           contractorContact: data.contractorContact ?? '',
           projectManager: data.projectManager ?? '',
+          projectManagerContact: data.projectManagerContact ?? '',
           // The location's street address (15 Oct 2026), beside Project Manager.
           address: data.address ?? '',
           openingDate: data.openingDate ?? null,
@@ -76,6 +77,7 @@ export function OpeningInfoProvider({ children }) {
       contractor: '',
       contractorContact: '',
       projectManager: '',
+      projectManagerContact: '',
       address: '',
       openingDate: null,
       importantNumbers: ['', '', '', ''],

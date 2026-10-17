@@ -419,9 +419,9 @@ export default function ExpensesScreen() {
               disabled={busy || !recodeTo || recodeTo === selected.accountCode}
               onClick={() => run(() => recodeReceipt(selected.id, recodeTo), () => notify('Account saved', 'Any report already made for this period is marked as needing a rebuild.'))}
             >
-              Save account
+              Save
             </button>
-            <button style={d.ghost} onClick={() => setMoving(selected)}>Move to another period…</button>
+            <button style={d.ghost} onClick={() => setMoving(selected)}>Move period…</button>
             {!selected.voided && !isEditable(selected) ? <button style={styles.danger} onClick={() => setVoiding(selected)}>Void…</button> : null}
           </div>
           <p style={{ ...styles.small, marginTop: 8 }}>Finance can change the account, never the amount. Every change is kept with who made it and when.</p>
@@ -1072,7 +1072,7 @@ const styles = {
   thumb: { width: 84, height: 112, borderRadius: 8, background: 'var(--bg-inset)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', padding: 0, cursor: 'pointer' },
   thumbImg: { width: '100%', height: '100%', objectFit: 'cover' },
   amount: { margin: '6px 0 2px', fontSize: 24, fontWeight: 900, color: 'var(--text-primary)' },
-  danger: { background: 'none', border: '1px solid rgba(232,82,75,0.5)', color: 'var(--bad)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' },
+  danger: { flex: '1 1 auto', minWidth: 0, minHeight: 40, whiteSpace: 'nowrap', background: 'none', border: '1px solid rgba(232,82,75,0.5)', color: 'var(--bad)', borderRadius: 8, padding: '7px 10px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' },
   dangerFill: { background: '#B42F28', border: 'none', color: '#FFFFFF', borderRadius: 8, padding: '8px 14px', fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
   backdrop: { ...modalBackdrop },
   modal: { ...modalSurface, width: 'min(460px, 100%)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 },

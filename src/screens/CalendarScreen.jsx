@@ -156,6 +156,15 @@ export default function CalendarScreen() {
     markersByDay[key].push({ date: e.dateTime, color: locationInfo[e.locationId].color });
   });
 
+  const upcoming = (() => {
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = start.getTime() + 14 * 24 * 60 * 60 * 1000;
+    return filteredEntries
+      .filter((e) => e.dateTime >= start.getTime() && e.dateTime < end && !e.done)
+      .sort((a, b) => a.dateTime - b.dateTime)
+      .slice(0, 12);
+  })();
+
   const selectedEntries = selectedDate
     ? filteredEntries.filter((e) => dayKey(new Date(e.dateTime)) === dayKey(selectedDate)).sort((a, b) => a.dateTime - b.dateTime)
     : [];
@@ -313,9 +322,37 @@ export default function CalendarScreen() {
 
         <div style={isNarrow ? styles.detailColNarrow : styles.detailCol}>
           {!selectedDate ? (
-            <div style={styles.emptyState}>
-              
-              <p style={styles.hint}>Select a date to see what's scheduled.</p>
+            // The next two weeks instead of an empty half page (17 Oct
+            // 2026). Tapping one opens its day.
+            <div>
+              <p style={styles.detailEyebrow}>Next two weeks</p>
+              <h2 style={styles.detailTitle}>Coming up</h2>
+              {upcoming.length === 0 ? (
+                <p style={styles.hint}>Nothing scheduled. Pick a date to add something.</p>
+              ) : (
+                <div style={styles.upList}>
+                  {upcoming.map((e, i) => {
+                    const info = locationInfo[e.locationId];
+                    const d = new Date(e.dateTime);
+                    const newDay = i === 0 || dayKey(new Date(upcoming[i - 1].dateTime)) !== dayKey(d);
+                    return (
+                      <React.Fragment key={e.id ?? i}>
+                        {newDay ? (
+                          <p style={styles.upDay}>{d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+                        ) : null}
+                        <button data-row="" style={styles.upRow} onClick={() => setSelectedDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()))}>
+                          <span style={{ ...styles.upBar, background: info?.color ?? 'var(--border-strong)' }} />
+                          <span style={styles.upText}>
+                            <span style={styles.upTitle}>{e.title}</span>
+                            <span style={styles.upWhere}>{info ? info.brandName + ' · ' + info.locationName : ''}</span>
+                          </span>
+                          <span style={styles.upTime}>{d.getHours() || d.getMinutes() ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</span>
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -324,6 +361,7 @@ export default function CalendarScreen() {
                   <p style={styles.detailEyebrow}>{selectedDate.toLocaleDateString([], { weekday: 'long' })}</p>
                   <h2 style={styles.detailTitle}>{selectedDate.toLocaleDateString([], { month: 'long', day: 'numeric' })}</h2>
                 </div>
+                <button style={styles.backToUpcoming} onClick={() => setSelectedDate(null)}>Coming up</button>
               </div>
 
               {selectedEntries.length === 0 ? (
@@ -674,6 +712,15 @@ const styles = {
   bodyNarrow: { display: 'block', flex: 'none', minHeight: 0, gap: 0 },
   calendarColNarrow: { width: '100%', minWidth: 0 },
   detailColNarrow: { width: '100%', minWidth: 0, paddingTop: 18 },
+  backToUpcoming: { background: 'none', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '7px 12px', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  upList: { display: 'flex', flexDirection: 'column', marginTop: 6 },
+  upDay: { fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '16px 0 6px' },
+  upRow: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 14px', marginBottom: 6, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'left', cursor: 'pointer' },
+  upBar: { width: 4, alignSelf: 'stretch', borderRadius: 2, flexShrink: 0 },
+  upText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
+  upTitle: { fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  upWhere: { fontSize: 11.5, color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  upTime: { fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0 },
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 },
   overdueGroupLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '22px 0 8px' },
   overdueGroup: { background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 7, overflow: 'hidden' },

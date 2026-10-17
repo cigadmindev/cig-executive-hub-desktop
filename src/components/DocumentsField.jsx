@@ -20,7 +20,7 @@ import { plainError } from '../lib/errors';
 // at (the browser is not allowed to delete files).
 export const documentsOf = (item) => item?.documents ?? (item?.document ? [item.document] : []);
 
-export default function DocumentsField({ locationId, itemKey, value, onChange, userName, readOnly = false }) {
+export default function DocumentsField({ locationId, itemKey, value, onChange, userName, readOnly = false, hideLabel = false }) {
   const { dialogNode, confirm } = useDialog();
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -80,8 +80,8 @@ export default function DocumentsField({ locationId, itemKey, value, onChange, u
     });
 
   return (
-    <div style={styles.wrap}>
-      <span style={styles.label}>Documents{list.length ? ' · ' + list.length : ''}</span>
+    <div style={hideLabel ? styles.wrapBare : styles.wrap}>
+      {hideLabel ? null : <span style={styles.label}>Documents{list.length ? ' · ' + list.length : ''}</span>}
       <input ref={inputRef} type="file" multiple accept="image/*,application/pdf" style={{ display: 'none' }} onChange={handleFiles} />
       {list.map((d, i) => (
         <div key={(d.path ?? d.url ?? '') + i} style={styles.fileRow}>
@@ -94,8 +94,8 @@ export default function DocumentsField({ locationId, itemKey, value, onChange, u
       {readOnly ? (
         list.length ? null : <span style={styles.label}>None attached yet</span>
       ) : (
-        <button style={styles.uploadBtn} onClick={() => inputRef.current?.click()} disabled={busy}>
-          {busy ? 'Uploading…' : '+ Add documents (pick several at once)'}
+        <button style={hideLabel ? styles.uploadBtnSmall : styles.uploadBtn} onClick={() => inputRef.current?.click()} disabled={busy}>
+          {busy ? 'Uploading…' : hideLabel ? '+ Add documents' : '+ Add documents (pick several at once)'}
         </button>
       )}
       {error ? <p style={styles.error}>{error}</p> : null}
@@ -105,7 +105,9 @@ export default function DocumentsField({ locationId, itemKey, value, onChange, u
 }
 
 const styles = {
-  wrap: { marginTop: 4, marginBottom: 12, maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 6 },
+  wrap: { marginTop: 0, marginBottom: 12, maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 6 },
+  wrapBare: { display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'stretch', minWidth: 0, width: '100%' },
+  uploadBtnSmall: { alignSelf: 'flex-start', minHeight: 34, padding: '0 12px', borderRadius: 8, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textTransform: 'none' },
   label: { display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
   fileRow: { display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '6px 8px' },
   type: { fontSize: 9, fontWeight: 800, color: 'var(--text-tertiary)', border: '1px solid var(--border-strong)', borderRadius: 4, padding: '1px 4px' },

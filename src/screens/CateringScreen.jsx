@@ -166,11 +166,11 @@ export default function CateringScreen() {
                 {!e.ownerUid && ['new', 'talking'].includes(e.status) ? <button style={d.primary} disabled={busy} onClick={() => run(() => claim(e.id), () => { setSelectedId(e.id); setFilter('talking'); })}>Claim</button> : null}
                 {e.status === 'new' && e.ownerUid ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'talking'), () => { setSelectedId(e.id); setFilter('talking'); })}>Talking</button> : null}
                 {['new', 'talking'].includes(e.status) ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'confirmed'), () => { setSelectedId(e.id); setFilter('confirmed'); })}>Confirmed</button> : null}
-                {e.status === 'confirmed' && !e.calendarEntryId ? <button style={d.primary} disabled={busy} onClick={() => run(() => putOnCalendar(e))}>Put it on the calendar</button> : null}
+                {e.status === 'confirmed' && !e.calendarEntryId ? <button style={d.primary} disabled={busy} onClick={() => run(() => putOnCalendar(e))}>Add to calendar</button> : null}
                 {e.status === 'confirmed' ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'done'), () => { setSelectedId(e.id); setFilter('done'); })}>Done</button> : null}
-                {['new', 'talking', 'confirmed'].includes(e.status) ? <button style={d.ghost} onClick={() => { setChanging({ reason: '' }); setLosing(e.id); }}>Didn't book…</button> : null}
+                {['new', 'talking', 'confirmed'].includes(e.status) ? <button style={d.ghost} onClick={() => { setChanging({ reason: '' }); setLosing(e.id); }}>Didn't book</button> : null}
                 {/* Catering & Events can fix an order's details (14 Oct 2026). */}
-                <button style={d.ghost} onClick={() => openEdit(e)}>Edit details</button>
+                <button style={d.ghost} onClick={() => openEdit(e)}>Edit</button>
               </div>
             )}
             {isCatering && e.status === 'confirmed' ? (
@@ -232,7 +232,7 @@ export default function CateringScreen() {
               </>
             ) : (
               <div style={{ ...d.actions, marginTop: 0 }}>
-                <button style={d.ghost} onClick={() => openEdit(e)}>Edit details</button>
+                <button style={d.ghost} onClick={() => openEdit(e)}>Edit</button>
                 <button style={d.ghost} onClick={() => { setLosing(null); setChanging({ status: e.status, reason: '' }); }}>Change status…</button>
               </div>
             )}

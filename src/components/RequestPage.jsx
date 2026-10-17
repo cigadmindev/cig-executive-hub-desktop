@@ -88,9 +88,11 @@ export const detailStyles = {
   row: { display: 'flex', gap: 10, fontSize: 13, padding: '4px 0' },
   k: { width: 90, flexShrink: 0, color: 'var(--text-tertiary)' },
   v: { color: 'var(--text-primary)', minWidth: 0 },
-  actions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 },
-  primary: { minHeight: 40, background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
-  ghost: { minHeight: 40, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
+  // Every button in one row (17 Oct 2026), sharing the width - never a
+  // second row under the first.
+  actions: { display: 'flex', gap: 8, flexWrap: 'nowrap', marginTop: 14 },
+  primary: { flex: '1 1 auto', minWidth: 0, minHeight: 40, background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '8px 10px', fontWeight: 800, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' },
+  ghost: { flex: '1 1 auto', minWidth: 0, minHeight: 40, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 10px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' },
   section: { borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 12 },
   sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, color: 'var(--text-tertiary)', margin: '0 0 8px' },
   input: { width: '100%', boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 11px', fontSize: 13, color: 'var(--text-primary)', fontFamily: 'inherit', marginBottom: 8 },
