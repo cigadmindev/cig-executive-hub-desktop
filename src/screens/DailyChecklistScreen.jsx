@@ -6,6 +6,8 @@ import { brands } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import NotePhotos from '../components/NotePhotos';
+import Icon from '../components/Icon';
+import { printDailySheets } from '../lib/printSheet';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { fmtTime, fmtDayKey } from '../lib/dates';
 import { plainError } from '../lib/errors';
@@ -99,6 +101,18 @@ export default function DailyChecklistScreen() {
         back={{ to: `/brand/${brandId}/location/${locationId}/daily-checklists?date=${dateKey}`, label: 'Daily checklists' + (place ? ' · ' + place : '') }}
         title={list.title}
         subtitle={[brandName, place, pretty(dateKey)].filter(Boolean).join(' · ') + (list.subtitle ? ' — ' + list.subtitle : '')}
+        phoneExtras="inline"
+        extras={
+          // This list as a blank sheet to post for the team (17 Oct 2026).
+          <button
+            style={isNarrow ? styles.printIcon : styles.printBtn}
+            title="Print this list to post"
+            aria-label="Print this list to post"
+            onClick={() => printDailySheets({ location: place, brand: brandName, lists: [list] }) || notify('Print window blocked', 'Your browser stopped the print window from opening. Allow pop-ups for the Hub and try again.')}
+          >
+            <Icon name="printer" size={16} />{isNarrow ? null : <span>Print to post</span>}
+          </button>
+        }
       />
       <div style={styles.columns}>
         <div style={isNarrow ? { ...styles.sheet, padding: '16px 14px' } : styles.sheet}>
@@ -259,6 +273,8 @@ const styles = {
   bar: { height: 5, background: 'var(--border)', borderRadius: 3, margin: '10px 0' },
   fill: { height: 5, background: 'var(--neon)', borderRadius: 3 },
   primary: { marginTop: 12, background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
+  printBtn: { display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 14px', borderRadius: 8, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' },
+  printIcon: { width: 40, height: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0 },
   okLine: { fontSize: 13, color: '#9FD3B0', background: 'rgba(95,163,119,0.12)', border: '1px solid rgba(95,163,119,0.45)', borderRadius: 8, padding: '10px 12px', margin: '6px 0 0', lineHeight: 1.5 },
   small: { fontSize: 12, color: 'var(--text-tertiary)', margin: '8px 0 0', lineHeight: 1.5 },
 };

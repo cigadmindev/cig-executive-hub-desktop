@@ -6,6 +6,10 @@ import { useDailyRecords, todayKey } from '../hooks/useDailyChecklists';
 import PageHeader from '../components/PageHeader';
 import { fmtTime, fmtDayKey } from '../lib/dates';
 import Pill from '../components/Pill';
+import Icon from '../components/Icon';
+import { useDialog } from '../hooks/useDialog';
+import { useIsNarrow } from '../hooks/useIsNarrow';
+import { printDailySheets } from '../lib/printSheet';
 
 // A location's daily checklists - every opening and closing list it runs
 // for a day, with where each one stands.
@@ -27,6 +31,12 @@ export default function DailyChecklistsScreen() {
   const location = brand?.locations?.find((l) => l.id === locationId);
   const isToday = dateKey === todayKey();
   const lists = listsFor(locationId);
+  const { dialogNode, notify } = useDialog();
+  const isNarrow = useIsNarrow();
+  // Every list this location runs, one per page, to post for the team (17 Oct 2026).
+  const printAll = () =>
+    printDailySheets({ location: location?.name ?? '', brand: brand?.name ?? '', lists }) ||
+    notify('Print window blocked', 'Your browser stopped the print window from opening. Allow pop-ups for the Hub and try again.');
 
   const card = (list) => {
     const r = records[list.id];
@@ -62,6 +72,9 @@ export default function DailyChecklistsScreen() {
         subtitle="The manager on duty ticks each task once it's checked. Signed-off lists are filed to Drive as the usual printed sheet."
         extras={
           <div style={styles.dateBar}>
+            <button style={isNarrow ? styles.printIcon : styles.printBtn} onClick={printAll} title="Print every list to post" aria-label="Print every list to post">
+              <Icon name="printer" size={16} />{isNarrow ? null : <span>Print all lists</span>}
+            </button>
             <button style={styles.dateBtn} aria-label="Day before" onClick={() => setParams({ date: shift(dateKey, -1) })}>‹</button>
             <span style={styles.date}>{pretty(dateKey)}</span>
             <button style={styles.dateBtn} aria-label="Day after" disabled={isToday} onClick={() => setParams({ date: shift(dateKey, 1) })}>›</button>
@@ -72,7 +85,8 @@ export default function DailyChecklistsScreen() {
       <div style={styles.grid}>{lists.filter((l) => l.kind === 'opening').map(card)}</div>
       <p style={styles.label}>Closing</p>
       <div style={styles.grid}>{lists.filter((l) => l.kind === 'closing').map(card)}</div>
-      <p style={styles.note}>Not signed off by 10pm → this location's GM is emailed. Still not signed off the next day → the COO and admins are emailed.</p>
+      <p style={styles.note}>Openings not signed off by 5pm, or closings by midnight → this location's GM is emailed. Still not signed off by 10am the next day → the COO and admins are emailed.</p>
+      {dialogNode}
     </div>
   );
 }
@@ -80,6 +94,8 @@ export default function DailyChecklistsScreen() {
 const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1200 },
   dateBar: { display: 'flex', gap: 6, alignItems: 'center' },
+  printBtn: { display: 'inline-flex', alignItems: 'center', gap: 7, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', marginRight: 6, whiteSpace: 'nowrap', fontFamily: 'inherit' },
+  printIcon: { width: 36, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, cursor: 'pointer', padding: 0, marginRight: 4 },
   dateBtn: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', cursor: 'pointer' },
   date: { border: '1px solid var(--border-strong)', borderRadius: 8, padding: '7px 14px', color: 'var(--text-primary)', fontWeight: 700, fontSize: 13 },
   label: { fontSize: 11, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '22px 0 10px' },
