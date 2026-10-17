@@ -14,6 +14,23 @@ const AuthContext = createContext(undefined);
 // Same shape as the mobile app's UserAccount — this file reads the exact
 // same `users` Firestore collection, so any account, permission, or
 // deactivation set from the phone applies identically here.
+// When someone last opened the Hub (17 Oct 2026), shown in Manage Logins.
+// Written at most every 30 minutes, and again every hour the Hub stays open,
+// so it costs next to nothing. Never written while an admin is using View as
+// (this is the real signed-in person's own record).
+let lastNoted = 0;
+let activeTimer = null;
+function noteActive(uid) {
+  const write = () => {
+    if (Date.now() - lastNoted < 30 * 60 * 1000) return;
+    lastNoted = Date.now();
+    updateDoc(doc(db, 'users', uid), { lastActiveAt: lastNoted }).catch(() => {});
+  };
+  write();
+  clearInterval(activeTimer);
+  activeTimer = setInterval(write, 60 * 60 * 1000);
+}
+
 async function fetchProfile(uid, email) {
   const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) return null;
@@ -87,6 +104,8 @@ export function AuthProvider({ children }) {
           // anything waiting on you, one 8am summary for everything else.
           notifyEmail: data.notifyEmail ?? 'default',
           photoUrl: data.photoUrl ?? null,
+          // When they last opened the Hub (17 Oct 2026), for Manage Logins.
+          lastActiveAt: data.lastActiveAt ?? null,
         };
       })
     );
@@ -104,6 +123,7 @@ export function AuthProvider({ children }) {
           setUser(profile);
           // So an error report says who hit it, not just that something broke.
           setSentryUser(profile);
+          noteActive(firebaseUser.uid);
         }
         await refreshUsers();
       } else {

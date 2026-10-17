@@ -86,102 +86,52 @@ export default function ProfileScreen() {
     closeDeleteModal();
   };
 
-  const menuItems = [
-    // My space (12 Oct 2026) - only for a login it is switched on for.
-    ...(user?.privateSpace ? [{ key: 'mySpace', icon: 'lock', label: 'My space', onClick: () => navigate('/my-space') }] : []),
-    {
-      key: 'support',
-      icon: 'lifeBuoy',
-      label: 'Support',
-      badge: isAdmin && supportRequests.some((r) => r.status !== 'completed'),
-      onClick: () => navigate('/support'),
-    },
-    ...(isAdmin ? [{ key: 'manageLogins', icon: 'people', label: 'Manage Logins', onClick: () => navigate('/admin/users') }] : []),
-    // The dot stays until every step on every record is resolved - whether
-    // someone is leaving or coming back.
-    ...(isAdmin
-      ? [{ key: 'offboarding', icon: 'archive', label: 'Offboarding', badge: offboardingOutstanding(), onClick: () => navigate('/admin/offboarding') }]
-      : []),
+  const [colorOpen, setColorOpen] = useState(false);
+  const roleLabel = isAdmin ? 'Admin' : isExecutive ? 'Executive' : 'Manager';
+  const pref = user?.notifyEmail ?? 'default';
+  const EMAIL_OPTIONS = [
+    { key: 'default', label: 'What needs me now, plus one summary at 8am', sub: 'Recommended' },
+    { key: 'action', label: 'Only what needs me', sub: 'No morning summary' },
+    { key: 'all', label: 'Everything, as it happens', sub: 'More email' },
+    { key: 'none', label: 'No emails', sub: 'Red dots in the Hub only' },
   ];
+  // Admin tools in one place (17 Oct 2026), apart from the everyday links.
+  const adminLinks = isAdmin
+    ? [
+        { key: 'logins', label: 'Manage Logins', hint: 'People, access, View as', onClick: () => navigate('/admin/users') },
+        { key: 'offboarding', label: 'Offboarding', hint: offboardingOutstanding() ? 'Steps still open' : 'Nothing open', badge: offboardingOutstanding(), onClick: () => navigate('/admin/offboarding') },
+        { key: 'support', label: 'Support requests', hint: supportRequests.some((r) => r.status !== 'completed') ? 'Waiting on you' : 'All answered', badge: supportRequests.some((r) => r.status !== 'completed'), onClick: () => navigate('/support') },
+      ]
+    : [];
 
   return (
     <div style={styles.page}>
       <PageHeader title="Profile" subtitle="Your details, and how the Hub emails you." />
-      <div style={styles.profileCard}>
-        <button style={styles.avatarWrap} onClick={openProfileEdit}>
-          <div style={styles.avatarPlaceholder}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
-          <div style={styles.editBadge}>✎</div>
-        </button>
-        <div style={styles.name}>{user?.name}</div>
-        <div style={styles.role}>{isAdmin ? 'Admin' : isExecutive ? 'Executive' : 'Manager'}</div>
-        <button style={styles.editProfileButton} onClick={openProfileEdit}>
-          Edit profile
-        </button>
-      </div>
+      <div style={styles.columns}>
+        <div style={styles.column}>
+          <div style={styles.card}>
+            <div style={styles.hero}>
+              <span style={{ ...styles.avatar, ...(user?.photoUrl ? { background: `center / cover url("${user.photoUrl}")` } : {}) }}>
+                {user?.photoUrl ? null : user?.name?.[0]?.toUpperCase() ?? '?'}
+              </span>
+              <span style={styles.heroText}>
+                <span style={styles.name}>{user?.name}</span>
+                <span style={styles.email}>{user?.email}</span>
+                <span style={styles.tagRow}>
+                  <span style={{ ...styles.tag, ...styles.tagCyan }}>{roleLabel}</span>
+                  {user?.job ? <span style={styles.tag}>{user.job}</span> : null}
+                </span>
+              </span>
+              <button style={styles.smallButton} onClick={openProfileEdit}>Edit</button>
+            </div>
+          </div>
 
-      <div style={styles.menuCard}>
-        {menuItems.map((item) => (
-          <button key={item.key} style={styles.menuItem} onClick={item.onClick}>
-            <Icon name={item.icon} color={item.danger ? 'var(--danger)' : '#FFFFFF'} />
-            <span style={{ ...styles.menuItemText, ...(item.danger ? { color: 'var(--danger)' } : {}) }}>{item.label}</span>
-            {item.badge ? <span style={styles.menuDot} /> : null}
-          </button>
-        ))}
-      </div>
-
-      {/* Help & policies. Public pages, so they open in a new tab. Systems
-          Help lives in the Directory. */}
-      <div style={styles.menuCard}>
-        <p style={styles.helpLabel}>Help &amp; policies</p>
-        {[
-          { label: 'Support', sub: 'How to get help, and who to contact', href: '/support.html' },
-          { label: 'Privacy policy', sub: 'What the Hub keeps about you, and why', href: '/privacy.html' },
-        ].map((l) => (
-          <a key={l.label} href={l.href} target="_blank" rel="noreferrer" style={{ ...styles.menuItem, textDecoration: 'none' }}>
-            <span style={{ flex: 1 }}>
-              <span style={{ ...styles.menuItemText, display: 'block' }}>{l.label}</span>
-              <span style={styles.helpSub}>{l.sub}</span>
-            </span>
-            <span style={styles.helpArrow}>↗</span>
-          </a>
-        ))}
-      </div>
-
-      <div style={styles.menuCard}>
-        <button style={styles.menuItem} onClick={logout}>
-          <Icon name="exit" color="#FFFFFF" />
-          <span style={styles.menuItemText}>Sign Out</span>
-        </button>
-        <button style={styles.menuItem} onClick={() => setDeleteOpen(true)}>
-          <Icon name="trash" color="var(--danger)" />
-          <span style={{ ...styles.menuItemText, color: 'var(--danger)' }}>Delete my account</span>
-        </button>
-      </div>
-
-      {editOpen ? (
-        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => !savingProfile && setEditOpen(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Edit profile</h2>
-
-            <label style={styles.fieldLabel}>Email notifications from the Hub</label>
+          <div style={styles.card}>
+            <p style={styles.sectionLabel}>Email from the Hub</p>
             <div style={styles.prefWrap}>
-              {[
-                { key: 'default', label: 'Anything that needs you, plus one summary at 8am', sub: 'Recommended' },
-                { key: 'action', label: 'Only what needs me', sub: 'No morning summary' },
-                { key: 'all', label: 'Everything, as it happens', sub: 'More email' },
-                { key: 'none', label: 'No emails', sub: 'Red dots in the Hub only' },
-              ].map((opt) => (
-                <button
-                  key={opt.key}
-                  style={{
-                    ...styles.prefRow,
-                    ...((user?.notifyEmail ?? 'default') === opt.key ? styles.prefRowOn : {}),
-                  }}
-                  onClick={() => setMyEmailPreference(opt.key)}
-                >
-                  <span style={styles.prefTick}>
-                    {(user?.notifyEmail ?? 'default') === opt.key ? '●' : '○'}
-                  </span>
+              {EMAIL_OPTIONS.map((opt) => (
+                <button key={opt.key} style={{ ...styles.prefRow, ...(pref === opt.key ? styles.prefRowOn : {}) }} onClick={() => setMyEmailPreference(opt.key)} aria-pressed={pref === opt.key}>
+                  <span style={{ ...styles.radio, ...(pref === opt.key ? styles.radioOn : {}) }} />
                   <span style={{ flex: 1 }}>
                     <span style={styles.prefLabel}>{opt.label}</span>
                     <span style={styles.prefSub}>{opt.sub}</span>
@@ -189,22 +139,37 @@ export default function ProfileScreen() {
                 </button>
               ))}
             </div>
+            <p style={styles.cardNote}>Anything assigned to you comes in one email at 5pm, whichever you pick (unless you pick No emails).</p>
+          </div>
+        </div>
 
-            <label style={styles.fieldLabel}>Name</label>
-            <input
-              style={styles.input}
-              value={profileNameDraft}
-              onChange={(e) => setProfileNameDraft(e.target.value)}
-              autoFocus
-            />
+        <div style={styles.column}>
+          {user?.privateSpace ? (
+            <div style={styles.card}>
+              <p style={styles.sectionLabel}>Yours</p>
+              <button style={styles.linkRow} onClick={() => navigate('/my-space')}>
+                <Icon name="lock" size={18} color="var(--text-secondary)" /><span style={styles.linkText}>My space</span><span style={styles.linkHint}>›</span>
+              </button>
+            </div>
+          ) : null}
 
-            {isAdmin ? (
-              <div style={styles.customizeSection}>
-                <h3 style={styles.customizeTitle}>Customize</h3>
-                <p style={styles.customizeNote}>
-                  Sets the app's accent color for every login — everyone sees this live the moment you release a
-                  slider.
-                </p>
+          {isAdmin ? (
+            <div style={styles.card}>
+              <p style={styles.sectionLabel}>Admin</p>
+              {adminLinks.map((l) => (
+                <button key={l.key} style={styles.linkRow} onClick={l.onClick}>
+                  <span style={styles.linkText}>{l.label}</span>
+                  {l.badge ? <span style={styles.menuDot} /> : null}
+                  <span style={styles.linkHint}>{l.hint} ›</span>
+                </button>
+              ))}
+              <button style={styles.linkRow} onClick={() => setColorOpen((v) => !v)} aria-expanded={colorOpen}>
+                <span style={styles.linkText}>Accent color</span>
+                <span style={styles.linkHint}>Everyone's Hub {colorOpen ? '▾' : '›'}</span>
+              </button>
+              {colorOpen ? (
+                <div style={styles.colorBox}>
+                  <p style={styles.cardNote}>Sets the accent color for every login. Everyone sees it the moment you let go of a slider.</p>
                 <div style={styles.sliderLabelRow}>
                   <span style={styles.sliderLabel}>Color</span>
                 </div>
@@ -232,8 +197,50 @@ export default function ProfileScreen() {
                   onTouchEnd={commitTheme}
                   className="intensity-slider"
                 />
-              </div>
-            ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Help & policies: public pages, so they open in a new tab. */}
+          <div style={styles.card}>
+            <p style={styles.sectionLabel}>Help &amp; policies</p>
+            {[
+              { label: 'How to get help', sub: 'Who to contact, and how', href: '/support.html' },
+              { label: 'Privacy policy', sub: 'What the Hub keeps about you, and why', href: '/privacy.html' },
+            ].map((l) => (
+              <a key={l.label} href={l.href} target="_blank" rel="noreferrer" style={{ ...styles.linkRow, textDecoration: 'none' }}>
+                <span style={{ flex: 1 }}>
+                  <span style={{ ...styles.linkText, display: 'block' }}>{l.label}</span>
+                  <span style={styles.helpSub}>{l.sub}</span>
+                </span>
+                <span style={styles.linkHint}>↗</span>
+              </a>
+            ))}
+          </div>
+
+          <div style={styles.card}>
+            <button style={styles.signOut} onClick={logout}>
+              <Icon name="exit" size={18} /><span>Sign out</span>
+            </button>
+            <button style={styles.deleteLink} onClick={() => setDeleteOpen(true)}>Delete my account</button>
+          </div>
+        </div>
+      </div>
+
+      {editOpen ? (
+        <div data-modal="" data-modal-keep="" style={styles.modalBackdrop} onClick={() => !savingProfile && setEditOpen(false)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Edit profile</h2>
+
+            <label style={styles.fieldLabel}>Name</label>
+            <input
+              style={styles.input}
+              value={profileNameDraft}
+              onChange={(e) => setProfileNameDraft(e.target.value)}
+              autoFocus
+            />
+
 
             <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
               <button style={styles.cancelButton} onClick={() => setEditOpen(false)} disabled={savingProfile}>
@@ -282,7 +289,29 @@ const styles = {
   helpLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '14px 16px 4px' },
   helpSub: { display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 },
   helpArrow: { fontSize: 16, color: 'var(--text-secondary)', marginLeft: 10 },
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 480 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 980 },
+  // Two columns on a computer, one on a phone (17 Oct 2026).
+  columns: { display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' },
+  column: { flex: '1 1 360px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 },
+  card: { background: 'var(--bg-card)', borderRadius: 14, padding: 18 },
+  hero: { display: 'flex', alignItems: 'center', gap: 16 },
+  avatar: { width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: 'var(--accent)', color: '#FFFFFF', fontSize: 24, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  heroText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
+  email: { fontSize: 12.5, color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  tagRow: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  tag: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', borderRadius: 6, padding: '3px 7px', background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' },
+  tagCyan: { background: 'rgba(34,211,238,0.14)', color: 'var(--neon)' },
+  smallButton: { border: '1px solid var(--border-strong)', borderRadius: 8, padding: '8px 14px', background: 'none', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0, textTransform: 'none', fontFamily: 'inherit' },
+  sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 10px' },
+  cardNote: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, margin: '10px 0 0' },
+  radio: { width: 16, height: 16, borderRadius: 8, border: '2px solid var(--border-strong)', flexShrink: 0, marginTop: 1, boxSizing: 'border-box' },
+  radioOn: { borderColor: 'var(--neon)', background: 'var(--neon)', boxShadow: 'inset 0 0 0 3px var(--bg-card)' },
+  linkRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 2px', background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)', fontFamily: 'inherit', textTransform: 'none' },
+  linkText: { flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' },
+  linkHint: { fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' },
+  colorBox: { padding: '4px 2px 6px' },
+  signOut: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', height: 44, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, cursor: 'pointer', textTransform: 'none', fontFamily: 'inherit' },
+  deleteLink: { display: 'block', margin: '12px auto 0', background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: 'pointer', textTransform: 'none', fontFamily: 'inherit' },
   profileCard: {
     display: 'flex',
     flexDirection: 'column',

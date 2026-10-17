@@ -14,6 +14,7 @@ import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import Icon from '../components/Icon';
 import { plainError } from '../lib/errors';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 
 function toggleInArray(arr, id) {
   return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
@@ -51,6 +52,46 @@ const blankDraft = () => ({
   features: ALL_FEATURE_KEYS,
 });
 
+const TABS = [['people', 'People'], ['matrix', 'Who sees what'], ['viewAs', 'See the Hub as someone'], ['email', 'Email preview'], ['repair', 'Pages being improved']];
+const FILTERS = [
+  ['all', 'Everyone', () => true],
+  ['exec', 'Executives', (u) => u.active && u.role !== 'manager'],
+  ['managers', 'Managers', (u) => u.active && u.role === 'manager'],
+  ['off', 'Switched off', (u) => !u.active],
+  ['test', 'Test', (u) => u.isGhost],
+];
+const TAG_TONES = {
+  grey: { background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' },
+  amber: { background: 'rgba(201,162,39,0.16)', color: '#E8D48A' },
+  red: { background: 'rgba(232,82,75,0.15)', color: '#F2928D' },
+};
+const EMAIL_PREF = {
+  default: 'What needs them now, plus one summary at 8am',
+  action: 'Only what needs them',
+  all: 'Everything, as it happens',
+  none: 'No emails',
+};
+// When someone last opened the Hub (recorded from 17 Oct 2026).
+function lastActiveText(u) {
+  if (!u.lastActiveAt) return 'Not since Oct 17';
+  const days = Math.floor((Date.now() - u.lastActiveAt) / 86400000);
+  if (days <= 0) return 'Active today';
+  if (days === 1) return 'Yesterday';
+  if (days < 30) return days + ' days ago';
+  return new Date(u.lastActiveAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function lastActiveLong(u) {
+  if (!u.lastActiveAt) return 'Not since the Hub started noting it (Oct 17)';
+  return new Date(u.lastActiveAt).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+function Avatar({ person, size = 38 }) {
+  return (
+    <span style={{ width: size, height: size, borderRadius: size / 2, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: person.photoUrl ? `center / cover url("${person.photoUrl}")` : 'var(--bg-inset)', color: 'var(--text-primary)', fontWeight: 800, fontSize: size * 0.4 }}>
+      {person.photoUrl ? null : (person.name ?? '?')[0].toUpperCase()}
+    </span>
+  );
+}
+
 export default function AdminUsersScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const navigate = useNavigate();
@@ -81,6 +122,13 @@ export default function AdminUsersScreen() {
   const [saving, setSaving] = useState(false);
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [repairOpen, setRepairOpen] = useState(false);
+  // The redesigned page (17 Oct 2026): tabs, search, filters, grouped list
+  // and a details panel beside it (a full page on a phone).
+  const isNarrow = useIsNarrow();
+  const [tab, setTab] = useState('people');
+  const [q, setQ] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [selectedId, setSelectedId] = useState(null);
 
   // Every location in a restaurant, built-in and added later - Chelsea is one
   // of the added ones.
@@ -304,167 +352,255 @@ export default function AdminUsersScreen() {
 
   const exceptions = (all, have, labelOf) => all.filter((x) => !have.includes(x)).map(labelOf);
 
+  const words = q.trim().toLowerCase();
+  const filterTest = FILTERS.find(([key]) => key === filter)?.[2] ?? (() => true);
+  const shown = users.filter(filterTest).filter((u) => !words || [u.name, u.email, u.job, u.alsoJob?.job].some((v) => (v ?? '').toLowerCase().includes(words)));
+  const byName = (a, b) => (a.name ?? '').localeCompare(b.name ?? '');
+  // Admins and executives; then each restaurant and location; switched-off last.
+  const groups = (() => {
+    const out = [];
+    const live = shown.filter((u) => u.active);
+    const top = live.filter((u) => u.role !== 'manager').sort(byName);
+    if (top.length) out.push({ label: 'Admins & executives', people: top });
+    const placed = new Set();
+    for (const b of brands) {
+      for (const l of locationsFor(b.id)) {
+        const here = live.filter((u) => u.role === 'manager' && (u.permissions?.brandIds ?? []).includes(b.id) && (() => {
+          const only = u.permissions?.locationsByBrand?.[b.id];
+          return !Array.isArray(only) || only.length === 0 || only.includes(l.id);
+        })()).sort(byName);
+        here.forEach((u) => placed.add(u.uid));
+        if (here.length) out.push({ label: b.name + ' · ' + l.name, people: here });
+      }
+    }
+    const loose = live.filter((u) => u.role === 'manager' && !placed.has(u.uid)).sort(byName);
+    if (loose.length) out.push({ label: 'No restaurant yet', people: loose });
+    const off = shown.filter((u) => !u.active).sort(byName);
+    if (off.length) out.push({ label: 'Switched off', people: off });
+    return out;
+  })();
+  const selected = users.find((u) => u.uid === selectedId) ?? null;
+  const tagsFor = (u) => [
+    u.assignedWork ? ['Assigned work only', 'amber'] : null,
+    u.alsoJob?.job ? ['Also ' + cleanJob(u.alsoJob.job) + ' · ' + (allLocations.find((l) => l.id === u.alsoJob.locationId)?.label.split(' · ').pop() ?? ''), 'grey'] : null,
+    u.privateSpace ? ['My space', 'grey'] : null,
+    u.isGhost ? ['Test', 'amber'] : null,
+    !u.active ? ['Switched off', 'red'] : null,
+  ].filter(Boolean);
+
   return (
     <div style={styles.page}>
       <PageHeader
         title="Manage Logins"
         subtitle="Everyone with a Hub login, what they can see, and turning access on or off."
-        actionLabel="+ New login"
+        actionLabel={tab === 'people' ? '+ New login' : null}
         onAction={openCreate}
       />
 
-      <div style={styles.list}>
-        {users.map((item) => {
-          const open = expandedUserId === item.uid;
-          return (
-            <div key={item.uid} style={{ ...styles.row, ...(!item.active ? styles.rowInactive : {}) }}>
-              <button style={styles.rowHead} onClick={() => setExpandedUserId(open ? null : item.uid)}>
-                <span style={styles.rowName}>{item.name}</span>
-                {item.isGhost ? <span style={styles.ghostBadge}>TEST</span> : null}
-                {!item.active ? <span style={styles.inactiveBadge}>DEACTIVATED</span> : null}
-                <span style={styles.rowSummary}>{summaryLine(item)}</span>
-                <span style={styles.chevron}>{open ? '▾' : '▸'}</span>
-              </button>
+      {/* Tabs across the top (17 Oct 2026): the tools that sat at the
+          bottom of the page are easy to find. */}
+      <div style={styles.tabs} role="tablist">
+        {TABS.map(([key, label]) => (
+          <button key={key} role="tab" aria-selected={tab === key} style={{ ...styles.tab, ...(tab === key ? styles.tabOn : {}) }} onClick={() => setTab(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
 
-              {open ? (
-                <div style={styles.rowBody}>
-                  <p style={styles.email}>{item.email}</p>
+      {tab === 'people' ? (
+        <>
+          <div style={styles.filterRow}>
+            <input style={styles.search} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email or job…" aria-label="Search logins" />
+            <div style={styles.chips}>
+              {FILTERS.map(([key, label, test]) => (
+                <button key={key} style={{ ...styles.chip, ...(filter === key ? styles.chipOn : {}) }} onClick={() => setFilter(key)}>
+                  {label} <span style={styles.chipCount}>{users.filter(test).length}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
-                  {item.role === 'manager' ? (
-                    <>
-                      <p style={styles.accessLabel}>Where</p>
-                      <p style={styles.accessValue}>{whereText(item.permissions)}</p>
-
-                      <p style={styles.accessLabel}>Folders</p>
-                      <p style={styles.accessValue}>
-                        {(() => {
-                          const have = item.permissions?.categoryIds ?? [];
-                          if (have.length === 0) return 'None';
-                          const not = exceptions(ALL_CATEGORY_IDS, have, (id) => categories.find((c) => c.id === id)?.label);
-                          return not.length === 0 ? 'All folders' : `All except ${not.join(', ')}`;
-                        })()}
-                      </p>
-
-                      {/* An absent features list means everything. */}
-                      <p style={styles.accessLabel}>Can reach</p>
-                      <p style={styles.accessValue}>
-                        {(() => {
-                          const have = item.permissions?.features;
-                          if (!Array.isArray(have)) return 'Everything';
-                          if (have.length === 0) return 'Nothing beyond messages, calendar and profile';
-                          const not = exceptions(ALL_FEATURE_KEYS, have, (k) => FEATURES.find((f) => f.key === k)?.label);
-                          return not.length === 0 ? 'Everything' : `Everything except ${not.join(', ')}`;
-                        })()}
-                      </p>
-                    </>
-                  ) : (
-                    /* Their manager permissions stay saved for if they move
-                       back, but showing them would suggest they apply now. */
-                    <p style={styles.accessValue}>Everything — all restaurants, all locations, every part of the app.</p>
-                  )}
-
-                  <div style={styles.actions}>
-                    {item.uid !== currentUser?.uid ? (
-                      <>
+          <div style={isNarrow ? null : styles.split}>
+            {isNarrow && selected ? null : (
+              <div style={styles.listCol}>
+                {groups.length === 0 ? <p style={styles.empty}>Nobody matches.</p> : null}
+                {groups.map((g) => (
+                  <div key={g.label} style={styles.list}>
+                    <p style={styles.groupLabel}>{g.label}</p>
+                    {g.people.map((item) => (
+                      <button
+                        key={item.uid}
+                        style={{ ...styles.personRow, ...(selected?.uid === item.uid ? styles.personRowOn : {}), ...(!item.active ? styles.rowInactive : {}) }}
+                        onClick={() => setSelectedId(item.uid)}
+                      >
+                        <Avatar person={item} />
+                        <span style={styles.personText}>
+                          <span style={styles.rowName}>{item.name}</span>
+                          <span style={styles.personJob}>
+                            {[item.role === 'admin' ? 'Admin' : null, cleanJob(item.job) || (item.role === 'executive' ? 'Executive' : 'Manager')].filter(Boolean).join(' · ')}
+                            {tagsFor(item).map(([label, tone]) => <span key={label} style={{ ...styles.tag, ...TAG_TONES[tone] }}>{label}</span>)}
+                          </span>
+                        </span>
+                        <span style={styles.lastActive}>{lastActiveText(item)}</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              {presets.length > 0 ? (
+                <div style={styles.list}>
+                  <p style={{ ...styles.accessLabel, padding: '12px 14px 0', margin: 0 }}>Presets</p>
+                  {presets.map((x) => (
+                    <div key={x.id} style={styles.row}>
+                      <div style={styles.rowHead}>
+                        <span style={styles.rowName}>{x.name}</span>
+                        <span style={styles.rowSummary}>
+                          {x.role === 'manager' ? 'Manager' : x.role} · {x.categoryIds.length} folders · {x.features.length} features
+                        </span>
                         <button
-                          style={styles.actionButton}
+                          style={styles.linkButton}
                           onClick={() =>
                             confirm({
-                              title: item.isGhost ? `Make ${item.name} a real login?` : `Make ${item.name} a test login?`,
-                              body: item.isGhost
-                                ? 'They will appear in team lists, pickers and reports like anyone else.'
-                                : "They disappear from every list, picker, report and activity feed - everywhere but here. Use it to try things out without cluttering anyone else's Hub.",
-                              confirmLabel: item.isGhost ? 'Make real' : 'Make test',
-                              onConfirm: () => setUserGhost(item.uid, !item.isGhost),
+                              title: `Delete the ${x.name} preset?`,
+                              body: 'Nobody already set up from it is affected.',
+                              confirmLabel: 'Delete',
+                              tone: 'danger',
+                              onConfirm: () => deletePreset(x.id),
                             })
                           }
                         >
-                          {item.isGhost ? 'Make real login' : 'Make test login'}
+                          Delete
                         </button>
-                        <button style={styles.actionButton} onClick={() => openEdit(item)}>
-                          Edit access
-                        </button>
-                        <button style={styles.actionButton} onClick={() => handleSendWelcome(item.email, item.name)}>
-                          Send welcome link
-                        </button>
-                        <button style={styles.actionButton} onClick={() => handleSendReset(item.email, item.name)}>
-                          Send password reset
-                        </button>
-                        {item.active ? (
-                          <button style={styles.dangerButton} onClick={() => handleDeactivate(item.uid, item.name)}>
-                            Deactivate
-                          </button>
-                        ) : (
-                          <button style={styles.actionButton} onClick={() => handleReactivate(item.uid, item.name)}>
-                            Reactivate
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <button style={styles.actionButton} onClick={() => handleSendReset(item.email, item.name)}>
-                          Send password reset
-                        </button>
-                        <span style={styles.selfNote}>This is your own account</span>
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : null}
-            </div>
-          );
-        })}
-      </div>
-
-      {presets.length > 0 ? (
-        <div style={styles.list}>
-          <p style={{ ...styles.accessLabel, padding: '12px 14px 0', margin: 0 }}>Presets</p>
-          {presets.map((x) => (
-            <div key={x.id} style={styles.row}>
-              <div style={styles.rowHead}>
-                <span style={styles.rowName}>{x.name}</span>
-                <span style={styles.rowSummary}>
-                  {x.role === 'manager' ? 'Manager' : x.role} · {x.categoryIds.length} folders · {x.features.length} features
-                </span>
-                <button
-                  style={styles.linkButton}
-                  onClick={() =>
-                    confirm({
-                      title: `Delete the ${x.name} preset?`,
-                      body: 'Nobody already set up from it is affected.',
-                      confirmLabel: 'Delete',
-                      tone: 'danger',
-                      onConfirm: () => deletePreset(x.id),
-                    })
-                  }
-                >
-                  Delete
-                </button>
               </div>
-            </div>
-          ))}
-        </div>
+            )}
+            {selected ? (
+              <div style={isNarrow ? null : styles.detailCol}>
+                <div style={styles.detail}>
+                  {isNarrow ? <button style={styles.backButton} onClick={() => setSelectedId(null)}>‹ Everyone</button> : null}
+                  <div style={styles.detailHead}>
+                    <Avatar person={selected} size={52} />
+                    <div style={{ minWidth: 0 }}>
+                      <p style={styles.detailName}>{selected.name}</p>
+                      <p style={styles.email}>{selected.email}</p>
+                    </div>
+                  </div>
+                  <div style={styles.tagRow}>
+                    <span style={{ ...styles.tag, ...TAG_TONES.grey, marginLeft: 0 }}>{selected.role === 'admin' ? 'Admin' : selected.role === 'executive' ? 'Executive' : 'Manager'}</span>
+                    {selected.job ? <span style={{ ...styles.tag, ...TAG_TONES.grey }}>{cleanJob(selected.job)}</span> : null}
+                    {tagsFor(selected).map(([label, tone]) => <span key={label} style={{ ...styles.tag, ...TAG_TONES[tone] }}>{label}</span>)}
+                  </div>
+                  <p style={styles.accessLabel}>Last active</p>
+                  <p style={styles.accessValue}>{lastActiveLong(selected)}</p>
+                  <p style={styles.accessLabel}>Email from the Hub</p>
+                  <p style={styles.accessValue}>{EMAIL_PREF[selected.notifyEmail ?? 'default']}</p>
+                  {(() => {
+                    const item = selected;
+                    return (
+                      <>
+
+                                  {item.role === 'manager' ? (
+                                    <>
+                                      <p style={styles.accessLabel}>Where</p>
+                                      <p style={styles.accessValue}>{whereText(item.permissions)}</p>
+
+                                      <p style={styles.accessLabel}>Folders</p>
+                                      <p style={styles.accessValue}>
+                                        {(() => {
+                                          const have = item.permissions?.categoryIds ?? [];
+                                          if (have.length === 0) return 'None';
+                                          const not = exceptions(ALL_CATEGORY_IDS, have, (id) => categories.find((c) => c.id === id)?.label);
+                                          return not.length === 0 ? 'All folders' : `All except ${not.join(', ')}`;
+                                        })()}
+                                      </p>
+
+                                      {/* An absent features list means everything. */}
+                                      <p style={styles.accessLabel}>Can reach</p>
+                                      <p style={styles.accessValue}>
+                                        {(() => {
+                                          const have = item.permissions?.features;
+                                          if (!Array.isArray(have)) return 'Everything';
+                                          if (have.length === 0) return 'Nothing beyond messages, calendar and profile';
+                                          const not = exceptions(ALL_FEATURE_KEYS, have, (k) => FEATURES.find((f) => f.key === k)?.label);
+                                          return not.length === 0 ? 'Everything' : `Everything except ${not.join(', ')}`;
+                                        })()}
+                                      </p>
+                                    </>
+                                  ) : (
+                                    /* Their manager permissions stay saved for if they move
+                                       back, but showing them would suggest they apply now. */
+                                    <p style={styles.accessValue}>Everything — all restaurants, all locations, every part of the app.</p>
+                                  )}
+                                  <div style={styles.actions}>
+                                    {item.uid !== currentUser?.uid ? (
+                                      <>
+                                        <button
+                                          style={styles.actionButton}
+                                          onClick={() =>
+                                            confirm({
+                                              title: item.isGhost ? `Make ${item.name} a real login?` : `Make ${item.name} a test login?`,
+                                              body: item.isGhost
+                                                ? 'They will appear in team lists, pickers and reports like anyone else.'
+                                                : "They disappear from every list, picker, report and activity feed - everywhere but here. Use it to try things out without cluttering anyone else's Hub.",
+                                              confirmLabel: item.isGhost ? 'Make real' : 'Make test',
+                                              onConfirm: () => setUserGhost(item.uid, !item.isGhost),
+                                            })
+                                          }
+                                        >
+                                          {item.isGhost ? 'Make real login' : 'Make test login'}
+                                        </button>
+                                        <button style={styles.actionButton} onClick={() => openEdit(item)}>
+                                          Edit access
+                                        </button>
+                                        <button style={styles.actionButton} onClick={() => handleSendWelcome(item.email, item.name)}>
+                                          Send welcome link
+                                        </button>
+                                        <button style={styles.actionButton} onClick={() => handleSendReset(item.email, item.name)}>
+                                          Send password reset
+                                        </button>
+                                        {item.active ? (
+                                          <button style={styles.dangerButton} onClick={() => handleDeactivate(item.uid, item.name)}>
+                                            Deactivate
+                                          </button>
+                                        ) : (
+                                          <button style={styles.actionButton} onClick={() => handleReactivate(item.uid, item.name)}>
+                                            Reactivate
+                                          </button>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <button style={styles.actionButton} onClick={() => handleSendReset(item.email, item.name)}>
+                                          Send password reset
+                                        </button>
+                                        <span style={styles.selfNote}>This is your own account</span>
+                                      </>
+                                    )}
+                                  </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            ) : !isNarrow ? (
+              <div style={styles.detailCol}><div style={{ ...styles.detail, ...styles.detailEmpty }}>Pick someone to see their access and what you can do.</div></div>
+            ) : null}
+          </div>
+        </>
       ) : null}
 
-      <button style={styles.repairRow} onClick={() => setViewAsOpen((v) => !v)}>
-        <span style={styles.repairLabel}><Icon name="person" size={16} />See the Hub as someone</span>
-        <span style={styles.chevron}>{viewAsOpen ? '▾' : '▸'}</span>
-      </button>
-      {viewAsOpen ? <ViewAsPicker /> : null}
-      <button style={styles.repairRow} onClick={() => setMatrixOpen((v) => !v)}>
-        <span style={styles.repairLabel}><Icon name="grid" size={16} />Who sees what — access by job</span>
-        <span style={styles.chevron}>{matrixOpen ? '▾' : '▸'}</span>
-      </button>
-      {matrixOpen ? <AccessMatrixEditor /> : null}
-      <button style={styles.repairRow} onClick={() => navigate('/admin/email-preview')}>
-        <span style={styles.repairLabel}><Icon name="message" size={16} />Email preview — every email the Hub sends</span>
-        <span style={styles.chevron}>›</span>
-      </button>
-      <button style={styles.repairRow} onClick={() => setRepairOpen((v) => !v)}>
-        <span style={styles.repairLabel}><Icon name="gear" size={16} />Pages being improved</span>
-        <span style={styles.chevron}>{repairOpen ? '▾' : '▸'}</span>
-      </button>
-      {repairOpen ? <UnderRepairControls /> : null}
+      {tab === 'matrix' ? <AccessMatrixEditor /> : null}
+      {tab === 'viewAs' ? <ViewAsPicker /> : null}
+      {tab === 'email' ? (
+        <div style={styles.toolCard}>
+          <p style={styles.accessValue}>Every email the Hub sends, filled in with sample details, so you can see exactly what people receive.</p>
+          <button style={styles.saveButton} onClick={() => navigate('/admin/email-preview')}>Open the email preview</button>
+        </div>
+      ) : null}
+      {tab === 'repair' ? <UnderRepairControls /> : null}
 
       {panelMode ? (
         <AccessPanel
@@ -704,7 +840,34 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, allLocations, preset
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 760 },
+  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 1180 },
+  tabs: { display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', margin: '6px 0 16px', overflowX: 'auto', scrollbarWidth: 'none' },
+  tab: { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '10px 12px', color: 'var(--text-tertiary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
+  tabOn: { color: 'var(--text-primary)', borderBottomColor: 'var(--neon)' },
+  filterRow: { display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14 },
+  search: { flex: '1 1 240px', minWidth: 0, height: 40, boxSizing: 'border-box', padding: '0 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit' },
+  chips: { display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', maxWidth: '100%' },
+  chip: { border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', borderRadius: 999, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
+  chipOn: { background: 'var(--neon)', color: 'var(--neon-text)', borderColor: 'var(--neon)' },
+  chipCount: { opacity: 0.7, marginLeft: 2 },
+  split: { display: 'flex', gap: 16, alignItems: 'flex-start' },
+  listCol: { flex: '1 1 520px', minWidth: 0 },
+  detailCol: { flex: '0 1 380px', minWidth: 320, position: 'sticky', top: 16 },
+  groupLabel: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.9, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: 0, padding: '12px 14px 6px' },
+  personRow: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 14px', background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)', fontFamily: 'inherit', textTransform: 'none' },
+  personRowOn: { background: 'rgba(34,211,238,0.07)' },
+  personText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
+  personJob: { fontSize: 12, color: 'var(--text-tertiary)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
+  tag: { display: 'inline-block', fontSize: 10, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', borderRadius: 6, padding: '2px 6px', marginLeft: 4 },
+  tagRow: { display: 'flex', flexWrap: 'wrap', gap: 6, margin: '12px 0 14px' },
+  lastActive: { fontSize: 11.5, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' },
+  empty: { fontSize: 13, color: 'var(--text-tertiary)', padding: 14 },
+  detail: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18 },
+  detailEmpty: { color: 'var(--text-tertiary)', fontSize: 13, textAlign: 'center', padding: '40px 18px' },
+  detailHead: { display: 'flex', alignItems: 'center', gap: 12 },
+  detailName: { fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 2px' },
+  backButton: { background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, padding: '0 0 12px', cursor: 'pointer', textTransform: 'none', fontFamily: 'inherit' },
+  toolCard: { background: 'var(--bg-card)', borderRadius: 12, padding: 18 },
 
   list: { background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 },
   row: { borderBottom: '1px solid var(--border)' },

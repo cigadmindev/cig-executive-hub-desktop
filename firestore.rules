@@ -469,7 +469,7 @@ service cloud.firestore {
       allow read: if isSignedIn() || (request.auth != null && request.auth.uid == userId);
       allow create: if isAdmin();
       allow update: if isAdmin()
-        || (isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pushToken', 'notifyEmail']));
+        || (isSignedIn() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pushToken', 'notifyEmail', 'lastActiveAt']));
       // Executives used to be able to change a manager's permissions, because
       // they approved access requests. Admins alone decide those now, so the
       // door is closed.
