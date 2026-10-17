@@ -108,18 +108,20 @@ export default function OperationalPOCScreen() {
       <PageHeader
         back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
         title="Operational POC"
-        phoneExtras={canAssign ? 'below' : 'inline'}
+        // On a phone the extras sit under the title (17 Oct 2026): with Print
+        // beside Search they no longer fit next to it.
+        phoneExtras={canAssign || (contacts.length && !mineOnly) ? 'below' : 'inline'}
         subtitle="Who to call for this location: vendors, service companies and suppliers."
         extras={
           <>
             {/* A sheet to fill in by hand (16 Oct 2026). */}
             {contacts.length && !mineOnly ? (
-              <button style={{ ...styles.ghostAction, display: 'inline-flex', alignItems: 'center', gap: 7 }} onClick={printIt} title="Print a fill-in sheet">
-                <Icon name="printer" size={16} /><span>Print fill-in sheet</span>
+              <button style={{ ...styles.ghostAction, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, ...(isNarrow ? { width: 40, padding: 0 } : {}) }} onClick={printIt} title="Print a fill-in sheet" aria-label="Print a fill-in sheet">
+                <Icon name="printer" size={16} />{isNarrow ? null : <span>Print fill-in sheet</span>}
               </button>
             ) : null}
             {canAssign ? (
-              <button style={styles.ghostAction} onClick={() => { setBulkSection('all'); setBulkUids([]); setBulkOpen(true); }}>Assign unfilled…</button>
+              <button style={styles.ghostAction} onClick={() => { setBulkSection('all'); setBulkUids([]); setBulkOpen(true); }}>{isNarrow ? 'Assign…' : 'Assign unfilled…'}</button>
             ) : null}
             <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={contacts.map((c) => c.item)} placeholder="Search contacts…" />
           </>

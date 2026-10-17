@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import Icon from '../components/Icon';
 import { printOpeningSheet } from '../lib/printSheet';
 import { assigneesOf, assigneeFields, shortNames, isAssignedTo } from '../data/assignees';
@@ -41,6 +42,7 @@ export default function OpeningChecklistScreen() {
   // Assigned work only (16 Oct 2026, Ben): just the items given to him, which
   // he can tick off and fill in. Nothing else on the list shows.
   const mineOnly = assignedWorkOnly(user, 'openingChecklist');
+  const isNarrow = useIsNarrow();
   const canTick = atLeast(user, 'openingChecklist', 'tick') || mineOnly;
 
   // Adding items in the app is what removes the need for a per-city template.
@@ -410,8 +412,10 @@ export default function OpeningChecklistScreen() {
           <>
             {/* A sheet to fill in by hand (16 Oct 2026). */}
             {openingItems.length && !mineOnly ? (
-              <button style={styles.printButton} onClick={printIt} title="Print a fill-in sheet">
-                <Icon name="printer" size={16} /><span>Print fill-in sheet</span>
+              // On a phone just the printer icon, beside the search icon
+              // (17 Oct 2026) - the words squeezed the title to one letter wide.
+              <button style={isNarrow ? styles.printIcon : styles.printButton} onClick={printIt} title="Print a fill-in sheet" aria-label="Print a fill-in sheet">
+                <Icon name="printer" size={16} />{isNarrow ? null : <span>Print fill-in sheet</span>}
               </button>
             ) : null}
             <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={searchSuggestions} placeholder="Search tasks…" />
@@ -1072,6 +1076,7 @@ const styles = {
   // Sits below the fields inside an open item. Visible only to admins, the
   // COO and the beverage manager.
   mineOnlyNote: { fontSize: 13, color: 'var(--text-secondary)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', margin: '0 0 16px' },
+  printIcon: { width: 40, height: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0, flexShrink: 0 },
   printButton: { display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 14px', borderRadius: 8, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
   checkAreaButton: { marginTop: 10, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', textTransform: 'none' },
   checkedNote: { marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, fontSize: 13, color: '#9FD3B0', background: 'rgba(95,163,119,0.12)', border: '1px solid rgba(95,163,119,0.45)', borderRadius: 8, padding: '10px 14px' },
