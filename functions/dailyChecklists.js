@@ -8,8 +8,13 @@
 //                        location's GM (16 Oct 2026; was 22:00).
 //   dailyClosingWatch    00:00: tonight's CLOSING lists not signed off yet →
 //                        that location's GM (16 Oct 2026; was 10:00 next day).
+//                        Not the kitchen closing (18 Oct 2026) - the GM
+//                        usually verifies that the next morning.
 //   dailyLateWatch       10:00: anything from yesterday still not signed off
-//                        → the COO and admins.
+//                        → the COO and admins, except the kitchen closing;
+//                        last night's kitchen closing → the GM instead.
+//   dailyKitchenLateWatch 15:00: last night's kitchen closing still not
+//                        verified → the COO and admins (18 Oct 2026).
 //   dailyChecklistWeekly Monday 08:00: last week's sign-off rates → the COO.
 //
 // A "day" runs 4am to 4am, so a closing list finished at 12:30am still
@@ -48,6 +53,10 @@ const LISTS = {
   ],
 };
 const isClosing = (listId) => listId.endsWith('-closing');
+// The kitchen closings are verified by the GM the next morning (Brenner,
+// 18 Oct 2026): GMs are rarely there all the way to close.
+const KITCHEN_CLOSING = ['boh-closing', 'ridgeland-chef-closing'];
+const isKitchenClosing = (listId) => KITCHEN_CLOSING.includes(listId);
 // Lists that can be marked "not open today" (16 Oct 2026): Starkville's Veranda.
 const NOT_OPEN_LISTS = ['veranda-opening'];
 
@@ -365,7 +374,7 @@ exports.dailyClosingWatch = onSchedule(
       const brandId = await R.brandForLocation(locationId);
       const where = await R.locationName(locationId);
       const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
-      const closingMissing = (await missingLists(db, locationId, lists, tonight)).filter(([id]) => isClosing(id));
+      const closingMissing = (await missingLists(db, locationId, lists, tonight)).filter(([id]) => isClosing(id) && !isKitchenClosing(id));
       if (!closingMissing.length) continue;
       const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
       await notifyPeople(gms.length ? gms : R.admins(users), 'Tonight\'s closing checklist' + (closingMissing.length === 1 ? '' : 's') + ' not signed off yet · ' + where, names(closingMissing), {
@@ -388,11 +397,45 @@ exports.dailyLateWatch = onSchedule(
       const brandId = await R.brandForLocation(locationId);
       const where = await R.locationName(locationId);
       const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
-      const lateMissing = await missingLists(db, locationId, lists, yesterday);
+      const missing = await missingLists(db, locationId, lists, yesterday);
+      // Last night's kitchen closing goes to the GM to verify, not up the
+      // line yet (18 Oct 2026). The COO hears at 3pm if it is still open.
+      const kitchen = missing.filter(([id]) => isKitchenClosing(id));
+      if (kitchen.length) {
+        const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
+        await notifyPeople(gms.length ? gms : R.admins(users), 'Last night\'s kitchen closing not verified yet · ' + where, 'Check the kitchen and sign off ' + names(kitchen) + ' for last night.', {
+          speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'Verify it',
+          why: gms.length ? 'You got this because you are the GM at ' + where + '.' : 'You got this because ' + where + ' has no GM in the Hub.',
+          throttleKey: 'daily-kitchen-gm-' + locationId + '-' + yesterday,
+        });
+      }
+      const lateMissing = missing.filter(([id]) => !isKitchenClosing(id));
       if (!lateMissing.length) continue;
       await notifyPeople(R.approvers(users), 'Yesterday\'s checklists were never signed off · ' + where, names(lateMissing), {
         speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'See them',
         why: 'You got this because you are the COO or an admin.', throttleKey: 'daily-late-' + locationId + '-' + yesterday,
+      });
+    }
+  }
+);
+
+// 3pm: last night's kitchen closing, still not verified after the GM's 10am
+// reminder → the COO and admins (18 Oct 2026).
+exports.dailyKitchenLateWatch = onSchedule(
+  { schedule: '0 15 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
+  async () => {
+    const db = admin.firestore();
+    const users = await R.activeUsers();
+    const yesterday = daysAgo(1);
+    for (const [locationId, lists] of Object.entries(LISTS)) {
+      const brandId = await R.brandForLocation(locationId);
+      const where = await R.locationName(locationId);
+      const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
+      const kitchen = (await missingLists(db, locationId, lists, yesterday)).filter(([id]) => isKitchenClosing(id));
+      if (!kitchen.length) continue;
+      await notifyPeople(R.approvers(users), 'Last night\'s kitchen closing was never verified · ' + where, names(kitchen) + ' is still not signed off. The GM was reminded at 10am.', {
+        speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'See it',
+        why: 'You got this because you are the COO or an admin.', throttleKey: 'daily-kitchen-late-' + locationId + '-' + yesterday,
       });
     }
   }

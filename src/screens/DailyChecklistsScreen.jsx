@@ -85,7 +85,7 @@ export default function DailyChecklistsScreen() {
       <div style={styles.grid}>{lists.filter((l) => l.kind === 'opening').map(card)}</div>
       <p style={styles.label}>Closing</p>
       <div style={styles.grid}>{lists.filter((l) => l.kind === 'closing').map(card)}</div>
-      <p style={styles.note}>Openings not signed off by 5pm, or closings by midnight → this location's GM is emailed. Still not signed off by 10am the next day → the COO and admins are emailed.</p>
+      <p style={styles.note}>Openings not signed off by 5pm, or closings by midnight → this location's GM is emailed. Still not signed off by 10am the next day → the COO and admins are emailed. The kitchen closing is verified by the GM the next morning: the GM is reminded at 10am, and the COO and admins at 3pm.</p>
       {dialogNode}
     </div>
   );
