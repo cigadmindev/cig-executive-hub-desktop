@@ -96,6 +96,7 @@ export function AuthProvider({ children }) {
           active: data.active ?? true,
           pushToken: data.pushToken ?? null,
           job: data.job ?? null,
+          chatColor: Number.isInteger(data.chatColor) ? data.chatColor : null,
           alsoJob: data.alsoJob ?? null,
           privateSpace: data.privateSpace === true,
           assignedWork: data.assignedWork === true,

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { personColor } from '../lib/personColor';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
@@ -18,33 +19,8 @@ function formatTime(ts) {
   return fmtDayTime(ts).startsWith('Today') ? fmtTime(ts) : fmtDay(ts);
 }
 
-// Every sender in a group chat gets a consistent color derived from their
-// uid, so at a glance you can tell who's who without reading every name —
-// same person always lands on the same color, every time you open the app.
-const SENDER_COLORS = ['#DFFF4F', '#4A90D9', '#E8524B', '#5FA377', '#D9822B', '#B48EEA', '#4FD1DF'];
-function colorForSender(uid) {
-  if (!uid) return SENDER_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < uid.length; i++) hash = (hash * 31 + uid.charCodeAt(i)) >>> 0;
-  return SENDER_COLORS[hash % SENDER_COLORS.length];
-}
-
-// Inside a conversation, colour is assigned by position in the member list
-// rather than by hashing the uid. Hashing seven colours across any number of
-// people collides by chance - two members of the same group landing on the
-// same colour, which is the one thing the colour exists to prevent. Position
-// guarantees uniqueness up to seven members.
-//
-// A person's colour therefore differs between conversations. That is the
-// trade: colour identifies who is speaking within a thread, and it only has
-// to hold inside that thread.
-function colorInConversation(uid, memberUids) {
-  if (!uid) return SENDER_COLORS[0];
-  const i = (memberUids ?? []).indexOf(uid);
-  if (i === -1) return colorForSender(uid);
-  return SENDER_COLORS[i % SENDER_COLORS.length];
-}
-
+// Everyone has their own colour (18 Oct 2026): the same in every chat and on
+// every avatar, never shared - see src/lib/personColor.js.
 // The search term, lit up wherever it appears in a message or a name.
 function highlight(text, q, current = false) {
   const t = String(text ?? '');
@@ -86,7 +62,8 @@ export default function MessagesScreen() {
     toggleReaction,
     markAttachmentViewed,
   } = useChat();
-  const { user, activeUsers: users } = useAuth();
+  const { user, activeUsers: users, users: everyone } = useAuth();
+  const colorOf = (uid) => personColor(uid, everyone ?? users);
   const [activeId, setActiveId] = useState(null);
   const [text, setText] = useState('');
   const [hoveredMsgId, setHoveredMsgId] = useState(null);
@@ -368,8 +345,8 @@ export default function MessagesScreen() {
                     style={{
                       ...styles.convoAvatar,
                       ...(c.type === 'group' ? styles.convoAvatarGroup : {}),
-                      background: c.type === 'group' ? 'transparent' : `${colorForSender(c.id)}22`,
-                      color: c.type === 'group' ? 'var(--text-secondary)' : colorForSender(c.id),
+                      background: c.type === 'group' ? 'transparent' : `${colorOf((c.memberUids ?? []).find((u) => u !== user?.uid))}22`,
+                      color: c.type === 'group' ? 'var(--text-secondary)' : colorOf((c.memberUids ?? []).find((u) => u !== user?.uid)),
                     }}
                   >
                     {c.type === 'group' ? (c.memberUids?.length ?? '') : (c.name || '?').slice(0, 2).toUpperCase()}
@@ -473,7 +450,7 @@ export default function MessagesScreen() {
                       <div
                         style={{
                           ...styles.groupAvatar,
-                          background: colorInConversation(m.senderUid, activeConvo.memberUids),
+                          background: colorOf(m.senderUid),
                           visibility: showSenderInfo ? 'visible' : 'hidden',
                         }}
                       >
@@ -516,7 +493,7 @@ export default function MessagesScreen() {
                     ) : (
                       <div data-bubble="" style={{ ...styles.bubble, ...(isMe ? styles.bubbleMe : styles.bubbleOther), ...(isNarrow ? { maxWidth: '82%', fontSize: 15 } : {}), ...(currentHit === m.id ? styles.bubbleHit : {}) }}>
                         {showSenderInfo ? (
-                          <div style={{ ...styles.senderName, color: colorInConversation(m.senderUid, activeConvo.memberUids) }}>{m.senderName}</div>
+                          <div style={{ ...styles.senderName, color: colorOf(m.senderUid) }}>{m.senderName}</div>
                         ) : null}
 
                         {m.text ? <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{tneedle ? highlight(m.text, tq, currentHit === m.id) : m.text}</div> : null}

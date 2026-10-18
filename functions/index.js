@@ -69,8 +69,17 @@ exports.createUser = onCall(async (request) => {
   // If this write fails we delete the auth user we just made. Otherwise we'd
   // leave someone who can sign in but has no profile document — which reads
   // as "signed out" in the app and is confusing to diagnose later.
+  // Their own colour in Messages (18 Oct 2026): the lowest number nobody
+  // has, so no two people share one.
+  let chatColor = 0;
+  try {
+    const taken = new Set((await admin.firestore().collection('users').get()).docs.map((d) => d.data().chatColor).filter(Number.isInteger));
+    while (taken.has(chatColor)) chatColor++;
+  } catch (e) { console.error('chatColor: ' + e.message); }
+
   try {
     await admin.firestore().collection('users').doc(userRecord.uid).set({
+      chatColor,
       email: email.trim(),
       name: name.trim(),
       role,
