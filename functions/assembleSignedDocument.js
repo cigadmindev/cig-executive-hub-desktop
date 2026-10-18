@@ -14,7 +14,7 @@
 // can be closed.
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
-const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+const { PDFDocument } = require('pdf-lib');
 const { requireLive } = require('./caller');
 const { workOrderPath } = require('./documentUrls');
 
@@ -40,63 +40,39 @@ function dataUrlToBytes(dataUrl) {
 
 // A dedicated signature page appended at the end, rather than drawing over
 // whatever is on the last page - which could land on top of real content.
+// Drawn in the CIG Concepts acknowledgement style (18 Oct 2026): a row per
+// signer with their signature, name and when they signed.
 async function embedSignatures(originalPdfBytes, title, signatures) {
+  const { CigDoc, LEFT, RIGHT } = require('./cigPdf');
   const pdfDoc = await PDFDocument.load(originalPdfBytes);
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-  const page = pdfDoc.addPage();
-  const { width, height } = page.getSize();
-
-  page.drawText('Signature Record', { x: 50, y: height - 60, size: 16, font: boldFont, color: rgb(0.1, 0.1, 0.1) });
-  page.drawText(sanitizeForPdf(title), { x: 50, y: height - 82, size: 11, font, color: rgb(0.35, 0.35, 0.35) });
-
-  let y = height - 140;
-  const rowHeight = 130;
-
+  const d = await CigDoc.create({ eyebrow: 'CIG Concepts', title: 'Signature Record', category: 'Signed Document', pdf: pdfDoc });
+  d.header('Everyone below signed "' + String(title ?? '') + '" in the CIG Executive Hub. Each signature was drawn by the person named, on the date and time shown.');
+  d.y -= 4;
+  d.label('Signatures', (signatures ?? []).length + ' of ' + (signatures ?? []).length + ' signed');
   for (const sig of signatures ?? []) {
-    if (y < 140) break;
-
-    let cursorY = y;
-
+    d.need(78);
+    const top = d.y - 8;
+    d.badge(LEFT, top, 'sign', 21);
+    d.text(sig.name ?? '', { x: LEFT + 30, y: top - 9, size: 9, font: 'bold' });
+    d.text('Signed ' + new Date(sig.signedAt).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }), { x: LEFT + 30, y: top - 21, size: 7.2, font: 'light' });
+    const sx = (LEFT + RIGHT) / 2, sw = RIGHT - sx;
     if (sig.signatureImageDataUrl) {
       try {
-        const pngImage = await pdfDoc.embedPng(dataUrlToBytes(sig.signatureImageDataUrl));
-        const imgDims = pngImage.scaleToFit(180, 50);
-        // drawImage's y is the bottom-left corner and the image grows upward,
-        // so this puts its top at cursorY and lets it fill downward.
-        page.drawImage(pngImage, {
-          x: 50,
-          y: cursorY - imgDims.height,
-          width: imgDims.width,
-          height: imgDims.height,
-        });
-        cursorY -= imgDims.height + 10;
+        const img = await pdfDoc.embedPng(dataUrlToBytes(sig.signatureImageDataUrl));
+        const dims = img.scaleToFit(sw - 10, 46);
+        d.page.drawImage(img, { x: sx + 4, y: top - 50, width: dims.width, height: dims.height });
       } catch {
         // A malformed signature image should not take the whole document
-        // down - the name and timestamp below still record that they signed.
+        // down - the name and timestamp still record that they signed.
       }
     }
-
-    page.drawText(sanitizeForPdf(sig.name), { x: 50, y: cursorY - 12, size: 11, font: boldFont, color: rgb(0.1, 0.1, 0.1) });
-    page.drawText(sanitizeForPdf('Signed ' + new Date(sig.signedAt).toLocaleString('en-US', { timeZone: 'America/Chicago' })), {
-      x: 50,
-      y: cursorY - 28,
-      size: 9,
-      font,
-      color: rgb(0.45, 0.45, 0.45),
-    });
-    page.drawLine({
-      start: { x: 50, y: cursorY - 38 },
-      end: { x: width - 50, y: cursorY - 38 },
-      thickness: 0.5,
-      color: rgb(0.85, 0.85, 0.85),
-    });
-
-    y -= rowHeight;
+    d.y = top - 54;
+    d.field(sx, RIGHT, 'Signature', '');
+    d.y -= 12;
+    d.rule();
+    d.y -= 2;
   }
-
-  return pdfDoc.save();
+  return d.save();
 }
 
 exports.assembleSignedDocument = onCall({ timeoutSeconds: 120, memory: '512MiB' }, async (request) => {

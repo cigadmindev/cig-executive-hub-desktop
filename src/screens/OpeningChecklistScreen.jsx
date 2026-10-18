@@ -218,16 +218,25 @@ export default function OpeningChecklistScreen() {
       section,
       items: items.filter((i) => i.openingSection === section),
     }));
-    const dueText = (t) => (t ? new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+    // Everything an item holds in the Hub except its documents (18 Oct 2026).
+    const sheetItem = (i) => ({
+      title: i.title,
+      done: i.done,
+      due: i.dateTime ? new Date(i.dateTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '',
+      assigned: assigneesOf(i).names.join(', '),
+      waitsFor: (template ? resolveDependencyIds(i, openingItems, template) : []).map((id) => openingItems.find((o) => o.id === id)?.title).filter(Boolean).join(', '),
+      fields: i.openingFields ?? {},
+    });
     const ok = printOpeningSheet({
       location: location?.name ?? '',
       brand: brand?.name ?? '',
-      setup: bySection(setupItems).map((g) => ({ section: g.section, items: g.items.map((i) => ({ title: i.title, done: i.done, fields: i.openingFields ?? {} })) })),
+      openingDate: info.openingDate ?? null,
+      setup: bySection(setupItems).map((g) => ({ section: g.section, items: g.items.map(sheetItem) })),
       timeline: TIMELINE_BUCKETS.map((b) => ({
         section: b.label,
         items: openingItems.filter((i) => i.openingItemType === 'timeline' && i.openingSection === b.label)
           .sort((x, y) => (x.dateTime ?? 0) - (y.dateTime ?? 0))
-          .map((i) => ({ title: i.title, done: i.done, due: dueText(i.dateTime) })),
+          .map(sheetItem),
       })),
     });
     if (!ok) notify('Print window blocked', 'Your browser stopped the print window from opening. Allow pop-ups for the Hub and try again.');

@@ -24,7 +24,6 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 const { google } = require('googleapis');
 const { Readable } = require('stream');
-const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const { notifyPeople, sendEmail, ACTION } = require('./notify');
 const R = require('./routing');
 const M = require('./accessMatrix.gen');
@@ -96,113 +95,154 @@ async function checklistsFolder(locationId) {
   return m[1];
 }
 
-// ---- The PDF: the printed sheet, filled in ----
+// ---- The PDF: the signed-off record (18 Oct 2026) ----
+// In the CIG Concepts acknowledgement style: "I, [manager], confirm...",
+// then each section of the list with every task, who ticked it and when,
+// any note (with its photos), then the sheet's notes boxes and the sign-off
+// block. Long lists carry on to a second page under the same frame.
 // photos: { [taskIndex]: [{ bytes, type }] } - from the notes (16 Oct 2026).
-async function drawPdf(r, locationName, photos = {}) {
-  const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const W = 612, H = 792, M = 46;
-  let page = pdf.addPage([W, H]);
-  let y = H - M;
-  const ink = rgb(0.1, 0.1, 0.1), soft = rgb(0.42, 0.42, 0.45), line = rgb(0.82, 0.82, 0.84), accent = rgb(0.04, 0.55, 0.65);
-  const clean = (s) => String(s ?? '').replace(/·/g, '-').replace(/[–—]/g, '-').replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/½/g, '1/2').replace(/°/g, ' deg').replace(/[éèê]/g, 'e').replace(/[ÉÈ]/g, 'E').replace(/[^\x20-\x7E\n]/g, '');
-  const wrap = (text, f, size, width) => {
-    const out = [];
-    for (const para of clean(text).split('\n')) {
-      let cur = '';
-      for (const w of para.split(' ')) {
-        const next = cur ? cur + ' ' + w : w;
-        if (f.widthOfTextAtSize(next, size) > width && cur) { out.push(cur); cur = w; } else cur = next;
-      }
-      out.push(cur);
-    }
-    return out;
-  };
-  const need = (h) => { if (y - h < M + 20) { page = pdf.addPage([W, H]); y = H - M; } };
-  const text = (s, x, size, f = font, color = ink) => page.drawText(clean(s), { x, y, size, font: f, color });
+const BRAND_NAMES = { taste: 'Taste Italian Kitchen', blutos: "Bluto's Greek Tavern", heritage: 'Heritage Chophouse', pronto: 'Pronto Gusto', stellas: 'Sunnyside Social', cajun: 'Cajun Depot' };
+const prettyDay = (key) => new Date(key + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+const signedOn = (t) => (t ? new Date(t).toLocaleDateString('en-US', { timeZone: ZONE, month: 'long', day: 'numeric', year: 'numeric' }) + ' · ' + timeOf(t) : '');
+const initialsOf = (name) => String(name ?? '').split(/\s+/).filter(Boolean).map((p) => p[0].toUpperCase() + '.').join('');
 
-  text('TASTE ITALIAN KITCHEN - ' + locationName.toUpperCase(), M, 9, font, soft); y -= 22;
-  text(r.title.toUpperCase(), M, 18, bold); y -= 16;
-  text(r.subtitle, M, 10, font, soft); y -= 24;
-  const fields = [['DATE', r.dateKey], ...Object.entries(r.workers ?? {}).map(([k, v]) => [k.toUpperCase(), v || '-']), ['MANAGER ON DUTY', (r.managers ?? []).join(', ') || '-']];
-  const colW = (W - 2 * M) / fields.length;
-  fields.forEach(([k, v], i) => { page.drawText(clean(k), { x: M + i * colW, y, size: 7, font, color: soft }); page.drawText(clean(v), { x: M + i * colW, y: y - 12, size: 10, font: bold, color: ink }); });
-  y -= 32;
-  for (const l of wrap(r.intro ?? '', font, 8, W - 2 * M)) { text(l, M, 8, font, soft); y -= 11; }
-  y -= 6;
-  const secW = r.sections ? 70 : 0, initW = 90, taskW = W - 2 * M - secW - initW;
-  page.drawText('TASK', { x: M, y, size: 7, font: bold, color: soft });
-  if (r.sections) page.drawText('SECTION', { x: M + taskW, y, size: 7, font: bold, color: soft });
-  page.drawText('INITIAL', { x: W - M - initW, y, size: 7, font: bold, color: soft });
-  y -= 8;
+async function drawPdf(r, locationName, photos = {}) {
+  const { CigDoc, iconFor, LEFT, RIGHT, MUTED } = require('./cigPdf');
+  const brand = BRAND_NAMES[r.brandId] ?? 'Taste Italian Kitchen';
+  const d = await CigDoc.create({ eyebrow: brand + ' · ' + locationName, title: r.title, category: 'Daily Checklist' });
+  const signer = r.filedByName || (r.managers ?? [])[0] || '';
+  const day = prettyDay(r.dateKey);
+
   // The Veranda was not open (16 Oct 2026): a one-page record, no tasks.
   if (r.notOpen) {
-    y -= 10;
-    text('NOT OPEN TODAY', M, 16, bold, accent); y -= 20;
-    text('Marked by ' + (r.filedByName ?? '') + ' at ' + timeOf(r.filedAt) + ', ' + r.dateKey + '.', M, 10, font, ink); y -= 14;
-    text('Nothing on this list was needed. It counts as done for the week.', M, 9, font, soft); y -= 30;
-    text('CIG Executive Hub', M, 8, font, soft);
-    return pdf.save();
+    d.header('I, ' + signer + ', confirm that the ' + r.title.replace(/ (Opening |Closing )?Checklist$/, '') + ' was not open on ' + day + ', so nothing on this list was needed. It counts as done for the week.');
+    d.y -= 8;
+    d.label('Sign-Off');
+    d.y -= 16; d.field(LEFT, (LEFT + RIGHT) / 2 - 12, 'Name (Printed)', signer);
+    d.y -= 18; d.field(LEFT, (LEFT + RIGHT) / 2 - 12, 'Marked in the Hub', signedOn(r.filedAt));
+    return d.save();
   }
+
+  d.header('I, ' + signer + ', confirm that every task on the ' + r.title + ' for ' + day + ' was completed or noted below.');
+
   const embedded = {};
   for (const [i, list] of Object.entries(photos)) {
     embedded[i] = [];
     for (const ph of list) {
-      try { embedded[i].push(ph.type === 'png' ? await pdf.embedPng(ph.bytes) : await pdf.embedJpg(ph.bytes)); } catch (e) { /* an unreadable photo is skipped, not fatal */ }
+      try { const u8 = new Uint8Array(ph.bytes); embedded[i].push(ph.type === 'png' ? await d.pdf.embedPng(u8) : await d.pdf.embedJpg(u8)); } catch (e) { /* an unreadable photo is skipped, not fatal */ }
     }
   }
-  const PH = 96; // photo row height
-  for (const [ti, t] of r.tasks.entries()) {
-    if (t.group) {
-      need(24); y -= 14;
-      text(t.group.toUpperCase(), M, 9, bold, accent); y -= 6;
-      continue;
+
+  // Sections: the list's own groups, or the whole list as one when it has none.
+  const blocks = [];
+  let cur = null;
+  r.tasks.forEach((t, i) => {
+    if (t.group) { cur = { name: t.group.replace(/^\d+\.\s*/, ''), tasks: [] }; blocks.push(cur); return; }
+    if (!cur) { cur = { name: r.title.replace(/ Checklist$/, ''), tasks: [] }; blocks.push(cur); }
+    cur.tasks.push({ ...t, i });
+  });
+
+  d.label(r.kind === 'opening' || /opening/.test(r.listId ?? '') ? 'Opening Verification' : 'Close-Out Verification');
+  // One time stamp per section (Brenner, 18 Oct 2026): who ticked it and
+  // when the last task was ticked, under the section name - not on every line.
+  const NAME_X = LEFT + 30, NAME_W = 112, TASK_X = NAME_X + NAME_W + 10, TASK_W = RIGHT - TASK_X;
+  const SZ = 6.6, LH = 8.6, PH = 70;
+  for (const b of blocks) {
+    // Measure every task first, so a section that fits is never split.
+    const rows = b.tasks.map((t) => {
+      // A task with what-it-involves text gets its title a little heavier
+      // and the details under it, as on the printed sheet.
+      const tf = t.details ? 'medium' : 'light';
+      const title = d.wrap(t.title + (t.section ? ' (' + t.section + ')' : ''), SZ, TASK_W, tf);
+      const details = t.details ? d.wrap(t.details, SZ - 0.4, TASK_W, 'light') : [];
+      const note = t.note ? d.wrap((t.done ? 'Note: ' : "Couldn't be done: ") + t.note + (t.noteByName ? ' - ' + t.noteByName : ''), SZ, TASK_W, 'italic') : [];
+      const pics = embedded[t.i] ?? [];
+      return { t, tf, title, details, note, pics, h: (title.length + note.length) * LH + details.length * (LH - 0.6) + (details.length ? 2 : 0) + (pics.length ? PH + 4 : 0) };
+    });
+    const done = b.tasks.filter((t) => t.done).length;
+    const total = rows.reduce((a, x) => a + x.h, 0);
+    const nameLines = d.wrap(b.name, 8.2, NAME_W, 'bold');
+    const head = Math.max(30, nameLines.length * 10 + 21);
+    d.need(Math.min(total, 200) + 10);
+    const top = d.y - 5;
+    d.badge(LEFT, top, iconFor(b.name), 21);
+    let ny = top - 8;
+    for (const l of nameLines) { d.text(l, { x: NAME_X, y: ny, size: 8.2, font: 'bold' }); ny -= 10; }
+    d.text(done + ' of ' + b.tasks.length + ' done', { x: NAME_X, y: ny, size: 6.4, font: 'regular' });
+    const ticked = b.tasks.filter((t) => t.done && t.at);
+    if (ticked.length) {
+      const who = [...new Set(ticked.map((t) => initialsOf(t.byName)).filter(Boolean))].join(', ');
+      const last = Math.max(...ticked.map((t) => t.at));
+      ny -= 8.5;
+      d.text((who ? who + ' · ' : '') + timeOf(last), { x: NAME_X, y: ny, size: 6.4, font: 'medium' });
     }
-    const lines = wrap(t.details ?? '', font, 8, taskW - 8);
-    const titleLines = wrap(t.title, bold, 10, taskW - 8);
-    // A ticked task's note is information; an unticked one's says why it
-    // couldn't be done (15 Oct 2026). Wrapped, so a long note stays on the page.
-    const noteLines = t.note ? wrap(clean((t.done ? 'Note: ' : "Couldn't be done: ") + t.note + (t.noteByName ? ' - ' + t.noteByName : '')), font, 8, taskW - 8) : [];
-    const pics = embedded[ti] ?? [];
-    const h = 8 + titleLines.length * 13 + (t.details ? lines.length * 10 : 0) + noteLines.length * 10 + (noteLines.length ? 2 : 0) + 6 + (pics.length ? PH + 8 : 0);
-    need(h);
-    page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: line });
-    let yy = y - 14;
-    for (const l of titleLines) { page.drawText(l, { x: M, y: yy, size: 10, font: bold, color: ink }); yy -= 13; }
-    if (t.details) for (const l of lines) { page.drawText(l, { x: M, y: yy, size: 8, font, color: soft }); yy -= 10; }
-    for (const l of noteLines) { page.drawText(l, { x: M, y: yy, size: 8, font, color: t.done ? soft : rgb(0.7, 0.45, 0) }); yy -= 10; }
-    // The note's photos in a row underneath it.
-    let px = M;
-    for (const img of pics) {
-      const w = Math.min((img.width / img.height) * PH, 150);
-      const hh = (w / img.width) * img.height;
-      if (px + w > M + taskW) break;
-      page.drawImage(img, { x: px, y: yy - hh - 2, width: w, height: hh });
-      px += w + 6;
+    let y = top - 6;
+    for (const row of rows) {
+      if (y - row.h < 74) {
+        // Runs past the page: carry on overleaf under the same section name.
+        d.y = y; d.newPage(true); y = d.y - 5;
+        d.text(b.name + ' (continued)', { x: NAME_X, y: y - 2, size: 8.2, font: 'bold' });
+        y -= 6;
+      }
+      const t = row.t;
+      row.title.forEach((l, k) => d.text(l, { x: TASK_X, y: y - k * LH, size: SZ, font: row.tf }));
+      let yy = y - row.title.length * LH;
+      row.details.forEach((l) => { d.text(l, { x: TASK_X, y: yy, size: SZ - 0.4, font: 'light', color: MUTED }); yy -= LH - 0.6; });
+      if (row.details.length) yy -= 2;
+      row.note.forEach((l) => { d.text(l, { x: TASK_X, y: yy, size: SZ, font: 'italic', color: t.done ? MUTED : undefined }); yy -= LH; });
+      let px = TASK_X;
+      for (const img of row.pics) {
+        const w = Math.min((img.width / img.height) * PH, 120);
+        const hh = (w / img.width) * img.height;
+        if (px + w > TASK_X + TASK_W) break;
+        d.page.drawImage(img, { x: px, y: yy - hh + 4, width: w, height: hh });
+        px += w + 5;
+      }
+      y -= row.h;
     }
-    if (r.sections && t.section) page.drawText(clean(t.section), { x: M + taskW, y: y - 14, size: 9, font, color: ink });
-    const bx = W - M - initW;
-    page.drawRectangle({ x: bx, y: y - 22, width: 14, height: 14, borderColor: soft, borderWidth: 0.8 });
-    if (t.done) {
-      page.drawText('X', { x: bx + 3.5, y: y - 19, size: 10, font: bold, color: accent });
-      const who = (t.byName ?? '').split(' ').map((p) => p[0]).join('');
-      page.drawText(clean(who + ' ' + timeOf(t.at)), { x: bx + 20, y: y - 18, size: 8, font, color: ink });
-    }
-    y -= h;
+    d.y = Math.min(y, top - head) - 4;
+    d.rule();
   }
-  // The boxes at the foot of the sheet ("Maintenance / Equipment Issues"…),
-  // filled in or not, as on paper.
-  for (const { key, label } of r.noteLabels ?? []) {
-    const body = wrap(r.notes?.[key] || '-', font, 9, W - 2 * M);
-    need(26 + body.length * 12);
-    y -= 18;
-    text(String(label).toUpperCase(), M, 7, bold, soft); y -= 13;
-    for (const l of body) { text(l, M, 9, font, ink); y -= 12; }
+
+  // The boxes at the foot of the sheet ("Maintenance / Equipment Issues"…).
+  if ((r.noteLabels ?? []).length) {
+    d.y -= 14;
+    d.label('Notes');
+    for (const { key, label } of r.noteLabels) {
+      const body = d.wrap(r.notes?.[key] || 'Nothing noted.', 7.4, RIGHT - LEFT, 'light');
+      d.need(16 + body.length * 10);
+      d.y -= 12;
+      d.text(label, { size: 7.4, font: 'bold' });
+      d.y -= 10;
+      for (const l of body) { d.text(l, { size: 7.4, font: 'light' }); d.y -= 10; }
+    }
   }
-  need(40); y -= 18;
-  text('Signed off by ' + (r.filedByName ?? '') + ' at ' + timeOf(r.filedAt) + ', ' + r.dateKey + ' - CIG Executive Hub', M, 8, font, soft);
-  return pdf.save();
+
+  // Closing line and the sign-off block.
+  d.need(110);
+  d.y -= 14;
+  d.para('By signing off in the Hub, I affirm this list was checked and that any issue noted above has been reported.', { size: 7.8 });
+  d.y -= 8;
+  const mid = (LEFT + RIGHT) / 2, colL = [LEFT, mid - 14], colR = [mid + 14, RIGHT];
+  const workers = Object.entries(r.workers ?? {});
+  const photoCount = Object.values(embedded).reduce((a, x) => a + x.length, 0);
+  const startY = d.y;
+  const block = (cols, title, fields) => {
+    d.y = startY;
+    d.page.drawLine({ start: { x: cols[0], y: d.y }, end: { x: cols[1], y: d.y }, thickness: 0.75, color: require('./cigPdf').FRAME });
+    d.spaced(title.toUpperCase(), cols[0], d.y - 10, 7, 1.3, require('./cigPdf').BURGUNDY);
+    d.y -= 14;
+    for (const [k, v] of fields) { d.y -= 14; d.field(cols[0], cols[1], k, v); }
+  };
+  block(colL, 'Team', workers.length ? workers.map(([k, v]) => [k, v || '']) : [['Name (Printed)', '']]);
+  const leftEnd = d.y;
+  block(colR, 'Manager Sign-Off', [
+    ['Name (Printed)', (r.managers ?? []).join(', ') || signer],
+    ['Signed in the Hub', signedOn(r.filedAt)],
+    ['Photos attached (Y/N)', photoCount ? 'Y · ' + photoCount : 'N'],
+  ]);
+  d.y = Math.min(leftEnd, d.y);
+  return d.save();
 }
 
 // Does this person work the daily checklists at this location?
