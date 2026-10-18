@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useDailyRecord, todayKey, isManagerOnDuty } from '../hooks/useDailyChecklists';
+import { useDailyRecord, todayKey, isManagerOnDuty, isChefHere } from '../hooks/useDailyChecklists';
+import TempLog from '../components/TempLog';
 import { brands } from '../data/mockData';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import NotePhotos from '../components/NotePhotos';
 import Icon from '../components/Icon';
-import { printDailySheets } from '../lib/printSheet';
+import { printDailySheets, printTempLogSheet } from '../lib/printSheet';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { fmtTime, fmtDayKey } from '../lib/dates';
 import { plainError } from '../lib/errors';
@@ -27,7 +28,7 @@ export default function DailyChecklistScreen() {
   const { user } = useAuth();
   const isNarrow = useIsNarrow();
   const { dialogNode, notify, confirm } = useDialog();
-  const { list, record, toggle, setNote, setWorker, setSheetNote, signOff, markNotOpen, undoNotOpen, addPhotos, removePhoto } = useDailyRecord(locationId, brandId, dateKey, listId);
+  const { list, record, toggle, setNote, setCell, setWorker, setSheetNote, signOff, markNotOpen, undoNotOpen, addPhotos, removePhoto } = useDailyRecord(locationId, brandId, dateKey, listId);
   // "Starkville", "Ridgeland" - for the sheet's heading and the Drive path.
   const brand = brands.find((b) => b.id === brandId);
   const brandName = brand?.name ?? '';
@@ -37,6 +38,73 @@ export default function DailyChecklistScreen() {
   const [filing, setFiling] = useState(false);
 
   if (!list) return <div style={styles.page}><p style={styles.muted}>No such checklist.</p></div>;
+
+  // The Daily Time & Temperature Log (18 Oct 2026): a grid of temperatures,
+  // kept by the location's executive chef and sous chef.
+  if (list.kind === 'log') {
+    const canLog = (user?.role === 'admin' || isChefHere(user, locationId, brandId)) && record?.status !== 'filed';
+    const items = record?.items ?? list.items;
+    const times = record?.times ?? list.times;
+    const total = items.length * times.length;
+    const filled = Object.keys(record?.cells ?? {}).length;
+    const printBlank = () => printTempLogSheet({ location: place, brand: brandName, items, times }) || notify('Print window blocked', 'Your browser stopped the print window from opening. Allow pop-ups for the Hub and try again.');
+    const fileLog = () =>
+      confirm({
+        title: 'Sign off and file to Drive?',
+        body: 'It is saved as a PDF in Operations › Temperature Logs, and can no longer be changed.',
+        confirmLabel: 'Sign off',
+        onConfirm: async () => {
+          setFiling(true);
+          try {
+            await signOff();
+            notify('Filed', 'Saved to Drive.');
+          } catch (err) {
+            notify('Could not file it', plainError(err, 'Try again.'));
+          } finally {
+            setFiling(false);
+          }
+        },
+      });
+    return (
+      <div style={styles.page}>
+        <PageHeader
+          back={{ to: `/brand/${brandId}/location/${locationId}/daily-checklists?date=${dateKey}`, label: 'Daily checklists' + (place ? ' · ' + place : '') }}
+          title={isNarrow ? 'Temperature Log' : list.title}
+          subtitle={[brandName, place, pretty(dateKey)].filter(Boolean).join(' · ') + (isNarrow ? '' : ' — ' + list.subtitle)}
+          phoneExtras="inline"
+          extras={
+            <button style={isNarrow ? styles.printIcon : styles.printBtn} title="Print a blank sheet" aria-label="Print a blank sheet" onClick={printBlank}>
+              <Icon name="printer" size={16} />{isNarrow ? null : <span>Print blank sheet</span>}
+            </button>
+          }
+        />
+        <TempLog record={record} list={list} canEdit={canLog} setCell={setCell} isToday={dateKey === todayKey()} notify={notify} />
+        <div style={{ ...styles.card, marginTop: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
+          <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+            <p style={styles.big}>{filled} of {total} temperatures logged</p>
+            <div style={styles.bar}><div style={{ ...styles.fill, width: (total ? (filled / total) * 100 : 0) + '%' }} /></div>
+            {record?.status === 'filed' ? (
+              <p style={styles.muted}>
+                Signed off by {record.filedByName} at {time(record.filedAt)}.{' '}
+                {record.fileUrl ? <a href={record.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--neon)' }}>Open in Drive ↗</a> : null}
+              </p>
+            ) : (
+              <p style={styles.small}>
+                {canLog ? 'Sign off after the 9:00 PM check, once every box has a temperature or a note.' : 'Kept by the executive chef and sous chef. You can see it, not change it.'}
+                {' '}Filed to Taste {place} › Operations › Temperature Logs › {dateKey.slice(0, 7)}.
+              </p>
+            )}
+          </div>
+          {record?.status !== 'filed' && canLog ? (
+            <button style={{ ...styles.primary, marginTop: 0, ...(filled < total || filing ? { opacity: 0.4 } : {}) }} disabled={filled < total || filing} onClick={fileLog}>
+              {filing ? 'Filing…' : 'Sign off and file to Drive'}
+            </button>
+          ) : null}
+        </div>
+        {dialogNode}
+      </div>
+    );
+  }
   const canWork = (user?.role === 'admin' || isManagerOnDuty(user, locationId, brandId)) && record?.status !== 'filed';
   const tasks = record?.tasks ?? [];
   const real = tasks.map((t, i) => ({ t, i })).filter(({ t }) => !t.group);

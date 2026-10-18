@@ -245,6 +245,99 @@ async function drawPdf(r, locationName, photos = {}) {
   return d.save();
 }
 
+// ---- The Daily Time & Temperature Log (18 Oct 2026) ----
+const CHEF_JOBS = ['Executive Chef', 'Sous Chef'];
+const TEMP_LOG_ID = 'temp-log';
+const TEMP_LOG_LOCATIONS = ['taste-starkville', 'taste-ridgeland'];
+const TEMP_LOG_TIMES = ['11:00 AM', '1:00 PM', '3:00 PM', '5:00 PM', '7:00 PM', '9:00 PM'];
+const TEMP_LOG_HOURS = [11, 13, 15, 17, 19, 21];
+function chefHere(me, brandId, locationId) {
+  if (CHEF_JOBS.includes(me.alsoJob?.job) && me.alsoJob?.locationId === locationId) return true;
+  return CHEF_JOBS.includes(me.job) && R.seesLocation(me, brandId, locationId);
+}
+const chefsAt = (users, brandId, locationId) => R.atLocation(users, CHEF_JOBS, brandId, locationId);
+
+// Operations › Temperature Logs, next to the checklists folder. Made the first
+// time, and linked to the Hub's "Temperature Logs" tile so chefs can open it.
+async function tempLogsFolder(d, locationId, brandId) {
+  const checklists = await checklistsFolder(locationId);
+  const meta = await d.files.get({ fileId: checklists, fields: 'parents', supportsAllDrives: true });
+  const operations = meta.data.parents?.[0];
+  if (!operations) throw new HttpsError('failed-precondition', "This location's Operations folder could not be found in Drive.");
+  const id = await ensureChild(d, operations, 'Temperature Logs');
+  await admin.firestore().collection('categoryDriveLinks').doc(locationId + '_operations_' + encodeURIComponent('Temperature Logs')).set({
+    locationId, brandId: brandId ?? null, categoryId: 'operations', itemName: 'Temperature Logs',
+    driveUrl: 'https://drive.google.com/drive/folders/' + id, updatedAt: Date.now(), updatedBy: 'Set up automatically',
+  }, { merge: true });
+  return id;
+}
+
+// The filed log: a landscape page laid out like the kitchen's paper sheet,
+// every box filled in with the temperature and the initials of who took it.
+async function drawLogPdf(r, locationName) {
+  const { CigDoc, BURGUNDY, FRAME, HAIR } = require('./cigPdf');
+  const brand = BRAND_NAMES[r.brandId] ?? 'Taste Italian Kitchen';
+  const d = await CigDoc.create({ eyebrow: brand + ' · ' + locationName, title: r.title, category: 'Food Safety Log', landscape: true });
+  d.header(null, r.subtitle);
+  const L = d.left, Rt = d.right;
+  const items = r.items ?? [], times = r.times ?? TEMP_LOG_TIMES, cells = r.cells ?? {};
+  const recorders = [...new Set(Object.values(cells).map((c) => c.byName).filter(Boolean))];
+  // Date and Recorded by, as on the paper sheet.
+  const mid = (L + Rt) / 2;
+  d.y -= 2;
+  d.field(mid - 250, mid - 20, 'Date', prettyDay(r.dateKey));
+  d.field(mid + 20, mid + 250, 'Recorded by', recorders.join(', '));
+  d.y -= 14;
+  const NAME_W = 150, colW = (Rt - L - NAME_W) / times.length, tW = colW * 0.55;
+  const top = d.y;
+  const line = (x0, y, x1, color = HAIR, t = 0.6) => d.page.drawLine({ start: { x: x0, y }, end: { x: x1, y }, thickness: t, color });
+  const vline = (x, y0, y1, color = FRAME, t = 0.75) => d.page.drawLine({ start: { x, y: y0 }, end: { x, y: y1 }, thickness: t, color });
+  line(L, top, Rt, FRAME, 1.1);
+  d.spaced('ITEM', L + 4, top - 12, 6.8, 1, BURGUNDY);
+  times.forEach((t, c) => d.spaced(t.toUpperCase(), L + NAME_W + c * colW + colW / 2, top - 12, 6.8, 0.8, BURGUNDY, 'center'));
+  line(L + NAME_W, top - 16, Rt);
+  times.forEach((_, c) => {
+    const x = L + NAME_W + c * colW;
+    d.spaced('TEMP (°F)', x + tW / 2, top - 24, 5, 0.6, BURGUNDY, 'center');
+    d.spaced('INITIALS', x + tW + (colW - tW) / 2, top - 24, 5, 0.6, BURGUNDY, 'center');
+  });
+  const headBottom = top - 28;
+  line(L, headBottom, Rt, FRAME, 1.1);
+  const RH = Math.min(19, (headBottom - 120) / Math.max(items.length, 1));
+  items.forEach((name, i) => {
+    const yTop = headBottom - i * RH;
+    const cy = yTop - RH / 2 - 2.4;
+    d.badge(L + 1, yTop - (RH - 13) / 2, 'thermo', 13);
+    d.text(name, { x: L + 18, y: cy, size: 7.2, font: 'bold' });
+    times.forEach((_, c) => {
+      const x = L + NAME_W + c * colW;
+      const v = cells[i + '_' + c];
+      if (v?.temp) {
+        d.text(v.temp + '°', { x: x + tW / 2, y: cy, size: 7.4, font: 'medium', align: 'center' });
+        d.text(initialsOf(v.byName), { x: x + tW + (colW - tW) / 2, y: cy, size: 6.4, font: 'regular', align: 'center' });
+      } else if (v?.note) {
+        d.text(String(v.note).slice(0, 22), { x: x + colW / 2, y: cy, size: 6, font: 'italic', align: 'center' });
+      }
+      // The line between temperature and initials, except across a note.
+      if (!v?.note) vline(x + tW, yTop, yTop - RH, HAIR, 0.6);
+    });
+    line(L, yTop - RH, Rt, i === items.length - 1 ? FRAME : HAIR, i === items.length - 1 ? 1.1 : 0.6);
+  });
+  const bottom = headBottom - items.length * RH;
+  times.forEach((_, c) => {
+    const x = L + NAME_W + c * colW;
+    vline(x, top, bottom);
+    vline(x + tW, top - 16, headBottom, HAIR, 0.6);
+  });
+  d.y = bottom - 22;
+  const third = (Rt - L) / 3;
+  d.field(L, L + third - 16, 'Signed off by', r.filedByName ?? '');
+  d.field(L + third, L + 2 * third - 16, 'Signed in the Hub', signedOn(r.filedAt));
+  const notes = Object.values(cells).filter((c) => c.note).length;
+  d.field(L + 2 * third, Rt, 'Notes', notes ? notes + ' box' + (notes === 1 ? '' : 'es') + ' noted instead of a temperature' : 'None');
+  return d.save();
+}
+
 // Does this person work the daily checklists at this location?
 async function worksHere(me, brandId, locationId) {
   const matrix = await R.liveMatrix();
@@ -282,7 +375,13 @@ exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, a
   // job or by a second job here (Cameron, Starkville GM). The same answer
   // the rules and the screens give.
   const onDuty = await worksHere(me, first.data().brandId, first.data().locationId);
-  if (me.role !== 'admin' && !onDuty) {
+  // The temperature log is the chefs' (18 Oct 2026): the executive chef or
+  // sous chef at this location signs it off.
+  const isLog = first.data().kind === 'log';
+  if (isLog && me.role !== 'admin' && !chefHere(me, first.data().brandId, first.data().locationId)) {
+    throw new HttpsError('permission-denied', 'Only the executive chef or sous chef at this location can sign the temperature log off.');
+  }
+  if (me.role !== 'admin' && !onDuty && !isLog) {
     throw new HttpsError('permission-denied', 'Only the manager on duty at this location can sign a checklist off.');
   }
 
@@ -293,14 +392,16 @@ exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, a
     const x = s.data();
     if (x.status === 'filed') return { already: true, r: x };
     if (x.status === 'filing' && Date.now() - (x.filingAt ?? 0) < 5 * 60 * 1000) return { busy: true };
-    const open = notOpen ? [] : (x.tasks ?? []).filter((t) => !t.group && !t.done && !t.note);
+    const open = notOpen ? [] : x.kind === 'log'
+      ? (x.items ?? []).flatMap((_, i) => (x.times ?? []).map((__, c) => x.cells?.[i + '_' + c])).filter((v) => !v || (!v.temp && !v.note))
+      : (x.tasks ?? []).filter((t) => !t.group && !t.done && !t.note);
     if (open.length) return { open: open.length };
     tx.update(ref, { status: 'filing', filingAt: Date.now() });
     return { r: x };
   });
   if (claim.already) return { ok: true, already: true, fileUrl: claim.r.fileUrl };
   if (claim.busy) throw new HttpsError('aborted', 'Someone is signing this off right now - give it a moment.');
-  if (claim.open) throw new HttpsError('failed-precondition', claim.open + ' task(s) are neither ticked nor noted.');
+  if (claim.open) throw new HttpsError('failed-precondition', isLog ? claim.open + ' box(es) still have no temperature or note.' : claim.open + ' task(s) are neither ticked nor noted.');
   const r = claim.r;
   try {
 
@@ -323,10 +424,11 @@ exports.fileDailyChecklist = onCall({ timeoutSeconds: 120, memory: '512MiB' }, a
       }
     }
   }
-  const bytes = await drawPdf(full, locationName.replace(/^Taste\s+/i, ''), photos);
+  const bytes = isLog ? await drawLogPdf(full, locationName.replace(/^Taste\s+/i, '')) : await drawPdf(full, locationName.replace(/^Taste\s+/i, ''), photos);
 
   const d = await drive();
-  const parent = await checklistsFolder(r.locationId);
+  // The temperature log has its own folder beside the checklists (18 Oct 2026).
+  const parent = isLog ? await tempLogsFolder(d, r.locationId, r.brandId) : await checklistsFolder(r.locationId);
   const month = await ensureChild(d, parent, r.dateKey.slice(0, 7));
   const name = r.dateKey + ' ' + r.title.replace(' Checklist', '') + (notOpen ? ' (not open)' : '') + '.pdf';
   // Already in Drive from a run that uploaded but did not finish? Use that
@@ -476,6 +578,58 @@ exports.dailyKitchenLateWatch = onSchedule(
       await notifyPeople(R.approvers(users), 'Last night\'s kitchen closing was never verified · ' + where, names(kitchen) + ' is still not signed off. The GM was reminded at 10am.', {
         speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'See it',
         why: 'You got this because you are the COO or an admin.', throttleKey: 'daily-kitchen-late-' + locationId + '-' + yesterday,
+      });
+    }
+  }
+);
+
+// The temperature log's reminders (18 Oct 2026) - to that location's
+// executive chef and sous chef only. 30 minutes after each check time, if
+// nothing at all has been logged for it...
+exports.tempLogSlotWatch = onSchedule(
+  { schedule: '30 11,13,15,17,19,21 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 300 },
+  async () => {
+    const db = admin.firestore();
+    const users = await R.activeUsers();
+    const today = centralKey(new Date());
+    const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: ZONE, hour: 'numeric', hour12: false }).format(new Date()));
+    const c = TEMP_LOG_HOURS.lastIndexOf(TEMP_LOG_HOURS.filter((h) => h <= hour).pop());
+    if (c < 0) return;
+    for (const locationId of TEMP_LOG_LOCATIONS) {
+      const snap = await db.collection(COLLECTION).doc(locationId + '_' + today + '_' + TEMP_LOG_ID).get();
+      const x = snap.exists ? snap.data() : null;
+      if (x?.status === 'filed') continue;
+      const items = x?.items ?? [];
+      if (x && items.some((_, i) => x.cells?.[i + '_' + c])) continue;
+      const brandId = await R.brandForLocation(locationId);
+      const chefs = chefsAt(users, brandId, locationId);
+      if (!chefs.length) continue;
+      const where = await R.locationName(locationId);
+      await notifyPeople(chefs, TEMP_LOG_TIMES[c] + ' temperatures not logged yet · ' + where, 'The ' + TEMP_LOG_TIMES[c] + " check on today's Daily Time & Temperature Log has nothing in it yet.", {
+        speed: ACTION, topic: 'assignment', path: '/brand/' + brandId + '/location/' + locationId + '/daily-checklists/' + TEMP_LOG_ID + '?date=' + today, button: 'Open the log',
+        why: 'You got this because you are a chef at ' + where + '.', throttleKey: 'templog-' + locationId + '-' + today + '-' + c,
+      });
+    }
+  }
+);
+
+// ...and at 11pm if the day's log has not been signed off.
+exports.tempLogUnsignedWatch = onSchedule(
+  { schedule: '0 23 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 300 },
+  async () => {
+    const db = admin.firestore();
+    const users = await R.activeUsers();
+    const today = centralKey(new Date());
+    for (const locationId of TEMP_LOG_LOCATIONS) {
+      const snap = await db.collection(COLLECTION).doc(locationId + '_' + today + '_' + TEMP_LOG_ID).get();
+      if (snap.exists && snap.data().status === 'filed') continue;
+      const brandId = await R.brandForLocation(locationId);
+      const chefs = chefsAt(users, brandId, locationId);
+      if (!chefs.length) continue;
+      const where = await R.locationName(locationId);
+      await notifyPeople(chefs, "Today's temperature log not signed off yet · " + where, 'Sign off the Daily Time & Temperature Log once every box has a temperature or a note.', {
+        speed: ACTION, topic: 'assignment', path: '/brand/' + brandId + '/location/' + locationId + '/daily-checklists/' + TEMP_LOG_ID + '?date=' + today, button: 'Open the log',
+        why: 'You got this because you are a chef at ' + where + '.', throttleKey: 'templog-unsigned-' + locationId + '-' + today,
       });
     }
   }

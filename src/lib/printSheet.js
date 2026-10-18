@@ -157,7 +157,7 @@ function build() {
     });
   });
   // On a phone the preview is scaled to the screen; printing is unaffected.
-  var full = 8.5 * 96 + 32;
+  var pg = document.querySelector('.page'); var full = (pg ? pg.offsetWidth : 8.5 * 96) + 32;
   var k = Math.min(1, Math.min(window.innerWidth, screen.width || window.innerWidth) / full);
   var st = document.getElementById('screen-fit') || document.head.appendChild(Object.assign(document.createElement('style'), { id: 'screen-fit' }));
   st.textContent = k < 1 ? '@media screen { .pages { zoom: ' + k.toFixed(3) + '; } .bar { font-size: 12px; } }' : '';
@@ -374,4 +374,48 @@ export function printDailySheets({ location, brand, lists }) {
   });
   const title = lists.length === 1 ? lists[0].title : 'Daily checklists';
   return open(location + ' - ' + title, title + ' · ' + location + (lists.length > 1 ? ' · ' + lists.length + ' lists, one per page' : ''), SOP_CSS, docs);
+}
+
+// ---- The Daily Time & Temperature Log, blank (18 Oct 2026) ----
+// Landscape, laid out like the kitchen's paper sheet: every item down the
+// side, a temperature and initials box for each check time.
+const LOG_CSS = `
+  @page { size: 11in 8.5in; margin: 0; }
+  .page { width: 11in; height: 8.5in; padding: 0.34in; }
+  .frame { padding: 20px 30px 16px; }
+  h1 { font-size: 24px; }
+  .subtitle { font-size: 10.5px; }
+  .divider { margin: 8px auto; }
+  .lede { font-size: 9.5px; margin-bottom: 6px; max-width: 8in; }
+  .lmeta { display: flex; justify-content: center; gap: 40px; font-size: 9.5px; margin: 2px 0 8px; }
+  .lmeta span { display: inline-flex; align-items: flex-end; gap: 6px; }
+  .lmeta i { display: inline-block; width: 170px; border-bottom: 1px solid #1a1a1a; height: 13px; }
+  table.log { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.log th { font-weight: 700; color: #7A1F2B; text-transform: uppercase; letter-spacing: 1px; }
+  table.log thead tr:first-child th { font-size: 9px; padding: 4px 0; border-top: 1.5px solid #1a1a1a; border-bottom: 1px solid #d8d8d8; }
+  table.log thead tr:nth-child(2) th { font-size: 6.5px; padding: 2px 0 3px; border-bottom: 1.5px solid #1a1a1a; }
+  table.log .t { border-left: 1px solid #1a1a1a; }
+  table.log td { height: 23.5px; border-bottom: 1px solid #d8d8d8; }
+  table.log td.i { border-left: 1px solid #d8d8d8; }
+  table.log td.name { font-weight: 600; font-size: 9px; white-space: nowrap; }
+  table.log td.name .badge { display: inline-flex; vertical-align: middle; margin-right: 6px; }
+  table.log tbody tr:last-child td { border-bottom: 1.5px solid #1a1a1a; }
+  .lsign { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 24px; margin-top: 10px; font-size: 8.5px; }
+  .lsign div { display: flex; align-items: flex-end; gap: 6px; }
+  .lsign i { flex: 1; border-bottom: 1px solid #1a1a1a; height: 12px; }
+  @media screen { .page { width: 11in; height: 8.5in; } }
+`;
+
+export function printTempLogSheet({ location, brand, items, times }) {
+  const head1 = '<tr><th style="width:190px;text-align:left;padding-left:4px">Item</th>' + times.map((t) => `<th class="t" colspan="2">${esc(t)}</th>`).join('') + '</tr>';
+  const head2 = '<tr><th></th>' + times.map(() => '<th class="t">Temp (°F)</th><th>Initials</th>').join('') + '</tr>';
+  const rows = items.map((it) => `<tr><td class="name">${badge('thermo', 17, 10)}${esc(it)}</td>${times.map(() => '<td class="t"></td><td class="i"></td>').join('')}</tr>`).join('');
+  const body = `<div><div class="lmeta"><span>Date <i></i></span><span>Recorded by <i></i></span></div>
+    <table class="log"><thead>${head1}${head2}</thead><tbody>${rows}</tbody></table>
+    <div class="lsign"><div>Signed off by <i></i></div><div>Date / time <i></i></div><div>Notes <i></i></div></div></div>`;
+  const meta = { eyebrow: eyebrowFor(brand, location), title: 'Daily Time & Temperature Log' };
+  return open(location + ' - Temperature Log', 'Temperature log (blank) · ' + location, LOG_CSS, [{
+    head: header({ ...meta, subtitle: 'Hot-Holding & Cold-Holding Temperature Record — Store-Level Food Safety Check', lede: 'Record the temperature and initial each item and line station every two hours during service. Consistent recording protects food safety and keeps HACCP records audit-ready.' }),
+    cont: contHeader(meta), category: 'Food Safety Log', fit: true, blocks: [body],
+  }]);
 }

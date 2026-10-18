@@ -1,11 +1,11 @@
 import { accessLevel } from '../data/accessMatrix';
 import { useEffect, useState } from 'react';
-import { collection, doc, onSnapshot, query, where, runTransaction, arrayUnion, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where, runTransaction, arrayUnion, updateDoc, deleteField } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { ref as storageRef, uploadBytes, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
-import { listsFor, tasksFor } from '../data/dailyChecklists';
+import { listsFor, tasksFor, CHEF_JOBS } from '../data/dailyChecklists';
 
 // One record per location, per day, per list:
 //   dailyChecklists/{locationId}_{dateKey}_{listId}
@@ -34,6 +34,16 @@ export const isManagerOnDuty = (user, locationId, brandId) => {
   const own = works(user?.job) && hasBrand && (!locationId || only.length === 0 || only.includes(locationId));
   // ...or their second job, at exactly that location.
   const second = works(user?.alsoJob?.job) && (!locationId || user.alsoJob.locationId === locationId);
+  return own || second;
+};
+
+// The temperature log's keepers (18 Oct 2026): an executive chef or sous chef
+// at this location - their own job, or a second job here.
+export const isChefHere = (user, locationId, brandId) => {
+  const only = brandId ? user?.permissions?.locationsByBrand?.[brandId] ?? [] : [];
+  const hasBrand = !brandId || (user?.permissions?.brandIds ?? []).includes(brandId);
+  const own = CHEF_JOBS.includes(user?.job) && hasBrand && (!locationId || only.length === 0 || only.includes(locationId));
+  const second = CHEF_JOBS.includes(user?.alsoJob?.job) && (!locationId || user.alsoJob.locationId === locationId);
   return own || second;
 };
 
@@ -87,6 +97,9 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
           // Their labels, copied in like the tasks, for the filed PDF.
           noteLabels: (list.notes ?? []).map(([key, label]) => ({ key, label })),
           tasks: tasksFor(list, dateKey).map((t) => ({ ...t, done: false, byName: null, at: null, note: '' })),
+          // The temperature log: its items and check times copied in, and a
+          // box per item per time - cells.{item}_{time} (18 Oct 2026).
+          ...(list.kind === 'log' ? { items: list.items, times: list.times, cells: {} } : {}),
           managers: onDuty ? [user.name] : [],
           status: 'open', createdAt: Date.now(),
         });
@@ -116,6 +129,19 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
       tasks[index] = { ...tasks[index], note, noteByName: user?.name ?? '' };
       tx.update(ref, { tasks });
     });
+  // One box of the temperature log: a temperature, or a short note instead
+  // ("Not on today"). Saved on its own, so two chefs typing at once never
+  // overwrite each other. Empty clears it.
+  const setCell = (row, col, value) => {
+    const v = String(value ?? '').trim();
+    const key = 'cells.' + row + '_' + col;
+    if (!v) return updateDoc(doc(db, COLLECTION, id), { [key]: deleteField() });
+    const num = v.replace(/°|\s*f$/gi, '').trim();
+    const isTemp = /^-?\d{1,3}(\.\d)?$/.test(num);
+    return updateDoc(doc(db, COLLECTION, id), {
+      [key]: { ...(isTemp ? { temp: num } : { note: v }), byName: user?.name ?? '', at: Date.now() },
+    });
+  };
   const setWorker = (role, name) => updateDoc(doc(db, COLLECTION, id), { ['workers.' + role]: name });
   const setSheetNote = (key, text) => updateDoc(doc(db, COLLECTION, id), { ['notes.' + key]: text });
   const signOff = async () => {
@@ -162,7 +188,7 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
     await deleteObject(storageRef(storage, path)).catch(() => {});
   };
 
-  return { list, record, toggle, setNote, setWorker, setSheetNote, signOff, markNotOpen, undoNotOpen, addPhotos, removePhoto };
+  return { list, record, toggle, setNote, setCell, setWorker, setSheetNote, signOff, markNotOpen, undoNotOpen, addPhotos, removePhoto };
 }
 
 // A photo, scaled so its long side is at most 1600px, as a JPEG.

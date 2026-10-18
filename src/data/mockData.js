@@ -80,6 +80,7 @@ export const categories = [
     items: [
       'Daily Shift Reports',
       'Opening & Closing Checklists',
+      'Temperature Logs',
       'Standard Operating Procedures (SOPs)',
       'Incident & Issue Logs',
       'General Notes & Communications',

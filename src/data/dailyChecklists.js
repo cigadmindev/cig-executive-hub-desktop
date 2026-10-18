@@ -15,12 +15,14 @@
 // LISTS in functions/dailyChecklists.js.
 const LISTS_AT = {
   // Kitchen Opening (Ridgeland's AM chef sheet) added 14 Oct 2026.
-  'taste-starkville': ['host-opening', 'server-opening', 'bar-opening', 'veranda-opening', 'kitchen-opening', 'host-closing', 'server-closing', 'bar-closing', 'boh-closing'],
+  // The Daily Time & Temperature Log (18 Oct 2026) at both: the chefs'.
+  'taste-starkville': ['host-opening', 'server-opening', 'bar-opening', 'veranda-opening', 'kitchen-opening', 'host-closing', 'server-closing', 'bar-closing', 'boh-closing', 'temp-log'],
   // Ridgeland, set up like Starkville (Brenner, 12 Oct 2026): its own kitchen
   // sheets, and Starkville's front of house adapted for Ridgeland.
   'taste-ridgeland': [
     'ridgeland-manager-opening', 'ridgeland-host-opening', 'ridgeland-server-opening', 'ridgeland-bar-opening', 'ridgeland-terrazza-opening', 'ridgeland-chef-opening',
     'ridgeland-host-closing', 'ridgeland-server-closing', 'ridgeland-bar-closing', 'ridgeland-chef-closing', 'ridgeland-manager-closing',
+    'temp-log',
   ],
 };
 export const DAILY_LOCATIONS = Object.keys(LISTS_AT);
@@ -484,6 +486,29 @@ DAILY_CHECKLISTS.push(
 // Starkville's Kitchen Opening (Brenner, 14 Oct 2026): the AM chef sheet
 // Ridgeland uses, as its own list so each location's records stay separate.
 DAILY_CHECKLISTS.push({ ...DAILY_CHECKLISTS.find((l) => l.id === 'ridgeland-chef-opening'), id: 'kitchen-opening' });
+
+// The Daily Time & Temperature Log (Brenner, 18 Oct 2026): for health
+// inspections, kept by the executive chef and sous chef. Not a tick list -
+// every item gets a temperature at each check time. Just the number, no
+// hot or cold limits. Filed to Operations › Temperature Logs, not in the
+// weekly report, and only the location's chefs are reminded.
+export const TEMP_LOG_TIMES = ['11:00 AM', '1:00 PM', '3:00 PM', '5:00 PM', '7:00 PM', '9:00 PM'];
+export const TEMP_LOG_HOURS = [11, 13, 15, 17, 19, 21];
+DAILY_CHECKLISTS.push({
+  id: 'temp-log', kind: 'log', title: 'Daily Time & Temperature Log',
+  subtitle: 'Hot-Holding & Cold-Holding Temperature Record — Store-Level Food Safety Check',
+  intro: 'Record the temperature and initial each item and line station every two hours during service. Consistent recording protects food safety and keeps HACCP records audit-ready.',
+  workers: [],
+  tasks: [],
+  times: TEMP_LOG_TIMES,
+  items: [
+    'Smoked Tomato Bisque', 'Soup of the Day', 'Mashed Potatoes', 'Roasted Potatoes', 'Meatballs', 'Marinara Sauce',
+    'Alfredo Sauce', 'Basil Lemon Butter Sauce', 'Salmon Sauce', 'Marsala Sauce', 'Marinara (Fry)', 'Spinach and Artichoke Dip',
+    'Expo Cooler', 'Garmo Line', 'Fry Line', 'Fry Warmer', 'Sauté Line', 'Flat Line', 'Pizza Line',
+  ],
+});
+// Who keeps it: the executive chef and sous chef.
+export const CHEF_JOBS = ['Executive Chef', 'Sous Chef'];
 
 // The lists one location runs, in its order.
 export const listsFor = (locationId) =>

@@ -63,8 +63,14 @@ const ICON_WORDS = [
 const iconFor = (name) => (ICON_WORDS.find(([re]) => re.test(name ?? '')) ?? [null, 'check'])[1];
 
 class CigDoc {
-  static async create({ eyebrow, title, category, pdf = null }) {
+  static async create({ eyebrow, title, category, pdf = null, landscape = false }) {
     const d = new CigDoc();
+    // Page size, and the content box inside the frame (landscape for the
+    // temperature log, 18 Oct 2026).
+    d.W = landscape ? H : W; d.H = landscape ? W : H;
+    d.pad = landscape ? 24 : PAD;
+    d.left = d.pad + 26; d.right = d.W - d.pad - 26;
+    d.top = d.H - d.pad - (landscape ? 18 : 24); d.bottom = d.pad + 44;
     d.pdf = pdf ?? (await PDFDocument.create());
     d.pdf.registerFontkit(fontkit);
     d.f = {};
@@ -89,21 +95,22 @@ class CigDoc {
   }
 
   newPage(continued = true) {
-    this.page = this.pdf.addPage([W, H]);
+    this.page = this.pdf.addPage([this.W, this.H]);
     this.pages.push(this.page);
     const p = this.page;
-    p.drawRectangle({ x: PAD, y: PAD, width: W - 2 * PAD, height: H - 2 * PAD, borderColor: FRAME, borderWidth: 1.9 });
-    p.drawRectangle({ x: PAD + 5.5, y: PAD + 5.5, width: W - 2 * PAD - 11, height: H - 2 * PAD - 11, borderColor: FRAME, borderWidth: 0.75 });
-    this.y = TOP;
+    const P = this.pad;
+    p.drawRectangle({ x: P, y: P, width: this.W - 2 * P, height: this.H - 2 * P, borderColor: FRAME, borderWidth: 1.9 });
+    p.drawRectangle({ x: P + 5.5, y: P + 5.5, width: this.W - 2 * P - 11, height: this.H - 2 * P - 11, borderColor: FRAME, borderWidth: 0.75 });
+    this.y = this.top;
     if (continued) {
-      this.spaced(this.eyebrow, W / 2, this.y - 6, 7.6, 1.9, BURGUNDY, 'center');
+      this.spaced(this.eyebrow, this.W / 2, this.y - 6, 7.6, 1.9, BURGUNDY, 'center');
       this.y -= 18;
-      this.text(this.title + ', continued', { x: W / 2, size: 7.2, font: 'light', align: 'center' });
+      this.text(this.title + ', continued', { x: this.W / 2, size: 7.2, font: 'light', align: 'center' });
       this.y -= 16;
     }
   }
 
-  need(h) { if (this.y - h < BOTTOM) this.newPage(true); }
+  need(h) { if (this.y - h < this.bottom) this.newPage(true); }
 
   // Letter-spaced capitals (eyebrows, labels) - pdf-lib has no tracking.
   spaced(s, x, y, size, track, color, align = 'left', font = 'bold') {
@@ -117,7 +124,7 @@ class CigDoc {
 
   width(s, size, font = 'regular') { return this.f[font].widthOfTextAtSize(this.clean(s), size); }
 
-  text(s, { x = LEFT, y = this.y, size = 9, font = 'regular', color = INK, align = 'left' } = {}) {
+  text(s, { x = this.left, y = this.y, size = 9, font = 'regular', color = INK, align = 'left' } = {}) {
     const t = this.clean(s);
     const w = this.f[font].widthOfTextAtSize(t, size);
     const px = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
@@ -142,16 +149,17 @@ class CigDoc {
   // Centered paragraph; returns the height used.
   para(s, { size = 8.2, font = 'light', lead = 1.55, maxWidth = 440 } = {}) {
     const lines = this.wrap(s, size, maxWidth, font);
-    for (const l of lines) { this.text(l, { x: W / 2, size, font, align: 'center' }); this.y -= size * lead; }
+    for (const l of lines) { this.text(l, { x: this.W / 2, size, font, align: 'center' }); this.y -= size * lead; }
   }
 
-  header(intro) {
-    this.spaced(this.eyebrow, W / 2, this.y - 6, 7.8, 2, BURGUNDY, 'center');
+  header(intro, subtitle = null) {
+    this.spaced(this.eyebrow, this.W / 2, this.y - 6, 7.8, 2, BURGUNDY, 'center');
     this.y -= 30;
-    const tl = this.wrap(this.title, 21, RIGHT - LEFT, 'bold');
-    for (const l of tl) { this.text(l, { x: W / 2, size: 21, font: 'bold', align: 'center' }); this.y -= 24; }
+    const tl = this.wrap(this.title, 21, this.right - this.left, 'bold');
+    for (const l of tl) { this.text(l, { x: this.W / 2, size: 21, font: 'bold', align: 'center' }); this.y -= 24; }
+    if (subtitle) { this.y += 6; this.text(subtitle, { x: this.W / 2, size: 8, font: 'regular', align: 'center' }); this.y -= 12; }
     this.y += 4;
-    this.page.drawRectangle({ x: W / 2 - 41, y: this.y - 6, width: 82, height: 2.2, color: BURGUNDY });
+    this.page.drawRectangle({ x: this.W / 2 - 41, y: this.y - 6, width: 82, height: 2.2, color: BURGUNDY });
     this.y -= 22;
     if (intro) { this.para(intro, { size: 8.2 }); this.y -= 4; }
   }
@@ -159,13 +167,13 @@ class CigDoc {
   // A burgundy section label on a dark rule, with optional text on the right.
   label(s, right = '') {
     this.need(40);
-    this.spaced(String(s).toUpperCase(), LEFT, this.y - 7, 7.8, 1.4, BURGUNDY);
-    if (right) this.text(right, { x: RIGHT, y: this.y - 7, size: 7.2, font: 'regular', align: 'right' });
+    this.spaced(String(s).toUpperCase(), this.left, this.y - 7, 7.8, 1.4, BURGUNDY);
+    if (right) this.text(right, { x: this.right, y: this.y - 7, size: 7.2, font: 'regular', align: 'right' });
     this.y -= 12;
     this.rule(FRAME, 1.1);
   }
 
-  rule(color = HAIR, thickness = 0.75, x0 = LEFT, x1 = RIGHT) {
+  rule(color = HAIR, thickness = 0.75, x0 = this.left, x1 = this.right) {
     this.page.drawLine({ start: { x: x0, y: this.y }, end: { x: x1, y: this.y }, thickness, color });
   }
 
@@ -188,12 +196,12 @@ class CigDoc {
   async save() {
     const n = this.pages.length;
     this.pages.forEach((p, i) => {
-      const y = PAD + 26;
-      p.drawLine({ start: { x: LEFT, y: y + 10 }, end: { x: RIGHT, y: y + 10 }, thickness: 0.75, color: HAIR });
+      const y = this.pad + 26;
+      p.drawLine({ start: { x: this.left, y: y + 10 }, end: { x: this.right, y: y + 10 }, thickness: 0.75, color: HAIR });
       const left = 'CIG Concepts';
-      p.drawText(left, { x: LEFT, y, size: 6.8, font: this.f.bold, color: INK });
+      p.drawText(left, { x: this.left, y, size: 6.8, font: this.f.bold, color: INK });
       const right = this.clean(this.category + (n > 1 ? ' · Page ' + (i + 1) + ' of ' + n : ''));
-      p.drawText(right, { x: RIGHT - this.f.regular.widthOfTextAtSize(right, 6.8), y, size: 6.8, font: this.f.regular, color: INK });
+      p.drawText(right, { x: this.right - this.f.regular.widthOfTextAtSize(right, 6.8), y, size: 6.8, font: this.f.regular, color: INK });
     });
     return this.pdf.save();
   }

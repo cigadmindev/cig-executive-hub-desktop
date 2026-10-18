@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { brands } from '../data/mockData';
 import { listsFor, tasksFor, dayName } from '../data/dailyChecklists';
 import { useDailyRecords, todayKey } from '../hooks/useDailyChecklists';
+import { currentSlot } from '../components/TempLog';
 import PageHeader from '../components/PageHeader';
 import { fmtTime, fmtDayKey } from '../lib/dates';
 import Pill from '../components/Pill';
@@ -35,10 +36,40 @@ export default function DailyChecklistsScreen() {
   const isNarrow = useIsNarrow();
   // Every list this location runs, one per page, to post for the team (17 Oct 2026).
   const printAll = () =>
-    printDailySheets({ location: location?.name ?? '', brand: brand?.name ?? '', lists }) ||
+    printDailySheets({ location: location?.name ?? '', brand: brand?.name ?? '', lists: lists.filter((l) => l.kind !== 'log') }) ||
     notify('Print window blocked', 'Your browser stopped the print window from opening. Allow pop-ups for the Hub and try again.');
 
+  // The temperature log's card (18 Oct 2026): which checks are in and
+  // which one is next.
+  const logCard = (list) => {
+    const r = records[list.id];
+    const times = r?.times ?? list.times;
+    const items = r?.items ?? list.items;
+    const cells = r?.cells ?? {};
+    const doneAt = (c) => items.every((_, i) => cells[i + '_' + c]);
+    const filled = Object.keys(cells).length, total = items.length * times.length;
+    const doneTimes = times.filter((_, c) => doneAt(c));
+    const now = currentSlot(isToday);
+    const next = times.findIndex((_, c) => !doneAt(c));
+    let pill = ['Not started', 'amber'];
+    if (r?.status === 'filed') pill = ['Done · filed to Drive', 'grey'];
+    else if (filled) pill = [(doneTimes.length ? doneTimes[doneTimes.length - 1].replace(':00', '') + ' done' : 'In progress') + (next >= 0 ? ' · ' + times[next].replace(':00', '') + ' next' : ''), 'cyan'];
+    return (
+      <button key={list.id} style={styles.card} onClick={() => navigate(`/brand/${brandId}/location/${locationId}/daily-checklists/${list.id}?date=${dateKey}`)}>
+        <span style={styles.cardTitle}>{list.title}</span>
+        <span style={styles.cardMeta}>
+          {r?.status === 'filed'
+            ? 'Signed off by ' + (r.filedByName ?? '') + ' ' + time(r.filedAt)
+            : items.length + ' items × ' + times.length + ' checks' + (filled ? ' · ' + filled + ' of ' + total + ' logged' : '') + (isToday && now >= 0 && next >= 0 ? ' · next check ' + times[Math.max(now, next)] : '')}
+        </span>
+        <span style={styles.bar}><span style={{ ...styles.fill, width: (total ? (filled / total) * 100 : 0) + '%' }} /></span>
+        <span style={{ alignSelf: 'flex-start' }}><Pill tone={pill[1]}>{pill[0]}</Pill></span>
+      </button>
+    );
+  };
+
   const card = (list) => {
+    if (list.kind === 'log') return logCard(list);
     const r = records[list.id];
     const tasks = r?.tasks ?? tasksFor(list, dateKey);
     const real = tasks.filter((t) => !t.group);
@@ -85,7 +116,13 @@ export default function DailyChecklistsScreen() {
       <div style={styles.grid}>{lists.filter((l) => l.kind === 'opening').map(card)}</div>
       <p style={styles.label}>Closing</p>
       <div style={styles.grid}>{lists.filter((l) => l.kind === 'closing').map(card)}</div>
-      <p style={styles.note}>Openings not signed off by 5pm, or closings by midnight → this location's GM is emailed. Still not signed off by 10am the next day → the COO and admins are emailed. The kitchen closing is verified by the GM the next morning: the GM is reminded at 10am, and the COO and admins at 3pm.</p>
+      {lists.some((l) => l.kind === 'log') ? (
+        <>
+          <p style={styles.label}>Food safety</p>
+          <div style={styles.grid}>{lists.filter((l) => l.kind === 'log').map(card)}</div>
+        </>
+      ) : null}
+      <p style={styles.note}>Openings not signed off by 5pm, or closings by midnight → this location's GM is emailed. Still not signed off by 10am the next day → the COO and admins are emailed. The kitchen closing is verified by the GM the next morning: the GM is reminded at 10am, and the COO and admins at 3pm. The temperature log is the chefs': they are reminded 30 minutes after a check with nothing logged, and at 11pm if it is not signed off.</p>
       {dialogNode}
     </div>
   );
