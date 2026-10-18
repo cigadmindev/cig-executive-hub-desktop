@@ -58,6 +58,9 @@ export function OpeningInfoProvider({ children }) {
           // An admin has checked this location's pre-opening checklist is
           // right for its area (16 Oct 2026): { byName, at } or null.
           checkedForArea: data.checkedForArea ?? null,
+          // Marked open by an admin (18 Oct 2026): { openedOn, at, byName } or
+          // null. The Opening Checklist is the Operating Checklist from then on.
+          operating: data.operating ?? null,
         };
       });
       setInfoByLocation(map);
@@ -328,8 +331,57 @@ export function OpeningInfoProvider({ children }) {
     await renewalTaskBatch.commit();
   };
 
+  // An admin marks the restaurant open (18 Oct 2026). Its Opening Checklist
+  // becomes its Operating Checklist - the record of what was set up. A
+  // location that never had a checklist (Starkville, Ridgeland, Bluto's were
+  // open before the Hub) gets one built from its template: every set-up item
+  // as a record with blank details to fill in, not as work to do.
+  const markOperating = async (locationId, openedOn) => {
+    const brandId = await brandOfLocation(locationId);
+    await setDoc(doc(db, COLLECTION, locationId), {
+      brandId,
+      operating: { openedOn: openedOn ?? Date.now(), at: Date.now(), byName: user?.name ?? '' },
+    }, { merge: true });
+    const existing = await getDocs(query(
+      collection(db, SCHEDULES_COLLECTION),
+      where('locationId', '==', locationId),
+      where('openingItem', '==', true)
+    ));
+    if (existing.docs.some((d) => (d.data().openingItemType ?? 'setup') === 'setup')) return;
+    const template = getTemplateForLocation(locationId);
+    if (!template?.items?.length) return;
+    const batch = writeBatch(db);
+    template.items.forEach((item) => {
+      batch.set(doc(collection(db, SCHEDULES_COLLECTION)), {
+        locationId,
+        brandId,
+        title: item.name,
+        // No date: a record, not a task, so it never shows as due or late.
+        dateTime: null,
+        note: '',
+        authorName: user?.name ?? 'Unknown',
+        authorUid: auth.currentUser?.uid ?? null,
+        timestamp: Date.now(),
+        openingItem: true,
+        openingItemType: 'setup',
+        openingSection: item.section,
+        openingFields: { company: '', accountNumber: '', contact: '' },
+        setupKey: item.key,
+        templateId: template.id,
+        recordOnly: true,
+        done: true,
+        doneBy: null,
+        doneAt: null,
+        attentionFlag: false,
+      });
+    });
+    await batch.commit();
+  };
+  // "Back to opening": the checklist is the Opening Checklist again.
+  const unmarkOperating = (locationId) => setDoc(doc(db, COLLECTION, locationId), { operating: null }, { merge: true });
+
   return (
-    <OpeningInfoContext.Provider value={{ getInfo, updateInfoField, setOpeningDate }}>
+    <OpeningInfoContext.Provider value={{ getInfo, updateInfoField, setOpeningDate, markOperating, unmarkOperating }}>
       {children}
     </OpeningInfoContext.Provider>
   );

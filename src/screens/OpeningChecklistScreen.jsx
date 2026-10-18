@@ -17,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import ConfirmEditField from '../components/ConfirmEditField';
 import ItemDetails from '../components/ItemDetails';
 import LocationDetails from '../components/LocationDetails';
+import { documentsOf } from '../components/DocumentsField';
 import SignaturePanel, { waitingOn } from '../components/SignaturePanel';
 import DatePickerField from '../components/DatePickerField';
 import SearchBar from '../components/SearchBar';
@@ -151,7 +152,7 @@ export default function OpeningChecklistScreen() {
   const { getByBrand } = useCustomLocations();
   const { updateDates, setRenewalDocument } = useRenewals();
   const { getOpeningItemsByLocation, toggleOpeningItemDone, updateEntry, deleteEntry, addEntry } = useSchedule();
-  const { getInfo, updateInfoField, setOpeningDate } = useOpeningInfo();
+  const { getInfo, updateInfoField, setOpeningDate, markOperating, unmarkOperating } = useOpeningInfo();
   const { regenerateForLocation } = useOpeningOngoingContacts();
 
   const [now, setNow] = useState(Date.now());
@@ -180,6 +181,10 @@ export default function OpeningChecklistScreen() {
   const [filter, setFilter] = useState('all');
   const [hideDone, setHideDone] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
+  // Operating Checklist (18 Oct 2026): marking open, and the finished timeline.
+  const [markOpenDraft, setMarkOpenDraft] = useState(null);
+  const [showTimeline, setShowTimeline] = useState(false);
+  const [markingOpen, setMarkingOpen] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60000);
@@ -226,7 +231,25 @@ export default function OpeningChecklistScreen() {
       assigned: assigneesOf(i).names.join(', '),
       waitsFor: (template ? resolveDependencyIds(i, openingItems, template) : []).map((id) => openingItems.find((o) => o.id === id)?.title).filter(Boolean).join(', '),
       fields: i.openingFields ?? {},
+      doneOn: i.doneAt ? fmtDay(i.doneAt) : '',
+      docs: documentsOf(i).length,
     });
+    // Once open (18 Oct 2026): the record of what was set up, with anything
+    // still open from opening first.
+    if (info.operating) {
+      const okRec = printOpeningSheet({
+        location: location?.name ?? '',
+        brand: brand?.name ?? '',
+        operating: info.operating,
+        setup: [
+          ...(carried.length ? [{ section: 'Still open from opening', still: true, items: carried.map(sheetItem) }] : []),
+          ...bySection(recordItems).map((g) => ({ section: g.section, items: g.items.map(sheetItem) })),
+        ],
+        timeline: [],
+      });
+      if (!okRec) notify('Print window blocked', 'Your browser stopped the print window from opening. Allow pop-ups for the Hub and try again.');
+      return;
+    }
     const ok = printOpeningSheet({
       location: location?.name ?? '',
       brand: brand?.name ?? '',
@@ -428,6 +451,35 @@ export default function OpeningChecklistScreen() {
     mine: openingItems.filter((i) => !i.done && isAssignedTo(i, user?.uid)).length,
     signature: openingItems.filter(isWaitingSignature).length,
   };
+  // ---- Operating Checklist (18 Oct 2026, sketch 23) ----
+  // Once an admin marks the restaurant open, the set-up items are its record:
+  // what was set up, with the company, account, permit and documents. Anything
+  // not finished from opening stays on top until it is done.
+  const operating = !!info.operating;
+  const isRecord = (i) => i.done || i.recordOnly;
+  const carried = openingItems.filter((i) => !isRecord(i));
+  const recordItems = setupItems.filter(isRecord);
+  const hasDetails = (i) => Object.values(i.openingFields ?? {}).some((v) => String(v ?? '').trim()) || documentsOf(i).length > 0;
+  const expiryDays = (i) => {
+    const e = i.openingFields?.expiry;
+    const t = e ? new Date(String(e).length === 10 ? e + 'T12:00:00' : e).getTime() : NaN;
+    return Number.isFinite(t) ? Math.ceil((t - now) / DAY) : null;
+  };
+  const expiresSoon = (i) => { const d = expiryDays(i); return d != null && d <= 60; };
+  const opCounts = {
+    record: recordItems.length,
+    missing: recordItems.filter((i) => !hasDetails(i)).length,
+    docs: recordItems.reduce((a, i) => a + documentsOf(i).length, 0),
+    withDocs: recordItems.filter((i) => documentsOf(i).length).length,
+    expiring: recordItems.filter(expiresSoon).length,
+    open: carried.length,
+  };
+  const passesOp = (i) =>
+    filter === 'all' ||
+    (filter === 'missing' && !hasDetails(i)) ||
+    (filter === 'docs' && documentsOf(i).length > 0) ||
+    (filter === 'expiring' && expiresSoon(i));
+
   const passes = (i) =>
     (!hideDone || !i.done) &&
     (filter === 'all' ||
@@ -456,6 +508,33 @@ export default function OpeningChecklistScreen() {
       ),
     },
   ].filter((g) => g.sections.length);
+  if (operating) {
+    const visible = (i) => matchesQuery(i.title);
+    const opGroups = [];
+    if (carried.length) {
+      opGroups.push({
+        label: 'Still open', tone: 'carried',
+        sections: [{ id: 'sec-still-open', name: 'From opening', total: carried.length, done: 0, countOnly: true, shown: carried.filter(visible) }],
+      });
+    }
+    opGroups.push({
+      label: 'On record',
+      sections: [...new Set(recordItems.map((i) => i.openingSection))].map((name) => {
+        const all = recordItems.filter((i) => i.openingSection === name);
+        return { id: slug('record-' + name), name, total: all.length, done: all.length, countOnly: true, record: true, shown: all.filter((i) => visible(i) && passesOp(i)) };
+      }),
+    });
+    if (showTimeline) {
+      opGroups.push({
+        label: 'Opening timeline (finished)',
+        sections: TIMELINE_BUCKETS.map((b) => {
+          const all = timelineItems.filter((i) => i.openingSection === b.label && i.done);
+          return { id: slug('done-' + b.label), name: b.label, total: all.length, done: all.length, countOnly: true, shown: all.filter(visible) };
+        }).filter((x) => x.total),
+      });
+    }
+    navGroups.splice(0, navGroups.length, ...opGroups.filter((g) => g.sections.length));
+  }
 
   // Jump to a section. If the filter is hiding it, clear the filter first.
   const jumpTo = (id) => {
@@ -470,6 +549,14 @@ export default function OpeningChecklistScreen() {
   };
 
   const initial = (n) => (n ?? '?').trim().charAt(0).toUpperCase();
+  const opStats = (
+    <div style={isNarrow ? styles.heroStatsNarrow : styles.heroStats}>
+      <div><b style={styles.heroNum}>{opCounts.record}</b><span style={styles.heroLabel}>On record</span></div>
+      <div><b style={{ ...styles.heroNum, color: opCounts.missing ? 'var(--warn)' : 'var(--text-tertiary)' }}>{opCounts.missing}</b><span style={styles.heroLabel}>Missing details</span></div>
+      <div><b style={styles.heroNum}>{opCounts.docs}</b><span style={styles.heroLabel}>Documents</span></div>
+      <div><b style={{ ...styles.heroNum, color: opCounts.open ? 'var(--warn)' : 'var(--text-tertiary)' }}>{opCounts.open}</b><span style={styles.heroLabel}>Still open from opening</span></div>
+    </div>
+  );
   // Under the title on a computer; across the whole card on a phone.
   const heroStats = (
     <div style={isNarrow ? styles.heroStatsNarrow : styles.heroStats}>
@@ -646,12 +733,97 @@ export default function OpeningChecklistScreen() {
     );
   };
 
+  // One record row (Operating Checklist): the main details, how many
+  // documents, and when it was done. Opened, the same card as the checklist,
+  // so anything can still be filled in or attached.
+  const renderRecord = (item) => {
+    const isOpen = expandedItemId === item.id;
+    const f = item.openingFields ?? {};
+    const parts = [
+      f.company ? ['Company', f.company] : null,
+      f.accountNumber ? ['Acct', f.accountNumber] : null,
+      f.reference ? ['Permit #', f.reference] : null,
+      f.contact && !f.company ? ['Contact', f.contact] : null,
+    ].filter(Boolean).slice(0, 2);
+    const docs = documentsOf(item).length;
+    const exp = expiryDays(item);
+    const filledIn = hasDetails(item);
+    const description = describeItem(item.setupKey);
+    return (
+      <div key={item.id} style={styles.row}>
+        <div style={{ ...styles.recRow, ...(isNarrow ? styles.recRowNarrow : {}), ...(isOpen ? styles.rowOpen : {}) }} data-row="" onClick={() => setExpandedItemId(isOpen ? null : item.id)}>
+          <span style={filledIn ? styles.recOk : styles.recMissing} title={filledIn ? 'Details filled in' : 'Details missing'}>{filledIn ? '✓' : ''}</span>
+          <span style={styles.rowText}>
+            <span style={{ ...styles.rowTitle, ...(isOpen ? { fontWeight: 700 } : {}) }}>{item.title}</span>
+            {isNarrow ? (
+              <span style={{ ...styles.rowSub, ...(filledIn ? {} : { color: 'var(--warn)' }) }}>
+                {parts.length ? parts.map(([k, v]) => k + ' ' + v).join(' · ') : 'Missing details'}{docs ? ' · ' + docs + (docs === 1 ? ' document' : ' documents') : ''}
+              </span>
+            ) : null}
+          </span>
+          {isNarrow ? null : (
+            <span style={{ ...styles.recDetail, ...(filledIn ? {} : { color: 'var(--warn)' }) }}>
+              {parts.length ? parts.map(([k, v], n) => <span key={k}>{n ? ' · ' : ''}<b style={styles.recKey}>{k}</b>{v}</span>) : 'Missing details'}
+            </span>
+          )}
+          {isNarrow ? null : <span style={docs ? styles.recDocs : styles.recNoDocs}>{docs ? docs + (docs === 1 ? ' document' : ' documents') : 'No documents'}</span>}
+          {exp != null && exp <= 60 ? (
+            <span style={exp < 0 ? styles.latePill : styles.waitingPill}>{exp < 0 ? 'Expired' : 'Expires in ' + exp + 'd'}</span>
+          ) : isNarrow ? null : (
+            <span style={styles.recWhen}>{item.doneAt ? fmtDay(item.doneAt) : ''}</span>
+          )}
+          <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
+        </div>
+        {isOpen ? (
+          <div style={isNarrow ? styles.detailCardNarrow : styles.detailCard} data-reveal="">
+            <ItemDetails
+              item={item}
+              intro={description || item.doneBy ? (
+                <>
+                  {description ? <p style={styles.itemDescription}>{description}</p> : null}
+                  {item.doneBy ? <p style={styles.neededForNote}>Done by {item.doneBy}{item.doneAt ? ' · ' + fmtDay(item.doneAt) : ''}</p> : null}
+                </>
+              ) : null}
+              onSave={updateSetupField}
+              readOnly={!canTick}
+              locationId={locationId}
+              userName={user?.name}
+              assignableUsers={null}
+              onDeleteItem={canEdit ? handleDeleteItem : null}
+            />
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  const startMarkOpen = () => setMarkOpenDraft(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }));
+  const confirmMarkOpen = async () => {
+    setMarkingOpen(true);
+    try {
+      await markOperating(locationId, markOpenDraft ? new Date(markOpenDraft + 'T12:00:00').getTime() : Date.now());
+      setMarkOpenDraft(null);
+      setFilter('all');
+      setHideDone(false);
+    } catch (err) {
+      notify('Could not mark it open', plainError(err, 'Nothing was changed. Try again.'));
+    } finally {
+      setMarkingOpen(false);
+    }
+  };
+  const backToOpening = () => confirm({
+    title: 'Back to the Opening Checklist?',
+    body: 'The checklist goes back to being the Opening Checklist, with its countdown and due dates. Nothing on it is deleted.',
+    confirmLabel: 'Back to opening',
+    onConfirm: () => unmarkOperating(locationId).catch((err) => notify('Could not change it', plainError(err, 'Try again.'))),
+  });
+
   return (
     <div style={styles.page}>
       <PageHeader
         back={{ to: `/brand/${brand.id}/location/${location.id}`, label: location.name }}
-        title="Opening Checklist"
-        subtitle="Everything that has to happen before this location opens, and who is doing it."
+        title={operating ? 'Operating Checklist' : 'Opening Checklist'}
+        subtitle={operating ? "This location's permits, accounts, contacts and documents — what was set up, and where to find it." : 'Everything that has to happen before this location opens, and who is doing it.'}
         phoneExtras="inline"
         extras={
           <>
@@ -660,13 +832,17 @@ export default function OpeningChecklistScreen() {
               // On a phone just the printer icon, beside the search icon
               // (17 Oct 2026) - the words squeezed the title to one letter wide.
               <button style={isNarrow ? styles.printIcon : styles.printButton} onClick={printIt} title="Print a fill-in sheet" aria-label="Print a fill-in sheet">
-                <Icon name="printer" size={16} />{isNarrow ? null : <span>Print fill-in sheet</span>}
+                <Icon name="printer" size={16} />{isNarrow ? null : <span>{operating ? 'Print record' : 'Print fill-in sheet'}</span>}
               </button>
             ) : null}
-            <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={searchSuggestions} placeholder="Search tasks…" />
+            <SearchBar query={searchQuery} onChange={setSearchQuery} suggestions={searchSuggestions} placeholder={operating ? 'Search items…' : 'Search tasks…'} />
+            {/* Admins only (18 Oct 2026): the restaurant is open. */}
+            {isAdmin && !operating && !mineOnly && !isNarrow ? (
+              <button style={styles.markOpenButton} onClick={startMarkOpen}>Mark as open</button>
+            ) : null}
           </>
         }
-        actionLabel={canEdit && info.openingDate ? '+ Add item' : null}
+        actionLabel={canEdit && (info.openingDate || operating) ? '+ Add item' : null}
         onAction={() => openAddForm('setup')}
       />
       {q ? <p style={styles.searchHint}>Showing results for "{searchQuery}" across Initial Set-Up and Timeline.</p> : null}
@@ -679,6 +855,23 @@ export default function OpeningChecklistScreen() {
             countdown, how far along it is, and the numbers that matter. The
             location details people use most show at a glance; the rest fold
             away behind "Show all location details". */}
+        {operating ? (
+          <div style={isNarrow ? styles.heroNarrow : styles.hero}>
+            <div style={{ ...styles.openBadge, ...(isNarrow ? styles.openBadgeSmall : {}) }}>OPEN</div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={styles.heroTitle}>Open since {new Date(info.operating.openedOn ?? info.operating.at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</div>
+              <div style={styles.heroSub}>Marked open{info.operating.byName ? ' by ' + info.operating.byName : ''} · {Math.max(0, Math.floor((now - (info.operating.openedOn ?? info.operating.at)) / DAY))} days</div>
+              {isNarrow ? null : opStats}
+            </div>
+            {isNarrow ? opStats : null}
+            <div style={isNarrow ? styles.heroSideNarrow : styles.heroSide}>
+              {timelineItems.some((i) => i.done) ? (
+                <button style={styles.textLink} onClick={() => setShowTimeline((v) => !v)}>{showTimeline ? 'Hide the opening timeline' : 'Opening timeline (finished)'}</button>
+              ) : null}
+              {isAdmin ? <button style={styles.textLink} onClick={backToOpening}>Back to opening</button> : null}
+            </div>
+          </div>
+        ) : (
         <div style={isNarrow ? styles.heroNarrow : styles.hero}>
           {/* A thin ring drawn around the number, with nothing behind the
               number itself, so the percent always reads (17 Oct 2026). */}
@@ -715,10 +908,15 @@ export default function OpeningChecklistScreen() {
                 Change opening date
               </button>
             ) : null}
+            {/* On a phone the header has no room for it (18 Oct 2026). */}
+            {isAdmin && !mineOnly && isNarrow ? (
+              <button style={styles.markOpenButton} onClick={startMarkOpen}>Mark as open</button>
+            ) : null}
           </div>
         </div>
+        )}
 
-        {isAdmin && (dateDraft || !info.openingDate) ? (
+        {!operating && isAdmin && (dateDraft || !info.openingDate) ? (
           <div style={styles.cardBlock}>
             <p style={styles.label}>Projected opening date</p>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
@@ -742,12 +940,12 @@ export default function OpeningChecklistScreen() {
             ) : null}
           </div>
         ) : null}
-        {!isAdmin && !info.openingDate ? <div style={styles.cardBlock}><p style={styles.hint}>Ask an admin to set the opening date to generate the checklist below.</p></div> : null}
+        {!operating && !isAdmin && !info.openingDate ? <div style={styles.cardBlock}><p style={styles.hint}>Ask an admin to set the opening date to generate the checklist below.</p></div> : null}
 
         {/* A location with no template of its own falls back to Starkville's.
             Until an admin checks it for this area (16 Oct 2026) the yellow
             note stays, for everyone. */}
-        {isProvisionalTemplate(locationId) && !info.checkedForArea ? (
+        {!operating && isProvisionalTemplate(locationId) && !info.checkedForArea ? (
           <div style={styles.cardBlock}>
             <div style={styles.provisionalNote}>
               This checklist is based on Starkville and has not been verified for this city. Permits and timelines may
@@ -776,7 +974,7 @@ export default function OpeningChecklistScreen() {
       </div>
       )}
 
-      {openingItems.length === 0 ? (
+      {openingItems.length === 0 && !operating ? (
         <div style={styles.section}>
           <p style={styles.hint}>{mineOnly ? 'Nothing on this checklist is assigned to you.' : 'Set an opening date above to generate this checklist.'}</p>
         </div>
@@ -789,7 +987,7 @@ export default function OpeningChecklistScreen() {
           <div style={styles.navChips}>
             {navGroups.flatMap((g) => g.sections).map((s) => (
               <button key={s.id} style={{ ...styles.navChip, ...(activeSection === s.id ? styles.navChipOn : {}) }} onClick={() => jumpTo(s.id)}>
-                {s.name} <span style={styles.navChipCount}>{s.done}/{s.total}</span>
+                {s.name} <span style={styles.navChipCount}>{s.countOnly ? s.total : s.done + '/' + s.total}</span>
               </button>
             ))}
           </div>
@@ -801,8 +999,8 @@ export default function OpeningChecklistScreen() {
                 {g.sections.map((s) => (
                   <button key={s.id} style={{ ...styles.navItem, ...(activeSection === s.id ? styles.navItemOn : {}) }} onClick={() => jumpTo(s.id)}>
                     <span style={styles.navName}>{s.name}</span>
-                    <span style={styles.navMini}><span style={{ ...styles.navMiniFill, width: (s.total ? Math.round((s.done / s.total) * 100) : 0) + '%' }} /></span>
-                    <span style={{ ...styles.navCount, ...(activeSection === s.id ? { color: 'var(--neon)' } : {}) }}>{s.done}/{s.total}</span>
+                    {s.countOnly ? null : <span style={styles.navMini}><span style={{ ...styles.navMiniFill, width: (s.total ? Math.round((s.done / s.total) * 100) : 0) + '%' }} /></span>}
+                    <span style={{ ...styles.navCount, ...(g.tone === 'carried' ? { color: 'var(--warn)' } : {}), ...(activeSection === s.id ? { color: 'var(--neon)' } : {}) }}>{s.countOnly ? s.total : s.done + '/' + s.total}</span>
                   </button>
                 ))}
               </div>
@@ -812,19 +1010,24 @@ export default function OpeningChecklistScreen() {
 
         <div style={styles.listCard}>
           <div style={styles.filters}>
-            {[
+            {(operating ? [
+              ['all', 'All', null],
+              ['missing', 'Missing details', opCounts.missing],
+              ['docs', 'Has documents', opCounts.withDocs],
+              ['expiring', 'Expires soon', opCounts.expiring],
+            ] : [
               ['all', 'All', null],
               ['overdue', 'Overdue', counts.overdue],
               ['mine', 'Assigned to me', counts.mine],
               ['signature', 'Waiting on a signature', counts.signature],
-            ].filter(([key]) => !(mineOnly && key === 'mine')).map(([key, label, n]) => (
+            ]).filter(([key]) => !(mineOnly && key === 'mine')).map(([key, label, n]) => (
               <button key={key} style={{ ...styles.filterChip, ...(filter === key ? styles.filterChipOn : {}) }} onClick={() => setFilter(key)}>
                 {label}{n != null ? <span style={styles.filterCount}>{n}</span> : null}
               </button>
             ))}
-            <button style={{ ...styles.filterChip, ...(hideDone ? styles.filterChipOn : {}) }} onClick={() => setHideDone((v) => !v)} aria-pressed={hideDone}>
+            {operating ? null : <button style={{ ...styles.filterChip, ...(hideDone ? styles.filterChipOn : {}) }} onClick={() => setHideDone((v) => !v)} aria-pressed={hideDone}>
               Hide done
-            </button>
+            </button>}
           </div>
 
           {navGroups.every((g) => g.sections.every((s) => s.shown.length === 0)) ? (
@@ -836,18 +1039,21 @@ export default function OpeningChecklistScreen() {
           {navGroups.map((g) =>
             g.sections.some((s) => s.shown.length) ? (
               <div key={g.label}>
-                <p style={styles.listGroup}>{g.label}</p>
+                <p style={{ ...styles.listGroup, ...(g.tone === 'carried' ? { color: 'var(--warn)' } : {}) }}>{g.label}</p>
+                {g.tone === 'carried' ? <p style={styles.carriedNote}>Not finished before opening. These stay here until they are done, then move to the record.</p> : null}
                 {g.sections.map((s) =>
                   s.shown.length ? (
-                    <div key={s.id} id={s.id} style={styles.sectionBlock}>
+                    <div key={s.id} id={s.id} style={{ ...styles.sectionBlock, ...(g.tone === 'carried' ? styles.carriedBlock : {}) }}>
                       <div style={styles.sectionHead}>
                         <span style={styles.sectionName}>{s.name}</span>
-                        <span style={styles.sectionCount}>{s.done} of {s.total}</span>
-                        <div style={styles.sectionBarTrack}>
-                          <div style={{ ...styles.sectionBarFill, width: `${s.total ? Math.round((s.done / s.total) * 100) : 0}%` }} />
-                        </div>
+                        <span style={styles.sectionCount}>{s.countOnly ? s.total + (s.total === 1 ? ' item' : ' items') : s.done + ' of ' + s.total}</span>
+                        {s.countOnly ? null : (
+                          <div style={styles.sectionBarTrack}>
+                            <div style={{ ...styles.sectionBarFill, width: `${s.total ? Math.round((s.done / s.total) * 100) : 0}%` }} />
+                          </div>
+                        )}
                       </div>
-                      {s.shown.map((item) => renderItem(item))}
+                      {s.shown.map((item) => (s.record ? renderRecord(item) : renderItem(item)))}
                     </div>
                   ) : null
                 )}
@@ -857,6 +1063,27 @@ export default function OpeningChecklistScreen() {
         </div>
       </div>
       )}
+
+      {markOpenDraft ? (
+        <div data-modal="" style={styles.confirmBackdrop} onClick={() => !markingOpen && setMarkOpenDraft(null)}>
+          <div style={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
+            <p style={styles.confirmTitle}>Mark {location?.name ?? 'this location'} as open?</p>
+            <p style={styles.confirmBody}>
+              The Opening Checklist becomes the Operating Checklist: a record of every permit, account,
+              contact and document that was set up. Anything not finished yet stays on top until it is
+              done. Nothing is deleted, and you can switch it back.
+            </p>
+            <p style={styles.markOpenLabel}>Opened on</p>
+            <DatePickerField value={markOpenDraft} onChange={setMarkOpenDraft} />
+            <div style={{ ...styles.confirmButtonsRow, marginTop: 16 }}>
+              <button style={styles.cancelBtnFull} onClick={() => setMarkOpenDraft(null)} disabled={markingOpen}>Cancel</button>
+              <button style={{ ...styles.saveBtnFull, background: 'var(--success)', borderColor: 'var(--success)' }} onClick={confirmMarkOpen} disabled={markingOpen}>
+                {markingOpen ? 'Marking…' : 'Mark as open'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {confirmingDate ? (
         <div data-modal="" style={styles.confirmBackdrop} onClick={() => setConfirmingDate(false)}>
@@ -1061,6 +1288,22 @@ export default function OpeningChecklistScreen() {
 const styles = {
   // ---- Summary card, section list, filters (17 Oct 2026) ----
   summaryCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 16, overflow: 'hidden' },
+  // Operating Checklist (18 Oct 2026).
+  markOpenButton: { display: 'inline-flex', alignItems: 'center', height: 40, padding: '0 14px', borderRadius: 8, background: 'rgba(95,163,119,0.1)', border: '1px solid rgba(95,163,119,0.5)', color: 'var(--success)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
+  markOpenLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '4px 0 6px' },
+  openBadge: { width: 92, height: 92, borderRadius: '50%', border: '3px solid var(--success)', background: 'rgba(95,163,119,0.1)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, letterSpacing: 1.5, flexShrink: 0 },
+  openBadgeSmall: { width: 64, height: 64, fontSize: 13, letterSpacing: 1 },
+  carriedNote: { margin: '4px 14px 0', fontSize: 12, color: 'var(--text-tertiary)' },
+  carriedBlock: { margin: '8px 10px 4px', border: '1px solid rgba(232,185,59,0.35)', borderRadius: 10, background: 'rgba(232,185,59,0.05)', overflow: 'hidden' },
+  recRow: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 52, padding: '8px 14px', cursor: 'pointer' },
+  recRowNarrow: { gap: 10, padding: '8px 12px' },
+  recOk: { width: 22, height: 22, borderRadius: '50%', background: 'var(--success)', color: '#fff', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  recMissing: { width: 22, height: 22, boxSizing: 'border-box', borderRadius: '50%', border: '2px dashed var(--warn)', flexShrink: 0 },
+  recDetail: { flex: 1.3, minWidth: 0, fontSize: 12.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  recKey: { fontWeight: 700, color: 'var(--text-tertiary)', marginRight: 4 },
+  recDocs: { fontSize: 12, fontWeight: 700, color: 'var(--neon)', width: 92, flexShrink: 0, whiteSpace: 'nowrap' },
+  recNoDocs: { fontSize: 12, color: 'var(--text-tertiary)', width: 92, flexShrink: 0, whiteSpace: 'nowrap' },
+  recWhen: { fontSize: 12, color: 'var(--text-tertiary)', width: 92, flexShrink: 0, textAlign: 'right', whiteSpace: 'nowrap' },
   hero: { display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 22, alignItems: 'center', padding: '18px 20px' },
   heroNarrow: { display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: 14, alignItems: 'center', padding: 14 },
   ring: { position: 'relative', width: 84, height: 84, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },

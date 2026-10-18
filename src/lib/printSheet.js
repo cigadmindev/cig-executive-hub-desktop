@@ -258,15 +258,21 @@ const OPEN_CSS = `
 
 // setup / timeline: [{ section, items: [{ title, done, due, assigned, waitsFor,
 //   fields: { reference, expiry, company, accountNumber, contact, notes } }] }]
-export function printOpeningSheet({ location, brand, setup, timeline, openingDate = null }) {
+// operating (18 Oct 2026): once the restaurant is open, the same outline
+// prints as the Operating Checklist - a record of what was set up.
+export function printOpeningSheet({ location, brand, setup, timeline, openingDate = null, operating = null }) {
   const blocks = [];
   const field = (label, val, cls = '') => `<div class="f ${cls}"><label>${label}</label><span class="${String(val ?? '').trim() ? 'set' : ''}">${esc(val ?? '')}</span></div>`;
   const add = (prefix, groups) => groups.filter((g) => g.items.length).forEach((g) => {
     const done = g.items.filter((i) => i.done).length;
-    blocks.push(`<div data-sec>${blocks.length ? '<div class="gap"></div>' : ''}<div class="stitle"><b data-name style="font-weight:700">${esc(prefix + g.section)}</b><span data-right>${done} of ${g.items.length} done</span></div></div>`);
+    const right = operating && !g.still ? g.items.length + (g.items.length === 1 ? ' item' : ' items') : done + ' of ' + g.items.length + ' done';
+    blocks.push(`<div data-sec>${blocks.length ? '<div class="gap"></div>' : ''}<div class="stitle"><b data-name style="font-weight:700">${esc(prefix + g.section)}</b><span data-right>${right}</span></div></div>`);
     for (const i of g.items) {
       const f = i.fields ?? {};
-      blocks.push(`<div class="it"><div class="top"><span class="cb${i.done ? ' on' : ''}"></span><span class="nm">${esc(i.title)}</span><span class="meta"><b>Due</b>${esc(i.due ?? '')}<b>Assigned to</b>${i.assigned ? esc(i.assigned) : '<span class="bl"></span>'}</span></div>`
+      const meta = operating && !g.still
+        ? `<b>Done</b>${esc(i.doneOn || '—')}<b>Documents</b>${i.docs ? i.docs + ' in the Hub' : 'None'}`
+        : `<b>Due</b>${esc(i.due ?? '')}<b>Assigned to</b>${i.assigned ? esc(i.assigned) : '<span class="bl"></span>'}`;
+      blocks.push(`<div class="it"><div class="top"><span class="cb${i.done ? ' on' : ''}"></span><span class="nm">${esc(i.title)}</span><span class="meta">${meta}</span></div>`
         + (i.waitsFor ? `<div class="waits">Waits for <b>${esc(i.waitsFor)}</b></div>` : '')
         + `<div class="fields">${field('Permit / Ref #', f.reference)}${field('Expiry', f.expiry)}${field('Company', f.company)}${field('Account #', f.accountNumber)}${field('Contact', f.contact)}${field('Notes', f.notes, 'notes')}</div></div>`);
     }
@@ -278,6 +284,15 @@ export function printOpeningSheet({ location, brand, setup, timeline, openingDat
   const subtitle = openingDate
     ? 'Opens ' + new Date(openingDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) + (daysOut >= 0 ? ' · ' + daysOut + ' days to go' : '') + ' · ' + all.filter((i) => i.done).length + ' of ' + all.length + ' done'
     : 'Printed ' + today();
+  if (operating) {
+    const since = operating.openedOn ?? operating.at;
+    const rec = setup.filter((g) => !g.still).flatMap((g) => g.items).length;
+    const metaOp = { eyebrow: eyebrowFor(brand, location), title: 'Operating Checklist' };
+    return open(location + ' - Operating Checklist', 'Operating checklist · ' + location, OPEN_CSS, [{
+      head: header({ ...metaOp, subtitle: 'Open since ' + new Date(since).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + ' · ' + rec + ' items on record · Printed ' + today(), lede: "This location's permits, accounts, contacts and documents: what was set up, and where to find it. The documents themselves are in the Hub." }),
+      cont: contHeader(metaOp), category: 'Operations', blocks,
+    }]);
+  }
   const meta = { eyebrow: eyebrowFor(brand, location), title: 'Opening Checklist' };
   return open(location + ' - Opening Checklist', 'Opening checklist · ' + location, OPEN_CSS, [{
     head: header({ ...meta, subtitle, lede: 'Everything that has to happen before this location opens, and who is doing it. Tick each item as it is done and fill in its details, then enter them in the Hub.' }),

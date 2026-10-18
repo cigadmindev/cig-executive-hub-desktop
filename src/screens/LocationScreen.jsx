@@ -7,6 +7,7 @@ import { brands, categories, hasFeature } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useRenewals, isRenewalDueSoon } from '../context/RenewalsContext';
 import { useAuth } from '../context/AuthContext';
+import { useOpeningInfo } from '../context/OpeningInfoContext';
 import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
 import { useDialog } from '../hooks/useDialog';
@@ -39,6 +40,8 @@ export default function LocationScreen() {
   const { getByBrand } = useCustomLocations();
   const { getByLocation } = useRenewals();
   const { user, hasCategoryAccess } = useAuth();
+  const { getInfo } = useOpeningInfo();
+  const isOperating = !!getInfo(locationId)?.operating;
   const isNarrow = useIsNarrow();
   const [settingUp, setSettingUp] = useState(false);
 
@@ -141,7 +144,11 @@ export default function LocationScreen() {
             'operational-poc': 'operationalPoc',
             integrations: 'integrations',
           }[item.key]) || assignedWorkOnly(user, { 'opening-checklist': 'openingChecklist', 'operational-poc': 'operationalPoc' }[item.key])
-        ).map((item) => {
+        ).map((tile) => {
+          // Once open (18 Oct 2026) it is the Operating Checklist: the record of what was set up.
+          const item = tile.key === 'opening-checklist' && isOperating
+            ? { ...tile, icon: 'archive-outline', title: 'Operating Checklist', subtitle: 'Permits, accounts and documents on record' }
+            : tile;
           const showRenewalBadge = item.key === 'renewals' && hasUpcomingRenewal;
           const showEventBadge = item.key === 'event-requests' && hasUnseenEventRequests(locationId);
           const showBadge = showRenewalBadge || showEventBadge;

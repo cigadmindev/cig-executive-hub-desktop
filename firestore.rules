@@ -852,11 +852,12 @@ service cloud.firestore {
       // Contractor, landlord and property manager details for a location.
       // Anyone with that restaurant; brandId is written with every change.
       allow read: if isAdminOrExecutive() || (isSignedIn() && resource.data.brandId in myBrands());
-      // "Checked for this area" (16 Oct 2026) is set and cleared by admins only.
+      // "Checked for this area" (16 Oct 2026) and "marked open" (18 Oct 2026)
+      // are set and cleared by admins only.
       allow create: if (isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands()))
-        && (isAdmin() || !request.resource.data.keys().hasAny(['checkedForArea']));
+        && (isAdmin() || !request.resource.data.keys().hasAny(['checkedForArea', 'operating']));
       allow update: if (isAdminOrExecutive() || (isSignedIn() && request.resource.data.brandId in myBrands()))
-        && (isAdmin() || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['checkedForArea']));
+        && (isAdmin() || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['checkedForArea', 'operating']));
       allow delete: if isAdmin();
     }
 

@@ -61,7 +61,8 @@ export function useHomeSummary() {
 
     visibleLocations.forEach((loc) => {
       const info = getInfo(loc.id);
-      const openingDate = info?.openingDate ?? null;
+      // Open restaurants (18 Oct 2026) are not "opening soon".
+      const openingDate = info?.operating ? null : (info?.openingDate ?? null);
       const allOpening = entries.filter((e) => e.locationId === loc.id && e.openingItem);
 
       // Progress bars and counts use every item - whether an opening is on
