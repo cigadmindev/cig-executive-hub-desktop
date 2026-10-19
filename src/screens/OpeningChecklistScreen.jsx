@@ -187,6 +187,10 @@ export default function OpeningChecklistScreen() {
   const [markOpenDraft, setMarkOpenDraft] = useState(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [markingOpen, setMarkingOpen] = useState(false);
+  // By category (Bank, CPA, Liquor License...) or by phase (19 Oct 2026).
+  // Category is the default; the choice is remembered on this device.
+  const [groupBy, setGroupByState] = useState(() => { try { return localStorage.getItem('openingGroupBy') || 'category'; } catch { return 'category'; } });
+  const setGroupBy = (v) => { setGroupByState(v); try { localStorage.setItem('openingGroupBy', v); } catch { /* private window */ } };
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60000);
@@ -514,9 +518,13 @@ export default function OpeningChecklistScreen() {
   });
   const navGroups = [
     {
-      // The four phases in order (19 Oct 2026) instead of the paper's sections.
+      // The paper's categories, in the template's order, or the four phases.
       label: 'Initial set-up',
-      sections: PHASES.filter((ph) => setupItems.some((i) => phaseOf(i, template) === ph.n)).map((ph) => ({
+      sections: groupBy === 'category'
+        ? [...new Set([...template.items.map((t) => t.section), ...setupItems.map((i) => i.openingSection)])]
+          .filter((name) => setupItems.some((i) => i.openingSection === name))
+          .map((name) => sectionOf('setup', name, setupItems.filter((i) => i.openingSection === name), visibleSetupItems.filter((i) => i.openingSection === name)))
+        : PHASES.filter((ph) => setupItems.some((i) => phaseOf(i, template) === ph.n)).map((ph) => ({
         ...sectionOf('phase', ph.label, setupItems.filter((i) => phaseOf(i, template) === ph.n), visibleSetupItems.filter((i) => phaseOf(i, template) === ph.n)),
         num: ph.n,
         blurb: ph.blurb,
@@ -1048,6 +1056,13 @@ export default function OpeningChecklistScreen() {
 
         <div style={styles.listCard}>
           <div style={styles.filters}>
+            {operating ? null : (
+              <div style={styles.seg} role="group" aria-label="Group set-up by">
+                {[['category', 'By category'], ['phase', 'By phase']].map(([k, label]) => (
+                  <button key={k} style={{ ...styles.segBtn, ...(groupBy === k ? styles.segOn : {}) }} onClick={() => setGroupBy(k)} aria-pressed={groupBy === k}>{label}</button>
+                ))}
+              </div>
+            )}
             {(operating ? [
               ['all', 'All', null],
               ['missing', 'Missing details', opCounts.missing],
@@ -1330,6 +1345,9 @@ export default function OpeningChecklistScreen() {
 const styles = {
   // ---- Summary card, section list, filters (17 Oct 2026) ----
   summaryCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 16, overflow: 'hidden' },
+  seg: { display: 'inline-flex', border: '1px solid var(--border-strong)', borderRadius: 999, padding: 2, marginRight: 4, flexShrink: 0 },
+  segBtn: { height: 28, padding: '0 11px', borderRadius: 999, border: 'none', background: 'none', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none', whiteSpace: 'nowrap' },
+  segOn: { background: 'var(--neon)', color: 'var(--neon-text)' },
   // Phases (19 Oct 2026).
   phaseNum: { width: 20, height: 20, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   phaseNumOn: { background: 'var(--neon)', color: 'var(--neon-text)' },
