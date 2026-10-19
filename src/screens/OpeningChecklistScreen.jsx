@@ -190,6 +190,7 @@ export default function OpeningChecklistScreen() {
   // By category (Bank, CPA, Liquor License...) or by phase (19 Oct 2026).
   // Category is the default; the choice is remembered on this device.
   const [groupBy, setGroupByState] = useState(() => { try { return localStorage.getItem('openingGroupBy') || 'category'; } catch { return 'category'; } });
+  const [showMenu, setShowMenu] = useState(false);
   const setGroupBy = (v) => { setGroupByState(v); try { localStorage.setItem('openingGroupBy', v); } catch { /* private window */ } };
 
   useEffect(() => {
@@ -498,6 +499,26 @@ export default function OpeningChecklistScreen() {
     (filter === 'missing' && !hasDetails(i)) ||
     (filter === 'docs' && documentsOf(i).length > 0) ||
     (filter === 'expiring' && expiresSoon(i));
+
+  // The Show menu's choices (sketch 26 B), with their counts.
+  const filterOptions = (operating ? [
+    ['all', 'All items', null],
+    ['missing', 'Missing details', opCounts.missing],
+    ['docs', 'Has documents', opCounts.withDocs],
+    ['expiring', 'Expires soon', opCounts.expiring],
+  ] : [
+    ['all', 'All items', null],
+    ['week', 'Due this week', counts.week],
+    ['waiting', 'Waiting on another item', counts.waiting],
+    ['risk', 'At risk', counts.atRisk],
+    ['overdue', 'Overdue', counts.overdue],
+    ['mine', 'Assigned to me', counts.mine],
+    ['signature', 'Waiting on a signature', counts.signature],
+  ]).filter(([key]) => !(mineOnly && key === 'mine'));
+  const currentFilter = filterOptions.find(([key]) => key === filter) ?? filterOptions[0];
+  const SHORT = { all: 'All', week: 'This week', waiting: 'Waiting', risk: 'At risk', overdue: 'Overdue', mine: 'Mine', signature: 'Signature', missing: 'Missing', docs: 'Documents', expiring: 'Expiring' };
+  const shortLabel = ([key]) => SHORT[key] ?? 'All';
+  const countTone = (key) => (key === 'risk' || key === 'expiring' ? { color: 'var(--warn)' } : key === 'overdue' ? { color: 'var(--danger)' } : {});
 
   const passes = (i) =>
     (!hideDone || !i.done) &&
@@ -1055,35 +1076,44 @@ export default function OpeningChecklistScreen() {
         )}
 
         <div style={styles.listCard}>
+          {/* One row (19 Oct 2026, sketch 26 B): how set-up is grouped, a
+              Show menu holding the filters and their counts, and Hide done. */}
           <div style={styles.filters}>
             {operating ? null : (
               <div style={styles.seg} role="group" aria-label="Group set-up by">
-                {[['category', 'By category'], ['phase', 'By phase']].map(([k, label]) => (
+                {[['category', isNarrow ? 'Category' : 'By category'], ['phase', isNarrow ? 'Phase' : 'By phase']].map(([k, label]) => (
                   <button key={k} style={{ ...styles.segBtn, ...(groupBy === k ? styles.segOn : {}) }} onClick={() => setGroupBy(k)} aria-pressed={groupBy === k}>{label}</button>
                 ))}
               </div>
             )}
-            {(operating ? [
-              ['all', 'All', null],
-              ['missing', 'Missing details', opCounts.missing],
-              ['docs', 'Has documents', opCounts.withDocs],
-              ['expiring', 'Expires soon', opCounts.expiring],
-            ] : [
-              ['all', 'All', null],
-              ['week', 'Due this week', counts.week],
-              ['waiting', 'Waiting', counts.waiting],
-              ['risk', 'At risk', counts.atRisk],
-              ['overdue', 'Overdue', counts.overdue],
-              ['mine', 'Assigned to me', counts.mine],
-              ['signature', 'Waiting on a signature', counts.signature],
-            ]).filter(([key, , n]) => !(mineOnly && key === 'mine') && !(['risk', 'overdue', 'signature'].includes(key) && !n && filter !== key)).map(([key, label, n]) => (
-              <button key={key} style={{ ...styles.filterChip, ...(filter === key ? styles.filterChipOn : {}) }} onClick={() => setFilter(key)}>
-                {label}{n != null ? <span style={styles.filterCount}>{n}</span> : null}
+            <div style={{ position: 'relative' }}>
+              <button style={styles.showBtn} onClick={() => setShowMenu((v) => !v)} aria-expanded={showMenu} aria-haspopup="menu">
+                {isNarrow ? null : <span style={{ color: 'var(--text-tertiary)' }}>Show:</span>}
+                <b style={styles.showVal}>{isNarrow ? shortLabel(currentFilter) : currentFilter[1]}</b>
+                {filter !== 'all' && currentFilter[2] != null ? <span style={{ ...styles.menuCount, ...countTone(currentFilter[0]) }}>{currentFilter[2]}</span> : null}
+                <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>▾</span>
               </button>
-            ))}
-            {operating ? null : <button style={{ ...styles.filterChip, ...(hideDone ? styles.filterChipOn : {}) }} onClick={() => setHideDone((v) => !v)} aria-pressed={hideDone}>
-              Hide done
-            </button>}
+              {showMenu ? (
+                <>
+                  <div style={styles.menuCatch} onClick={() => setShowMenu(false)} />
+                  <div style={{ ...styles.menu, ...(isNarrow ? styles.menuNarrow : {}) }} role="menu">
+                    {filterOptions.map(([key, label, n]) => (
+                      <button key={key} role="menuitemradio" aria-checked={filter === key} style={{ ...styles.menuItem, ...(filter === key ? styles.menuItemOn : {}) }} onClick={() => { setFilter(key); setShowMenu(false); }}>
+                        <span>{label}</span>
+                        {n != null ? <span style={{ ...styles.menuCount, ...(n ? countTone(key) : {}) }}>{n}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </div>
+            <span style={{ flex: 1 }} />
+            {operating ? null : (
+              <button style={styles.toggle} onClick={() => setHideDone((v) => !v)} role="switch" aria-checked={hideDone}>
+                <span style={{ ...styles.switchTrack, ...(hideDone ? styles.switchOn : {}) }}><span style={{ ...styles.switchKnob, ...(hideDone ? styles.switchKnobOn : {}) }} /></span>
+                Hide done
+              </button>
+            )}
           </div>
 
           {navGroups.every((g) => g.sections.every((s) => s.shown.length === 0)) ? (
@@ -1408,7 +1438,20 @@ const styles = {
   navChipCount: { fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 700 },
 
   listCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', minWidth: 0 },
-  filters: { display: 'flex', gap: 6, flexWrap: 'wrap', padding: '12px 14px', borderBottom: '1px solid var(--border)' },
+  filters: { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid var(--border)' },
+  showBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none', whiteSpace: 'nowrap' },
+  showVal: { color: 'var(--text-primary)', fontWeight: 700 },
+  menuCatch: { position: 'fixed', inset: 0, zIndex: 40 },
+  menu: { position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 41, width: 260, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 10, padding: 6, boxShadow: '0 12px 32px rgba(0,0,0,0.45)' },
+  menuNarrow: { left: 'auto', right: -60, width: 240 },
+  menuItem: { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 6, border: 'none', background: 'none', color: 'var(--text-primary)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none', textAlign: 'left' },
+  menuItemOn: { background: 'rgba(34,211,238,0.12)', color: 'var(--neon)' },
+  menuCount: { fontWeight: 700, color: 'var(--text-tertiary)', fontSize: 12.5 },
+  toggle: { display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: 'none', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none', padding: '4px 0', whiteSpace: 'nowrap' },
+  switchTrack: { width: 30, height: 18, borderRadius: 999, background: 'rgba(255,255,255,0.12)', position: 'relative', flexShrink: 0, transition: 'background 0.15s' },
+  switchOn: { background: 'var(--neon)' },
+  switchKnob: { position: 'absolute', left: 2, top: 2, width: 14, height: 14, borderRadius: '50%', background: 'var(--text-tertiary)', transition: 'left 0.15s' },
+  switchKnobOn: { left: 14, background: 'var(--neon-text)' },
   filterChip: { display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
   filterChipOn: { background: 'var(--neon)', borderColor: 'var(--neon)', color: 'var(--neon-text)' },
   filterCount: { fontWeight: 800, opacity: 0.7 },
