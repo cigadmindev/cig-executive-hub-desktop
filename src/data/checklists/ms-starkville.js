@@ -126,11 +126,58 @@ const items = [
   { key: 'withholdingTax', name: 'Withholding Tax', description: "Register for state employee withholding. Required before the first payroll.", section: 'Final Steps', dependsOnKeys: [] },
 ];
 
+// The order things can really be done in (19 Oct 2026, sketch 24). Every
+// item gets a phase, and the steps that need another one first say so. The
+// phases run one after another before opening day; inside a phase an item
+// is always dated after everything it waits for.
+//   1 Foundation          - entity, tax IDs, bank, insurance, utilities
+//   2 Applications        - health, liquor, building and sign paperwork, orders
+//   3 Build & inspections - the inspections once the build-out is under way
+//   4 Final permits       - the permits themselves, the C of O, the binder
+// `after` adds to dependsOnKeys (capstones still pick up their section).
+const PLAN = {
+  llc: { phase: 1 }, ein: { phase: 1, after: ['llc'] }, businessId: { phase: 1, after: ['llc'] },
+  createTap: { phase: 1, after: ['ein'] }, taxId: { phase: 1, after: ['createTap'] },
+  salesTax: { phase: 1, after: ['taxId'] }, withholdingTax: { phase: 1, after: ['taxId'] },
+  mdesSignup: { phase: 1, after: ['ein'] }, eftpsSignup: { phase: 1, after: ['ein'] },
+  openAccount: { phase: 1, after: ['ein'] }, depositFunds: { phase: 1, after: ['openAccount'] },
+  orderChecks: { phase: 1, after: ['openAccount'] }, orderDebitCard: { phase: 1, after: ['openAccount'] },
+  businessDebitCreditCard: { phase: 1, after: ['openAccount'] },
+  generalLiabilityInsurance: { phase: 1 }, hazardInsurance: { phase: 1 }, personalPropertyInsurance: { phase: 1 },
+  generalSpecialTaxes: { phase: 1, after: ['ein'] },
+  electricService: { phase: 1 }, gasService: { phase: 1 }, waterService: { phase: 1 }, telephoneWifi: { phase: 1 },
+
+  trash: { phase: 2 }, orderEquipment: { phase: 2 }, signPermit: { phase: 2 }, buildingPermit: { phase: 2 },
+  taxExemption: { phase: 2, after: ['salesTax'] },
+  foodManagerCert: { phase: 2 }, menuHealthDept: { phase: 2 }, floorPlanHealthDept: { phase: 2 },
+  planReview: { phase: 2, after: ['menuHealthDept', 'floorPlanHealthDept'] },
+  foodPermitApplicationStep: { phase: 2, after: ['foodManagerCert'] },
+  publicNotice: { phase: 2 }, copyOfLease: { phase: 2 }, fingerprintCards: { phase: 2 }, financialsForm: { phase: 2 },
+  waiverForm: { phase: 2 }, residencyForm: { phase: 2 }, taxExtension: { phase: 2 }, menuLiquorLicense: { phase: 2 },
+  floorPlanLiquorLicense: { phase: 2 }, ttbForm: { phase: 2, after: ['ein'] }, investorInfo: { phase: 2 },
+  businessLicenseApplication: { phase: 2, after: ['taxId'] },
+
+  securitySolutions: { phase: 3 },
+  paymentFoodPermitInspection: { phase: 3, after: ['foodPermitApplicationStep'] },
+  plumbingInspection: { phase: 3, after: ['buildingPermit'] }, electricalInspection: { phase: 3, after: ['buildingPermit'] },
+  fireSafetyInspection: { phase: 3, after: ['buildingPermit'] },
+  buildingInspectionCert: { phase: 3, after: ['plumbingInspection', 'electricalInspection'] },
+
+  finalCertOccupancy: { phase: 4, after: ['buildingInspectionCert', 'fireSafetyInspection'] },
+  foodPermit: { phase: 4 }, liquorLicense: { phase: 4 }, beerPermit: { phase: 4 }, privilegeLicense: { phase: 4 },
+  createInfoBinder: { phase: 4, after: ['foodPermit', 'liquorLicense', 'privilegeLicense', 'finalCertOccupancy'] },
+};
+const planned = items.map((i) => ({
+  ...i,
+  phase: PLAN[i.key]?.phase ?? 2,
+  dependsOnKeys: [...new Set([...(i.dependsOnKeys ?? []), ...(PLAN[i.key]?.after ?? [])])],
+}));
+
 export default {
   id: 'ms-starkville',
   label: 'Starkville, MS',
   // Mississippi fits comfortably in a four-month runway. Cities with council
   // agenda slots or sequential city-then-state approval need longer.
   window: { windowStartDaysBefore: 120, windowEndDaysBefore: 14 },
-  items: normalizeItems(items)
+  items: normalizeItems(planned)
 };

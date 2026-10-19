@@ -9,6 +9,8 @@ import { useAuth } from '../context/AuthContext';
 import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsContext';
 import { RENEWAL_WARNING_WINDOW_DAYS } from '../data/renewalTypes';
 import { useWaitingOnYou } from './useWaitingOnYou';
+import { blockersOf, isLate } from '../lib/openingPlan';
+import { getTemplateForLocation } from '../data/checklists';
 
 // The calendar on the entry's own day, with the entry open. The day is the
 // local one: toISOString gave the UTC day, so an evening event linked to the
@@ -77,11 +79,14 @@ export function useHomeSummary() {
       const timeline = allOpening.filter((e) => e.openingItemType === 'timeline');
       const done = items.filter((i) => i.done).length;
       const timelineDone = timeline.filter((i) => i.done).length;
-      const timelineOverdue = timeline.filter((i) => !i.done && i.dateTime < now);
+      // Waiting on another item is not late (19 Oct 2026).
+      const tpl = getTemplateForLocation(loc.id);
+      const lateHere = (i) => isLate(i, blockersOf(i, items, tpl).length > 0, now);
+      const timelineOverdue = timeline.filter(lateHere);
 
       // The generator clamps its window so nothing is placed in the past, so
       // anything overdue here genuinely slipped rather than being backdated.
-      const overdueItems = items.filter((i) => !i.done && i.dateTime < now);
+      const overdueItems = items.filter(lateHere);
 
       const b = (byBrand[loc.brandId] ??= { overdue: 0, total: 0, done: 0, dueSoon: 0, openingDate: null });
       b.overdue += overdueItems.length + timelineOverdue.length;
@@ -109,7 +114,7 @@ export function useHomeSummary() {
       // Overdue items are already pushed above, so this skips them rather
       // than listing the same task twice. Late is the more urgent framing.
       (canSeeChecklistItems ? items : [])
-        .filter((i) => !i.done && isAssignedTo(i, user?.uid) && i.dateTime >= now)
+        .filter((i) => !i.done && isAssignedTo(i, user?.uid) && !lateHere(i))
         .forEach((item) => {
           attention.push({
             level: 'assigned',
@@ -237,7 +242,9 @@ export function useHomeSummary() {
         const tagged = isMine(e);
         if (!tagged) continue;
 
-        const overdue = e.dateTime && e.dateTime < now;
+        const overdue = e.openingItem
+          ? isLate(e, blockersOf(e, entries.filter((x) => x.locationId === e.locationId && x.openingItem && x.openingItemType === 'setup'), getTemplateForLocation(e.locationId)).length > 0, now)
+          : e.dateTime && e.dateTime < now;
         const soon = e.dateTime && e.dateTime - now < 7 * DAY;
         mine.push({
           level: overdue ? 'overdue' : soon ? 'soon' : 'tagged',

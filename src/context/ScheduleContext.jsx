@@ -4,6 +4,8 @@ import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, writeBatch, 
 import { db, auth } from '../firebaseConfig';
 import { brandOfLocation } from '../data/brandOfLocation';
 import { useAuth } from './AuthContext';
+import { getTemplateForLocation } from '../data/checklists';
+import { blockersOf, unblockedWrites, DAY } from '../lib/openingPlan';
 
 const ScheduleContext = createContext(undefined);
 const COLLECTION = 'schedules';
@@ -94,6 +96,16 @@ export function ScheduleProvider({ children }) {
           // this is what makes the urgent badge distinct from something
           // that's simply due today for the first time.
           attentionFlag: data.attentionFlag ?? false,
+          // The re-plan (19 Oct 2026, sketch 24). lateSince: the date it was
+          // due when it first went late. slidWhileWaiting: its date went by
+          // while it waited on another item, so it gets a fresh date once
+          // free. dateSetByHand: someone chose this date; the plan keeps it.
+          lateSince: data.lateSince ?? null,
+          slidWhileWaiting: data.slidWhileWaiting ?? false,
+          dateSetByHand: data.dateSetByHand ?? false,
+          atRisk: data.atRisk ?? false,
+          planGapDays: data.planGapDays ?? null,
+          replannedAt: data.replannedAt ?? null,
         };
       });
       setEntries(list);
@@ -103,12 +115,34 @@ export function ScheduleProvider({ children }) {
       // every render) and is safe if two devices both run it — worst case
       // is a redundant, idempotent write.
       const today = startOfToday();
-      const overdue = list.filter((e) => (e.openingItem || e.renewalItem) && !e.done && e.dateTime < today);
-      if (overdue.length > 0) {
+      // Waiting is not late (19 Oct 2026): an item that cannot start because
+      // something it waits on is not done slides along with today but is
+      // never flagged; once free it gets the time it was planned to have.
+      // Only an item that could have been done and wasn't is flagged.
+      const setupAt = {};
+      list.forEach((e) => { if (e.openingItem && e.openingItemType === 'setup') (setupAt[e.locationId] ??= []).push(e); });
+      const blocked = (e) => {
+        if (!e.openingItem || e.openingItemType !== 'setup') return false;
+        try { return blockersOf(e, setupAt[e.locationId] ?? [], getTemplateForLocation(e.locationId)).length > 0; } catch { return false; }
+      };
+      const writes = [];
+      list.forEach((e) => {
+        if (!(e.openingItem || e.renewalItem) || e.done) return;
+        const isBlocked = blocked(e);
+        if (e.dateTime < today) {
+          if (isBlocked) writes.push([e.id, { dateTime: today, attentionFlag: false, slidWhileWaiting: true }]);
+          else if (e.slidWhileWaiting) {
+            const d = new Date(today + (e.planGapDays ?? 3) * DAY); d.setHours(12, 0, 0, 0);
+            writes.push([e.id, { dateTime: d.getTime(), attentionFlag: false, slidWhileWaiting: false }]);
+          } else writes.push([e.id, { dateTime: today, attentionFlag: true, ...(e.attentionFlag ? {} : { lateSince: e.dateTime }) }]);
+        } else if (e.attentionFlag && isBlocked) {
+          // Flagged before waiting counted: take the flag off.
+          writes.push([e.id, { attentionFlag: false, slidWhileWaiting: true }]);
+        }
+      });
+      if (writes.length > 0) {
         const batch = writeBatch(db);
-        overdue.forEach((e) => {
-          batch.update(doc(db, COLLECTION, e.id), { dateTime: today, attentionFlag: true });
-        });
+        writes.forEach(([id, fields]) => batch.update(doc(db, COLLECTION, id), fields));
         batch.commit().catch(() => {
           // Fine to lose this race silently — another client's snapshot
           // will pick up the same overdue set and retry.
@@ -153,7 +187,22 @@ export function ScheduleProvider({ children }) {
     });
     // So "did I tick that off" has an answer - naming the item this time.
     const item = entries.find((e) => e.id === id);
+    if (done && item) await releaseWaiting(item);
     if (done) recordDid('You signed off: ' + (item?.title ?? 'a checklist item'), item?.locationId ?? '', '/calendar');
+  };
+
+  // After a sign-off: items that were waiting on it get their fresh dates.
+  // Best effort - the daily roll-forward catches anything this misses.
+  const releaseWaiting = async (item) => {
+    try {
+      const writes = unblockedWrites(item, entries.filter((e) => e.locationId === item.locationId && e.openingItem));
+      if (!writes.length) return;
+      const batch = writeBatch(db);
+      writes.forEach(([wid, fields]) => batch.update(doc(db, COLLECTION, wid), fields));
+      await batch.commit();
+    } catch (err) {
+      console.warn('[Schedule] could not re-date waiting items: ' + (err?.message ?? err));
+    }
   };
 
   const getByLocation = (locationId) =>
@@ -176,6 +225,7 @@ export function ScheduleProvider({ children }) {
         getByLocations,
         getOpeningItemsByLocation,
         toggleOpeningItemDone,
+        releaseWaiting,
       }}
     >
       {children}

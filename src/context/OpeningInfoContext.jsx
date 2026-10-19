@@ -10,6 +10,7 @@ import {
   spreadDatesInWindow,
 } from '../data/openingChecklistData';
 import { getTemplateForLocation } from '../data/checklists';
+import { planLocation } from '../lib/openingPlan';
 import { renewalTypes, RENEWAL_TYPES_WITH_OPENING_TASK } from '../data/renewalTypes';
 import { renewalDocId } from './RenewalsContext';
 
@@ -192,16 +193,47 @@ export function OpeningInfoProvider({ children }) {
 
     // Keys the templates still list - same 'type:key' form as above.
     const seenKeys = new Set();
+
+    // Dates from the phased plan (19 Oct 2026, sketch 24): in the order
+    // things can really be done, never before tomorrow. Signed off, waiting
+    // on a signature, set by hand or already in the works keep their dates.
+    const planTemplate = getTemplateForLocation(locationId);
+    const vId = {};
+    existingSnap.docs.forEach((d) => { const x = d.data(); if (x.setupKey) vId[d.id] = (x.openingItemType ?? 'setup') + ':' + x.setupKey; });
+    const virtualOf = (type, key, section) => {
+      const ex = existingSetupByKey[type + ':' + key]?.data;
+      return {
+        ...(ex ?? {}),
+        id: type + ':' + key, setupKey: key, openingItemType: type, openingSection: section,
+        done: !!ex?.done, dateTime: ex?.dateTime ?? null,
+        dependsOnIds: Array.isArray(ex?.dependsOnIds) ? ex.dependsOnIds.map((i) => vId[i]).filter(Boolean) : undefined,
+      };
+    };
+    const planRows = isPastOpening ? [] : planLocation({
+      locationId,
+      openingDate,
+      items: [
+        ...TIMELINE_BUCKETS.flatMap((b) => b.items.map((t) => virtualOf('timeline', t.key, b.label))),
+        ...planTemplate.items.map((t) => virtualOf('setup', t.key, t.section)),
+      ],
+    }).rows;
+    const planOf = (id) => planRows.find((r) => r.item.id === id);
+    const planFields = (id) => {
+      const r = planOf(id);
+      if (!r || r.keep) return {};
+      return { dateTime: r.newDate, attentionFlag: false, lateSince: null, slidWhileWaiting: false, atRisk: !!r.atRisk, planGapDays: r.gapDays ?? 3 };
+    };
     if (!isPastOpening) {
       TIMELINE_BUCKETS.forEach((bucket) => {
         const dates = spreadDatesInWindow(openingDate, bucket.windowStartDaysBefore, bucket.windowEndDaysBefore, bucket.items.length);
         bucket.items.forEach((tlItem, i) => {
+          const planned = planFields('timeline:' + tlItem.key);
           const label = tlItem.name;
           const existing = existingSetupByKey['timeline:' + tlItem.key];
           seenKeys.add('timeline:' + tlItem.key);
           if (existing) {
             if (existing.data.done) return;
-            createBatch.update(existing.ref, { dateTime: dates[i], openingSection: bucket.label });
+            createBatch.update(existing.ref, { ...planned, openingSection: bucket.label });
             return;
           }
           const ref = doc(collection(db, SCHEDULES_COLLECTION));
@@ -210,6 +242,7 @@ export function OpeningInfoProvider({ children }) {
             brandId: entryBrandId,
             title: label,
             dateTime: dates[i],
+            ...planned,
             note: '',
             authorName,
             authorUid,
@@ -249,7 +282,7 @@ export function OpeningInfoProvider({ children }) {
           // Not done yet: move it to its new slot, but keep any fields
           // someone has already filled in.
           createBatch.update(existing.ref, {
-            dateTime: setupDatesByKey[item.key],
+            ...planFields('setup:' + item.key),
             openingSection: item.section,
             templateId: template.id,
           });
@@ -262,6 +295,7 @@ export function OpeningInfoProvider({ children }) {
           brandId: entryBrandId,
           title: item.name,
           dateTime: setupDatesByKey[item.key],
+          ...planFields('setup:' + item.key),
           note: '',
           authorName,
           authorUid,

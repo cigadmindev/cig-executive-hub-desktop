@@ -4,7 +4,7 @@ import Icon from '../components/Icon';
 import { printOpeningSheet } from '../lib/printSheet';
 import { assigneesOf, assigneeFields, shortNames, isAssignedTo } from '../data/assignees';
 import { assignedWorkOnly } from '../data/accessMatrix';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { brands, canEditChecklists } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useSchedule } from '../context/ScheduleContext';
@@ -18,6 +18,7 @@ import ConfirmEditField from '../components/ConfirmEditField';
 import ItemDetails from '../components/ItemDetails';
 import LocationDetails from '../components/LocationDetails';
 import { documentsOf } from '../components/DocumentsField';
+import { PHASES, phaseOf, blockersOf, dependentsOf, isLate, startOfDay } from '../lib/openingPlan';
 import SignaturePanel, { waitingOn } from '../components/SignaturePanel';
 import DatePickerField from '../components/DatePickerField';
 import SearchBar from '../components/SearchBar';
@@ -33,6 +34,7 @@ const formatDate = (ts) => (ts ? fmtDay(ts) : null);
 export default function OpeningChecklistScreen() {
   const { dialogNode, notify, confirm } = useDialog();
   const { brandId, locationId } = useParams();
+  const navigate = useNavigate();
   const { user, activeUsers, hasLocationAccess } = useAuth();
   const isAdmin = user?.role === 'admin';
   // Admins, the COO and the beverage manager can restructure the list itself -
@@ -151,7 +153,7 @@ export default function OpeningChecklistScreen() {
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
   const { updateDates, setRenewalDocument } = useRenewals();
-  const { getOpeningItemsByLocation, toggleOpeningItemDone, updateEntry, deleteEntry, addEntry } = useSchedule();
+  const { getOpeningItemsByLocation, toggleOpeningItemDone, updateEntry, deleteEntry, addEntry, releaseWaiting } = useSchedule();
   const { getInfo, updateInfoField, setOpeningDate, markOperating, unmarkOperating } = useOpeningInfo();
   const { regenerateForLocation } = useOpeningOngoingContacts();
 
@@ -373,7 +375,9 @@ export default function OpeningChecklistScreen() {
     setConfirmingItemDate(null);
     setEditingDateItemId(null);
     try {
-      await updateEntry(item.id, { dateTime: newDate });
+      // Chosen by hand (19 Oct 2026): the re-plan keeps it, and it is no
+      // longer late.
+      await updateEntry(item.id, { dateTime: newDate, dateSetByHand: true, attentionFlag: false, lateSince: null, slidWhileWaiting: false });
     } catch (err) {
       notify('Could not change the date', plainError(err, 'Nothing was changed. Try again.'));
     }
@@ -444,13 +448,24 @@ export default function OpeningChecklistScreen() {
   const allDone = openingItems.filter((i) => i.done).length;
   const allPct = openingItems.length ? Math.round((allDone / openingItems.length) * 100) : 0;
   const daysToOpen = info.openingDate ? Math.ceil((info.openingDate - now) / DAY) : null;
-  const isOverdue = (i) => !i.done && i.dateTime && i.dateTime < now;
+  // Waiting is not late (19 Oct 2026, sketch 24): an item is overdue only
+  // when it could have been done and wasn't.
+  const blockersFor = (i) => blockersOf(i, setupItems, template);
+  const isWaiting = (i) => !i.done && blockersFor(i).length > 0;
+  const isOverdue = (i) => isLate(i, isWaiting(i), now);
   const isWaitingSignature = (i) => !i.done && i.signature?.status === 'waiting';
+  const weekEnd = startOfDay(now) + 7 * DAY;
+  const isDueThisWeek = (i) => !i.done && !isWaiting(i) && !isOverdue(i) && i.dateTime != null && i.dateTime < weekEnd;
+  const isAtRisk = (i) => !i.done && !!i.atRisk;
   const counts = {
     overdue: openingItems.filter(isOverdue).length,
     mine: openingItems.filter((i) => !i.done && isAssignedTo(i, user?.uid)).length,
     signature: openingItems.filter(isWaitingSignature).length,
+    week: openingItems.filter(isDueThisWeek).length,
+    waiting: openingItems.filter(isWaiting).length,
+    atRisk: openingItems.filter(isAtRisk).length,
   };
+  const currentPhase = PHASES.find((ph) => setupItems.some((i) => !i.done && phaseOf(i, template) === ph.n));
   // ---- Operating Checklist (18 Oct 2026, sketch 23) ----
   // Once an admin marks the restaurant open, the set-up items are its record:
   // what was set up, with the company, account, permit and documents. Anything
@@ -484,6 +499,9 @@ export default function OpeningChecklistScreen() {
     (!hideDone || !i.done) &&
     (filter === 'all' ||
       (filter === 'overdue' && isOverdue(i)) ||
+      (filter === 'week' && isDueThisWeek(i)) ||
+      (filter === 'waiting' && isWaiting(i)) ||
+      (filter === 'risk' && isAtRisk(i)) ||
       (filter === 'mine' && isAssignedTo(i, user?.uid)) ||
       (filter === 'signature' && isWaitingSignature(i)));
   const slug = (t) => 'sec-' + String(t ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -496,10 +514,13 @@ export default function OpeningChecklistScreen() {
   });
   const navGroups = [
     {
+      // The four phases in order (19 Oct 2026) instead of the paper's sections.
       label: 'Initial set-up',
-      sections: [...new Set(setupItems.map((i) => i.openingSection))].map((name) =>
-        sectionOf('setup', name, setupItems.filter((i) => i.openingSection === name), visibleSetupItems.filter((i) => i.openingSection === name))
-      ),
+      sections: PHASES.filter((ph) => setupItems.some((i) => phaseOf(i, template) === ph.n)).map((ph) => ({
+        ...sectionOf('phase', ph.label, setupItems.filter((i) => phaseOf(i, template) === ph.n), visibleSetupItems.filter((i) => phaseOf(i, template) === ph.n)),
+        num: ph.n,
+        blurb: ph.blurb,
+      })),
     },
     {
       label: 'Opening timeline',
@@ -560,10 +581,10 @@ export default function OpeningChecklistScreen() {
   // Under the title on a computer; across the whole card on a phone.
   const heroStats = (
     <div style={isNarrow ? styles.heroStatsNarrow : styles.heroStats}>
-      <div><b style={styles.heroNum}>{setupItems.filter((i) => i.done).length}/{setupItems.length}</b><span style={styles.heroLabel}>Set-up</span></div>
-      <div><b style={styles.heroNum}>{timelineItems.filter((i) => i.done).length}/{timelineItems.length}</b><span style={styles.heroLabel}>Timeline</span></div>
-      <div><b style={{ ...styles.heroNum, color: counts.overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>{counts.overdue}</b><span style={styles.heroLabel}>Overdue</span></div>
-      <div><b style={{ ...styles.heroNum, color: counts.signature ? 'var(--warn)' : 'var(--text-tertiary)' }}>{counts.signature}</b><span style={styles.heroLabel}>Awaiting signature</span></div>
+      <div><b style={{ ...styles.heroNum, color: counts.week ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>{counts.week}</b><span style={styles.heroLabel}>Due this week</span></div>
+      <div><b style={{ ...styles.heroNum, color: 'var(--text-tertiary)' }}>{counts.waiting}</b><span style={styles.heroLabel}>Waiting on another item</span></div>
+      <div><b style={{ ...styles.heroNum, color: counts.atRisk ? 'var(--warn)' : 'var(--text-tertiary)' }}>{counts.atRisk}</b><span style={styles.heroLabel}>At risk</span></div>
+      <div><b style={{ ...styles.heroNum, color: counts.overdue ? 'var(--danger)' : 'var(--success)' }}>{counts.overdue}</b><span style={styles.heroLabel}>Overdue</span></div>
     </div>
   );
 
@@ -577,7 +598,10 @@ export default function OpeningChecklistScreen() {
     const neededFor = isSetup ? getDependentParents(item, template) : [];
     const isOpen = expandedItemId === item.id;
     const overdue = isOverdue(item);
-    const daysLate = overdue ? Math.max(1, Math.floor((now - item.dateTime) / DAY)) : 0;
+    // From the date it was due when it first went late, not today's roll-forward.
+    const daysLate = overdue ? Math.max(1, Math.floor((startOfDay(now) - startOfDay(item.lateSince ?? item.dateTime)) / DAY)) : 0;
+    const holdingUp = overdue && isSetup ? dependentsOf(item, setupItems, template) : [];
+    const atRisk = isAtRisk(item);
     const who = assigneesOf(item);
     const description = describeItem(item.setupKey);
     const waiting = !item.done ? waitingOn(item) : null;
@@ -586,12 +610,18 @@ export default function OpeningChecklistScreen() {
       <span style={styles.rowMeta}>{item.doneBy || 'Done'}</span>
     ) : waiting ? (
       <span style={styles.waitingPill}>Waiting on {waiting.split(' ')[0]}</span>
-    ) : isLocked ? (
-      <span style={styles.lockedPill} title={'Needs ' + blockedBy.join(', ')}>
-        Needs {blockedBy[0]}{blockedBy.length > 1 ? ' +' + (blockedBy.length - 1) : ''}
+    ) : isLocked && isNarrow ? null : isLocked ? (
+      // Grey, never red: it cannot start yet (19 Oct 2026).
+      <span style={styles.lockedPill} title={'Waiting on ' + blockedBy.join(', ')}>
+        Waiting on {blockedBy[0]}{blockedBy.length > 1 ? ' +' + (blockedBy.length - 1) : ''}
       </span>
     ) : overdue ? (
-      <span style={styles.latePill}>{daysLate === 1 ? '1 day late' : daysLate + ' days late'}</span>
+      <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+        {holdingUp.length && !isNarrow ? <span style={styles.holdingPill}>Holding up {holdingUp.length}</span> : null}
+        <span style={styles.latePill}>{daysLate === 1 ? '1 day late' : daysLate + ' days late'}</span>
+      </span>
+    ) : atRisk ? (
+      <span style={styles.waitingPill} title="Won't fit before opening at this pace">At risk</span>
     ) : null;
 
     const openDateEditor = (e) => {
@@ -620,20 +650,22 @@ export default function OpeningChecklistScreen() {
           me={user}
           canRequest={canTick && !mineOnly}
           people={assignableUsers}
-          save={(fields) => updateEntry(item.id, fields)}
+          save={async (fields) => { await updateEntry(item.id, fields); if (fields.done) releaseWaiting({ ...item, done: true }); }}
           notify={notify}
         />
       </>
     );
 
     const intro =
-      description || neededFor.length || isLocked || (item.done && item.doneBy) || editingDateItemId === item.id ? (
+      description || neededFor.length || isLocked || holdingUp.length || atRisk || (item.done && item.doneBy) || editingDateItemId === item.id ? (
         <>
           {/* Looked up from the template rather than stored on each record:
               one description per item type, so a wording change reaches
               every location at once. */}
           {description ? <p style={styles.itemDescription}>{description}</p> : null}
-          {isLocked ? <p style={styles.neededForNote}>Can't be ticked until {blockedBy.join(', ')} {blockedBy.length > 1 ? 'are' : 'is'} done.</p> : null}
+          {isLocked ? <p style={styles.neededForNote}>Waiting on {blockedBy.join(', ')}. It can't be ticked until {blockedBy.length > 1 ? 'they are' : 'that is'} done, and it is never counted as late while it waits.</p> : null}
+          {holdingUp.length ? <p style={{ ...styles.neededForNote, color: 'var(--danger)' }}>Holding up {holdingUp.map((d) => d.title).join(', ')}.</p> : null}
+          {atRisk && !item.done ? <p style={{ ...styles.neededForNote, color: 'var(--warn)' }}>At risk: this won't fit before opening at the current pace. Push it, or talk about the opening date.</p> : null}
           {neededFor.length > 0 ? <p style={styles.neededForNote}>Needed for {neededFor.join(', ')}</p> : null}
           {item.done && item.doneBy ? <p style={styles.neededForNote}>Signed off by {item.doneBy}</p> : null}
           {editingDateItemId === item.id ? (
@@ -684,7 +716,7 @@ export default function OpeningChecklistScreen() {
             <span style={{ ...styles.rowTitle, ...(item.done ? styles.rowTitleDone : {}), ...(isOpen ? { fontWeight: 700 } : {}) }}>{item.title}</span>
             {isNarrow ? (
               <span style={styles.rowSub}>
-                {[who.uids.length ? shortNames(who.names) : null, fmtDay(item.dateTime)].filter(Boolean).join(' · ')}
+                {[who.uids.length ? shortNames(who.names) : null, isLocked && !item.done ? 'Waiting on ' + blockedBy[0] + (blockedBy.length > 1 ? ' +' + (blockedBy.length - 1) : '') : null, (isLocked && !item.done ? 'then by ' : '') + fmtDay(item.dateTime)].filter(Boolean).join(' · ')}
               </span>
             ) : null}
           </span>
@@ -701,9 +733,9 @@ export default function OpeningChecklistScreen() {
           {pill}
 
           {isNarrow || item.done ? null : canTick ? (
-            <button style={styles.rowDateButton} onClick={openDateEditor}>{fmtDay(item.dateTime)}</button>
+            <button style={{ ...styles.rowDateButton, ...(isLocked ? { color: 'var(--text-tertiary)' } : {}) }} onClick={openDateEditor}>{isLocked ? 'Then by ' : ''}{fmtDay(item.dateTime)}</button>
           ) : (
-            <span style={styles.rowMeta}>{fmtDay(item.dateTime)}</span>
+            <span style={styles.rowMeta}>{isLocked ? 'Then by ' : ''}{fmtDay(item.dateTime)}</span>
           )}
 
           <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
@@ -890,6 +922,7 @@ export default function OpeningChecklistScreen() {
             <div style={styles.heroSub}>
               {info.openingDate ? (daysToOpen >= 0 ? daysToOpen + (daysToOpen === 1 ? ' day' : ' days') + ' to go · ' : 'Opened · ') : ''}
               {allDone} of {openingItems.length} done
+              {currentPhase ? ' · Now in phase ' + currentPhase.n + ' · ' + currentPhase.label : ''}
             </div>
             {isNarrow ? null : heroStats}
           </div>
@@ -907,6 +940,10 @@ export default function OpeningChecklistScreen() {
               <button style={styles.textLink} onClick={() => setDateDraft(new Date(info.openingDate).toISOString().slice(0, 10))}>
                 Change opening date
               </button>
+            ) : null}
+            {/* Sketch 24: the preview first, then apply. */}
+            {canEdit && info.openingDate && !mineOnly ? (
+              <button style={styles.textLink} onClick={() => navigate('/opening-replan?location=' + locationId)}>Re-plan dates</button>
             ) : null}
             {/* On a phone the header has no room for it (18 Oct 2026). */}
             {isAdmin && !mineOnly && isNarrow ? (
@@ -987,7 +1024,7 @@ export default function OpeningChecklistScreen() {
           <div style={styles.navChips}>
             {navGroups.flatMap((g) => g.sections).map((s) => (
               <button key={s.id} style={{ ...styles.navChip, ...(activeSection === s.id ? styles.navChipOn : {}) }} onClick={() => jumpTo(s.id)}>
-                {s.name} <span style={styles.navChipCount}>{s.countOnly ? s.total : s.done + '/' + s.total}</span>
+                {s.num ? s.num + ' ' : ''}{s.name} <span style={styles.navChipCount}>{s.countOnly ? s.total : s.done + '/' + s.total}</span>
               </button>
             ))}
           </div>
@@ -998,8 +1035,9 @@ export default function OpeningChecklistScreen() {
                 <p style={styles.navGroup}>{g.label}</p>
                 {g.sections.map((s) => (
                   <button key={s.id} style={{ ...styles.navItem, ...(activeSection === s.id ? styles.navItemOn : {}) }} onClick={() => jumpTo(s.id)}>
+                    {s.num ? <span style={{ ...styles.phaseNum, ...(activeSection === s.id ? styles.phaseNumOn : {}) }}>{s.num}</span> : null}
                     <span style={styles.navName}>{s.name}</span>
-                    {s.countOnly ? null : <span style={styles.navMini}><span style={{ ...styles.navMiniFill, width: (s.total ? Math.round((s.done / s.total) * 100) : 0) + '%' }} /></span>}
+                    {s.countOnly || s.num ? null : <span style={styles.navMini}><span style={{ ...styles.navMiniFill, width: (s.total ? Math.round((s.done / s.total) * 100) : 0) + '%' }} /></span>}
                     <span style={{ ...styles.navCount, ...(g.tone === 'carried' ? { color: 'var(--warn)' } : {}), ...(activeSection === s.id ? { color: 'var(--neon)' } : {}) }}>{s.countOnly ? s.total : s.done + '/' + s.total}</span>
                   </button>
                 ))}
@@ -1017,10 +1055,13 @@ export default function OpeningChecklistScreen() {
               ['expiring', 'Expires soon', opCounts.expiring],
             ] : [
               ['all', 'All', null],
+              ['week', 'Due this week', counts.week],
+              ['waiting', 'Waiting', counts.waiting],
+              ['risk', 'At risk', counts.atRisk],
               ['overdue', 'Overdue', counts.overdue],
               ['mine', 'Assigned to me', counts.mine],
               ['signature', 'Waiting on a signature', counts.signature],
-            ]).filter(([key]) => !(mineOnly && key === 'mine')).map(([key, label, n]) => (
+            ]).filter(([key, , n]) => !(mineOnly && key === 'mine') && !(['risk', 'overdue', 'signature'].includes(key) && !n && filter !== key)).map(([key, label, n]) => (
               <button key={key} style={{ ...styles.filterChip, ...(filter === key ? styles.filterChipOn : {}) }} onClick={() => setFilter(key)}>
                 {label}{n != null ? <span style={styles.filterCount}>{n}</span> : null}
               </button>
@@ -1045,7 +1086,7 @@ export default function OpeningChecklistScreen() {
                   s.shown.length ? (
                     <div key={s.id} id={s.id} style={{ ...styles.sectionBlock, ...(g.tone === 'carried' ? styles.carriedBlock : {}) }}>
                       <div style={styles.sectionHead}>
-                        <span style={styles.sectionName}>{s.name}</span>
+                        <span style={styles.sectionName}>{s.num ? 'Phase ' + s.num + ' · ' : ''}{s.name}</span>
                         <span style={styles.sectionCount}>{s.countOnly ? s.total + (s.total === 1 ? ' item' : ' items') : s.done + ' of ' + s.total}</span>
                         {s.countOnly ? null : (
                           <div style={styles.sectionBarTrack}>
@@ -1053,6 +1094,7 @@ export default function OpeningChecklistScreen() {
                           </div>
                         )}
                       </div>
+                      {s.blurb ? <p style={styles.phaseBlurb}>{s.blurb}</p> : null}
                       {s.shown.map((item) => (s.record ? renderRecord(item) : renderItem(item)))}
                     </div>
                   ) : null
@@ -1288,6 +1330,11 @@ export default function OpeningChecklistScreen() {
 const styles = {
   // ---- Summary card, section list, filters (17 Oct 2026) ----
   summaryCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 16, overflow: 'hidden' },
+  // Phases (19 Oct 2026).
+  phaseNum: { width: 20, height: 20, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  phaseNumOn: { background: 'var(--neon)', color: 'var(--neon-text)' },
+  phaseBlurb: { margin: 0, padding: '8px 14px 4px', fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 },
+  holdingPill: { fontSize: 10.5, fontWeight: 700, color: 'var(--danger)', whiteSpace: 'nowrap' },
   // Operating Checklist (18 Oct 2026).
   markOpenButton: { display: 'inline-flex', alignItems: 'center', height: 40, padding: '0 14px', borderRadius: 8, background: 'rgba(95,163,119,0.1)', border: '1px solid rgba(95,163,119,0.5)', color: 'var(--success)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
   markOpenLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '4px 0 6px' },

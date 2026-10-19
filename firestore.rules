@@ -572,7 +572,9 @@ service cloud.firestore {
         // login on an item assigned to them (16 Oct 2026, Ben).
         (canTickChecklists() || (isLive() && assignedHere(resource.data))) &&
         resource.data.get('openingItem', false) == true &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document', 'documents', 'signature']) &&
+        // attentionFlag .. dateSetByHand (19 Oct 2026): the daily roll-forward
+        // and a date moved by hand, now that waiting is not the same as late.
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneBy', 'doneAt', 'signOffHistory', 'openingFields', 'dateTime', 'document', 'documents', 'signature', 'attentionFlag', 'lateSince', 'slidWhileWaiting', 'dateSetByHand']) &&
         signatureAskOk()
       ) || (
         // Renewing a permit ticks off its first-time calendar task (14 Oct

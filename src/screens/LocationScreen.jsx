@@ -184,8 +184,9 @@ export default function LocationScreen() {
         ) : null}
       </div>
       {/* Folders two across on a phone (15 Oct 2026) - eleven full-width
-          tiles were most of the page. */}
-      <div style={isNarrow ? styles.gridTwo : styles.grid}>
+          tiles were most of the page - and on a computer too (19 Oct 2026,
+          sketch 25). The Operations tiles above stay one per row. */}
+      <div style={isNarrow ? styles.gridTwo : styles.gridTwoWide}>
         {categories.map((cat) => {
           const allowed = hasCategoryAccess(user, cat.id);
           const pending = user ? hasPendingRequest(user.email, 'category', cat.id) : false;
@@ -228,6 +229,7 @@ const styles = {
   sectionHeader: { margin: '32px 0 12px' },
   grid: { display: 'flex', flexDirection: 'column', gap: 10 },
   gridTwo: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
+  gridTwoWide: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 },
   cardSmall: { gap: 10, padding: '12px 12px', minHeight: 60, alignItems: 'center' },
   iconSmall: { width: 32, height: 32, borderRadius: 16, background: 'rgba(34,211,238,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   card: {

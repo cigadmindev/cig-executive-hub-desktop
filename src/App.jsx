@@ -64,6 +64,7 @@ import HRScreen from './screens/HRScreen';
 import PreOpeningDocsScreen from './screens/PreOpeningDocsScreen';
 import OffboardingScreen from './screens/OffboardingScreen';
 import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
+import OpeningReplanScreen from './screens/OpeningReplanScreen';
 import OperationalPOCScreen from './screens/OperationalPOCScreen';
 import IntegrationsScreen from './screens/IntegrationsScreen';
 import ExecutiveNotesScreen from './screens/ExecutiveNotesScreen';
@@ -120,6 +121,7 @@ function Gate() {
         {/* Emails sent before 8 October link here. */}
         <Route path="/admin/pending-requests" element={<Navigate to="/access-requests" replace />} />
         <Route path="/admin/email-preview" element={<EmailPreviewScreen />} />
+        <Route path="/opening-replan" element={<RequireFeature feature="openingChecklist"><OpeningReplanScreen /></RequireFeature>} />
         <Route path="/brand/:brandId/location/:locationId/opening-checklist" element={<RequireBrand><RequireFeature feature="openingChecklist"><OpeningChecklistScreen /></RequireFeature></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId/operational-poc" element={<RequireBrand><RequireFeature feature="operationalPoc"><OperationalPOCScreen /></RequireFeature></RequireBrand>} />
         <Route path="/brand/:brandId/location/:locationId/integrations" element={<RequireBrand><RequireFeature feature="integrations"><IntegrationsScreen /></RequireFeature></RequireBrand>} />
