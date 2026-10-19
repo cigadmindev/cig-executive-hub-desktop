@@ -511,8 +511,16 @@ DAILY_CHECKLISTS.push({
 export const CHEF_JOBS = ['Executive Chef', 'Sous Chef'];
 
 // The lists one location runs, in its order.
+// Temperature-log items a location doesn't have (19 Oct 2026): Ridgeland has
+// no expo cooler and doesn't keep roasted potatoes on the line.
+export const TEMP_LOG_NOT_AT = {
+  'taste-ridgeland': ['Expo Cooler', 'Roasted Potatoes'],
+};
 export const listsFor = (locationId) =>
-  (LISTS_AT[locationId] ?? []).map((id) => DAILY_CHECKLISTS.find((l) => l.id === id)).filter(Boolean);
+  (LISTS_AT[locationId] ?? []).map((id) => DAILY_CHECKLISTS.find((l) => l.id === id)).filter(Boolean)
+    .map((l) => (l.kind === 'log' && TEMP_LOG_NOT_AT[locationId]
+      ? { ...l, items: l.items.filter((i) => !TEMP_LOG_NOT_AT[locationId].includes(i)) }
+      : l));
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export const dayName = (d) => DAY_NAMES[d];

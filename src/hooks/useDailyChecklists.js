@@ -103,6 +103,19 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
           managers: onDuty ? [user.name] : [],
           status: 'open', createdAt: Date.now(),
         });
+      } else if (snap.data().status === 'open' && list.kind === 'log' && (snap.data().items ?? []).some((i) => !list.items.includes(i))) {
+        // A log started before an item was taken off for this location
+        // (19 Oct 2026): drop those rows and move the filled-in boxes with
+        // their items, so it can still be signed off.
+        const old = snap.data().items ?? [];
+        const keep = old.map((name, i) => [name, i]).filter(([name]) => list.items.includes(name));
+        const cells = {};
+        Object.entries(snap.data().cells ?? {}).forEach(([k, v]) => {
+          const [r, c] = k.split('_').map(Number);
+          const n = keep.findIndex(([, i]) => i === r);
+          if (n >= 0) cells[n + '_' + c] = v;
+        });
+        tx.update(ref, { items: keep.map(([name]) => name), cells });
       } else if (snap.data().status === 'open' && onDuty && !(snap.data().managers ?? []).includes(user.name)) {
         tx.update(ref, { managers: arrayUnion(user.name) });
       }
