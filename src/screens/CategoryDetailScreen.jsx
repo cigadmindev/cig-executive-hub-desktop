@@ -9,6 +9,7 @@ import { useViewTracking } from '../context/ViewTrackingContext';
 import { useCategoryDriveLinks } from '../context/CategoryDriveLinksContext';
 import { useDialog } from '../hooks/useDialog';
 import PostCard from '../components/PostCard';
+import EmployeeFilesPanel from '../components/EmployeeFilesPanel';
 import { nike } from '../theme/nike';
 import PageHeader from '../components/PageHeader';
 import { plainError } from '../lib/errors';
@@ -153,6 +154,9 @@ export default function CategoryDetailScreen() {
           );
         })}
       </div>
+
+      {/* Archive a leaver's folder once their offboarding docs are marked (22 Oct 2026). */}
+      {categoryId === 'staffing' ? <EmployeeFilesPanel locationId={locationId} locationName={location.name} notify={notify} /> : null}
 
       {posts.length > 0 ? (
         <div style={styles.postsSection}>
