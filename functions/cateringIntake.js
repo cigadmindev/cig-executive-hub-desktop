@@ -178,14 +178,17 @@ exports.pullCateringEnquiries = onSchedule(
       // Only Catering & Events claim them (10 Oct 2026) - so only they are
       // asked to; the GM hears once it is confirmed, from the calendar.
       let team = e.locationId ? await R.cateringClaimers(users, e.locationId) : [];
-      const placed = e.locationId && team.length > 0;
-      // No location, or nobody at that location to tell: admins, rather than
-      // everyone or no one.
+      // No location (23 Oct 2026, Brenner): every Catering & Events manager
+      // is asked, so whichever of them takes it claims it and picks where.
+      const unplacedClaimers = e.locationId ? [] : R.allCateringClaimers(users);
+      if (!e.locationId) team = unplacedClaimers;
+      const placed = team.length > 0;
+      // Nobody to tell: admins, rather than no one.
       if (!placed) team = R.admins(users);
       await notifyPeople(
         team,
         !e.locationId
-          ? 'Catering enquiry needs a location'
+          ? (placed ? 'New enquiry with no location · claim it' : 'Catering enquiry needs a location')
           : placed
             ? 'New ' + (isPrivateEvent ? 'private event' : 'catering') + ' enquiry · ' + e.locationName
             : 'New enquiry at ' + e.locationName + ' - no Catering & Events manager there',
@@ -198,8 +201,10 @@ exports.pullCateringEnquiries = onSchedule(
           ...(placed ? { ref: 'catering/' + docRef.id } : {}),
           path: '/catering',
           details: [['Name', who], ['When', e.preferredDateText ?? ''], ['Guests', e.guests ?? ''], ['Occasion', e.occasion ?? '']].filter(([, v]) => v),
-          button: !e.locationId ? 'Choose its location' : placed ? 'Claim it' : 'Open Catering',
-          why: placed
+          button: placed ? 'Claim it' : !e.locationId ? 'Choose its location' : 'Open Catering',
+          why: placed && !e.locationId
+            ? 'You got this because you handle catering and this one came in without a location. Whoever claims it picks where it goes.'
+            : placed
             ? 'You got this because you look after catering at ' + e.locationName + '.'
             : e.locationId
               ? 'You got this because you are an admin and ' + e.locationName + ' has no Catering & Events manager in the Hub. Add one in Manage Logins, or change its status from the ADMIN section.'

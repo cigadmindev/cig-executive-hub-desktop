@@ -46,7 +46,11 @@ export function CateringProvider({ children }) {
           return Array.isArray(only) && only.length
             ? only.map((l) => query(col, where('brandId', '==', b), where('locationId', '==', l)))
             : [query(col, where('brandId', '==', b))];
-        });
+        })
+        // No location yet (23 Oct 2026, Brenner): every Catering & Events
+        // manager sees it, so whichever of Sarah or Ann Marie takes it can
+        // claim it and say where it belongs.
+        .concat(accessLevel(user, 'catering') === 'claim' ? [query(col, where('brandId', '==', null))] : []);
     const parts = sources.map(() => null);
     const publish = () => {
       if (parts.some((x) => x === null)) return;
@@ -196,8 +200,12 @@ export function CateringProvider({ children }) {
     await updateDoc(doc(db, COLLECTION, id), fields);
   };
 
-  const claim = async (id) =>
-    update(id, { ownerUid: auth.currentUser?.uid ?? null, ownerName: user?.name ?? '', status: 'talking', claimedAt: Date.now() });
+  // place: where an enquiry with no location goes, picked when claiming it.
+  const claim = async (id, place) =>
+    update(id, {
+      ownerUid: auth.currentUser?.uid ?? null, ownerName: user?.name ?? '', status: 'talking', claimedAt: Date.now(),
+      ...(place ? { locationId: place.id, locationName: place.name, brandId: place.brandId, brandName: place.brandName } : {}),
+    });
 
   // Moves it to a step, and writes down when and by whom. Confirmed puts it
   // on the calendar, which tells the location's GM, AGMs and chefs; leaving
@@ -292,6 +300,7 @@ export function CateringProvider({ children }) {
     if (!user) return false;
     if (user.role === 'admin') return true;
     if (accessLevel(user, 'catering') === 'none') return false;
+    if (!e.brandId && accessLevel(user, 'catering') === 'claim') return true;
     if (seesEveryRestaurant(user)) return true;
     if (!e.brandId || !(user.permissions?.brandIds ?? []).includes(e.brandId)) return false;
     const only = user.permissions?.locationsByBrand?.[e.brandId];

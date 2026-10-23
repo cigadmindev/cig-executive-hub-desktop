@@ -18,6 +18,10 @@ import PageHeader from '../components/PageHeader';
 import { fmtDay, fmtTime } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
 
+// Shorter restaurant names where space is tight.
+const SHORT_BRAND = { 'Taste Italian Kitchen': 'Taste', 'Blutos Greek Tavern': 'Blutos', 'Heritage Chophouse': 'Heritage', 'Sunnyside Social': 'Sunnyside' };
+const shortBrand = (name) => SHORT_BRAND[name] ?? name;
+
 function dayKey(d) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
@@ -40,6 +44,7 @@ export default function CalendarScreen() {
 
   const visibleBrands = brands.filter((b) => hasBrandAccess(user, b.id));
   const [filterBrandId, setFilterBrandId] = useState('all');
+  const [menuOpen, setMenuOpen] = useState(false);
   // An email about an event links to its own day - /calendar?date=2026-10-14 -
   // so clicking through lands where the event is rather than on today.
   const [searchParams] = useSearchParams();
@@ -67,7 +72,8 @@ export default function CalendarScreen() {
   }, [linkKey]);
   // One location's overdue list open at a time - opening every group at once
   // puts back the wall of red this folds away.
-  const [expandedOverdueLocation, setExpandedOverdueLocation] = useState(null);
+  // Open on a computer; folded on a phone so the day's own items come first.
+  const [overdueOpen, setOverdueOpen] = useState(() => !(typeof window !== 'undefined' && window.innerWidth < 760));
   const [openingDateDraft, setOpeningDateDraft] = useState('');
   const [confirmingOpeningDate, setConfirmingOpeningDate] = useState(null); // { entry, newDate }
   const [formOpen, setFormOpen] = useState(false);
@@ -126,14 +132,13 @@ export default function CalendarScreen() {
       })),
   ];
 
-  const filteredEntries = [...entries, ...virtualEntries].filter((e) => {
+  const reachableEntries = [...entries, ...virtualEntries].filter((e) => {
     // Entries tied to a location someone does not have stay off their
     // calendar. Company-wide entries carry no location and pass through.
     const locInfo = e.locationId ? locationInfo[e.locationId] : null;
     if (locInfo && !hasLocationAccess(user, locInfo.brandId, e.locationId)) return false;
     const info = locationInfo[e.locationId];
     if (!info) return false;
-    if (filterBrandId !== 'all' && info.brandId !== filterBrandId) return false;
 
     // The calendar shows what you can reach. Someone without the opening
     // checklist keeps the calendar - it simply holds fewer things, rather
@@ -148,6 +153,10 @@ export default function CalendarScreen() {
 
     return true;
   });
+  // The restaurant picked in the menu (23 Oct 2026, sketch 29 A).
+  const filteredEntries = filterBrandId === 'all'
+    ? reachableEntries
+    : reachableEntries.filter((e) => locationInfo[e.locationId].brandId === filterBrandId);
 
   const markersByDay = {};
   filteredEntries.forEach((e) => {
@@ -165,8 +174,55 @@ export default function CalendarScreen() {
       .slice(0, 12);
   })();
 
+  // One button instead of two rows of restaurant chips (23 Oct 2026, sketch
+  // 29 A). The list is also the colour key; the red dot for something new
+  // sits on the button and on the restaurant inside.
+  const unseenFor = (b) => hasUnseenCalendar(b.id, [...b.locations.map((l) => l.id), ...getByBrand(b.id).map((l) => l.id)]);
+  const anyUnseen = visibleBrands.some(unseenFor);
+  const soonByBrand = {};
+  {
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = start.getTime() + 14 * 24 * 60 * 60 * 1000;
+    reachableEntries.forEach((e) => {
+      if (e.done || e.dateTime < start.getTime() || e.dateTime >= end) return;
+      const b = locationInfo[e.locationId].brandId;
+      soonByBrand[b] = (soonByBrand[b] ?? 0) + 1;
+    });
+  }
+  const pickedBrand = visibleBrands.find((b) => b.id === filterBrandId);
+  const restaurantMenu = visibleBrands.length > 1 ? (
+    <div style={{ position: 'relative', ...(isNarrow ? { width: '100%' } : {}) }}>
+      <button style={{ ...styles.menuButton, ...(isNarrow ? { width: '100%' } : {}) }} onClick={() => setMenuOpen((o) => !o)} aria-expanded={menuOpen}>
+        <span style={{ ...styles.filterDot, background: pickedBrand ? brandColors[pickedBrand.name] ?? '#8A8A8A' : 'var(--neon)' }} />
+        <span style={{ flex: 1, textAlign: 'left' }}>{pickedBrand ? pickedBrand.name : 'All restaurants'}</span>
+        {anyUnseen ? <span style={styles.chipUnseenDot} /> : null}
+        <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>▾</span>
+      </button>
+      {menuOpen ? (
+        <>
+          <div style={styles.menuCatch} onClick={() => setMenuOpen(false)} />
+          <div style={{ ...styles.menu, ...(isNarrow ? { left: 0, right: 0, width: 'auto' } : {}) }}>
+            {[{ id: 'all', name: 'All restaurants' }, ...visibleBrands].map((b) => (
+              <button
+                key={b.id}
+                style={{ ...styles.menuItem, ...(filterBrandId === b.id ? styles.menuItemOn : {}) }}
+                onClick={() => { setFilterBrandId(b.id); setMenuOpen(false); }}
+              >
+                {b.id === 'all' ? null : <span style={{ ...styles.filterDot, background: brandColors[b.name] ?? '#8A8A8A' }} />}
+                <span style={{ flex: 1 }}>{b.name}</span>
+                {b.id !== 'all' && unseenFor(b) ? <span style={styles.chipUnseenDot} /> : null}
+                {b.id !== 'all' && soonByBrand[b.id] ? <span style={styles.menuCount}>{soonByBrand[b.id]}</span> : null}
+              </button>
+            ))}
+            <p style={styles.menuFoot}>Numbers: what's coming up in the next two weeks.</p>
+          </div>
+        </>
+      ) : null}
+    </div>
+  ) : null;
+
   const selectedEntries = selectedDate
-    ? filteredEntries.filter((e) => dayKey(new Date(e.dateTime)) === dayKey(selectedDate)).sort((a, b) => a.dateTime - b.dateTime)
+    ? filteredEntries.filter((e) => dayKey(new Date(e.dateTime)) === dayKey(selectedDate)).sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0) || a.dateTime - b.dateTime)
     : [];
 
   // What is actually due on the selected day, and what is overdue from
@@ -191,6 +247,9 @@ export default function CalendarScreen() {
       dueToday.push(e);
     }
   }
+
+  const overdueGroups = Object.entries(overdueByLocation).sort((a, b) => b[1].length - a[1].length);
+  const overdueTotal = overdueGroups.reduce((n, [, items]) => n + items.length, 0);
 
   // Only locations they can actually open. locationInfo covers every location
   // in their restaurants because it labels entries too, which is wider than
@@ -280,35 +339,13 @@ export default function CalendarScreen() {
         <PageHeader
           title="Calendar"
           subtitle="What's scheduled across your restaurants: events, permits, checklists and time off."
+          extras={restaurantMenu}
           actionLabel="+ Add event"
           onAction={() => {
             if (!selectedDate) setSelectedDate(new Date());
             openNewForm();
           }}
         />
-        {/* One row that slides sideways on a phone (15 Oct 2026), instead of
-            four rows of restaurants pushing the calendar down. */}
-        <div style={isNarrow ? { ...styles.filterRow, ...styles.filterRowNarrow } : styles.filterRow}>
-          <button
-            style={{ ...styles.filterChip, ...(filterBrandId === 'all' ? styles.filterChipActive : {}), flexShrink: 0 }}
-            onClick={() => setFilterBrandId('all')}
-          >
-            All
-          </button>
-          {visibleBrands.map((b) => (
-            <button
-              key={b.id}
-              style={{ ...styles.filterChip, ...(filterBrandId === b.id ? styles.filterChipActive : {}), position: 'relative', flexShrink: 0, whiteSpace: 'nowrap' }}
-              onClick={() => setFilterBrandId(b.id)}
-            >
-              <span style={{ ...styles.filterDot, background: brandColors[b.name] ?? '#8A8A8A' }} />
-              {b.name}
-              {hasUnseenCalendar(b.id, [...b.locations.map((l) => l.id), ...getByBrand(b.id).map((l) => l.id)]) ? (
-                <span style={styles.chipUnseenDot} />
-              ) : null}
-            </button>
-          ))}
-        </div>
       </header>
 
       {/* Side by side on desktop; stacked on a phone. Both panes stay
@@ -356,16 +393,22 @@ export default function CalendarScreen() {
             </div>
           ) : (
             <>
-              <div style={styles.detailHeaderRow}>
-                <div>
-                  <p style={styles.detailEyebrow}>{selectedDate.toLocaleDateString([], { weekday: 'long' })}</p>
-                  <h2 style={styles.detailTitle}>{selectedDate.toLocaleDateString([], { month: 'long', day: 'numeric' })}</h2>
-                </div>
+            {/* The day panel, tidied (23 Oct 2026, sketch 29): a small date
+                header with arrows to step a day, the time on the left and a
+                colour bar per restaurant, done items last, and overdue work
+                as one card instead of a box per opening. */}
+            <div style={styles.dayCard}>
+              <div style={styles.dayHead}>
+                <h2 style={styles.dayTitle}>{selectedDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</h2>
+                <span style={{ flex: 1 }} />
+                <button style={styles.dayArrow} aria-label="Previous day" onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() - 1))}>‹</button>
+                <button style={styles.dayArrow} aria-label="Next day" onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + 1))}>›</button>
                 <button style={styles.backToUpcoming} onClick={() => setSelectedDate(null)}>Coming up</button>
               </div>
 
-              {selectedEntries.length === 0 ? (
-                <p style={styles.hint}>Nothing scheduled this day.</p>
+              <p style={styles.secLabel}><span>On this day</span><span>{dueToday.length || ''}</span></p>
+              {dueToday.length === 0 ? (
+                <p style={{ ...styles.hint, padding: '4px 18px 14px', margin: 0 }}>{selectedEntries.length === 0 ? 'Nothing scheduled this day.' : 'Nothing else is due this day.'}</p>
               ) : (
                 dueToday.map((e) => {
                   const info = locationInfo[e.locationId];
@@ -401,26 +444,23 @@ export default function CalendarScreen() {
                         }}
                         onClick={() => setExpandedEntryId(isOpen ? null : e.id)}
                       >
-                        {/* Read-only here. Signing off from a calendar row means
-                            doing it without seeing what the task depends on or
-                            attaching the permit it produced — the checklist is
-                            where that context lives, so this points there. */}
-                        {isChecklist ? (
-                          <span style={{ ...styles.check, ...(real.done ? styles.checkDone : {}) }}>
-                            {real.done ? '✓' : ''}
-                          </span>
+                        {/* Read-only here: signing off happens on the
+                            checklist, where what it depends on is visible. */}
+                        {real && real.done ? (
+                          <span style={{ ...styles.rowTime, color: 'var(--success)' }}>✓ Done</span>
+                        ) : overdue ? (
+                          <span style={{ ...styles.rowTime, color: 'var(--danger)' }}>{e.source === 'renewal' ? 'Expired' : 'Overdue'}</span>
                         ) : (
-                          <span style={{ ...styles.dot, background: info.color }} />
+                          <span style={styles.rowTime}>{e.source === 'renewal' ? 'All day' : fmtTime(e.dateTime)}</span>
                         )}
+                        <span style={{ ...styles.rowBar, background: info.color }} />
 
                         <div style={styles.rowText}>
                           <div style={{ ...styles.rowTitle, ...(isChecklist && real.done ? styles.rowTitleDone : {}) }}>
                             {e.title}
                           </div>
-                          {/* Location on its own line — as a suffix it crowded
-                              the title and every row read the same width. */}
                           <div style={styles.rowWhere}>
-                            {info.brandName} · {info.locationName}
+                            {shortBrand(info.brandName)} · {info.locationName}
                             {e.source === 'renewal'
                               ? ' · Expires'
                               : e.source === 'event'
@@ -429,26 +469,18 @@ export default function CalendarScreen() {
                                   ? ' · Renewal'
                                   : e.openingItemType === 'timeline'
                                     ? ' · Opening timeline'
-                                    : ''}
+                                    : e.openingItem
+                                      ? ' · Opening checklist'
+                                      : ''}
+                            {real && real.done && real.doneBy ? ' · ' + real.doneBy : ''}
                           </div>
                         </div>
 
-                        {real && real.done ? (
-                          <span style={styles.rowMeta}>{real.doneBy || 'Done'}</span>
-                        ) : overdue ? (
-                          <span style={styles.rowOverdueLabel}>Overdue</span>
-                        ) : (
-                          <span style={styles.rowMeta}>
-                            {e.source === 'renewal'
-                              ? (e.dateTime < Date.now() ? 'Expired' : 'All day')
-                              : fmtTime(e.dateTime)}
-                          </span>
-                        )}
                         <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
                       </div>
 
                       {isOpen ? (
-                        <div style={styles.rowBody} data-reveal="">
+                        <div style={isNarrow ? { ...styles.rowBody, paddingLeft: 16 } : styles.rowBody} data-reveal="">
                           {e.note ? <p style={styles.rowNote}>{e.note}</p> : null}
                           <div style={styles.rowActions}>
                             {isChecklist ? (
@@ -517,53 +549,42 @@ export default function CalendarScreen() {
                 })
               )}
 
-              {/* Overdue checklist work, folded by location. Nothing is
-                  hidden - it is all still here, just behind a count so a real
-                  event on this date is not buried under twenty-six red rows. */}
-              {Object.keys(overdueByLocation).length > 0 ? (
+              {/* Overdue work carried forward: one card, a slim line per
+                  location, each opening its checklist on the late items. */}
+              {overdueGroups.length > 0 ? (
                 <>
-                  <p style={styles.overdueGroupLabel}>Overdue, carried forward</p>
-                  {Object.entries(overdueByLocation).map(([locId, items]) => {
-                    const groupInfo = locationInfo[locId];
-                    const groupOpen = expandedOverdueLocation === locId;
-                    return (
-                      <div key={locId} style={styles.overdueGroup}>
-                        <button
-                          style={styles.overdueGroupHead}
-                          onClick={() => setExpandedOverdueLocation(groupOpen ? null : locId)}
-                        >
-                          <span style={styles.overdueChevron}>{groupOpen ? '▾' : '▸'}</span>
-                          <span style={styles.overdueGroupName}>
-                            {groupInfo ? groupInfo.brandName + ' · ' + groupInfo.locationName : 'Unknown location'}
-                          </span>
-                          <span style={styles.overdueGroupCount}>{items.length} overdue</span>
-                        </button>
-                        {groupOpen ? (
-                          <div style={styles.overdueGroupBody}>
-                            {items.map((item) => (
-                              <Link
-                                key={item.id}
-                                data-row=""
-                                style={styles.overdueItem}
-                                to={
-                                  '/brand/' +
-                                  groupInfo.brandId +
-                                  '/location/' +
-                                  locId +
-                                  (item.renewalItem ? '/renewals' : '/opening-checklist')
-                                }
-                              >
-                                <span style={styles.overdueItemTitle}>{item.title}</span>
-                                <span style={styles.overdueItemLabel}>Overdue</span>
-                              </Link>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
+                  <p style={styles.secLabel}><span>Overdue, carried forward</span><span /></p>
+                  <div style={styles.odCard}>
+                    <button style={styles.odHead} onClick={() => setOverdueOpen((o) => !o)} aria-expanded={overdueOpen}>
+                      <span style={{ flex: 1 }}>
+                        {overdueTotal} {overdueTotal === 1 ? 'item' : 'items'} across {overdueGroups.length} {overdueGroups.length === 1 ? 'location' : 'locations'}
+                      </span>
+                      <span style={styles.odCount}>{overdueTotal}</span>
+                      <span style={styles.chevron}>{overdueOpen ? '▾' : '▸'}</span>
+                    </button>
+                    {overdueOpen
+                      ? overdueGroups.map(([locId, items]) => {
+                          const g = locationInfo[locId];
+                          const allRenewals = items.every((i) => i.renewalItem);
+                          return (
+                            <Link
+                              key={locId}
+                              data-row=""
+                              style={styles.odRow}
+                              to={g ? '/brand/' + g.brandId + '/location/' + locId + (allRenewals ? '/renewals' : '/opening-checklist?show=overdue') : '/calendar'}
+                            >
+                              <span style={{ ...styles.filterDot, background: g?.color ?? 'var(--border-strong)' }} />
+                              <span style={{ flex: 1, minWidth: 0 }}>{g ? shortBrand(g.brandName) + ' · ' + g.locationName : 'Unknown location'}</span>
+                              <span style={styles.odCount}>{items.length}</span>
+                              <span style={styles.chevron}>›</span>
+                            </Link>
+                          );
+                        })
+                      : null}
+                  </div>
                 </>
               ) : null}
+            </div>
             </>
           )}
         </div>
@@ -657,8 +678,8 @@ export default function CalendarScreen() {
 const styles = {
   modalDate: { fontSize: 12, color: 'var(--text-tertiary)', margin: '-6px 0 16px' },
   formRow: { display: 'flex', gap: 10, alignItems: 'flex-start' },
-  row: { borderBottom: '1px solid var(--border)' },
-  rowMain: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', cursor: 'pointer' },
+  row: { borderTop: '1px solid var(--border)' },
+  rowMain: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px 10px 10px', cursor: 'pointer' },
   rowOverdue: { background: 'rgba(232,82,75,0.07)' },
   rowDone: { opacity: 0.55 },
   check: {
@@ -683,7 +704,7 @@ const styles = {
   rowMeta: { fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0 },
   rowOverdueLabel: { fontSize: 12, fontWeight: 600, color: 'var(--danger)', flexShrink: 0 },
   chevron: { fontSize: 10, color: 'var(--text-tertiary)', flexShrink: 0 },
-  rowBody: { padding: '2px 14px 14px 44px' },
+  rowBody: { padding: '2px 16px 14px 99px' },
   rowNote: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px' },
   rowActions: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
 
@@ -733,6 +754,24 @@ const styles = {
   overdueItemTitle: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
   overdueItemLabel: { fontSize: 11, color: 'var(--danger)' },
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
+  menuButton: { display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
+  menuCatch: { position: 'fixed', inset: 0, zIndex: 40 },
+  menu: { position: 'absolute', top: 46, right: 0, width: 270, zIndex: 41, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', boxShadow: '0 12px 32px rgba(0,0,0,0.45)' },
+  menuItem: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 40, padding: '0 10px', borderRadius: 8, border: 'none', background: 'none', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left', textTransform: 'none', fontFamily: 'inherit' },
+  menuItemOn: { background: 'rgba(34,211,238,0.1)', color: 'var(--neon)' },
+  menuCount: { fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 },
+  menuFoot: { margin: '4px 10px 6px', fontSize: 11, color: 'var(--text-tertiary)' },
+  dayCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' },
+  dayHead: { display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', borderBottom: '1px solid var(--border)' },
+  dayTitle: { margin: 0, fontSize: 18, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF' },
+  dayArrow: { width: 34, height: 34, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', fontSize: 16, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
+  secLabel: { display: 'flex', justifyContent: 'space-between', margin: 0, padding: '14px 18px 6px', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.9, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  rowTime: { width: 62, flexShrink: 0, textAlign: 'right', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' },
+  rowBar: { width: 3, alignSelf: 'stretch', minHeight: 32, borderRadius: 2, flexShrink: 0 },
+  odCard: { margin: '4px 16px 16px', border: '1px solid rgba(242,146,141,0.25)', background: 'rgba(242,146,141,0.05)', borderRadius: 10, overflow: 'hidden' },
+  odHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 44, padding: '0 14px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left', textTransform: 'none', fontFamily: 'inherit' },
+  odRow: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 40, padding: '0 14px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' },
+  odCount: { fontSize: 11, fontWeight: 800, color: '#F2928D', background: 'rgba(232,82,75,0.18)', borderRadius: 5, padding: '2px 7px' },
   detailHeaderRow: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18 },
   detailEyebrow: { fontSize: 11, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 2px' },
   detailTitle: { fontSize: 24, fontWeight: 900, letterSpacing: -0.5, margin: 0, textTransform: 'uppercase', color: '#FFFFFF' },

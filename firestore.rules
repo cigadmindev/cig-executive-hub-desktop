@@ -271,8 +271,11 @@ service cloud.firestore {
     }
 
     match /cateringEnquiries/{id} {
-      allow read: if handlesEventsFor(resource.data.brandId)
-        && eventsAtLocation(resource.data.brandId, resource.data.locationId);
+      allow read: if (handlesEventsFor(resource.data.brandId)
+        && eventsAtLocation(resource.data.brandId, resource.data.locationId))
+        // No location yet (23 Oct 2026): every Catering & Events manager
+        // sees it, so one of them can claim it and say where it goes.
+        || (resource.data.brandId == null && isLive() && cateringLevel() == 'claim');
       // Written by the function that reads the mailbox, and by anyone adding
       // one that came in by phone.
       allow create: if handlesEventsFor(request.resource.data.brandId)
@@ -286,7 +289,11 @@ service cloud.firestore {
         && resource.data.brandId in eventsProfile().get('permissions', {}).get('brandIds', [])
         && eventsAtLocation(resource.data.brandId, resource.data.locationId)
         && request.resource.data.brandId in eventsProfile().get('permissions', {}).get('brandIds', [])
-        && eventsAtLocation(request.resource.data.brandId, request.resource.data.locationId));
+        && eventsAtLocation(request.resource.data.brandId, request.resource.data.locationId))
+        // Claiming one with no location puts it at one of their own.
+        || (isLive() && cateringLevel() == 'claim' && resource.data.brandId == null
+          && request.resource.data.brandId in eventsProfile().get('permissions', {}).get('brandIds', [])
+          && eventsAtLocation(request.resource.data.brandId, request.resource.data.locationId));
       allow delete: if isAdmin();
 
       // What an event cost (10 Oct 2026): receipts added on the event, filed

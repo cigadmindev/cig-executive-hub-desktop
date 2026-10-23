@@ -4,7 +4,7 @@ import Icon from '../components/Icon';
 import { printOpeningSheet } from '../lib/printSheet';
 import { assigneesOf, assigneeFields, shortNames, isAssignedTo } from '../data/assignees';
 import { assignedWorkOnly } from '../data/accessMatrix';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { brands, canEditChecklists } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useSchedule } from '../context/ScheduleContext';
@@ -180,7 +180,12 @@ export default function OpeningChecklistScreen() {
   const [confirmingRegenerate, setConfirmingRegenerate] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   // Filter chips and the section list (17 Oct 2026, sketch 19).
-  const [filter, setFilter] = useState('all');
+  // The calendar's overdue lines link here as ?show=overdue (23 Oct 2026).
+  const [showParams] = useSearchParams();
+  const [filter, setFilter] = useState(() => {
+    const s = showParams.get('show');
+    return ['week', 'waiting', 'risk', 'overdue', 'mine', 'signature'].includes(s) ? s : 'all';
+  });
   const [hideDone, setHideDone] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
   // Operating Checklist (18 Oct 2026): marking open, and the finished timeline.

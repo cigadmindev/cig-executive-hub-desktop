@@ -72,6 +72,8 @@ export default function CateringScreen() {
   };
   const openEdit = (e) => setEditing({ ...e, dateInput: toDateInput(e.preferredDate) });
   const [adding, setAdding] = useState(null);
+  // Claiming one with no location: which of their locations it is for.
+  const [claiming, setClaiming] = useState(null); // { id, name, placeId }
   const [busy, setBusy] = useState(false);
 
   // Every location this person can reach - where a phoned-in enquiry can go.
@@ -137,7 +139,7 @@ export default function CateringScreen() {
         <div style={d.row}><span style={d.k}>{isCatering ? 'Catering' : 'Event'}</span><span style={d.v}>{isCatering ? [e.fulfilment || 'Not said', e.address].filter(Boolean).join(' to ') : e.occasion || 'Private event'}</span></div>
         <div style={d.row}><span style={d.k}>When</span><span style={d.v}>{longDate(e.preferredDate, e.preferredDateText)}{e.preferredTime ? ' · ' + e.preferredTime : ''}</span></div>
         <div style={d.row}><span style={d.k}>Guests</span><span style={d.v}>{e.guests || 'Not given'}</span></div>
-        <div style={d.row}><span style={d.k}>Where</span><span style={d.v}>{e.locationName ? (e.brandName ? e.brandName + ' · ' : '') + e.locationName : 'No location'}</span></div>
+        <div style={d.row}><span style={d.k}>Where</span><span style={d.v}>{e.locationName ? (e.brandName ? e.brandName + ' · ' : '') + e.locationName : <>No location yet{canAct && !e.ownerUid ? ' - claim it to choose one' : ''}</>}</span></div>
         <div style={d.row}>
           <span style={d.k}>Contact</span>
           <span style={d.v}>
@@ -163,7 +165,19 @@ export default function CateringScreen() {
               </div>
             ) : (
               <div style={d.actions}>
-                {!e.ownerUid && ['new', 'talking'].includes(e.status) ? <button style={d.primary} disabled={busy} onClick={() => run(() => claim(e.id), () => { setSelectedId(e.id); setFilter('talking'); })}>Claim</button> : null}
+                {!e.ownerUid && ['new', 'talking'].includes(e.status) ? (
+                  <button
+                    style={d.primary}
+                    disabled={busy}
+                    onClick={() =>
+                      !e.locationId
+                        ? setClaiming({ id: e.id, name: e.name || 'this', placeId: locationOptions.length === 1 ? locationOptions[0].id : '' })
+                        : run(() => claim(e.id), () => { setSelectedId(e.id); setFilter('talking'); })
+                    }
+                  >
+                    Claim
+                  </button>
+                ) : null}
                 {e.status === 'new' && e.ownerUid ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'talking'), () => { setSelectedId(e.id); setFilter('talking'); })}>Talking</button> : null}
                 {['new', 'talking'].includes(e.status) ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'confirmed'), () => { setSelectedId(e.id); setFilter('confirmed'); })}>Confirmed</button> : null}
                 {e.status === 'confirmed' && !e.calendarEntryId ? <button style={d.primary} disabled={busy} onClick={() => run(() => putOnCalendar(e))}>Add to calendar</button> : null}
@@ -214,7 +228,7 @@ export default function CateringScreen() {
           </>
         )}
 
-        {e.status !== 'lost' ? <EventCosts enquiry={e} canAdd={canAdd} notify={notify} /> : null}
+        {e.status !== 'lost' && e.locationId ? <EventCosts enquiry={e} canAdd={canAdd} notify={notify} /> : null}
 
         {isAdmin ? (
           <div style={d.section}>
@@ -282,7 +296,7 @@ export default function CateringScreen() {
         onFilter={(k) => { setFilter(k); setSelectedId(null); reset(); }}
         columns={[
           { key: 'who', label: 'Enquiry', render: (e) => <><strong>{e.name || 'No name'}</strong><div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{e.kind === 'catering' ? 'Catering' + (e.fulfilment ? ' · ' + e.fulfilment.toLowerCase() : '') : e.occasion || 'Private event'}</div></> },
-          ...(manyLocations ? [{ key: 'where', label: 'Location', render: (e) => e.locationName || '—' }] : []),
+          ...(manyLocations ? [{ key: 'where', label: 'Location', render: (e) => e.locationName || <Pill tone="amber">No location</Pill> }] : []),
           { key: 'when', label: 'Date', render: (e) => (e.preferredDate ? dateText(e.preferredDate) : e.preferredDateText || '—') },
           { key: 'guests', label: 'Guests', render: (e) => e.finalGuests || e.guests || '—' },
           { key: 'owner', label: 'Owner', render: (e) => (e.ownerName ? e.ownerName : <span style={{ color: 'var(--text-tertiary)' }}>Unclaimed</span>) },
@@ -299,7 +313,7 @@ export default function CateringScreen() {
               <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>{e.name || 'No name'}</span>
               <span style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
                 {e.preferredDate ? dateText(e.preferredDate) : e.preferredDateText || 'No date'}
-                {manyLocations && e.locationName ? ' · ' + e.locationName : ''}
+                {manyLocations ? ' · ' + (e.locationName || 'No location') : ''}
                 {' · '}{e.ownerName || 'Unclaimed'}
               </span>
             </span>
@@ -366,6 +380,38 @@ export default function CateringScreen() {
             <div style={styles.modalButtons}>
               <button style={d.ghost} onClick={() => setAdding(null)}>Cancel</button>
               <button style={d.primary} disabled={busy} onClick={() => run(saveNew, () => { setAdding(null); setFilter('new'); })}>Add enquiry</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {claiming ? (
+        <div data-modal="" style={styles.backdrop} onClick={() => setClaiming(null)}>
+          <div style={styles.modal} onClick={(ev) => ev.stopPropagation()}>
+            <h2 style={styles.modalTitle}>Claim {claiming.name === 'this' ? 'this enquiry' : claiming.name + "'s enquiry"}</h2>
+            <p style={styles.hint}>It came in without a location. Which restaurant is it for?</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+              {locationOptions.map((l) => (
+                <label key={l.id} style={{ ...styles.place, ...(claiming.placeId === l.id ? styles.placeOn : {}) }}>
+                  <input type="radio" name="claim-place" checked={claiming.placeId === l.id} onChange={() => setClaiming({ ...claiming, placeId: l.id })} />
+                  {l.brandName} · {l.name}
+                </label>
+              ))}
+            </div>
+            <div style={styles.modalButtons}>
+              <button style={d.ghost} onClick={() => setClaiming(null)}>Cancel</button>
+              <button
+                style={d.primary}
+                disabled={busy || !claiming.placeId}
+                onClick={() => {
+                  const c = claiming;
+                  const place = locationOptions.find((l) => l.id === c.placeId);
+                  setClaiming(null);
+                  run(() => claim(c.id, place), () => { setSelectedId(c.id); setFilter('talking'); });
+                }}
+              >
+                Claim
+              </button>
             </div>
           </div>
         </div>
@@ -456,5 +502,7 @@ const styles = {
   fieldLabel: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', margin: '10px 0 4px' },
   modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
   kind: { flex: 1, padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  place: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, padding: '0 12px', border: '1px solid var(--border-strong)', borderRadius: 10, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' },
+  placeOn: { borderColor: 'var(--neon)', background: 'rgba(34,211,238,0.06)' },
   kindOn: { background: 'var(--neon)', color: '#0A0A0B', borderColor: 'var(--neon)' },
 };

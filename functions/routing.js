@@ -155,6 +155,12 @@ async function cateringClaimers(users, locationId) {
 }
 
 
+// Every Catering & Events manager, wherever they are - for an enquiry that
+// came in with no location (23 Oct 2026).
+function allCateringClaimers(users) {
+  return users.filter((u) => notGhost(u) && u.role === 'manager' && (u.job === 'Catering & Events' || u.alsoJob?.job === 'Catering & Events'));
+}
+
 async function renewalTeam(users, locationId) {
   const brandId = await brandForLocation(locationId);
   const gms = atLocation(users, ['General Manager'], brandId, locationId);
@@ -189,6 +195,6 @@ const without = (people, uid) => people.filter((p) => p.uid !== uid);
 module.exports = {
   liveMatrix,
   activeUsers, brandForLocation, brandForTarget, locationName, seesLocation, hearsFolder, atLocation,
-  approvers, admins, cateringClaimers, renewalTeam, postAudience, folderPostAudience,
+  approvers, admins, cateringClaimers, allCateringClaimers, renewalTeam, postAudience, folderPostAudience,
   dedupe, without, isAdmin, isCoo, isFinance, notGhost,
 };

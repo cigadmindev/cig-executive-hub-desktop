@@ -72,7 +72,7 @@ export function useWaitingOnYou() {
     if (accessLevel(user, 'catering') === 'claim') {
       (enquiries ?? [])
         .filter((e) => !e.ownerUid && (e.status ?? 'new') === 'new')
-        .forEach((e) => add('Catering', (e.name ?? 'New enquiry') + (e.guests ? ' · ' + e.guests : ''), 'Claim · ' + (e.locationName ?? ''), '/catering', e.createdAt ?? 0));
+        .forEach((e) => add('Catering', (e.name ?? 'New enquiry') + (e.guests ? ' · ' + e.guests : ''), 'Claim · ' + (e.locationName || 'No location yet'), '/catering', e.createdAt ?? 0));
     }
     // Expenses: the last three days of a period for anyone who submits
     // receipts - a receipt is dated the day it is added, so anything not in
