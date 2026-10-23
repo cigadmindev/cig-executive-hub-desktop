@@ -14,6 +14,7 @@ import { useOpeningOngoingContacts } from '../context/OpeningOngoingContactsCont
 import { useAuth } from '../context/AuthContext';
 import { ALL_CONTACT_SECTIONS } from '../data/openingChecklistData';
 import ConfirmEditField from '../components/ConfirmEditField';
+import { Linkified } from '../lib/links';
 import SearchBar from '../components/SearchBar';
 import { useState } from 'react';
 import PageHeader from '../components/PageHeader';
@@ -204,15 +205,15 @@ export default function OperationalPOCScreen() {
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ ...styles.rowTitle, display: 'block' }}>{c.item}</span>
                         <span style={{ display: 'block', fontSize: 12, marginTop: 2, color: c.vendor || c.contactNameNumber ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}>
-                          {[c.vendor, c.contactNameNumber].filter(Boolean).join(' · ') || 'Not filled in yet'}
+                          {c.vendor || c.contactNameNumber ? <Linkified text={[c.vendor, c.contactNameNumber].filter(Boolean).join(' · ')} /> : 'Not filled in yet'}
                           {assigneesOf(c).uids.length && !isFilled(c) ? <span style={{ color: 'var(--neon)' }}> · {assigneesOf(c).names.join(', ')}</span> : null}
                         </span>
                       </span>
                     ) : (
                       <>
                         <span style={styles.rowTitle}>{c.item}</span>
-                        <span style={styles.rowVendor}>{c.vendor || '—'}</span>
-                        <span style={styles.rowContact}>{c.contactNameNumber || '—'}</span>
+                        <span style={styles.rowVendor}>{c.vendor ? <Linkified text={c.vendor} /> : '—'}</span>
+                        <span style={styles.rowContact}>{c.contactNameNumber ? <Linkified text={c.contactNameNumber} /> : '—'}</span>
                         {/* Who has it, while it is not filled in. */}
                         <span style={styles.rowAssigned}>
                           {assigneesOf(c).uids.length && !isFilled(c) ? <span style={styles.assignedChip} title={assigneesOf(c).names.join(', ')}>{shortNames(assigneesOf(c).names)}</span> : !isFilled(c) && canAssign ? <span style={styles.assignLink}>Assign</span> : null}
@@ -335,8 +336,8 @@ const styles = {
   row: { borderBottom: '1px solid var(--border)' },
   rowMain: { display: 'flex', alignItems: 'center', gap: 14, padding: '10px 14px', cursor: 'pointer' },
   rowTitle: { fontSize: 14, color: 'var(--text-primary)', flex: '0 0 190px' },
-  rowVendor: { fontSize: 13, color: 'var(--text-secondary)', flex: 1, minWidth: 0 },
-  rowContact: { fontSize: 13, color: 'var(--text-secondary)', flex: '0 0 150px' },
+  rowVendor: { fontSize: 13, color: 'var(--text-secondary)', flex: 1, minWidth: 0, overflowWrap: 'anywhere' },
+  rowContact: { fontSize: 13, color: 'var(--text-secondary)', flex: '0 0 150px', minWidth: 0, overflowWrap: 'anywhere' },
   rowAssigned: { flex: '0 0 96px', display: 'flex', justifyContent: 'flex-start' },
   assignedChip: { fontSize: 11, fontWeight: 700, color: 'var(--neon)', background: 'rgba(34,211,238,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 96 },
   assignLink: { fontSize: 12, color: 'var(--accent)' },

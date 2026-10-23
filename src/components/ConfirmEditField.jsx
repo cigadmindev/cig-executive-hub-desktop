@@ -1,3 +1,4 @@
+import { Linkified, shortenUrls, firstUrl } from '../lib/links';
 import React, { useState } from 'react';
 import { modalBackdrop, modalSurface } from '../theme/modal';
 
@@ -92,7 +93,7 @@ export default function ConfirmEditField({ label, value, placeholder, onSave, ty
       <div style={styles.wrap}>
         {label ? <span style={styles.label}>{label}</span> : null}
         <div style={{ ...styles.displayButton, cursor: 'default' }}>
-          <span style={{ color: value ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>{value || '—'}</span>
+          <span style={{ ...styles.valueText, color: value ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>{value ? <Linkified text={value} /> : '—'}</span>
         </div>
       </div>
     );
@@ -102,11 +103,16 @@ export default function ConfirmEditField({ label, value, placeholder, onSave, ty
     <div style={styles.wrap}>
       {label ? <span style={styles.label}>{label}</span> : null}
       <button style={styles.displayButton} onClick={startEdit}>
-        <span style={{ color: value ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
-          {value || placeholder || 'Tap to add'}
+        <span style={{ ...styles.valueText, color: value ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+          {value ? shortenUrls(value) : placeholder || 'Tap to add'}
         </span>
         <span style={styles.editIcon}>✎</span>
       </button>
+      {/* A web address in the value: shown short above, opened from here
+          (a link can't sit inside the edit button). 23 Oct 2026. */}
+      {firstUrl(value) ? (
+        <a href={firstUrl(value).href} target="_blank" rel="noreferrer" style={styles.openLink}>Open {firstUrl(value).label} ↗</a>
+      ) : null}
     </div>
   );
 }
@@ -134,7 +140,10 @@ const styles = {
     background: 'var(--bg-inset)',
     fontSize: 13,
     textAlign: 'left',
+    gap: 8,
   },
+  valueText: { flex: 1, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' },
+  openLink: { display: 'inline-block', marginTop: 5, fontSize: 12, fontWeight: 600, color: 'var(--neon)', textDecoration: 'none' },
   editIcon: { fontSize: 10, color: 'var(--text-tertiary)', opacity: 0.5 },
   editRow: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   input: {
