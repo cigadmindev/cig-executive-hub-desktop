@@ -8,6 +8,10 @@ import { brands } from '../data/mockData';
 import DatePickerField from '../components/DatePickerField';
 import EventCosts from '../components/EventCosts';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
+import OutreachPanel from '../components/OutreachPanel';
+import { useSearchParams } from 'react-router-dom';
+import { doc as fsDoc, updateDoc as fsUpdate } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 import { fmtDay } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
 import { plainError } from '../lib/errors';
@@ -72,6 +76,11 @@ export default function CateringScreen() {
   };
   const openEdit = (e) => setEditing({ ...e, dateInput: toDateInput(e.preferredDate) });
   const [adding, setAdding] = useState(null);
+  // Enquiries | Outreach (26 Oct 2026, sketch 30). The reminder email links
+  // to /catering?tab=outreach.
+  const [params] = useSearchParams();
+  const showsOutreach = isAdmin || user?.role === 'executive' || cateringLevel === 'claim';
+  const [tab, setTab] = useState(params.get('tab') === 'outreach' && showsOutreach ? 'outreach' : 'enquiries');
   // Claiming one with no location: which of their locations it is for.
   const [claiming, setClaiming] = useState(null); // { id, name, placeId }
   const [busy, setBusy] = useState(false);
@@ -273,7 +282,7 @@ export default function CateringScreen() {
     if (!adding.email.trim() && !adding.phone.trim()) throw new Error('Add an email or a phone number, so someone can get back to them.');
     const when = adding.date ? new Date(adding.date + 'T12:00:00').getTime() : null;
     const isCatering = adding.kind === 'catering';
-    await addEnquiry({
+    const id = await addEnquiry({
       kind: adding.kind,
       name: adding.name.trim(), email: adding.email.trim(), phone: adding.phone.trim(),
       organisation: adding.organisation.trim(), occasion: adding.occasion.trim(), guests: adding.guests.trim(),
@@ -281,14 +290,47 @@ export default function CateringScreen() {
       fulfilment: isCatering ? adding.fulfilment : '', address: isCatering ? adding.address.trim() : '',
       space: '', style: '', about: adding.about.trim(),
       locationId: place.id, locationName: place.name, brandId: place.brandId, brandName: place.brandName,
+      ...(adding.outreachPlaceId ? { outreachPlaceId: adding.outreachPlaceId } : {}),
     });
+    // From Outreach: the place is now in talks, and shows Booked once this
+    // enquiry is confirmed (the server does that part).
+    if (adding.outreachPlaceId && id) {
+      try { await fsUpdate(fsDoc(db, 'outreachPlaces', adding.outreachPlaceId), { status: 'talking', enquiryId: id }); } catch { /* the enquiry is what matters */ }
+    }
   };
+
+  const tabBar = showsOutreach ? (
+    <div style={styles.tabs}>
+      {[['enquiries', 'Enquiries'], ['outreach', 'Outreach']].map(([k, l]) => (
+        <button key={k} style={{ ...styles.tab, ...(tab === k ? styles.tabOn : {}) }} onClick={() => setTab(k)}>{l}</button>
+      ))}
+    </div>
+  ) : null;
+
+  if (tab === 'outreach') {
+    return (
+      <div>
+        <OutreachPanel
+          tabs={tabBar}
+          locationOptions={locationOptions}
+          locationName={(id) => { const l = locationOptions.find((x) => x.id === id); return l ? l.brandName.replace(' Italian Kitchen', '').replace(' Greek Tavern', '') + ' · ' + l.name : ''; }}
+          notify={notify}
+          onMakeEnquiry={(p) => {
+            setTab('enquiries');
+            setAdding({ ...BLANK, kind: 'catering', locationId: p.locationId, name: p.contactName || p.name, email: p.email || '', phone: p.phone || '', organisation: p.name, outreachPlaceId: p.id });
+          }}
+        />
+        {dialogNode}
+      </div>
+    );
+  }
 
   return (
     <div>
       <RequestPage
         title="Catering"
         subtitle="Catering orders and private events. Catering & Events claims and handles each one."
+        header={tabBar}
         actionLabel={canAdd ? '+ Add enquiry' : null}
         onAction={() => setAdding({ ...BLANK, locationId: locationOptions.length === 1 ? locationOptions[0].id : '' })}
         filters={FILTERS.map(([k, l]) => ({ key: k, label: l, count: ['done', 'lost'].includes(k) ? null : enquiries.filter((e) => e.status === k).length }))}
@@ -504,5 +546,8 @@ const styles = {
   kind: { flex: 1, padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   place: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, padding: '0 12px', border: '1px solid var(--border-strong)', borderRadius: 10, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' },
   placeOn: { borderColor: 'var(--neon)', background: 'rgba(34,211,238,0.06)' },
+  tabs: { display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', margin: '0 0 14px' },
+  tab: { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '10px 14px', fontSize: 13, fontWeight: 700, color: 'var(--text-tertiary)', cursor: 'pointer', fontFamily: 'inherit', marginBottom: -1 },
+  tabOn: { color: 'var(--neon)', borderBottomColor: 'var(--neon)' },
   kindOn: { background: 'var(--neon)', color: '#0A0A0B', borderColor: 'var(--neon)' },
 };

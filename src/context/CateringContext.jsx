@@ -137,7 +137,7 @@ export function CateringProvider({ children }) {
   // Anyone can add one by hand - a phone call, a walk-in, something that came
   // through a different route.
   const addEnquiry = async (fields) => {
-    await addDoc(collection(db, COLLECTION), {
+    const ref = await addDoc(collection(db, COLLECTION), {
       ...fields,
       status: 'new',
       ownerUid: null,
@@ -151,6 +151,7 @@ export function CateringProvider({ children }) {
       addedByHand: true,
       addedByName: user?.name ?? '',
     });
+    return ref.id;
   };
 
   // The form carries whatever the customer typed - "2040" for twenty to

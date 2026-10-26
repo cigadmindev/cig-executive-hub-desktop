@@ -340,6 +340,15 @@ exports.onCateringEnquiryUpdated = onDocumentUpdated({ document: 'cateringEnquir
   const after = event.data?.after?.data();
   if (!before || !after) return;
   if (!before.ownerUid && after.ownerUid) await resolveRef('catering/' + event.params.id, after.ownerName || null);
+  // Came from Outreach (26 Oct 2026): once confirmed, the place it came from
+  // shows as Booked.
+  if (after.outreachPlaceId && before.status !== 'confirmed' && after.status === 'confirmed') {
+    try {
+      await admin.firestore().collection('outreachPlaces').doc(after.outreachPlaceId).update({ status: 'booked', bookedAt: Date.now() });
+    } catch (err) {
+      console.error('Outreach place ' + after.outreachPlaceId + ' not marked booked: ' + err.message);
+    }
+  }
 
   if (after.statusChangedAt && after.statusChangedAt !== before.statusChangedAt) {
     const users = await R.activeUsers();

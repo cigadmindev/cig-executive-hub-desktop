@@ -376,5 +376,6 @@ Object.assign(exports, require('./assignmentSummary'));
 Object.assign(exports, require('./preOpeningDocs'));
 // Late opening checklist items, emailed to whoever has them (19 Oct 2026).
 Object.assign(exports, require('./openingLate'));
+Object.assign(exports, require('./outreach'));
 // Archive a leaver's Employee Files folder, after their offboarding docs are marked (22 Oct 2026).
 Object.assign(exports, require('./employeeFiles'));

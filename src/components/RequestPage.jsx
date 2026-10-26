@@ -7,7 +7,9 @@ import { useIsNarrow } from '../hooks/useIsNarrow';
 //   status filters with counts
 //   a compact table on the left, the selected request's detail on the right
 // Each page supplies its own columns, filters and detail panel.
-export default function RequestPage({ back, title, subtitle, actionLabel, onAction, filters, filter, onFilter, columns, rows, selectedId, onSelect, detail, empty, note, children, phoneRow }) {
+// header: shown above the filters, like children. footer: under the list
+// (Outreach's planned events, 26 Oct 2026).
+export default function RequestPage({ back, title, subtitle, actionLabel, onAction, filters, filter, onFilter, columns, rows, selectedId, onSelect, detail, empty, note, children, header, footer, phoneRow }) {
   // On a phone the list and the detail don't fit side by side, and the
   // detail used to land under the list where nobody saw it. Tapping a row now
   // opens it full-screen with a way back to the list (V3).
@@ -29,6 +31,7 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
   return (
     <div style={styles.page}>
       <PageHeader back={back} title={title} subtitle={subtitle} actionLabel={actionLabel} onAction={onAction} />
+      {header}
       {children}
       {/* One row that slides sideways on a phone (15 Oct 2026), not two. */}
       <div style={isNarrow ? { ...styles.filters, ...styles.filtersNarrow } : styles.filters}>
@@ -70,6 +73,7 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
             )}
           </div>
           {note ? <p style={styles.note}>{note}</p> : null}
+          {footer}
         </div>
         {isNarrow ? null : <div style={{ flex: '0 1 380px', minWidth: 280 }}>{detail}</div>}
       </div>

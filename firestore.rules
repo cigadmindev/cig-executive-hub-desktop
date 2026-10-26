@@ -319,6 +319,60 @@ service cloud.firestore {
       }
     }
 
+    // Outreach (26 Oct 2026, sketch 30): the places Catering & Events reach
+    // out to - schools, churches, businesses - their visits, notes, planned
+    // community events, and the COO's monthly visit goals. Worked by Catering
+    // & Events (Claim) at their own locations; executives and admins see
+    // every location. Notes can be left by anyone who sees the place.
+    function outreachWorks(brandId, locationId) {
+      return isLive() && cateringLevel() == 'claim'
+        && brandId in me().get('permissions', {}).get('brandIds', [])
+        && eventsAtLocation(brandId, locationId);
+    }
+    function outreachSees(brandId, locationId) {
+      return isAdminOrExecutive() || outreachWorks(brandId, locationId);
+    }
+
+    match /outreachPlaces/{id} {
+      allow read: if outreachSees(resource.data.brandId, resource.data.locationId);
+      allow create: if (isAdmin() || outreachWorks(request.resource.data.brandId, request.resource.data.locationId))
+        && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if isAdmin() || (outreachWorks(resource.data.brandId, resource.data.locationId)
+        && outreachWorks(request.resource.data.brandId, request.resource.data.locationId));
+      allow delete: if isAdmin() || outreachWorks(resource.data.brandId, resource.data.locationId);
+
+      function place() {
+        return get(/databases/$(database)/documents/outreachPlaces/$(id)).data;
+      }
+      match /visits/{visitId} {
+        allow read: if outreachSees(place().brandId, place().locationId);
+        allow create: if (isAdmin() || outreachWorks(place().brandId, place().locationId))
+          && request.resource.data.byUid == request.auth.uid;
+        allow update, delete: if isSignedIn() && resource.data.byUid == request.auth.uid;
+      }
+      match /notes/{noteId} {
+        allow read: if outreachSees(place().brandId, place().locationId);
+        allow create: if outreachSees(place().brandId, place().locationId)
+          && request.resource.data.byUid == request.auth.uid;
+        allow delete: if isSignedIn() && resource.data.byUid == request.auth.uid;
+      }
+    }
+
+    match /outreachEvents/{id} {
+      allow read: if outreachSees(resource.data.brandId, resource.data.locationId);
+      allow create: if (isAdmin() || outreachWorks(request.resource.data.brandId, request.resource.data.locationId))
+        && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if isAdmin() || (outreachWorks(resource.data.brandId, resource.data.locationId)
+        && outreachWorks(request.resource.data.brandId, request.resource.data.locationId));
+      allow delete: if isAdmin() || outreachWorks(resource.data.brandId, resource.data.locationId);
+    }
+
+    // One per location: { monthlyVisits }. Set by the COO and admins.
+    match /outreachGoals/{locationId} {
+      allow read: if isLive();
+      allow write: if isAdmin() || (isLive() && matrixRow() == 'coo');
+    }
+
     match /deviceRequests/{id} {
       // The COO, admins and IT & Training see every request; everyone else
       // sees only their own.
