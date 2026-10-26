@@ -19,9 +19,19 @@ const NUMBER_LABELS = ['GM', 'KM / Chef', 'MGR', 'Other'];
 
 // A phone number becomes a call link, an email a mail link, anything else
 // stays plain text.
+// Several in one box, split by " · " (26 Oct 2026: a cell, an office line and
+// an email for Opry Mills' manager) - each on its own line, each tappable.
 function ContactLink({ value, style }) {
   const v = (value ?? '').trim();
   if (!v) return null;
+  const parts = v.split(/\s+·\s+/).filter(Boolean);
+  if (parts.length > 1) {
+    return (
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        {parts.map((p, i) => <ContactLink key={i} value={p} style={style} />)}
+      </span>
+    );
+  }
   if (/@/.test(v)) return <a href={'mailto:' + v} style={style}>{v}</a>;
   const digits = v.replace(/[^\d+]/g, '');
   if (digits.replace('+', '').length >= 7) return <a href={'tel:' + digits} style={style}>{v}</a>;
@@ -193,7 +203,7 @@ const styles = {
   cardsNarrow: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, padding: '0 14px 8px' },
   card,
   role: { display: 'block', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
-  name: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  name: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', overflowWrap: 'anywhere', lineHeight: 1.3 },
   link: { fontSize: 13, fontWeight: 600, color: 'var(--neon)', textDecoration: 'none', overflowWrap: 'anywhere' },
   empty: { fontSize: 13, color: 'var(--text-tertiary)' },
   addressWrap: { padding: '0 20px 14px' },
