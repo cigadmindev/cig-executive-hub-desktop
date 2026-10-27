@@ -4,8 +4,9 @@
 // one day a week, and { section } for the Server closing "Section" column.
 // Groups (BOH stations) are rows whose title starts with '## '.
 //
-// The day's record copies the tasks for that day, so editing a list here
-// never changes a checklist already started or filed.
+// The day's record copies the tasks for that day. A filed checklist never
+// changes; one still open picks up new tasks the next time it is opened,
+// keeping every tick and note (27 Oct 2026).
 //
 // Each location runs its own lists (LISTS_AT below). A list may also carry
 // notes: [key, label] pairs for the free-text boxes at the foot of a sheet

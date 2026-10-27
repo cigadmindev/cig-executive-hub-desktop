@@ -116,6 +116,21 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
           if (n >= 0) cells[n + '_' + c] = v;
         });
         tx.update(ref, { items: keep.map(([name]) => name), cells });
+      } else if (snap.data().status === 'open' && list.kind !== 'log' && tasksFor(list, dateKey).some((t) => !(snap.data().tasks ?? []).some((r) => r.title === t.title && r.group === t.group))) {
+        // A list changed after today's was started (27 Oct 2026: Ridgeland's
+        // manager opening went from 2 tasks to the full sheet, and today's
+        // still showed 2). An open list picks up the new tasks; anything
+        // already ticked or noted keeps its tick and note. A filed one never
+        // changes.
+        const old = snap.data().tasks ?? [];
+        const same = (a, b) => a.title === b.title && a.group === b.group;
+        const tasks = tasksFor(list, dateKey).map((t) => {
+          const was = old.find((r) => same(r, t));
+          return was ? { ...t, done: !!was.done, byName: was.byName ?? null, at: was.at ?? null, note: was.note ?? '' } : { ...t, done: false, byName: null, at: null, note: '' };
+        });
+        // Ticked tasks that are no longer on the list stay, at the end.
+        old.filter((r) => (r.done || (r.note ?? '').trim()) && !tasks.some((t) => same(t, r))).forEach((r) => tasks.push(r));
+        tx.update(ref, { tasks, intro: list.intro ?? snap.data().intro ?? '' });
       } else if (snap.data().status === 'open' && onDuty && !(snap.data().managers ?? []).includes(user.name)) {
         tx.update(ref, { managers: arrayUnion(user.name) });
       }
