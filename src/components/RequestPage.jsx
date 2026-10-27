@@ -9,6 +9,8 @@ import { useIsNarrow } from '../hooks/useIsNarrow';
 // Each page supplies its own columns, filters and detail panel.
 // header: shown above the filters, like children. footer: under the list
 // (Outreach's planned events, 26 Oct 2026).
+const DRAWER_MS = 300;
+
 export default function RequestPage({ back, title, subtitle, actionLabel, onAction, filters, filter, onFilter, columns, rows, selectedId, onSelect, detail, empty, note, children, header, footer, phoneRow }) {
   // On a phone the list and the detail don't fit side by side, and the
   // detail used to land under the list where nobody saw it. Tapping a row now
@@ -33,6 +35,47 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
     return () => ro.disconnect();
   }, [isNarrow, phoneOpen]);
   const inline = stacked && !isNarrow;
+
+  // The details slide open out of the row that was clicked, and the one
+  // that was open slides shut (27 Oct 2026, Brenner: "it just spams open").
+  // Clicking the open row again closes it. Nothing is open until a row is
+  // clicked - the page picks a first row to show beside the list, which
+  // here would open on its own.
+  const [collapsed, setCollapsed] = useState(true);
+  const shownId = inline && !collapsed ? selectedId : null;
+  // What each drawer showed, so one closing can keep its content while the
+  // page moves on to the next.
+  const snapshots = useRef({});
+  if (shownId != null) snapshots.current[shownId] = detail;
+  const [closingId, setClosingId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const lastShown = useRef(null);
+  const rowRefs = useRef({});
+  useEffect(() => {
+    const prev = lastShown.current;
+    lastShown.current = shownId;
+    if (prev === shownId) return undefined;
+    const timers = [];
+    if (prev != null) {
+      setClosingId(prev);
+      timers.push(setTimeout(() => setClosingId((c) => (c === prev ? null : c)), DRAWER_MS));
+    }
+    setExpandedId(null);
+    let raf = 0;
+    if (shownId != null) {
+      // Starts shut, then opens on the next frame so the change animates.
+      raf = requestAnimationFrame(() => { raf = requestAnimationFrame(() => setExpandedId(shownId)); });
+      // Once open, make sure the row and its details are on screen.
+      timers.push(setTimeout(() => rowRefs.current[shownId]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), DRAWER_MS + 20));
+    }
+    return () => { cancelAnimationFrame(raf); timers.forEach(clearTimeout); };
+  }, [shownId]);
+  const clickRow = (id) => {
+    if (inline && id === selectedId) { setCollapsed((c) => !c); return; }
+    setCollapsed(false);
+    onSelect(id);
+    if (isNarrow) setPhoneOpen(true);
+  };
   useEffect(() => {
     if (!isNarrow) setPhoneOpen(false);
   }, [isNarrow]);
@@ -80,20 +123,31 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
                     <tr>{columns.map((c) => <th key={c.key} style={styles.th}>{c.label}</th>)}</tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => (
-                      <React.Fragment key={r.id}>
-                        <tr onClick={() => { onSelect(r.id); if (isNarrow) setPhoneOpen(true); }} style={{ ...styles.tr, ...(r.id === selectedId && !isNarrow ? styles.trOn : {}) }}>
-                          {columns.map((c) => <td key={c.key} style={styles.td}>{c.render(r)}</td>)}
-                        </tr>
-                        {inline && r.id === selectedId ? (
-                          <tr>
-                            <td colSpan={columns.length} style={styles.inlineTd}>
-                              <div style={styles.inlineDetail}>{detail}</div>
-                            </td>
+                    {rows.map((r) => {
+                      const open = r.id === shownId;
+                      // The one that was open closes from the very first frame:
+                      // lastShown still holds it until the effect runs.
+                      const closing = !open && (r.id === closingId || (r.id === lastShown.current && shownId !== lastShown.current));
+                      const wide = open && expandedId === r.id;
+                      return (
+                        <React.Fragment key={r.id}>
+                          <tr ref={(el) => { rowRefs.current[r.id] = el; }} onClick={() => clickRow(r.id)} style={{ ...styles.tr, ...(r.id === selectedId && !isNarrow && (!inline || open) ? styles.trOn : {}) }}>
+                            {columns.map((c) => <td key={c.key} style={styles.td}>{c.render(r)}</td>)}
                           </tr>
-                        ) : null}
-                      </React.Fragment>
-                    ))}
+                          {open || closing ? (
+                            <tr>
+                              <td colSpan={columns.length} style={styles.inlineTd}>
+                                <div style={{ ...styles.drawer, gridTemplateRows: wide ? '1fr' : '0fr', opacity: wide ? 1 : 0 }}>
+                                  <div style={styles.drawerInner}>
+                                    <div style={{ ...styles.inlineDetail, transform: wide ? 'none' : 'translateY(-10px)' }}>{open ? detail : snapshots.current[r.id]}</div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -146,8 +200,10 @@ const styles = {
   th: { textAlign: 'left', padding: '9px 10px', fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
   tr: { cursor: 'pointer', borderTop: '1px solid var(--border)' },
   trOn: { background: 'rgba(34,211,238,0.07)' },
-  inlineTd: { padding: '2px 0 12px', borderTop: 'none' },
-  inlineDetail: { position: 'relative' },
+  inlineTd: { padding: 0, borderTop: 'none' },
+  drawer: { display: 'grid', transition: 'grid-template-rows 280ms cubic-bezier(0.2, 0.7, 0.2, 1), opacity 220ms ease' },
+  drawerInner: { overflow: 'hidden', minHeight: 0 },
+  inlineDetail: { position: 'relative', padding: '2px 0 12px', transition: 'transform 280ms cubic-bezier(0.2, 0.7, 0.2, 1)' },
   td: { padding: '11px 10px', color: 'var(--text-primary)', verticalAlign: 'middle' },
   empty: { padding: 20, color: 'var(--text-tertiary)', fontSize: 13, margin: 0 },
   note: { fontSize: 12, color: 'var(--text-tertiary)', margin: '8px 2px 0' },
