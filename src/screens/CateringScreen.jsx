@@ -345,7 +345,7 @@ export default function CateringScreen() {
             {tabBar}
             <div style={styles.kindSeg} role="group" aria-label="Show">
               {[['all', 'All'], ['catering', 'Catering'], ['privateEvent', 'Private dining']].map(([k, l], i) => (
-                <button key={k} style={{ ...styles.kindBtn, ...(i === 0 ? { borderLeft: 'none' } : {}), ...(kind === k ? styles.kindOn : {}) }} onClick={() => { setKind(k); setSelectedId(null); reset(); }}>
+                <button key={k} style={{ ...styles.kindBtn, ...(i === 0 ? { borderLeft: 'none' } : {}), ...(kind === k ? styles.kindSegOn : {}) }} onClick={() => { setKind(k); setSelectedId(null); reset(); }}>
                   {l}<span style={{ opacity: 0.7, fontWeight: 600, marginLeft: 5 }}>{allEnquiries.filter((e) => k === 'all' || (k === 'catering' ? e.kind === 'catering' : e.kind !== 'catering')).filter((e) => ['new', 'talking', 'confirmed'].includes(e.status)).length}</span>
                 </button>
               ))}
@@ -571,7 +571,7 @@ const styles = {
   placeOn: { borderColor: 'var(--neon)', background: 'rgba(34,211,238,0.06)' },
   kindSeg: { display: 'inline-flex', border: '1px solid var(--border-strong)', borderRadius: 9, overflow: 'hidden', margin: '0 0 10px', maxWidth: '100%' },
   kindBtn: { background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '8px 14px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', textTransform: 'none' },
-  kindOn: { background: 'var(--neon)', color: 'var(--neon-text, #0A0A0B)' },
+  kindSegOn: { background: 'var(--neon)', color: '#0A0A0B' },
   kindTag: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', borderRadius: 5, padding: '3px 7px', background: 'rgba(255,255,255,0.07)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' },
   tabs: { display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', margin: '0 0 14px' },
   tab: { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '10px 14px', fontSize: 13, fontWeight: 700, color: 'var(--text-tertiary)', cursor: 'pointer', fontFamily: 'inherit', marginBottom: -1 },
