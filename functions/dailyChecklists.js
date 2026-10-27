@@ -281,6 +281,8 @@ async function drawLogPdf(r, locationName) {
   d.header(null, r.subtitle);
   const L = d.left, Rt = d.right;
   const items = r.items ?? [], times = r.times ?? TEMP_LOG_TIMES, cells = r.cells ?? {};
+  // Tasted for quality (27 Oct 2026): "T" after the initials.
+  const tasted = r.tasted ?? {};
   const recorders = [...new Set(Object.values(cells).map((c) => c.byName).filter(Boolean))];
   // Date and Recorded by, as on the paper sheet.
   const mid = (L + Rt) / 2;
@@ -312,9 +314,12 @@ async function drawLogPdf(r, locationName) {
     times.forEach((_, c) => {
       const x = L + NAME_W + c * colW;
       const v = cells[i + '_' + c];
+      const t = tasted[i + '_' + c] ? ' · T' : '';
       if (v?.temp) {
         d.text(v.temp + '°', { x: x + tW / 2, y: cy, size: 7.4, font: 'medium', align: 'center' });
-        d.text(initialsOf(v.byName), { x: x + tW + (colW - tW) / 2, y: cy, size: 6.4, font: 'regular', align: 'center' });
+        d.text(initialsOf(v.byName) + t, { x: x + tW + (colW - tW) / 2, y: cy, size: 6.4, font: 'regular', align: 'center' });
+      } else if (t && !v?.note) {
+        d.text('T', { x: x + tW + (colW - tW) / 2, y: cy, size: 6.4, font: 'regular', align: 'center' });
       } else if (v?.note) {
         d.text(String(v.note).slice(0, 22), { x: x + colW / 2, y: cy, size: 6, font: 'italic', align: 'center' });
       }
@@ -334,7 +339,8 @@ async function drawLogPdf(r, locationName) {
   d.field(L, L + third - 16, 'Signed off by', r.filedByName ?? '');
   d.field(L + third, L + 2 * third - 16, 'Signed in the Hub', signedOn(r.filedAt));
   const notes = Object.values(cells).filter((c) => c.note).length;
-  d.field(L + 2 * third, Rt, 'Notes', notes ? notes + ' box' + (notes === 1 ? '' : 'es') + ' noted instead of a temperature' : 'None');
+  const tastes = Object.keys(tasted).length;
+  d.field(L + 2 * third, Rt, 'Notes', (notes ? notes + ' box' + (notes === 1 ? '' : 'es') + ' noted instead of a temperature' : 'None') + ' · T = tasted (' + tastes + ')');
   return d.save();
 }
 

@@ -133,6 +133,10 @@ function accessLevel(user, column, matrix = LIVE) {
   // blank - the page treated AGMs as unable to fill it in, while the rules
   // (which fall back to the built-in) let them.
   if (column === 'operationalPoc' && v == null) return row.d.operationalPoc;
+  // One person, not their whole row (27 Oct 2026, Ben): every catering
+  // enquiry and private event at every location, to read only. Set on the
+  // login as permissions.seesAllCatering; mirrored in firestore.rules.
+  if (column === 'catering' && (v === 'none' || v == null) && user.permissions?.seesAllCatering === true) return 'read';
   return v;
 }
 

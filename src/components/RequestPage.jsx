@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import PageHeader from './PageHeader';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 
@@ -15,6 +15,21 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
   // opens it full-screen with a way back to the list (V3).
   const isNarrow = useIsNarrow();
   const [phoneOpen, setPhoneOpen] = useState(false);
+  // Too narrow for the list and the details side by side (27 Oct 2026,
+  // Brenner on a laptop): the details used to drop below the whole list, so
+  // clicking an enquiry meant scrolling to the bottom to read it. Now they
+  // open right under the row that was clicked.
+  const columnsRef = useRef(null);
+  const [stacked, setStacked] = useState(false);
+  useEffect(() => {
+    const el = columnsRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    // The two columns wrap below 520 (list) + 18 (gap) + 280 (details).
+    const ro = new ResizeObserver(([e]) => setStacked(e.contentRect.width < 818));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isNarrow, phoneOpen]);
+  const inline = stacked && !isNarrow;
   useEffect(() => {
     if (!isNarrow) setPhoneOpen(false);
   }, [isNarrow]);
@@ -41,7 +56,7 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
           </button>
         ))}
       </div>
-      <div style={styles.columns}>
+      <div ref={columnsRef} style={styles.columns}>
         <div style={{ flex: '1 1 520px', minWidth: 0 }}>
           <div style={styles.tableCard}>
             {rows.length === 0 ? (
@@ -63,9 +78,18 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
                   </thead>
                   <tbody>
                     {rows.map((r) => (
-                      <tr key={r.id} onClick={() => { onSelect(r.id); if (isNarrow) setPhoneOpen(true); }} style={{ ...styles.tr, ...(r.id === selectedId && !isNarrow ? styles.trOn : {}) }}>
-                        {columns.map((c) => <td key={c.key} style={styles.td}>{c.render(r)}</td>)}
-                      </tr>
+                      <React.Fragment key={r.id}>
+                        <tr onClick={() => { onSelect(r.id); if (isNarrow) setPhoneOpen(true); }} style={{ ...styles.tr, ...(r.id === selectedId && !isNarrow ? styles.trOn : {}) }}>
+                          {columns.map((c) => <td key={c.key} style={styles.td}>{c.render(r)}</td>)}
+                        </tr>
+                        {inline && r.id === selectedId ? (
+                          <tr>
+                            <td colSpan={columns.length} style={styles.inlineTd}>
+                              <div style={styles.inlineDetail}>{detail}</div>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -75,7 +99,7 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
           {note ? <p style={styles.note}>{note}</p> : null}
           {footer}
         </div>
-        {isNarrow ? null : <div style={{ flex: '0 1 380px', minWidth: 280 }}>{detail}</div>}
+        {isNarrow || inline ? null : <div style={{ flex: '0 1 380px', minWidth: 280 }}>{detail}</div>}
       </div>
     </div>
   );
@@ -119,6 +143,8 @@ const styles = {
   th: { textAlign: 'left', padding: '9px 10px', fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
   tr: { cursor: 'pointer', borderTop: '1px solid var(--border)' },
   trOn: { background: 'rgba(34,211,238,0.07)' },
+  inlineTd: { padding: '2px 0 12px', borderTop: 'none' },
+  inlineDetail: { position: 'relative' },
   td: { padding: '11px 10px', color: 'var(--text-primary)', verticalAlign: 'middle' },
   empty: { padding: 20, color: 'var(--text-tertiary)', fontSize: 13, margin: 0 },
   note: { fontSize: 12, color: 'var(--text-tertiary)', margin: '8px 2px 0' },

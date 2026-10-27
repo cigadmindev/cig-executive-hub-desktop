@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useIsNarrow } from '../hooks/useIsNarrow';
-import { TEMP_LOG_HOURS } from '../data/dailyChecklists';
+import { TEMP_LOG_HOURS, isTasted } from '../data/dailyChecklists';
 
 // The Daily Time & Temperature Log (18 Oct 2026, sketch 22). A box per item
 // per check time. The chef types the number and the Hub adds the degree sign,
@@ -65,11 +65,30 @@ function Cell({ value, canEdit, onSave, autoFocus, onEnter, inputRef, big }) {
   );
 }
 
-export default function TempLog({ record, list, canEdit, setCell, isToday, notify }) {
+// Tasted for quality (27 Oct 2026, sketch 33): a "T" beside each food
+// item's temperature, green once tasted. Who and when show on hover.
+const timeOf = (t) => (t ? new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '');
+function Taste({ value, canEdit, onToggle, big }) {
+  const on = !!value;
+  const title = on ? 'Tasted by ' + (value.byName || 'someone') + ' at ' + timeOf(value.at) : 'Tap once it has been tasted';
+  const style = { ...(big ? styles.tasteBig : styles.taste), ...(on ? styles.tasteOn : {}) };
+  // Spelled out on a computer too (Brenner, 27 Oct 2026): under the box.
+  if (!canEdit) return <span style={{ ...style, cursor: 'default' }} title={title}>{on ? '✓ Tasted' : 'Not tasted'}</span>;
+  return (
+    <button type="button" style={style} title={title} aria-pressed={on} aria-label={on ? 'Tasted' : 'Mark as tasted'} onClick={onToggle}>
+      {on ? '✓ Tasted' : 'Taste'}
+    </button>
+  );
+}
+
+export default function TempLog({ record, list, canEdit, setCell, setTasted, isToday, notify }) {
   const isNarrow = useIsNarrow();
   const items = record?.items ?? list.items;
   const times = record?.times ?? list.times;
   const cells = record?.cells ?? {};
+  const tasted = record?.tasted ?? {};
+  const taste = (r, c) => () => setTasted?.(r, c, !tasted[r + '_' + c]).catch(() => notify?.('Could not save', 'That was not saved. Try again.'));
+  const tastedIn = (c) => items.filter((name, r) => isTasted(name) && tasted[r + '_' + c]).length;
   const now = currentSlot(isToday);
   const [slot, setSlot] = useState(now >= 0 ? now : 0);
   const refs = useRef({});
@@ -106,10 +125,11 @@ export default function TempLog({ record, list, canEdit, setCell, isToday, notif
                 inputRef={(el) => { refs.current[r + '_' + slot] = el; }}
                 onEnter={focusNext(r, slot)}
               />
+              {isTasted(name) ? <Taste big value={tasted[r + '_' + slot]} canEdit={canEdit} onToggle={taste(r, slot)} /> : <span style={{ width: 86, flexShrink: 0 }} />}
             </div>
           ))}
         </div>
-        <p style={styles.hint}>Type the temperature; the Hub adds the ° and your initials. Type a word instead ("Not on today", "86'd") to leave a note.</p>
+        <p style={styles.hint}>Type the temperature; the Hub adds the ° and your initials. Type a word instead ("Not on today", "86'd") to leave a note. Tap Taste once a food item has been tasted.</p>
       </div>
     );
   }
@@ -117,33 +137,36 @@ export default function TempLog({ record, list, canEdit, setCell, isToday, notif
   return (
     <div>
       <div style={styles.card}>
-        <div style={{ ...styles.grid, gridTemplateColumns: `200px repeat(${times.length}, minmax(0, 1fr))` }}>
+        <div style={{ ...styles.grid, gridTemplateColumns: `clamp(130px, 15vw, 200px) repeat(${times.length}, minmax(0, 1fr))` }}>
           <div style={styles.head}>Item</div>
           {times.map((t, c) => (
             <div key={t} style={{ ...styles.head, ...(c === now ? styles.headNow : {}) }}>
               <span>{t}</span>
-              <span style={styles.headCount}>{c === now ? 'Now · ' : ''}{filledIn(c)}/{items.length}</span>
+              <span style={styles.headCount}>{c === now ? 'Now · ' : ''}{filledIn(c)}/{items.length}{tastedIn(c) ? ' · ' + tastedIn(c) + ' tasted' : ''}</span>
             </div>
           ))}
           {items.map((name, r) => (
             <React.Fragment key={name}>
               <div style={styles.name}><span style={styles.dot} />{name}</div>
               {times.map((t, c) => (
-                <div key={t} style={{ ...styles.cell, ...(c === now ? styles.cellNow : {}) }}>
-                  <Cell
-                    value={cells[r + '_' + c]}
-                    canEdit={canEdit}
-                    onSave={save(r, c)}
-                    inputRef={(el) => { refs.current[r + '_' + c] = el; }}
-                    onEnter={focusNext(r, c)}
-                  />
+                <div key={t} style={{ ...styles.cell, ...(c === now ? styles.cellNow : {}), display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <Cell
+                      value={cells[r + '_' + c]}
+                      canEdit={canEdit}
+                      onSave={save(r, c)}
+                      inputRef={(el) => { refs.current[r + '_' + c] = el; }}
+                      onEnter={focusNext(r, c)}
+                    />
+                  </div>
+                  {isTasted(name) ? <Taste value={tasted[r + '_' + c]} canEdit={canEdit} onToggle={taste(r, c)} /> : null}
                 </div>
               ))}
             </React.Fragment>
           ))}
         </div>
       </div>
-      <p style={styles.hint}>Click a box and type the temperature; Enter moves to the next item down. The Hub adds the °, your initials and the time. Type a word instead ("Not on today", "86'd") to leave a note.</p>
+      <p style={styles.hint}>Click a box and type the temperature; Enter moves to the next item down. The Hub adds the °, your initials and the time. Type a word instead ("Not on today", "86'd") to leave a note. Click Taste once a food item has been tasted.</p>
     </div>
   );
 }
@@ -160,9 +183,9 @@ const styles = {
   cellNow: { background: 'rgba(34,211,238,0.05)' },
   inputWrap: { position: 'relative', display: 'flex', alignItems: 'center', height: 34, borderRadius: 7, background: 'var(--bg-inset)', border: '1px solid transparent' },
   inputWrapBig: { width: 108, height: 42, flexShrink: 0 },
-  input: { width: '100%', height: '100%', boxSizing: 'border-box', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 700, padding: '0 34px 0 9px', fontFamily: 'inherit', minWidth: 0 },
+  input: { width: '100%', height: '100%', boxSizing: 'border-box', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 700, padding: '0 26px 0 7px', fontFamily: 'inherit', minWidth: 0 },
   inputBig: { fontSize: 16, padding: '0 40px 0 12px' },
-  ini: { position: 'absolute', right: 7, fontSize: 10, fontWeight: 600, color: 'var(--text-tertiary)', pointerEvents: 'none' },
+  ini: { position: 'absolute', right: 5, fontSize: 10, fontWeight: 600, color: 'var(--text-tertiary)', pointerEvents: 'none' },
   noteCell: { background: 'rgba(232,193,90,0.1)' },
   readCell: { position: 'relative', height: 34, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px', fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' },
   readCellBig: { width: 108, height: 42, flexShrink: 0, background: 'var(--bg-inset)' },
@@ -173,5 +196,8 @@ const styles = {
   tabCount: { fontSize: 10.5, opacity: 0.75 },
   phoneRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderTop: '1px solid var(--border)' },
   phoneName: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' },
+  taste: { width: '100%', height: 24, boxSizing: 'border-box', borderRadius: 6, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, fontFamily: 'inherit', textTransform: 'none' },
+  tasteBig: { width: 86, height: 42, flexShrink: 0, boxSizing: 'border-box', borderRadius: 8, border: '1.5px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, fontFamily: 'inherit', textTransform: 'none' },
+  tasteOn: { background: '#0E2E22', borderColor: '#5FA377', color: '#7ED3A0' },
   hint: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, margin: '10px 2px 0' },
 };

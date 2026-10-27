@@ -109,13 +109,16 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
         // their items, so it can still be signed off.
         const old = snap.data().items ?? [];
         const keep = old.map((name, i) => [name, i]).filter(([name]) => list.items.includes(name));
-        const cells = {};
-        Object.entries(snap.data().cells ?? {}).forEach(([k, v]) => {
-          const [r, c] = k.split('_').map(Number);
-          const n = keep.findIndex(([, i]) => i === r);
-          if (n >= 0) cells[n + '_' + c] = v;
-        });
-        tx.update(ref, { items: keep.map(([name]) => name), cells });
+        const move = (from) => {
+          const out = {};
+          Object.entries(from ?? {}).forEach(([k, v]) => {
+            const [r, c] = k.split('_').map(Number);
+            const n = keep.findIndex(([, i]) => i === r);
+            if (n >= 0) out[n + '_' + c] = v;
+          });
+          return out;
+        };
+        tx.update(ref, { items: keep.map(([name]) => name), cells: move(snap.data().cells), tasted: move(snap.data().tasted) });
       } else if (snap.data().status === 'open' && list.kind !== 'log' && tasksFor(list, dateKey).some((t) => !(snap.data().tasks ?? []).some((r) => r.title === t.title && r.group === t.group))) {
         // A list changed after today's was started (27 Oct 2026: Ridgeland's
         // manager opening went from 2 tasks to the full sheet, and today's
@@ -170,6 +173,10 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
       [key]: { ...(isTemp ? { temp: num } : { note: v }), byName: user?.name ?? '', at: Date.now() },
     });
   };
+  // Tasted for quality (27 Oct 2026): on or off, with who and when.
+  const setTasted = (row, col, on) => updateDoc(doc(db, COLLECTION, id), {
+    ['tasted.' + row + '_' + col]: on ? { byName: user?.name ?? '', at: Date.now() } : deleteField(),
+  });
   const setWorker = (role, name) => updateDoc(doc(db, COLLECTION, id), { ['workers.' + role]: name });
   const setSheetNote = (key, text) => updateDoc(doc(db, COLLECTION, id), { ['notes.' + key]: text });
   const signOff = async () => {
@@ -216,7 +223,7 @@ export function useDailyRecord(locationId, brandId, dateKey, listId) {
     await deleteObject(storageRef(storage, path)).catch(() => {});
   };
 
-  return { list, record, toggle, setNote, setCell, setWorker, setSheetNote, signOff, markNotOpen, undoNotOpen, addPhotos, removePhoto };
+  return { list, record, toggle, setNote, setCell, setTasted, setWorker, setSheetNote, signOff, markNotOpen, undoNotOpen, addPhotos, removePhoto };
 }
 
 // A photo, scaled so its long side is at most 1600px, as a JPEG.

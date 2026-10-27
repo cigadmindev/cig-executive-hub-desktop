@@ -538,6 +538,12 @@ DAILY_CHECKLISTS.push({
     'Expo Cooler', 'Garmo Line', 'Fry Line', 'Fry Warmer', 'Sauté Line', 'Flat Line', 'Pizza Line',
   ],
 });
+// Tasted for quality at every check (27 Oct 2026, Ronnie, sketch 33): every
+// food item gets a "T" beside its temperature. The coolers and line stations
+// are not food, so they don't.
+export const TEMP_LOG_NOT_TASTED = ['Expo Cooler', 'Garmo Line', 'Fry Line', 'Fry Warmer', 'Sauté Line', 'Flat Line', 'Pizza Line'];
+export const isTasted = (item) => !TEMP_LOG_NOT_TASTED.includes(item);
+
 // Who keeps it: the executive chef and sous chef.
 export const CHEF_JOBS = ['Executive Chef', 'Sous Chef'];
 

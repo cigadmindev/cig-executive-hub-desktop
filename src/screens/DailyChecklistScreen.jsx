@@ -28,7 +28,7 @@ export default function DailyChecklistScreen() {
   const { user } = useAuth();
   const isNarrow = useIsNarrow();
   const { dialogNode, notify, confirm } = useDialog();
-  const { list, record, toggle, setNote, setCell, setWorker, setSheetNote, signOff, markNotOpen, undoNotOpen, addPhotos, removePhoto } = useDailyRecord(locationId, brandId, dateKey, listId);
+  const { list, record, toggle, setNote, setCell, setTasted, setWorker, setSheetNote, signOff, markNotOpen, undoNotOpen, addPhotos, removePhoto } = useDailyRecord(locationId, brandId, dateKey, listId);
   // "Starkville", "Ridgeland" - for the sheet's heading and the Drive path.
   const brand = brands.find((b) => b.id === brandId);
   const brandName = brand?.name ?? '';
@@ -78,7 +78,7 @@ export default function DailyChecklistScreen() {
             </button>
           }
         />
-        <TempLog record={record} list={list} canEdit={canLog} setCell={setCell} isToday={dateKey === todayKey()} notify={notify} />
+        <TempLog record={record} list={list} canEdit={canLog} setCell={setCell} setTasted={setTasted} isToday={dateKey === todayKey()} notify={notify} />
         <div style={{ ...styles.card, marginTop: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
           <div style={{ flex: '1 1 260px', minWidth: 0 }}>
             <p style={styles.big}>{filled} of {total} temperatures logged</p>
