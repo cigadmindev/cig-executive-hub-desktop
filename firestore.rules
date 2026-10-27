@@ -263,6 +263,12 @@ service cloud.firestore {
     // login is limited to some of a restaurant's locations sees only those -
     // Sarah (Starkville) never Ridgeland's, Ann Marie the reverse. Admins and
     // executives see every location; everyone else goes by their login.
+    // permissions.seesAllCatering on one login: every enquiry, read only.
+    // Mirrors accessLevel() in src/data/accessMatrix.js.
+    function seesAllCatering() {
+      return isLive() && me().get('permissions', {}).get('seesAllCatering', false) == true;
+    }
+
     function eventsAtLocation(brandId, locationId) {
       let p = eventsProfile();
       let only = p.get('permissions', {}).get('locationsByBrand', {}).get(brandId, []);
@@ -275,7 +281,9 @@ service cloud.firestore {
         && eventsAtLocation(resource.data.brandId, resource.data.locationId))
         // No location yet (23 Oct 2026): every Catering & Events manager
         // sees it, so one of them can claim it and say where it goes.
-        || (resource.data.brandId == null && isLive() && cateringLevel() == 'claim');
+        || (resource.data.brandId == null && isLive() && cateringLevel() == 'claim')
+        // One login, read only (27 Oct 2026, Ben): every location's.
+        || seesAllCatering();
       // Written by the function that reads the mailbox, and by anyone adding
       // one that came in by phone.
       allow create: if handlesEventsFor(request.resource.data.brandId)
@@ -304,7 +312,7 @@ service cloud.firestore {
         function parent() {
           return get(/databases/$(database)/documents/cateringEnquiries/$(id)).data;
         }
-        allow read: if handlesEventsFor(parent().brandId) && eventsAtLocation(parent().brandId, parent().locationId);
+        allow read: if (handlesEventsFor(parent().brandId) && eventsAtLocation(parent().brandId, parent().locationId)) || seesAllCatering();
         allow create: if handlesEventsFor(parent().brandId) && eventsAtLocation(parent().brandId, parent().locationId)
           && request.resource.data.addedByUid == request.auth.uid
           && request.resource.data.filedReceiptId == null

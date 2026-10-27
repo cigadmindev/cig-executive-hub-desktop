@@ -28,7 +28,7 @@ export function CateringProvider({ children }) {
       setEnquiries([]);
       return;
     }
-    const seesAll = user.role === 'admin' || user.role === 'executive';
+    const seesAll = user.role === 'admin' || user.role === 'executive' || user.permissions?.seesAllCatering === true;
     const mine = user.permissions?.brandIds ?? [];
     if (!seesAll && mine.length === 0) {
       setEnquiries([]);
@@ -300,6 +300,8 @@ export function CateringProvider({ children }) {
   const canSee = (e) => {
     if (!user) return false;
     if (user.role === 'admin') return true;
+    // Ben (27 Oct 2026): every enquiry at every location, read only.
+    if (user.permissions?.seesAllCatering === true) return true;
     if (accessLevel(user, 'catering') === 'none') return false;
     if (!e.brandId && accessLevel(user, 'catering') === 'claim') return true;
     if (seesEveryRestaurant(user)) return true;
