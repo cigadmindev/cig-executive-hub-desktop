@@ -24,8 +24,11 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
   useEffect(() => {
     const el = columnsRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    // The two columns wrap below 520 (list) + 18 (gap) + 280 (details).
-    const ro = new ResizeObserver(([e]) => setStacked(e.contentRect.width < 818));
+    // The two columns wrap when their starting widths don't fit side by
+    // side: 520 (list) + 18 (gap) + 380 (details). Wrapping goes by those,
+    // not by how far the details could shrink - 818 here missed widths
+    // between the two (27 Oct 2026, Brenner's laptop).
+    const ro = new ResizeObserver(([e]) => setStacked(e.contentRect.width < 918));
     ro.observe(el);
     return () => ro.disconnect();
   }, [isNarrow, phoneOpen]);
