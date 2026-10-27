@@ -326,6 +326,10 @@ export default function OutreachPanel({ tabs, locationOptions, locationName, onM
         )}
       </div>
 
+      {/* The playbook (Community Outreach SOP), also in every location's
+          Operations › Standard Operating Procedures folder in Drive. */}
+      <a href="/docs/community-outreach-sop.pdf" target="_blank" rel="noreferrer" style={styles.playbook}>Community Outreach playbook (PDF) ›</a>
+
       {seesAll ? (
         <div style={styles.overview}>
           <div style={styles.overHead}>
@@ -586,6 +590,7 @@ const styles = {
   overHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '2px 4px 8px' },
   overTitle: { fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-secondary)' },
   smallBtn: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-primary)', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' },
+  playbook: { display: 'inline-block', margin: '0 2px 14px', fontSize: 12.5, fontWeight: 700, color: 'var(--neon)', textDecoration: 'none' },
   linkBtn: { background: 'none', border: 'none', padding: 0, color: 'var(--neon)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th: { textAlign: 'left', padding: '8px 10px', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' },
