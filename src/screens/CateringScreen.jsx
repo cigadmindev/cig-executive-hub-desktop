@@ -60,7 +60,17 @@ export default function CateringScreen() {
   // add one that came in by phone or in person, and add costs to an event.
   const canAdd = isAdmin || ['view', 'claim'].includes(cateringLevel);
 
-  const firstWithItems = ['new', 'talking', 'confirmed'].find((k) => enquiries.some((e) => e.status === k)) ?? 'new';
+  // All / Catering / Private dining (27 Oct 2026, sketch 32), remembered on
+  // this device. Everything below - counts, the first list with something
+  // in it, the rows - follows it.
+  const [kind, setKindState] = useState(() => {
+    try { return ['catering', 'privateEvent'].includes(localStorage.getItem('cateringKind')) ? localStorage.getItem('cateringKind') : 'all'; } catch { return 'all'; }
+  });
+  const setKind = (k) => { setKindState(k); try { localStorage.setItem('cateringKind', k); } catch { /* private window */ } };
+  const allEnquiries = enquiries;
+  const ofKind = (e) => kind === 'all' || (kind === 'catering' ? e.kind === 'catering' : e.kind !== 'catering');
+  const kindRows = allEnquiries.filter(ofKind);
+  const firstWithItems = ['new', 'talking', 'confirmed'].find((k) => kindRows.some((e) => e.status === k)) ?? 'new';
   const [filter, setFilter] = useState(null);
   const shown = filter ?? firstWithItems;
   const [selectedId, setSelectedId] = useState(null);
@@ -107,7 +117,7 @@ export default function CateringScreen() {
   };
 
   const reset = () => { setLosing(null); setChanging(null); };
-  const rows = enquiries
+  const rows = kindRows
     .filter((e) => e.status === shown)
     .sort((a, b) => (['new', 'talking', 'confirmed'].includes(shown) ? (a.preferredDate ?? 9e15) - (b.preferredDate ?? 9e15) : b.createdAt - a.createdAt));
   const selected = enquiries.find((e) => e.id === selectedId) ?? rows[0] ?? null;
@@ -330,13 +340,25 @@ export default function CateringScreen() {
       <RequestPage
         title="Catering"
         subtitle="Catering orders and private events. Catering & Events claims and handles each one."
-        header={tabBar}
+        header={
+          <>
+            {tabBar}
+            <div style={styles.kindSeg} role="group" aria-label="Show">
+              {[['all', 'All'], ['catering', 'Catering'], ['privateEvent', 'Private dining']].map(([k, l], i) => (
+                <button key={k} style={{ ...styles.kindBtn, ...(i === 0 ? { borderLeft: 'none' } : {}), ...(kind === k ? styles.kindOn : {}) }} onClick={() => { setKind(k); setSelectedId(null); reset(); }}>
+                  {l}<span style={{ opacity: 0.7, fontWeight: 600, marginLeft: 5 }}>{allEnquiries.filter((e) => k === 'all' || (k === 'catering' ? e.kind === 'catering' : e.kind !== 'catering')).filter((e) => ['new', 'talking', 'confirmed'].includes(e.status)).length}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        }
         actionLabel={canAdd ? '+ Add enquiry' : null}
         onAction={() => setAdding({ ...BLANK, locationId: locationOptions.length === 1 ? locationOptions[0].id : '' })}
-        filters={FILTERS.map(([k, l]) => ({ key: k, label: l, count: ['done', 'lost'].includes(k) ? null : enquiries.filter((e) => e.status === k).length }))}
+        filters={FILTERS.map(([k, l]) => ({ key: k, label: l, count: ['done', 'lost'].includes(k) ? null : kindRows.filter((e) => e.status === k).length }))}
         filter={shown}
         onFilter={(k) => { setFilter(k); setSelectedId(null); reset(); }}
         columns={[
+          ...(kind === 'all' ? [{ key: 'type', label: 'Type', render: (e) => <span style={styles.kindTag}>{e.kind === 'catering' ? 'Catering' : 'Private dining'}</span> }] : []),
           { key: 'who', label: 'Enquiry', render: (e) => <><strong>{e.name || 'No name'}</strong><div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{e.kind === 'catering' ? 'Catering' + (e.fulfilment ? ' · ' + e.fulfilment.toLowerCase() : '') : e.occasion || 'Private event'}</div></> },
           ...(manyLocations ? [{ key: 'where', label: 'Location', render: (e) => e.locationName || <Pill tone="amber">No location</Pill> }] : []),
           { key: 'when', label: 'Date', render: (e) => (e.preferredDate ? dateText(e.preferredDate) : e.preferredDateText || '—') },
@@ -354,6 +376,7 @@ export default function CateringScreen() {
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'block', fontSize: 15, fontWeight: 700 }}>{e.name || 'No name'}</span>
               <span style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                {kind === 'all' ? (e.kind === 'catering' ? 'Catering · ' : 'Private dining · ') : ''}
                 {e.preferredDate ? dateText(e.preferredDate) : e.preferredDateText || 'No date'}
                 {manyLocations ? ' · ' + (e.locationName || 'No location') : ''}
                 {' · '}{e.ownerName || 'Unclaimed'}
@@ -546,6 +569,10 @@ const styles = {
   kind: { flex: 1, padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   place: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, padding: '0 12px', border: '1px solid var(--border-strong)', borderRadius: 10, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' },
   placeOn: { borderColor: 'var(--neon)', background: 'rgba(34,211,238,0.06)' },
+  kindSeg: { display: 'inline-flex', border: '1px solid var(--border-strong)', borderRadius: 9, overflow: 'hidden', margin: '0 0 10px', maxWidth: '100%' },
+  kindBtn: { background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '8px 14px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', textTransform: 'none' },
+  kindOn: { background: 'var(--neon)', color: 'var(--neon-text, #0A0A0B)' },
+  kindTag: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', borderRadius: 5, padding: '3px 7px', background: 'rgba(255,255,255,0.07)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' },
   tabs: { display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', margin: '0 0 14px' },
   tab: { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '10px 14px', fontSize: 13, fontWeight: 700, color: 'var(--text-tertiary)', cursor: 'pointer', fontFamily: 'inherit', marginBottom: -1 },
   tabOn: { color: 'var(--neon)', borderBottomColor: 'var(--neon)' },
