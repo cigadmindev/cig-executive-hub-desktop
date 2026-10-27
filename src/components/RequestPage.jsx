@@ -201,7 +201,10 @@ const styles = {
   tr: { cursor: 'pointer', borderTop: '1px solid var(--border)' },
   trOn: { background: 'rgba(34,211,238,0.07)' },
   inlineTd: { padding: 0, borderTop: 'none' },
-  drawer: { display: 'grid', transition: 'grid-template-rows 280ms cubic-bezier(0.2, 0.7, 0.2, 1), opacity 220ms ease' },
+  // width 0 / min-width 100%: the details fill the row but don't count when
+  // the table works out its column widths, so the columns above don't shift
+  // when one opens (27 Oct 2026).
+  drawer: { display: 'grid', width: 0, minWidth: '100%', transition: 'grid-template-rows 280ms cubic-bezier(0.2, 0.7, 0.2, 1), opacity 220ms ease' },
   drawerInner: { overflow: 'hidden', minHeight: 0 },
   inlineDetail: { position: 'relative', padding: '2px 0 12px', transition: 'transform 280ms cubic-bezier(0.2, 0.7, 0.2, 1)' },
   td: { padding: '11px 10px', color: 'var(--text-primary)', verticalAlign: 'middle' },
