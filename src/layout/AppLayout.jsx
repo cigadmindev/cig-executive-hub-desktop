@@ -1,8 +1,9 @@
 import ViewAsBar from '../components/ViewAsBar';
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import UpdateBanner from '../components/UpdateBanner';
 import NotificationsPanel, { NotificationsBell } from '../components/NotificationsPanel';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
+import { Toaster, prefersReducedMotion } from '../components/Motion';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { useViewTracking } from '../context/ViewTrackingContext';
@@ -26,6 +27,28 @@ import { useIsNarrow } from '../hooks/useIsNarrow';
 export default function AppLayout({ children }) {
   const isNarrow = useIsNarrow();
   const [notifOpen, setNotifOpen] = useState(false);
+  // Each page settles in when you arrive on it (28 Oct 2026). The page itself
+  // is animated in place - nothing is re-mounted, so no page loses its state.
+  const { pathname } = useLocation();
+  const contentRef = useRef(null);
+  useLayoutEffect(() => {
+    const page = contentRef.current?.lastElementChild;
+    if (!page || !page.animate || prefersReducedMotion()) return;
+    // The page's own sections rise in one after another, the same way Home
+    // does - header first, then each block a fraction of a second later.
+    // Pop-ups and anything pinned in place are left alone.
+    const parts = [...page.children].filter((el) => {
+      const pos = getComputedStyle(el).position;
+      return pos !== 'fixed' && pos !== 'sticky' && !el.hasAttribute('data-modal');
+    });
+    const targets = parts.length > 1 ? parts.slice(0, 10) : [page];
+    targets.forEach((el, i) =>
+      el.animate(
+        [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }],
+        { duration: 320, delay: Math.min(i, 7) * 45, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)', fill: 'backwards' }
+      )
+    );
+  }, [pathname]);
   const { user, hasBrandAccess } = useAuth();
   const { unreadCount } = useChat();
   const { hasUnseenTimeOff, hasUnseenCalendar } = useViewTracking();
@@ -82,7 +105,7 @@ export default function AppLayout({ children }) {
   if (isNarrow) {
     return (
       <div style={styles.narrowWindow}>
-        <div style={styles.narrowContent}>
+        <div style={styles.narrowContent} ref={contentRef}>
           <div style={styles.narrowBanner}>
             <UpdateBanner />
           </div>
@@ -98,6 +121,7 @@ export default function AppLayout({ children }) {
           profileBadge={profileNeedsAttention}
         />
         {notifOpen ? <NotificationsPanel onClose={() => setNotifOpen(false)} /> : null}
+        <Toaster bottom={130} />
       </div>
     );
   }
@@ -168,11 +192,12 @@ export default function AppLayout({ children }) {
         </div>
       </div>
 
-      <div style={styles.content}>
+      <div style={styles.content} ref={contentRef}>
         <ViewAsBar />
         {children}
       </div>
       {notifOpen ? <NotificationsPanel onClose={() => setNotifOpen(false)} /> : null}
+      <Toaster />
     </div>
   );
 }

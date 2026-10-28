@@ -1,3 +1,4 @@
+import { SkeletonRows } from './Motion';
 import React, { useEffect, useRef, useState } from 'react';
 import PageHeader from './PageHeader';
 import { useIsNarrow } from '../hooks/useIsNarrow';
@@ -106,12 +107,14 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
         <div style={{ flex: '1 1 520px', minWidth: 0 }}>
           <div style={styles.tableCard}>
             {rows.length === 0 ? (
-              <p style={styles.empty}>{empty ?? 'Nothing here.'}</p>
+              // A list still loading shows placeholder rows rather than the
+              // word "Loading…" (28 Oct 2026).
+              empty === 'Loading…' ? <SkeletonRows rows={4} /> : <p style={styles.empty}>{empty ?? 'Nothing here.'}</p>
             ) : isNarrow && phoneRow ? (
               // On a phone a page can give each row a compact two-line form
               // instead of a table that scrolls sideways.
-              rows.map((r) => (
-                <button key={r.id} style={styles.phoneRow} onClick={() => { onSelect(r.id); setPhoneOpen(true); }}>
+              rows.map((r, i) => (
+                <button key={r.id} data-rise="" style={{ ...styles.phoneRow, animationDelay: Math.min(i, 7) * 40 + 'ms' }} onClick={() => { onSelect(r.id); setPhoneOpen(true); }}>
                   <span style={{ flex: 1, minWidth: 0 }}>{phoneRow(r)}</span>
                   <span aria-hidden="true" style={styles.phoneChevron}>›</span>
                 </button>
@@ -123,7 +126,7 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
                     <tr>{columns.map((c) => <th key={c.key} style={styles.th}>{c.label}</th>)}</tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => {
+                    {rows.map((r, i) => {
                       const open = r.id === shownId;
                       // The one that was open closes from the very first frame:
                       // lastShown still holds it until the effect runs.
@@ -131,7 +134,7 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
                       const wide = open && expandedId === r.id;
                       return (
                         <React.Fragment key={r.id}>
-                          <tr ref={(el) => { rowRefs.current[r.id] = el; }} onClick={() => clickRow(r.id)} style={{ ...styles.tr, ...(r.id === selectedId && !isNarrow && (!inline || open) ? styles.trOn : {}) }}>
+                          <tr data-rise="" ref={(el) => { rowRefs.current[r.id] = el; }} onClick={() => clickRow(r.id)} style={{ animationDelay: Math.min(i, 7) * 40 + 'ms', ...styles.tr, ...(r.id === selectedId && !isNarrow && (!inline || open) ? styles.trOn : {}) }}>
                             {columns.map((c) => <td key={c.key} style={styles.td}>{c.render(r)}</td>)}
                           </tr>
                           {open || closing ? (

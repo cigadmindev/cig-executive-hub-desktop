@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from '../components/Motion';
 import { useAccessRequests } from '../context/AccessRequestsContext';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../hooks/useDialog';
@@ -46,11 +47,12 @@ export default function AccessRequestsScreen() {
     );
   }
 
-  const run = async (fn, after) => {
+  const run = async (fn, after, done = 'Saved.') => {
     setBusy(true);
     try {
       await fn();
       after?.();
+      toast(done);
     } catch (err) {
       notify('Nothing was changed', plainError(err, 'Try again.'));
     } finally {
@@ -123,13 +125,13 @@ export default function AccessRequestsScreen() {
             <input style={d.input} autoFocus placeholder="Reason - emailed to them" value={changing?.reason ?? ''} onChange={(e) => setChanging({ reason: e.target.value })} />
             <div style={{ ...d.actions, marginTop: 0 }}>
               <button style={d.ghost} onClick={() => { setDeclining(null); setChanging(null); }}>Cancel</button>
-              <button style={d.primary} disabled={busy || !(changing?.reason ?? '').trim()} onClick={() => run(() => decline(selected, changing.reason), () => { setDeclining(null); setChanging(null); setFilter('denied'); })}>Decline</button>
+              <button style={d.primary} disabled={busy || !(changing?.reason ?? '').trim()} onClick={() => run(() => decline(selected, changing.reason), () => { setDeclining(null); setChanging(null); setFilter('denied'); }, 'Declined.')}>Decline</button>
             </div>
           </div>
         ) : (
           <>
             <div style={d.actions}>
-              <button style={d.primary} disabled={busy || !person} onClick={() => run(() => approve(selected), () => setFilter('approved'))}>Approve</button>
+              <button style={d.primary} disabled={busy || !person} onClick={() => run(() => approve(selected), () => setFilter('approved'), 'Approved.')}>Approve</button>
               <button style={d.ghost} onClick={() => { setDeclining(selected.id); setChanging({ reason: '' }); }}>Decline…</button>
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-tertiary)', margin: '8px 0 0' }}>

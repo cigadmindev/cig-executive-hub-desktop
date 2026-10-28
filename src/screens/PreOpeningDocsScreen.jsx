@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { SkeletonRows } from '../components/Motion';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { useDialog } from '../hooks/useDialog';
@@ -68,7 +69,7 @@ export default function PreOpeningDocsScreen() {
       <input ref={input} type="file" multiple hidden onChange={add} />
 
       <div style={styles.card}>
-        {state.loading ? <p style={styles.muted}>Loading…</p> : null}
+        {state.loading ? <SkeletonRows rows={3} padding="10px 0" /> : null}
         {state.error ? <p style={styles.muted}>{state.error}</p> : null}
         {!state.loading && !state.error && state.files.length === 0 ? (
           <p style={styles.muted}>Nothing here yet. Add the first blank form with + Add document.</p>

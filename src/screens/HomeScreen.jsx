@@ -19,6 +19,8 @@ import { accessLevel } from '../data/accessMatrix';
 import { brandIdForTarget } from '../data/mockData';
 import { fmtDay } from '../lib/dates';
 import PageHeader from '../components/PageHeader';
+import Pill from '../components/Pill';
+import { CountUp, Ring } from '../components/Motion';
 
 export default function HomeScreen() {
   const isNarrow = useIsNarrow();
@@ -29,7 +31,6 @@ export default function HomeScreen() {
   const { hasUnseenForBrand } = useViewTracking();
   const { addRequest, hasPendingRequest } = useAccessRequests();
   const { hasNeedMatchingJob } = useEventRequests();
-  const [hoveredId, setHoveredId] = useState(null);
   const [requestTarget, setRequestTarget] = useState(null);
   const summary = useHomeSummary();
   const { announcements, toggleLike, addComment, toggleCommentLike, deletePost, deleteComment, unpin } = useBrandAnnouncements();
@@ -91,60 +92,107 @@ export default function HomeScreen() {
     notify('Request sent', `An admin will review your request for access to ${requestTarget.label}.`);
   };
 
+  // How many things are actually on this person (headers don't count).
+  const needCount = summary.attention.filter((a) => a.level !== 'header').length;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = user?.name?.split(' ')[0] ?? '';
+
+  // The visible restaurants follow the same rule as before: an exec-only
+  // brand (Cajun Depot) only appears for someone who already has access.
+  const visibleBrands = brands.filter((b) => !b.execOnly || hasBrandAccess(user, b.id));
+  const showOpenings = summary.openingSoon.length > 0;
+  const canOpenChecklist = hasFeature(user, 'openingChecklist');
+
   return (
     <div style={styles.page}>
-      {/* Same header as every page (14 Oct 2026): name as the title, the
-          date under it, and the day's three counts top right where other
-          pages put their button. */}
-      {/* The shape of the day in three numbers, before reading anything.
-          Always shown, zeros included. A number that disappears when it
-          reaches zero reads as missing rather than as good news, and the
-          header changes shape depending on the day. Zero is grey - it is
-          not a warning. */}
+      {/* Home, upgraded (28 Oct 2026, sketch 35): a bigger greeting that
+          says how many things need you, the counts count up as the page
+          opens, restaurants as one row of chips, your work first, and the
+          openings as rings. Every rule underneath is the same as before. */}
       <PageHeader
-        plainCase
-        title={'Welcome back, ' + (user?.name?.split(' ')[0] ?? '')}
-        subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + ' · here\'s what needs you today'}
+        title={`${greeting}, ${firstName}`}
+        subtitle={
+          <>
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {' · '}
+            <span style={{ color: needCount ? 'var(--neon)' : 'var(--text-secondary)', fontWeight: needCount ? 700 : 400 }}>
+              {needCount ? `${needCount} thing${needCount === 1 ? '' : 's'} need${needCount === 1 ? 's' : ''} you` : 'nothing needs you right now'}
+            </span>
+          </>
+        }
         extras={
-          <div style={styles.headerCounts}>
-              <div>
-                  {summary.counts.overdue !== null ? (
-                  <div
-                    style={{
-                      ...styles.countValue,
-                      color: summary.counts.overdue > 0 ? 'var(--danger)' : 'var(--text-tertiary)',
-                    }}
-                  >
-                    {summary.counts.overdue}
-                  </div>
-                  ) : null}
-                  <div style={styles.countLabel}>Overdue</div>
+          <div style={isNarrow ? styles.tilesNarrow : styles.tiles} data-stagger="">
+            {/* Always shown, zeros included: a number that disappears at zero
+                reads as missing rather than good news. Zero is grey. */}
+            {summary.counts.overdue !== null ? (
+              <div style={styles.tile}>
+                <CountUp value={summary.counts.overdue} style={{ ...styles.tileValue, color: summary.counts.overdue > 0 ? 'var(--danger)' : 'var(--text-tertiary)' }} />
+                <span style={styles.tileLabel}>Overdue</span>
               </div>
-              <div>
-                  <div
-                    style={{
-                      ...styles.countValue,
-                      color: summary.counts.renewals > 0 ? 'var(--warn)' : 'var(--text-tertiary)',
-                    }}
-                  >
-                    {summary.counts.renewals}
-                  </div>
-                  <div style={styles.countLabel}>Renewals</div>
-              </div>
-              <div>
-                  <div style={{ ...styles.countValue, color: 'var(--text-tertiary)' }}>
-                    {summary.counts.thisWeek}
-                  </div>
-                  <div style={styles.countLabel}>This week</div>
-              </div>
+            ) : null}
+            <div style={styles.tile}>
+              <CountUp value={summary.counts.renewals} style={{ ...styles.tileValue, color: summary.counts.renewals > 0 ? 'var(--warn)' : 'var(--text-tertiary)' }} />
+              <span style={styles.tileLabel}>Renewals</span>
+            </div>
+            <div style={styles.tile}>
+              <CountUp value={summary.counts.thisWeek} style={{ ...styles.tileValue, color: summary.counts.thisWeek > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)' }} />
+              <span style={styles.tileLabel}>This week</span>
+            </div>
           </div>
         }
       />
 
+      {/* Restaurants as proper tiles again (28 Oct 2026): full names, the
+          brand colour down the side, how many locations and how each is
+          doing. Each still opens the restaurant, or asks for access when
+          it's locked, exactly as before. */}
+      <div style={isNarrow ? styles.tilesGridNarrow : styles.tilesGrid} data-stagger="">
+        {visibleBrands.map((item) => {
+          const allowed = hasBrandAccess(user, item.id);
+          const activeLocations = item.locations.filter((l) => l.status === 'active');
+          const customLocations = getByBrand(item.id);
+          const color = brandColors[item.name] ?? '#8A8A8A';
+          const allLocationIds = [...activeLocations.map((l) => l.id), ...customLocations.map((l) => l.id)];
+          const hasUnseen =
+            allowed && (hasUnseenForBrand(item.id, allLocationIds) || hasNeedMatchingJob(allLocationIds, user?.job, user?.uid));
+          const totalLocations = activeLocations.length + customLocations.length;
+          const pendingRequest = !allowed && user ? hasPendingRequest(user.email, 'brand', item.id) : false;
+          let stat = null;
+          if (allowed && summary.byBrand[item.id]) {
+            const b = summary.byBrand[item.id];
+            if (b.overdue > 0) stat = { text: `${b.overdue} overdue`, color: 'var(--danger)' };
+            else if (b.dueSoon > 0) stat = { text: `${b.dueSoon} due soon`, color: 'var(--warn)' };
+            else if (b.total > 0 && b.done < b.total) stat = { text: `${Math.round((b.done / b.total) * 100)}% ready`, color: 'var(--neon)' };
+            else stat = { text: 'All clear', color: 'var(--success)' };
+          }
+          return (
+            <button
+              key={item.id}
+              data-card=""
+              style={{ ...styles.brandTile, opacity: allowed ? 1 : 0.55, borderLeftColor: allowed ? color : 'var(--border-strong)' }}
+              onClick={() => handleCardClick(item, allowed)}
+            >
+              <span style={styles.brandName}>{item.name}</span>
+              {allowed ? (
+                <>
+                  <span style={styles.brandMeta}>
+                    {totalLocations > 0 ? `${totalLocations} location${totalLocations > 1 ? 's' : ''}` : 'In progress'}
+                  </span>
+                  {stat ? <span style={{ ...styles.brandStat, color: stat.color }}>{stat.text}</span> : null}
+                </>
+              ) : (
+                <span style={{ marginTop: 'auto' }}><RequestPill pending={pendingRequest} /></span>
+              )}
+              {hasUnseen ? <span style={styles.unseenDot} aria-label="Something new" /> : null}
+            </button>
+          );
+        })}
+      </div>
       <MySpaceCard user={user} />
 
       {pinned.length > 0 ? (
-        <div style={{ marginBottom: 22 }}>
+        <div style={{ marginBottom: 22 }} data-rise="">
           <p style={styles.zoneLabel}>Announcements</p>
           {pinned.map((post) => (
             <div key={post.id} style={{ marginBottom: 12 }}>
@@ -173,130 +221,89 @@ export default function HomeScreen() {
         </div>
       ) : null}
 
-      {/* What needs you, before where you want to go. The brand grid alone
-          answered navigation but not "what should I be doing", which is the
-          actual question someone opens this with. */}
-      <div style={isNarrow ? styles.topGridNarrow : styles.topGrid}>
-      {/* Opening soon shares this row and hides when empty, which left the
-          right column blank. Needs you spans both when it is alone. */}
-      <div
-        style={{
-          ...styles.zone,
-          ...styles.zoneFill,
-          ...(summary.openingSoon.length === 0 && !isNarrow ? { gridColumn: '1 / -1' } : {}),
-        }}
-      >
-          <p style={styles.zoneLabel}>Needs you</p>
-          {/* The panel is absolutely positioned inside a flexible wrapper, so
-              a long list cannot stretch the grid row. The row is sized by
-              Opening soon and everything scrolls inside whatever that gives -
-              rather than the list growing and pushing the gap to the other
-              column. */}
-          <div style={isNarrow ? styles.attentionPlain : styles.attentionScroll}>
-            <div style={isNarrow ? styles.panel : { ...styles.panel, ...styles.attentionInner }}>
-            {summary.attention.length === 0 ? (
-              <p style={styles.emptyNote}>Nothing needs your attention.</p>
-            ) : null}
-            {(isNarrow ? summary.attention.slice(0, 8) : summary.attention).map((a, i) =>
-              a.level === 'header' ? (
-                <p key={i} style={styles.attentionHeader}>{a.text}</p>
-              ) : (
-              <button
-                key={i}
-                data-row=""
-                data-marked={a.mine ? '' : undefined}
-                style={{ ...styles.attentionRow, ...(a.mine ? styles.attentionRowMine : {}) }}
-                onClick={() => navigate(a.to)}
-              >
-                <span
-                  style={{
-                    ...styles.dot,
-                    ...(a.level === 'tagged'
-                      ? { background: 'var(--neon)' }
-                      : {}),
-                    ...(a.level === 'todo'
-                      ? { background: 'transparent', border: '1.5px solid var(--text-tertiary)', boxSizing: 'border-box' }
-                      : { background: a.level === 'overdue' ? 'var(--danger)' : 'var(--warn)' }),
-                  }}
-                />
-                <span style={styles.attentionText}>{a.text}</span>
-                <span style={styles.attentionWhere}>{a.where}</span>
-              </button>
-            ))}
+      {/* Four panels in two rows that line up (28 Oct 2026): Needs you beside
+          Opening soon, This week beside Recent. Needs you scrolls inside its
+          own box, sized by the row, so a long list never pushes the page. */}
+      <div style={isNarrow ? styles.quadNarrow : styles.quad}>
+        <div style={{ ...styles.zone, ...styles.zoneFill, ...(!showOpenings && !isNarrow ? { gridColumn: '1 / -1' } : {}) }}>
+          <p style={styles.zoneLabel}>Needs you{needCount ? ` · ${needCount}` : ''}</p>
+          <div style={isNarrow ? styles.needsPlain : styles.needsScroll}>
+            <div style={isNarrow ? styles.needsInnerNarrow : { ...styles.panel, ...styles.needsInner }} data-stagger="">
+              {summary.attention.length === 0 ? <p style={styles.emptyNote}>Nothing needs your attention.</p> : null}
+              {summary.attention.map((a, i) => {
+                if (a.level === 'header') return <p key={'h' + i} style={styles.attentionHeader}>{a.text}</p>;
+                // A row waiting on you shows its action as a button (Decide,
+                // Claim, Sign, Answer, Download); the rest open quietly.
+                const parts = String(a.where ?? '').split(' · ');
+                const verb = a.level === 'waiting' && ACTIONS.includes(parts[0]) ? parts[0] : null;
+                const sub = verb ? parts.slice(1).join(' · ') : a.where;
+                return (
+                  <button
+                    key={i}
+                    data-row=""
+                    data-marked={a.mine ? '' : undefined}
+                    style={{ ...styles.attentionRow, ...(a.mine ? styles.attentionRowMine : {}) }}
+                    onClick={() => navigate(a.to)}
+                  >
+                    <span
+                      style={{
+                        ...styles.dot,
+                        ...(a.level === 'tagged' ? { background: 'var(--neon)' } : {}),
+                        ...(a.level === 'todo'
+                          ? { background: 'transparent', border: '1.5px solid var(--text-tertiary)', boxSizing: 'border-box' }
+                          : a.level === 'tagged'
+                            ? {}
+                            : { background: a.level === 'overdue' ? 'var(--danger)' : 'var(--warn)' }),
+                      }}
+                    />
+                    <span style={styles.rowText}>
+                      <span style={styles.rowTitle}>{a.text}</span>
+                      {sub ? <span style={styles.rowSub}>{sub}</span> : null}
+                    </span>
+                    {verb ? <span style={styles.actionBtn}>{verb}</span> : <span aria-hidden="true" style={styles.chev}>›</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          {isNarrow && summary.attention.length > 8 ? (
-            <p style={styles.moreNote}>{summary.attention.length - 8} more</p>
-          ) : null}
         </div>
 
-      {/* Opening soon stays hidden when empty, unlike the panels above. Those
-          are checked daily and an empty one is meaningful - this only matters
-          when something is actually opening. */}
-      {summary.openingSoon.length > 0 ? (
-        <div style={styles.zone}>
-          <Link to="/opening-soon" style={styles.openingHead}>
-            <p style={styles.zoneLabel}>Opening soon</p>
-            <span style={styles.seeAll}>
-              {summary.openingSoon.length > 2 ? `See all ${summary.openingSoon.length}` : 'See all'} →
-            </span>
-          </Link>
-          <div style={styles.openingGrid}>
-            {summary.openingSoon.slice(0, 2).map((loc) => (
-              <button
-                key={loc.id}
-                data-card=""
-                style={styles.openingCard}
-                onClick={() => handleOpeningClick(loc)}
-              >
-                <span style={styles.openingName}>{loc.brandName}</span>
-                <span style={styles.openingMeta}>
-                  {loc.name} · {fmtDay(loc.openingDate)} ·{' '}
-                  {loc.daysOut} days out
-                </span>
-                {hasFeature(user, 'openingChecklist') ? (
-                  <>
-                <div style={styles.barTrack}>
-                  <div
-                    style={{
-                      ...styles.barFill,
-                      width: `${loc.total ? Math.round((loc.done / loc.total) * 100) : 0}%`,
-                    }}
-                  />
-                </div>
-                <div style={styles.openingStatRow}>
-                  <span style={styles.openingMeta}>{loc.done} of {loc.total} setup</span>
-                  {loc.overdue > 0 ? <span style={styles.openingOverdue}>{loc.overdue} overdue</span> : null}
-                </div>
-                <div style={{ ...styles.barTrack, marginTop: 9 }}>
-                  <div
-                    style={{
-                      ...styles.barFill,
-                      background: 'var(--text-tertiary)',
-                      width: `${loc.timelineTotal ? Math.round((loc.timelineDone / loc.timelineTotal) * 100) : 0}%`,
-                    }}
-                  />
-                </div>
-                <div style={styles.openingStatRow}>
-                  <span style={styles.openingMeta}>{loc.timelineDone} of {loc.timelineTotal} timeline</span>
-                  {loc.timelineOverdue > 0 ? (
-                    <span style={styles.openingOverdue}>{loc.timelineOverdue} overdue</span>
-                  ) : null}
-                </div>
-                  </>
-                ) : null}
-              </button>
-            ))}
+        {/* Opening soon stays hidden when nothing is opening. */}
+        {showOpenings ? (
+          <div style={{ ...styles.zone, ...styles.zoneFill }}>
+            <div style={styles.zoneHead}>
+              <p style={styles.zoneLabel}>Opening soon · {summary.openingSoon.length}</p>
+              <Link to="/opening-soon" style={styles.zoneLink}>See all ›</Link>
+            </div>
+            <div style={{ ...styles.panel, flex: 1 }} data-stagger="">
+              {summary.openingSoon.slice(0, 4).map((loc) => {
+                const pct = loc.total ? Math.round((loc.done / loc.total) * 100) : 0;
+                const late = (loc.overdue ?? 0) + (loc.timelineOverdue ?? 0);
+                return (
+                  <button key={loc.id} data-row="" style={styles.openRow} onClick={() => handleOpeningClick(loc)}>
+                    {canOpenChecklist ? (
+                      <Ring pct={pct} />
+                    ) : (
+                      <span style={styles.daysBox}><b style={{ fontSize: 15 }}>{loc.daysOut}</b><span style={{ fontSize: 9, fontWeight: 800 }}>DAYS</span></span>
+                    )}
+                    <span style={styles.rowText}>
+                      <span style={{ ...styles.rowTitle, fontWeight: 700 }}>{loc.brandName} · {loc.name}</span>
+                      <span style={styles.rowSub}>Opens {fmtDay(loc.openingDate)} · {loc.daysOut} days out</span>
+                    </span>
+                    {canOpenChecklist && late > 0 ? <Pill tone="red">{late} late</Pill> : null}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      </div>
-
-      <div style={isNarrow ? styles.topGridNarrow : styles.topGrid}>
-        <div style={styles.zone}>
-          <p style={styles.zoneLabel}>This week</p>
-          <div style={{ ...styles.panel, minHeight: isNarrow ? 0 : 148 }}>
+        <div style={{ ...styles.zone, ...styles.zoneFill }}>
+          <div style={styles.zoneHead}>
+            <p style={styles.zoneLabel}>This week</p>
+            <Link to="/calendar" style={styles.zoneLink}>Calendar ›</Link>
+          </div>
+          <div style={styles.panel} data-stagger="">
             {summary.thisWeek.length === 0 ? (
               <p style={styles.emptyNote}>Nothing scheduled in the next seven days.</p>
             ) : (
@@ -311,110 +318,37 @@ export default function HomeScreen() {
                   <span style={styles.weekDay}>
                     {new Date(e.dateTime).toLocaleDateString([], { weekday: 'short', day: 'numeric' }).toUpperCase()}
                   </span>
-                  {/* On a phone the place goes under the title, so the title
-                      gets the width instead of wrapping word by word. */}
-                  {isNarrow ? (
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ ...styles.attentionText, display: 'block' }}>{e.title}</span>
-                      <span style={{ ...styles.attentionWhere, display: 'block', marginTop: 2 }}>{e.where}</span>
-                    </span>
-                  ) : (
-                    <>
-                      <span style={styles.attentionText}>{e.title}</span>
-                      <span style={styles.attentionWhere}>{e.where}</span>
-                    </>
-                  )}
+                  <span style={styles.rowText}>
+                    <span style={styles.rowTitleOne} title={e.title}>{e.title}</span>
+                    {e.where ? <span style={styles.rowSub}>{e.where}</span> : null}
+                  </span>
                 </button>
               ))
             )}
           </div>
         </div>
 
-        <div style={styles.zone}>
+        {/* What's been done lately. */}
+        <div style={{ ...styles.zone, ...styles.zoneFill }}>
           <p style={styles.zoneLabel}>Recent</p>
-          <div style={{ ...styles.panel, minHeight: isNarrow ? 0 : 148 }}>
+          <div style={styles.panel} data-stagger="">
             {summary.recent.length === 0 ? (
               <p style={styles.emptyNote}>No recent sign-offs.</p>
             ) : (
               summary.recent.slice(0, 3).map((r) => (
                 <div key={r.id} style={styles.recentRow}>
-                  <span style={styles.recentText}>{r.text}</span>
-                  <span style={styles.attentionWhere}>
-                    {fmtDay(r.at)}
+                  <span style={{ ...styles.dot, background: 'var(--success)' }} />
+                  <span style={styles.rowText}>
+                    <span style={styles.rowTitleOne} title={r.text}>{r.text}</span>
+                    {r.where ? <span style={styles.rowSub}>{r.where}</span> : null}
                   </span>
+                  <span style={styles.recentWhen}>{fmtDay(r.at)}</span>
                 </div>
               ))
             )}
           </div>
         </div>
       </div>
-
-      <p style={styles.zoneLabel}>Restaurants</p>
-      <div style={isNarrow ? styles.gridNarrow : styles.grid}>
-        {brands.filter((b) => !b.execOnly || hasBrandAccess(user, b.id)).map((item) => {
-          const allowed = hasBrandAccess(user, item.id);
-          const activeLocations = item.locations.filter((l) => l.status === 'active');
-          const customLocations = getByBrand(item.id);
-          const color = brandColors[item.name] ?? '#8A8A8A';
-          const clickable = true;
-          const allLocationIds = [...activeLocations.map((l) => l.id), ...customLocations.map((l) => l.id)];
-          const hasUnseen =
-            allowed && (hasUnseenForBrand(item.id, allLocationIds) || hasNeedMatchingJob(allLocationIds, user?.job, user?.uid));
-          const totalLocations = activeLocations.length + customLocations.length;
-          const isHovered = hoveredId === item.id && clickable;
-          const pendingRequest = !allowed && user ? hasPendingRequest(user.email, 'brand', item.id) : false;
-
-          return (
-            <div key={item.id} style={{ position: 'relative' }}>
-              <button
-                data-card=""
-                onClick={() => handleCardClick(item, allowed)}
-                onMouseEnter={() => setHoveredId(item.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                style={{
-                  ...styles.card,
-                  borderColor: allowed ? color : 'var(--border)',
-                  opacity: allowed ? 1 : 0.5,
-                  cursor: clickable ? 'pointer' : 'default',
-                  transform: isHovered ? 'translateY(-2px)' : 'none',
-                  boxShadow: isHovered ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-                }}
-              >
-                <div style={styles.cardBody}>
-                  <span style={styles.cardName}>{item.name}</span>
-                  {!allowed ? (
-                    <span style={{ marginTop: 4 }}><RequestPill pending={pendingRequest} /></span>
-                  ) : (
-                    <span style={styles.cardMeta}>
-                      {totalLocations > 0 ? `${totalLocations} location${totalLocations > 1 ? 's' : ''}` : 'In progress'}
-                    </span>
-                  )}
-                  {/* Each tile carries its own state, so the strip is a status
-                      board rather than just a set of links. */}
-                  {allowed && summary.byBrand[item.id] ? (
-                    (() => {
-                      const b = summary.byBrand[item.id];
-                      if (b.overdue > 0)
-                        return <span style={{ ...styles.cardStat, color: 'var(--danger)' }}>{b.overdue} overdue</span>;
-                      if (b.dueSoon > 0)
-                        return <span style={{ ...styles.cardStat, color: 'var(--warn)' }}>{b.dueSoon} due soon</span>;
-                      if (b.total > 0 && b.done < b.total)
-                        return (
-                          <span style={{ ...styles.cardStat, color: 'var(--neon)' }}>
-                            {Math.round((b.done / b.total) * 100)}% ready
-                          </span>
-                        );
-                      return <span style={{ ...styles.cardStat, color: 'var(--success)' }}>All clear</span>;
-                    })()
-                  ) : null}
-                </div>
-              </button>
-              {hasUnseen ? <span style={styles.unseenDot} /> : null}
-            </div>
-          );
-        })}
-      </div>
-
       {requestTarget ? (
         <RequestAccessModal target={requestTarget} onSubmit={submitRequest} onClose={() => setRequestTarget(null)} />
       ) : null}
@@ -423,105 +357,68 @@ export default function HomeScreen() {
   );
 }
 
+// The verbs a "waiting on you" row can lead with.
+const ACTIONS = ['Decide', 'Claim', 'Sign', 'Answer', 'Download'];
+
+
 const styles = {
-  topGrid: { display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 18, alignItems: 'stretch' },
-  // The zone is a column so its panel can grow into whatever height the grid
-  // hands it - otherwise Needs you ends short of Opening soon and leaves a
-  // hole that gets worse with every restaurant added.
+  page: { padding: '36px max(22px, min(44px, 4vw)) 48px', maxWidth: 1120 },
+  tiles: { display: 'grid', gridTemplateColumns: 'repeat(3, 96px)', gap: 8, alignSelf: 'flex-end' },
+  tilesNarrow: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, width: '100%' },
+  tile: { background: 'var(--bg-card)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left' },
+  tileValue: { fontSize: 24, fontWeight: 900, lineHeight: 1.05 },
+  tileLabel: { fontSize: 9.5, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+
+  // One row that slides sideways when there are more restaurants than fit
+  // (28 Oct 2026), so a sixth never sits alone on a second line.
+  tilesGrid: { display: 'flex', gap: 10, margin: '-4px -6px 16px', padding: '8px 6px 10px', overflowX: 'auto', scrollSnapType: 'x proximity', scrollbarWidth: 'thin' },
+  tilesGridNarrow: { display: 'flex', gap: 9, margin: '-4px -22px 14px', padding: '8px 22px 10px', scrollPaddingLeft: 22, overflowX: 'auto', scrollSnapType: 'x proximity', scrollbarWidth: 'none' },
+  brandTile: {
+    position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5, minHeight: 96,
+    flex: '0 0 calc((100% - 50px) / 5.4)', minWidth: 158, scrollSnapAlign: 'start',
+    padding: '14px 14px 13px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: '4px solid',
+    borderRadius: 12, textAlign: 'left', width: '100%',
+  },
+  brandName: { fontSize: 13, fontWeight: 900, letterSpacing: -0.1, textTransform: 'uppercase', lineHeight: 1.2, color: 'var(--text-primary)', paddingRight: 12 },
+  brandMeta: { fontSize: 12, color: 'var(--text-tertiary)' },
+  brandStat: { fontSize: 12, fontWeight: 700, marginTop: 'auto' },
+  unseenDot: { position: 'absolute', top: 12, right: 12, width: 9, height: 9, borderRadius: 5, background: 'var(--danger)', boxShadow: '0 0 0 3px var(--bg-card)' },
+
+  quad: { display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', columnGap: 20, alignItems: 'stretch' },
+  quadNarrow: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' },
   zoneFill: { display: 'flex', flexDirection: 'column' },
-  attentionScroll: { position: 'relative', flex: 1, minHeight: 196 },
-  attentionPlain: { flex: 1 },
-  attentionInner: { position: 'absolute', inset: 0, overflowY: 'auto' },
-  // Two columns at ~170px each on a phone left every card clipping its own
-  // text mid-word. One column, full width.
-  topGridNarrow: { display: 'grid', gridTemplateColumns: '1fr', gap: 14, alignItems: 'start' },
+  // The list scrolls inside a box the row sizes, so Needs you always ends
+  // level with Opening soon.
+  needsScroll: { position: 'relative', flex: 1, minHeight: 260 },
+  needsInner: { position: 'absolute', inset: 0, overflowY: 'auto' },
+  needsPlain: {},
+  needsInnerNarrow: { background: 'var(--bg-card)', borderRadius: 14, overflow: 'hidden auto', maxHeight: 380, display: 'flex', flexDirection: 'column' },
+  recentRow: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border)' },
+  recentWhen: { fontSize: 11.5, color: 'var(--text-tertiary)', flexShrink: 0 },
   zone: { marginBottom: 22, minWidth: 0 },
-  zoneLabel: {
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: 'var(--text-tertiary)',
-    margin: '0 0 9px',
-  },
-  // Fixed heights so a quiet day doesn't shuffle the layout. A dashboard that
-  // reflows whenever something clears is one whose positions you stop trusting,
-  // and hunting for a panel that moved costs more than the empty space.
-  panel: { background: 'var(--bg-card)', borderRadius: 10, overflow: 'hidden', display: 'flex', flexDirection: 'column' },
-  emptyNote: { fontSize: 12, color: 'var(--text-tertiary)', padding: '14px 16px', margin: 0 },
-  weekDay: { fontSize: 11, fontWeight: 700, color: 'var(--neon)', width: 52, flexShrink: 0 },
-  recentRow: { display: 'flex', alignItems: 'center', gap: 11, padding: '11px 14px', borderBottom: '1px solid var(--border)' },
-  recentText: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
-  openingStatRow: { display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' },
-  openingOverdue: { fontSize: 11, color: 'var(--danger)' },
+  zoneHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 },
+  zoneLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 0.9, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 9px' },
+  zoneLink: { fontSize: 12, fontWeight: 700, color: 'var(--neon)', textDecoration: 'none', background: 'none', border: 'none', padding: 0, whiteSpace: 'nowrap' },
+  panel: { background: 'var(--bg-card)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' },
+  emptyNote: { fontSize: 13, color: 'var(--text-tertiary)', padding: '16px', margin: 0 },
   attentionHeader: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: 0, padding: '12px 16px 6px' },
-  attentionRowMine: { borderLeft: '3px solid var(--neon)', background: 'rgba(34,211,238,0.06)' },
+  attentionRowMine: { boxShadow: 'inset 3px 0 0 var(--neon)', background: 'rgba(34,211,238,0.05)' },
   attentionRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 11,
-    width: '100%',
-    padding: '12px 14px',
-    background: 'none',
-    border: 'none',
-    borderBottom: '1px solid var(--border)',
-    textAlign: 'left',
-    cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 16px',
+    background: 'none', border: 'none', borderBottom: '1px solid var(--border)', borderRadius: 0, textAlign: 'left', cursor: 'pointer',
   },
-  dot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
-  attentionText: { flex: 1, fontSize: 14, color: 'var(--text-primary)' },
-  attentionWhere: { fontSize: 11, color: 'var(--text-tertiary)', flexShrink: 0 },
+  dot: { width: 7, height: 7, borderRadius: 4, flexShrink: 0 },
+  rowText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
+  rowTitle: { fontSize: 14, color: 'var(--text-primary)', overflowWrap: 'anywhere' },
+  rowSub: { fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  rowTitleOne: { fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  actionBtn: { flexShrink: 0, fontSize: 12, fontWeight: 800, color: 'var(--neon-text)', background: 'var(--neon)', borderRadius: 7, padding: '5px 11px' },
+  chev: { flexShrink: 0, color: 'var(--text-tertiary)', fontSize: 16 },
+  weekDay: { fontSize: 11, fontWeight: 800, color: 'var(--neon)', width: 54, flexShrink: 0 },
   moreNote: { fontSize: 12, color: 'var(--text-tertiary)', margin: '9px 2px 0' },
-
-  openingHead: { textDecoration: 'none', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
-  seeAll: { fontSize: 10, fontWeight: 700, color: 'var(--neon)', textDecoration: 'none', whiteSpace: 'nowrap' },
-  openingGrid: { display: 'flex', flexDirection: 'column', gap: 8 },
-  openingCard: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 5,
-    padding: 16,
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: 10,
-    textAlign: 'left',
-    cursor: 'pointer',
+  openRow: {
+    display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '12px 16px',
+    background: 'none', border: 'none', borderBottom: '1px solid var(--border)', borderRadius: 0, textAlign: 'left', cursor: 'pointer',
   },
-  openingName: { fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: -0.2 },
-  openingMeta: { fontSize: 12, color: 'var(--text-tertiary)' },
-  barTrack: { height: 5, width: '100%', background: 'rgba(255,255,255,0.13)', borderRadius: 3, margin: '8px 0 5px' },
-  barFill: { height: 5, background: 'var(--neon)', borderRadius: 3 },
-
-  // Aligned to the bottom of the header row rather than stretching to fill
-  // it. With three counts always present the block is taller than it was
-  // when they appeared conditionally, and stretching left a gap above them.
-  headerCounts: { display: 'flex', gap: 22, textAlign: 'right', alignItems: 'flex-end', alignSelf: 'flex-end' },
-  countValue: { fontSize: 22, fontWeight: 800, lineHeight: 1.1 },
-  countLabel: { fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
-
-  page: { padding: '36px max(22px, min(44px, 4vw))', maxWidth: 1040 },
-  // Restaurants two across on a phone (15 Oct 2026).
-  gridNarrow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 },
-  grid: {
-    display: 'grid',
-    // min() caps the track minimum at the container width, so a narrow
-    // screen drops to a single column instead of squeezing two 175px
-    // tiles that clip their own names. Desktop is unaffected.
-    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-    gap: 9,
-  },
-  card: {
-    width: '100%',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: 10,
-    textAlign: 'left',
-    overflow: 'hidden',
-    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-  },
-  cardBody: { padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 5, minHeight: 92 },
-  cardName: { fontSize: 12, fontWeight: 800, letterSpacing: -0.1, textTransform: 'uppercase', lineHeight: 1.25 },
-  cardMeta: { fontSize: 11, color: 'var(--text-tertiary)' },
-  cardStat: { fontSize: 11 },
-  unseenDot: { position: 'absolute', top: 14, right: 14, width: 9, height: 9, borderRadius: 5, background: 'var(--danger)', boxShadow: '0 0 0 3px var(--bg-card)' },
+  daysBox: { width: 46, height: 46, borderRadius: 12, background: 'rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', flexShrink: 0, lineHeight: 1.1 },
 };

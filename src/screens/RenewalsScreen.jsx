@@ -1,5 +1,6 @@
 import { atLeast } from '../data/accessMatrix';
 import React, { useEffect, useState } from 'react';
+import { CountUp } from '../components/Motion';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRenewals, isRenewalDueSoon } from '../context/RenewalsContext';
@@ -188,7 +189,7 @@ export default function RenewalsScreen() {
           ['No date yet', counts.none, 'var(--text-tertiary)'],
         ].map(([label, n, color]) => (
           <div key={label} style={styles.stat}>
-            <span style={{ ...styles.statNum, color: n ? color : 'var(--text-tertiary)' }}>{n}</span>
+            <CountUp value={n} style={{ ...styles.statNum, color: n ? color : 'var(--text-tertiary)' }} />
             <span style={styles.statLabel}>{label}</span>
           </div>
         ))}

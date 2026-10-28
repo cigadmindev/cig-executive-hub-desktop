@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { toast } from './Motion';
 import { collection, doc, onSnapshot, query, where, orderBy, addDoc, updateDoc, deleteDoc, setDoc, writeBatch, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
@@ -154,7 +155,7 @@ export default function OutreachPanel({ tabs, locationOptions, locationName, onM
 
   const run = async (fn, done) => {
     setBusy(true);
-    try { await fn(); done?.(); } catch (err) { notify('Nothing was changed', plainError(err, 'Try again.')); } finally { setBusy(false); }
+    try { await fn(); done?.(); toast('Saved.'); } catch (err) { notify('Nothing was changed', plainError(err, 'Try again.')); } finally { setBusy(false); }
   };
 
   const savePlace = () => run(async () => {

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { SkeletonRows } from '../components/Motion';
 import { useNavigate } from 'react-router-dom';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes } from 'firebase/storage';
@@ -232,7 +233,7 @@ export default function MySpaceScreen() {
                 <p style={styles.note}>In the CIG shared drive, with limited access: other members of the drive can't open it. Google always lets the shared drive's Managers in.</p>
               </>
             ) : !noFolder && files === null ? (
-              <p style={styles.note}>Loading…</p>
+              <SkeletonRows rows={2} padding="10px 0" />
             ) : !noFolder ? (
               <p style={{ ...styles.note, color: 'var(--bad)' }}>Your folder could not be reached{space?.loadError ? ' (' + space.loadError + ')' : ''}. Send Brenner a screenshot of this.</p>
             ) : (
@@ -248,7 +249,7 @@ export default function MySpaceScreen() {
           <p style={{ ...styles.cap, marginTop: 8 }}>Files</p>
           <div style={styles.card}>
             {!folderUrl ? <p style={styles.note}>Files go into your private Drive folder once it is made.</p> : null}
-            {folderUrl && files === null ? <p style={styles.note}>Loading your folder…</p> : null}
+            {folderUrl && files === null ? <SkeletonRows rows={3} padding="10px 0" /> : null}
             {filesError ? <p style={{ ...styles.note, color: 'var(--bad)' }}>{filesError}</p> : null}
             {folderUrl && files && files.length === 0 && !filesError ? (
               <>

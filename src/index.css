@@ -384,3 +384,82 @@ button[data-primary]:active:not(:disabled) {
   height: 40px;
   transform: translate(-50%, -50%);
 }
+
+/* ---- Motion (28 Oct 2026, sketch 35) ----
+   One easing everywhere, everything settles in under half a second, and it
+   only plays when something opens or changes. fill-mode is "backwards" so
+   the animation never holds a transform afterwards - hover lifts on cards
+   and rows keep working exactly as before. */
+@keyframes hubRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes hubFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes hubPop {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes hubPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+@keyframes hubShimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* Every pop-up: the shade fades in, the card rises into place. */
+[data-modal] {
+  animation: hubFade 0.18s ease-out backwards;
+}
+[data-modal] > :first-child {
+  animation: hubPop 0.26s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+
+/* Lists and cards come in one after another, a fraction of a second apart. */
+[data-rise] {
+  animation: hubRise 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+[data-stagger] > * {
+  animation: hubRise 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+[data-stagger] > :nth-child(2) { animation-delay: 0.04s; }
+[data-stagger] > :nth-child(3) { animation-delay: 0.08s; }
+[data-stagger] > :nth-child(4) { animation-delay: 0.12s; }
+[data-stagger] > :nth-child(5) { animation-delay: 0.16s; }
+[data-stagger] > :nth-child(6) { animation-delay: 0.2s; }
+[data-stagger] > :nth-child(7) { animation-delay: 0.24s; }
+[data-stagger] > :nth-child(n + 8) { animation-delay: 0.28s; }
+
+/* A status label that just changed gives one small pulse. */
+[data-pulse] {
+  animation: hubPulse 0.42s cubic-bezier(0.2, 0.7, 0.2, 1);
+  display: inline-block;
+}
+
+/* Loading placeholders. */
+[data-skeleton] {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.13) 40%, rgba(255,255,255,0.06) 80%);
+  background-size: 300% 100%;
+  animation: hubShimmer 1.4s linear infinite;
+}
+
+[data-toast] {
+  animation: hubRise 0.26s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+
+/* Anyone who has asked their device for less motion gets none. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

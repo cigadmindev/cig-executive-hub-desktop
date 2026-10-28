@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // The one status label (V2, 8 Oct 2026). A colour always means the same thing:
 //   amber  someone needs to act      Pending, New, Due soon
@@ -16,8 +16,20 @@ const TONES = {
 
 export default function Pill({ tone = 'grey', children }) {
   const [bg, fg] = TONES[tone] ?? TONES.grey;
+  // One small pulse when the status changes while you're looking at it
+  // (28 Oct 2026). Not on first appearance - a page full of pulsing labels
+  // would be noise.
+  const label = typeof children === 'string' ? children : String(tone);
+  const prev = useRef(label);
+  const [pulse, setPulse] = useState(0);
+  useEffect(() => {
+    if (prev.current !== label) {
+      prev.current = label;
+      setPulse((n) => n + 1);
+    }
+  }, [label]);
   return (
-    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', borderRadius: 5, padding: '3px 8px', background: bg, color: fg, whiteSpace: 'nowrap', flexShrink: 0 }}>
+    <span key={pulse} data-pulse={pulse ? '' : undefined} style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', borderRadius: 5, padding: '3px 8px', background: bg, color: fg, whiteSpace: 'nowrap', flexShrink: 0 }}>
       {children}
     </span>
   );

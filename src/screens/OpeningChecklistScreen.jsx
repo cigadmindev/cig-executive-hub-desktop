@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { CountUp } from '../components/Motion';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import Icon from '../components/Icon';
 import { printOpeningSheet } from '../lib/printSheet';
@@ -606,19 +607,19 @@ export default function OpeningChecklistScreen() {
   const initial = (n) => (n ?? '?').trim().charAt(0).toUpperCase();
   const opStats = (
     <div style={isNarrow ? styles.heroStatsNarrow : styles.heroStats}>
-      <div><b style={styles.heroNum}>{opCounts.record}</b><span style={styles.heroLabel}>On record</span></div>
-      <div><b style={{ ...styles.heroNum, color: opCounts.missing ? 'var(--warn)' : 'var(--text-tertiary)' }}>{opCounts.missing}</b><span style={styles.heroLabel}>Missing details</span></div>
-      <div><b style={styles.heroNum}>{opCounts.docs}</b><span style={styles.heroLabel}>Documents</span></div>
-      <div><b style={{ ...styles.heroNum, color: opCounts.open ? 'var(--warn)' : 'var(--text-tertiary)' }}>{opCounts.open}</b><span style={styles.heroLabel}>Still open from opening</span></div>
+      <div><b style={styles.heroNum}><CountUp value={opCounts.record} /></b><span style={styles.heroLabel}>On record</span></div>
+      <div><b style={{ ...styles.heroNum, color: opCounts.missing ? 'var(--warn)' : 'var(--text-tertiary)' }}><CountUp value={opCounts.missing} /></b><span style={styles.heroLabel}>Missing details</span></div>
+      <div><b style={styles.heroNum}><CountUp value={opCounts.docs} /></b><span style={styles.heroLabel}>Documents</span></div>
+      <div><b style={{ ...styles.heroNum, color: opCounts.open ? 'var(--warn)' : 'var(--text-tertiary)' }}><CountUp value={opCounts.open} /></b><span style={styles.heroLabel}>Still open from opening</span></div>
     </div>
   );
   // Under the title on a computer; across the whole card on a phone.
   const heroStats = (
     <div style={isNarrow ? styles.heroStatsNarrow : styles.heroStats}>
-      <div><b style={{ ...styles.heroNum, color: counts.week ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>{counts.week}</b><span style={styles.heroLabel}>Due this week</span></div>
-      <div><b style={{ ...styles.heroNum, color: 'var(--text-tertiary)' }}>{counts.waiting}</b><span style={styles.heroLabel}>Waiting on another item</span></div>
-      <div><b style={{ ...styles.heroNum, color: counts.atRisk ? 'var(--warn)' : 'var(--text-tertiary)' }}>{counts.atRisk}</b><span style={styles.heroLabel}>At risk</span></div>
-      <div><b style={{ ...styles.heroNum, color: counts.overdue ? 'var(--danger)' : 'var(--success)' }}>{counts.overdue}</b><span style={styles.heroLabel}>Overdue</span></div>
+      <div><b style={{ ...styles.heroNum, color: counts.week ? 'var(--text-primary)' : 'var(--text-tertiary)' }}><CountUp value={counts.week} /></b><span style={styles.heroLabel}>Due this week</span></div>
+      <div><b style={{ ...styles.heroNum, color: 'var(--text-tertiary)' }}><CountUp value={counts.waiting} /></b><span style={styles.heroLabel}>Waiting on another item</span></div>
+      <div><b style={{ ...styles.heroNum, color: counts.atRisk ? 'var(--warn)' : 'var(--text-tertiary)' }}><CountUp value={counts.atRisk} /></b><span style={styles.heroLabel}>At risk</span></div>
+      <div><b style={{ ...styles.heroNum, color: counts.overdue ? 'var(--danger)' : 'var(--success)' }}><CountUp value={counts.overdue} /></b><span style={styles.heroLabel}>Overdue</span></div>
     </div>
   );
 

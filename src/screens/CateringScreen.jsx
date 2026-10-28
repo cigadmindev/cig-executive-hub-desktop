@@ -1,5 +1,6 @@
 import { accessLevel } from '../data/accessMatrix';
 import React, { useState } from 'react';
+import { toast } from '../components/Motion';
 import { useAuth } from '../context/AuthContext';
 import { useCatering } from '../context/CateringContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
@@ -103,12 +104,13 @@ export default function CateringScreen() {
     }
   }
 
-  const run = async (fn, after) => {
+  const run = async (fn, after, done = 'Saved.') => {
     setBusy(true);
     try {
       const note = await fn();
       after?.();
       if (typeof note === 'string') notify('Done, with one thing left', note);
+      else toast(done);
     } catch (err) {
       notify('Nothing was changed', plainError(err, 'Try again.'));
     } finally {
@@ -191,14 +193,14 @@ export default function CateringScreen() {
                     onClick={() =>
                       !e.locationId
                         ? setClaiming({ id: e.id, name: e.name || 'this', placeId: locationOptions.length === 1 ? locationOptions[0].id : '' })
-                        : run(() => claim(e.id), () => { setSelectedId(e.id); setFilter('talking'); })
+                        : run(() => claim(e.id), () => { setSelectedId(e.id); setFilter('talking'); }, 'Claimed. It is yours now.')
                     }
                   >
                     Claim
                   </button>
                 ) : null}
                 {e.status === 'new' && e.ownerUid ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'talking'), () => { setSelectedId(e.id); setFilter('talking'); })}>Talking</button> : null}
-                {['new', 'talking'].includes(e.status) ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'confirmed'), () => { setSelectedId(e.id); setFilter('confirmed'); })}>Confirmed</button> : null}
+                {['new', 'talking'].includes(e.status) ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'confirmed'), () => { setSelectedId(e.id); setFilter('confirmed'); }, 'Confirmed.')}>Confirmed</button> : null}
                 {e.status === 'confirmed' && !e.calendarEntryId ? <button style={d.primary} disabled={busy} onClick={() => run(() => putOnCalendar(e))}>Add to calendar</button> : null}
                 {e.status === 'confirmed' ? <button style={d.ghost} disabled={busy} onClick={() => run(() => setStatus(e.id, 'done'), () => { setSelectedId(e.id); setFilter('done'); })}>Done</button> : null}
                 {['new', 'talking', 'confirmed'].includes(e.status) ? <button style={d.ghost} onClick={() => { setChanging({ reason: '' }); setLosing(e.id); }}>Didn't book</button> : null}
@@ -472,7 +474,7 @@ export default function CateringScreen() {
                   const c = claiming;
                   const place = locationOptions.find((l) => l.id === c.placeId);
                   setClaiming(null);
-                  run(() => claim(c.id, place), () => { setSelectedId(c.id); setFilter('talking'); });
+                  run(() => claim(c.id, place), () => { setSelectedId(c.id); setFilter('talking'); }, 'Claimed. It is yours now.');
                 }}
               >
                 Claim

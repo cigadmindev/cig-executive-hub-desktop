@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from '../components/Motion';
 import { useAuth } from '../context/AuthContext';
 import { useDeviceRequests } from '../context/DeviceRequestsContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
@@ -63,11 +64,12 @@ export default function DeviceRequestsScreen() {
   const rows = requests.filter((r) => r.status === filter);
   const selected = requests.find((r) => r.id === selectedId) ?? rows[0] ?? null;
 
-  const run = async (fn, done) => {
+  const run = async (fn, done, msg = 'Saved.') => {
     setBusy(true);
     try {
       await fn();
       done?.();
+      toast(msg);
     } catch (err) {
       notify('Could not save', plainError(err, 'Something went wrong.'));
     } finally {
@@ -129,12 +131,12 @@ export default function DeviceRequestsScreen() {
             <input style={d.input} autoFocus placeholder="Reason - they will see this" value={declineReason} onChange={(e) => setDeclineReason(e.target.value)} />
             <div style={d.actions}>
               <button style={d.ghost} onClick={() => setDeclining(false)}>Cancel</button>
-              <button style={d.primary} disabled={busy || !declineReason.trim()} onClick={() => run(() => decide(selected.id, false, declineReason.trim()), () => { setDeclining(false); setDeclineReason(''); })}>Decline</button>
+              <button style={d.primary} disabled={busy || !declineReason.trim()} onClick={() => run(() => decide(selected.id, false, declineReason.trim()), () => { setDeclining(false); setDeclineReason(''); }, 'Declined.')}>Decline</button>
             </div>
           </div>
         ) : (
           <div style={d.actions}>
-            <button style={d.primary} disabled={busy} onClick={() => run(() => decide(selected.id, true))}>Approve</button>
+            <button style={d.primary} disabled={busy} onClick={() => run(() => decide(selected.id, true), null, 'Approved.')}>Approve</button>
             <button style={d.ghost} onClick={() => setDeclining(true)}>Decline…</button>
           </div>
         )

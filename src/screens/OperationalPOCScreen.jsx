@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { SkeletonRows } from '../components/Motion';
 import Icon from '../components/Icon';
 import { printPocSheet } from '../lib/printSheet';
 import AssigneePicker from '../components/AssigneePicker';
@@ -273,8 +274,9 @@ export default function OperationalPOCScreen() {
         );
       })}
 
-      {contacts.length === 0 ? (
-        <p style={styles.hint}>{!loaded ? 'Loading…' : mineOnly ? 'Nothing here is assigned to you.' : 'No contacts for this location yet.' + (canEdit ? ' Add the first one with + Add contact.' : '')}</p>
+      {contacts.length === 0 && !loaded ? <SkeletonRows rows={4} /> : null}
+      {contacts.length === 0 && loaded ? (
+        <p style={styles.hint}>{ mineOnly ? 'Nothing here is assigned to you.' : 'No contacts for this location yet.' + (canEdit ? ' Add the first one with + Add contact.' : '')}</p>
       ) : null}
       {bulkOpen ? (
         <div data-modal="" data-modal-keep="" style={styles.bulkBackdrop} onClick={() => !assigning && setBulkOpen(false)}>
