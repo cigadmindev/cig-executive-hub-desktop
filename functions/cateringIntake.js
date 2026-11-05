@@ -114,6 +114,14 @@ function valueFor(lines, labels, multiline = false) {
   return '';
 }
 
+/** The restaurant named in the subject line, if exactly one is. */
+function placeInSubject(subject) {
+  const found = Object.values(FORWARDER_LOCATIONS).filter((l) =>
+    new RegExp('\\b' + l.locationName + '\\b', 'i').test(subject ?? '')
+  );
+  return found.length === 1 ? found[0] : null;
+}
+
 function headerOf(message, name) {
   const h = (message.payload?.headers ?? []).find((x) => x.name.toLowerCase() === name.toLowerCase());
   return h?.value ?? '';
@@ -239,6 +247,12 @@ exports.pullCateringEnquiries = onSchedule(
           // whoever happened to forward it.
           if (match) place = match;
         }
+        // The website sends these itself now, from noreply@tastestarkville.com,
+        // with the restaurant in the subject: "Private Event - Ridgeland from
+        // ..." (28 Oct 2026). That is what the customer picked, so it beats
+        // both the Location line and whoever forwarded it.
+        const fromSubject = placeInSubject(subject);
+        if (fromSubject) place = fromSubject;
         const get = (key) => valueFor(lines, FIELDS[key]);
 
         // The only difference between the two: a private event says so.

@@ -164,7 +164,8 @@ function allCateringClaimers(users) {
 async function renewalTeam(users, locationId) {
   const brandId = await brandForLocation(locationId);
   const gms = atLocation(users, ['General Manager'], brandId, locationId);
-  return dedupe([...users.filter((u) => isAdmin(u) || isCoo(u)), ...gms]);
+  // The GM and Ronnie (2 Nov 2026); admins see renewals on Home instead.
+  return dedupe([...backup(users), ...gms]);
 }
 
 // A company, restaurant or location post (S5, 8 Oct): narrowed to the
@@ -192,9 +193,34 @@ function dedupe(people) {
 
 const without = (people, uid) => people.filter((p) => p.uid !== uid);
 
+// Nothing falls back to "every admin" any more (2 Nov 2026). Ronnie - the
+// COO - is the one backup. Admins only if there is no COO login at all.
+function backup(users) {
+  const coo = users.filter((u) => isCoo(u) && notGhost(u));
+  return coo.length ? coo : admins(users);
+}
+
+// Whoever runs a location day to day, for its checklist reminders: the GM,
+// else the Assistant Manager, else the backup (Ronnie).
+function leadAt(users, brandId, locationId) {
+  const gms = atLocation(users, ['General Manager'], brandId, locationId);
+  if (gms.length) return { people: gms, why: 'you are the GM at' };
+  const agms = atLocation(users, ['Assistant Manager'], brandId, locationId);
+  if (agms.length) return { people: agms, why: 'you are the Assistant Manager at' };
+  return { people: backup(users), why: 'there is no GM or Assistant Manager in the Hub at' };
+}
+
+// Access requests go to one admin, Brenner (2 Nov 2026), by email address so
+// a second admin login doesn't change it. Every admin if that login is gone.
+const ACCESS_ADMIN_EMAILS = ['brenner@cigconcepts.com', 'brennerdrake247@gmail.com'];
+function accessDecider(users) {
+  const named = admins(users).filter((u) => ACCESS_ADMIN_EMAILS.includes(String(u.email ?? '').toLowerCase()) || /^brenner\b/i.test(String(u.name ?? '')));
+  return named.length ? named : admins(users);
+}
+
 module.exports = {
   liveMatrix,
   activeUsers, brandForLocation, brandForTarget, locationName, seesLocation, hearsFolder, atLocation,
   approvers, admins, cateringClaimers, allCateringClaimers, renewalTeam, postAudience, folderPostAudience,
-  dedupe, without, isAdmin, isCoo, isFinance, notGhost,
+  dedupe, without, isAdmin, isCoo, isFinance, notGhost, backup, leadAt, accessDecider,
 };

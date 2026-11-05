@@ -18,6 +18,7 @@ export default function AnnouncementsScreen() {
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
   const [message, setMessage] = useState('');
+  const [emailTeam, setEmailTeam] = useState(false);
 
   // Who may post: the Announcements column (Post), checked on the route and
   // by the rules (14 Oct 2026).
@@ -31,7 +32,7 @@ export default function AnnouncementsScreen() {
   const handlePost = async () => {
     if (!message.trim()) return;
     try {
-      await addAnnouncement(categoryId, locationId, message.trim(), user.name);
+      await addAnnouncement(categoryId, locationId, message.trim(), user.name, emailTeam);
       // Only navigates on success - leaving the page on failure would look
       // like it posted.
       navigate(backPath);
@@ -54,8 +55,13 @@ export default function AnnouncementsScreen() {
 
       <p style={styles.note}>
         Your post will appear at the top of this category's page with your name and the time posted.
-        The team can like it and reply in a comment thread.
+        The team can like it and reply in a comment thread. They see it on the bell; nobody is emailed unless you tick below.
       </p>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 16px', fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer', minHeight: 44 }}>
+        <input type="checkbox" checked={emailTeam} onChange={(e) => setEmailTeam(e.target.checked)} style={{ width: 18, height: 18 }} />
+        Email the team about this one <span style={{ color: 'var(--text-tertiary)', fontSize: 12.5 }}>(in their 8am summary)</span>
+      </label>
 
       <div style={{ display: 'flex', gap: 10 }}>
         <button style={styles.cancelButton} onClick={() => navigate(backPath)}>

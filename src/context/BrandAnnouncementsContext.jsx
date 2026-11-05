@@ -32,6 +32,8 @@ export function BrandAnnouncementsProvider({ children }) {
           targetId: data.targetId,
           targetName: data.targetName ?? null,
           brandId: data.brandId ?? null,
+          homeOnly: data.homeOnly === true,
+          title: data.title ?? null,
           message: data.message,
           authorName: data.authorName,
           authorUid: data.authorUid ?? null,
@@ -75,6 +77,9 @@ export function BrandAnnouncementsProvider({ children }) {
     return {
       id: a.id,
       targetId: a.targetId,
+      // Home-only posts (2 Nov 2026): on Home and nowhere else, with a title.
+      homeOnly: a.homeOnly === true,
+      title: a.title ?? null,
       message: a.message,
       authorName: a.authorName,
       authorUid: a.authorUid,
@@ -90,7 +95,9 @@ export function BrandAnnouncementsProvider({ children }) {
 
   // pinDays: how long it stays at the top of Home - a number of days, or
   // 'forever' to keep it until someone removes it.
-  const addAnnouncement = async (targetId, message, authorName, targetLabel, pinDays = 7, brandIdOfTarget = null) => {
+  // opts.homeOnly: a post for everyone's Home only - no restaurant page, no
+  // email, not in the morning summary (2 Nov 2026). opts.title heads it.
+  const addAnnouncement = async (targetId, message, authorName, targetLabel, pinDays = 7, brandIdOfTarget = null, opts = {}) => {
     // targetName is stored on the document so the push-notification function
     // can name the brand. Brands live in mockData inside the app, so the
     // server has no way to resolve an id like 'taste' on its own.
@@ -111,6 +118,7 @@ export function BrandAnnouncementsProvider({ children }) {
       pinnedUntil: pinDays == null ? null : pinDays === 'forever' ? 'forever' : Date.now() + pinDays * 24 * 60 * 60 * 1000,
       likedBy: [],
       comments: [],
+      ...(opts.homeOnly ? { homeOnly: true, title: (opts.title ?? '').trim() || null } : {}),
     });
   };
 
@@ -131,7 +139,7 @@ export function BrandAnnouncementsProvider({ children }) {
   // A brand page shows posts aimed at the whole brand, "everywhere" posts,
   // and posts targeted at any specific location under this brand.
   const getByBrand = (brandId, locationIds = []) =>
-    raw.filter((a) => a.targetId === brandId || a.targetId === 'all' || locationIds.includes(a.targetId)).map(toShaped);
+    raw.filter((a) => a.homeOnly !== true && (a.targetId === brandId || a.targetId === 'all' || locationIds.includes(a.targetId))).map(toShaped);
 
   const deletePost = async (id) => {
     await deleteDoc(doc(db, COLLECTION, id));

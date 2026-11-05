@@ -197,14 +197,32 @@ button:disabled {
   animation: revealDown 0.18s ease-out;
 }
 
+/* One scroll bar everywhere, hidden until you scroll (4 Nov 2026).
+   Every box gets the same thin bar, and it stays invisible until that box
+   is scrolled: lib/scrollReveal.js adds .is-scrolling while it moves and
+   takes it off a moment after it stops. The webkit rules cover older
+   Safari. A box that hides its bar for good (scrollbarWidth: 'none') still
+   can. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.is-scrolling {
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: transparent;
   border-radius: 6px;
 }
-::-webkit-scrollbar-track {
+.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.28);
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
   background: transparent;
 }
 

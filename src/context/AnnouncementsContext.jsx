@@ -79,7 +79,7 @@ export function AnnouncementsProvider({ children }) {
     };
   };
 
-  const addAnnouncement = async (categoryId, locationId, message, authorName) => {
+  const addAnnouncement = async (categoryId, locationId, message, authorName, emailTeam = false) => {
     // categoryLabel is stored on the document so the push-notification
     // function can name the category without knowing our taxonomy.
     const category = categories.find((c) => c.id === categoryId);
@@ -93,6 +93,8 @@ export function AnnouncementsProvider({ children }) {
       timestamp: Date.now(),
       likedBy: [],
       comments: [],
+      // Folder posts don't email anyone unless this is ticked (2 Nov 2026).
+      ...(emailTeam ? { emailTeam: true } : {}),
     });
   };
 

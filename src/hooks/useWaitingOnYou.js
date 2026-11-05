@@ -69,7 +69,8 @@ export function useWaitingOnYou() {
         .forEach((r) => add('Systems Help', [r.system ?? 'Request', r.createdByName].filter(Boolean).join(' · '), 'Answer', '/integration-requests', r.createdAt ?? 0));
     }
     // Only Catering & Events managers claim (10 Oct 2026) - never admins.
-    if (accessLevel(user, 'catering') === 'claim') {
+    // Admins have every level, which made them "claim" too (2 Nov 2026).
+    if (!isAdmin && accessLevel(user, 'catering') === 'claim') {
       (enquiries ?? [])
         .filter((e) => !e.ownerUid && (e.status ?? 'new') === 'new')
         .forEach((e) => add('Catering', (e.name ?? 'New enquiry') + (e.guests ? ' · ' + e.guests : ''), 'Claim · ' + (e.locationName || 'No location yet'), '/catering', e.createdAt ?? 0));

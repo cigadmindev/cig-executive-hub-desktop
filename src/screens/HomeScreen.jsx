@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useNavigate , Link } from 'react-router-dom';
 import { MySpaceCard } from './MySpaceScreen';
@@ -22,8 +22,25 @@ import PageHeader from '../components/PageHeader';
 import Pill from '../components/Pill';
 import { CountUp, Ring } from '../components/Motion';
 
+// Too narrow for two panels side by side (a half-width window on a laptop):
+// the panels stack and the opening rows get room for their names (2 Nov 2026).
+function useStacked() {
+  const q = '(max-width: 1179px)';
+  const [on, setOn] = useState(() => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(q).matches);
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const m = window.matchMedia(q);
+    const f = () => setOn(m.matches);
+    m.addEventListener?.('change', f);
+    return () => m.removeEventListener?.('change', f);
+  }, []);
+  return on;
+}
+
 export default function HomeScreen() {
   const isNarrow = useIsNarrow();
+  const stacked = useStacked() || isNarrow;
+  const needsRef = useRef(null);
   const { dialogNode, notify } = useDialog();
   const { user, hasBrandAccess } = useAuth();
   const navigate = useNavigate();
@@ -63,7 +80,9 @@ export default function HomeScreen() {
 
   const handleOpeningClick = (loc) => {
     if (hasFeature(user, 'openingChecklist')) {
-      navigate(`/brand/${loc.brandId}/location/${loc.id}/opening-checklist`);
+      // Straight to the late items when there are any (2 Nov 2026).
+      const late = (loc.overdue ?? 0) + (loc.timelineOverdue ?? 0);
+      navigate(`/brand/${loc.brandId}/location/${loc.id}/opening-checklist` + (late > 0 && summary.worksChecklist ? '?show=overdue' : ''));
       return;
     }
     // Opening date only for this person - nothing to open, nothing to request.
@@ -104,6 +123,41 @@ export default function HomeScreen() {
   const showOpenings = summary.openingSoon.length > 0;
   const canOpenChecklist = hasFeature(user, 'openingChecklist');
 
+  // The four number tiles. Beside the greeting on a wide window; under it
+  // when the window is narrower, so the greeting keeps one line (2 Nov 2026).
+  const tilesNode = (
+          <div style={stacked ? styles.tilesNarrow : styles.tiles} data-stagger="">
+            {/* Always shown, zeros included: a number that disappears at zero
+                reads as missing rather than good news. Zero is grey. */}
+            {/* "Yours late" counts only your own items (2 Nov 2026). The
+                restaurant tiles below count the whole restaurant. */}
+            {summary.counts.overdue !== null ? (
+              <button style={styles.tileBtn} onClick={() => needsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} title="Your own late items, in Needs you">
+                <CountUp value={summary.counts.overdue} style={{ ...styles.tileValue, color: summary.counts.overdue > 0 ? 'var(--danger)' : 'var(--text-tertiary)' }} />
+                <span style={styles.tileLabel}>Your late items</span>
+              </button>
+            ) : null}
+            {summary.counts.unassigned !== null ? (
+              <button
+                style={{ ...styles.tileBtn, cursor: summary.counts.unassignedTo ? 'pointer' : 'default' }}
+                onClick={() => summary.counts.unassignedTo && navigate(summary.counts.unassignedTo)}
+                title="Late items with nobody assigned"
+              >
+                <CountUp value={summary.counts.unassigned} style={{ ...styles.tileValue, color: summary.counts.unassigned > 0 ? 'var(--warn)' : 'var(--text-tertiary)' }} />
+                <span style={styles.tileLabel}>Late, unassigned</span>
+              </button>
+            ) : null}
+            <button style={{ ...styles.tileBtn, cursor: summary.counts.renewalsTo ? 'pointer' : 'default' }} onClick={() => summary.counts.renewalsTo && navigate(summary.counts.renewalsTo)} title="Renewals due soon">
+              <CountUp value={summary.counts.renewals} style={{ ...styles.tileValue, color: summary.counts.renewals > 0 ? 'var(--warn)' : 'var(--text-tertiary)' }} />
+              <span style={styles.tileLabel}>Renewals</span>
+            </button>
+            <button style={styles.tileBtn} onClick={() => navigate('/calendar')} title="The next seven days on the calendar">
+              <CountUp value={summary.counts.thisWeek} style={{ ...styles.tileValue, color: summary.counts.thisWeek > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)' }} />
+              <span style={styles.tileLabel}>This week</span>
+            </button>
+          </div>
+  );
+
   return (
     <div style={styles.page}>
       {/* Home, upgraded (28 Oct 2026, sketch 35): a bigger greeting that
@@ -121,27 +175,9 @@ export default function HomeScreen() {
             </span>
           </>
         }
-        extras={
-          <div style={isNarrow ? styles.tilesNarrow : styles.tiles} data-stagger="">
-            {/* Always shown, zeros included: a number that disappears at zero
-                reads as missing rather than good news. Zero is grey. */}
-            {summary.counts.overdue !== null ? (
-              <div style={styles.tile}>
-                <CountUp value={summary.counts.overdue} style={{ ...styles.tileValue, color: summary.counts.overdue > 0 ? 'var(--danger)' : 'var(--text-tertiary)' }} />
-                <span style={styles.tileLabel}>Overdue</span>
-              </div>
-            ) : null}
-            <div style={styles.tile}>
-              <CountUp value={summary.counts.renewals} style={{ ...styles.tileValue, color: summary.counts.renewals > 0 ? 'var(--warn)' : 'var(--text-tertiary)' }} />
-              <span style={styles.tileLabel}>Renewals</span>
-            </div>
-            <div style={styles.tile}>
-              <CountUp value={summary.counts.thisWeek} style={{ ...styles.tileValue, color: summary.counts.thisWeek > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)' }} />
-              <span style={styles.tileLabel}>This week</span>
-            </div>
-          </div>
-        }
+        extras={stacked ? null : tilesNode}
       />
+      {stacked ? <div style={{ margin: '0 0 16px' }}>{tilesNode}</div> : null}
 
       {/* Restaurants as proper tiles again (28 Oct 2026): full names, the
           brand colour down the side, how many locations and how each is
@@ -161,7 +197,7 @@ export default function HomeScreen() {
           let stat = null;
           if (allowed && summary.byBrand[item.id]) {
             const b = summary.byBrand[item.id];
-            if (b.overdue > 0) stat = { text: `${b.overdue} overdue`, color: 'var(--danger)' };
+            if (b.overdue > 0 && summary.worksChecklist) stat = { text: `${b.overdue} late` + (b.unassigned ? ` · ${b.unassigned} unassigned` : ''), color: 'var(--danger)' };
             else if (b.dueSoon > 0) stat = { text: `${b.dueSoon} due soon`, color: 'var(--warn)' };
             else if (b.total > 0 && b.done < b.total) stat = { text: `${Math.round((b.done / b.total) * 100)}% ready`, color: 'var(--neon)' };
             else stat = { text: 'All clear', color: 'var(--success)' };
@@ -197,7 +233,7 @@ export default function HomeScreen() {
           {pinned.map((post) => (
             <div key={post.id} style={{ marginBottom: 12 }}>
               <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--neon)', margin: '0 0 6px' }}>
-                {post.targetId === 'all' ? 'Everyone' : post.targetName ?? ''}
+                {post.homeOnly ? 'Hub update' : post.targetId === 'all' ? 'Everyone' : post.targetName ?? ''}
                 {user?.role === 'admin' || post.authorUid === user?.uid ? (
                   <button
                     onClick={() => unpin(post.id)}
@@ -224,14 +260,27 @@ export default function HomeScreen() {
       {/* Four panels in two rows that line up (28 Oct 2026): Needs you beside
           Opening soon, This week beside Recent. Needs you scrolls inside its
           own box, sized by the row, so a long list never pushes the page. */}
-      <div style={isNarrow ? styles.quadNarrow : styles.quad}>
-        <div style={{ ...styles.zone, ...styles.zoneFill, ...(!showOpenings && !isNarrow ? { gridColumn: '1 / -1' } : {}) }}>
+      <div style={stacked ? styles.quadNarrow : styles.quad}>
+        <div ref={needsRef} style={{ ...styles.zone, ...styles.zoneFill, scrollMarginTop: 16, ...(!showOpenings && !stacked ? { gridColumn: '1 / -1' } : {}) }}>
           <p style={styles.zoneLabel}>Needs you{needCount ? ` · ${needCount}` : ''}</p>
-          <div style={isNarrow ? styles.needsPlain : styles.needsScroll}>
-            <div style={isNarrow ? styles.needsInnerNarrow : { ...styles.panel, ...styles.needsInner }} data-stagger="">
+          <div style={stacked ? styles.needsPlain : styles.needsScroll}>
+            <div style={stacked ? styles.needsInnerNarrow : { ...styles.panel, ...styles.needsInner }} data-stagger="">
               {summary.attention.length === 0 ? <p style={styles.emptyNote}>Nothing needs your attention.</p> : null}
               {summary.attention.map((a, i) => {
                 if (a.level === 'header') return <p key={'h' + i} style={styles.attentionHeader}>{a.text}</p>;
+                // Late items with nobody on them, as one line (2 Nov 2026).
+                if (a.level === 'unassigned') {
+                  return (
+                    <button key={i} data-row="" style={styles.unassignedRow} onClick={() => navigate(a.to)}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6" /><path d="M17 15v6M14 18h6" /></svg>
+                      <span style={styles.rowText}>
+                        <span style={{ ...styles.rowTitle, fontWeight: 700 }}>{a.text}</span>
+                        <span style={styles.rowSub}>{a.where}</span>
+                      </span>
+                      <span style={styles.unassignedAction}>Assign them ›</span>
+                    </button>
+                  );
+                }
                 // A row waiting on you shows its action as a button (Decide,
                 // Claim, Sign, Answer, Download); the rest open quietly.
                 const parts = String(a.where ?? '').split(' · ');
@@ -289,8 +338,10 @@ export default function HomeScreen() {
                     <span style={styles.rowText}>
                       <span style={{ ...styles.rowTitle, fontWeight: 700 }}>{loc.brandName} · {loc.name}</span>
                       <span style={styles.rowSub}>Opens {fmtDay(loc.openingDate)} · {loc.daysOut} days out</span>
+                      {summary.worksChecklist && late > 0 ? (
+                        <span style={{ marginTop: 4 }}><Pill tone="red">{late} late{loc.unassigned ? ' · ' + loc.unassigned + ' unassigned' : ''}</Pill></span>
+                      ) : null}
                     </span>
-                    {canOpenChecklist && late > 0 ? <Pill tone="red">{late} late</Pill> : null}
                   </button>
                 );
               })}
@@ -336,14 +387,14 @@ export default function HomeScreen() {
               <p style={styles.emptyNote}>No recent sign-offs.</p>
             ) : (
               summary.recent.slice(0, 3).map((r) => (
-                <div key={r.id} style={styles.recentRow}>
+                <button key={r.id} data-row="" style={{ ...styles.recentRow, ...styles.rowReset }} onClick={() => navigate(r.to)}>
                   <span style={{ ...styles.dot, background: 'var(--success)' }} />
                   <span style={styles.rowText}>
                     <span style={styles.rowTitleOne} title={r.text}>{r.text}</span>
                     {r.where ? <span style={styles.rowSub}>{r.where}</span> : null}
                   </span>
                   <span style={styles.recentWhen}>{fmtDay(r.at)}</span>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -362,16 +413,20 @@ const ACTIONS = ['Decide', 'Claim', 'Sign', 'Answer', 'Download'];
 
 
 const styles = {
+  unassignedRow: { display: 'flex', alignItems: 'center', gap: 12, width: 'calc(100% - 16px)', margin: '8px', padding: '12px 14px', minHeight: 44, borderRadius: 10, border: '1px dashed rgba(232,185,59,0.45)', background: 'rgba(232,185,59,0.07)', color: 'var(--text-primary)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', boxSizing: 'border-box' },
+  unassignedAction: { fontSize: 13, fontWeight: 700, color: 'var(--warn)', whiteSpace: 'nowrap' },
   page: { padding: '36px max(22px, min(44px, 4vw)) 48px', maxWidth: 1120 },
-  tiles: { display: 'grid', gridTemplateColumns: 'repeat(3, 96px)', gap: 8, alignSelf: 'flex-end' },
-  tilesNarrow: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, width: '100%' },
+  tiles: { display: 'grid', gridAutoFlow: 'column', gridAutoColumns: '104px', gap: 8, alignSelf: 'flex-end' },
+  tilesNarrow: { display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(0, 1fr)', gap: 8, width: '100%' },
+  tileBtn: { background: 'var(--bg-card)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left', border: 'none', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' },
+  rowReset: { width: '100%', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'inherit' },
   tile: { background: 'var(--bg-card)', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left' },
   tileValue: { fontSize: 24, fontWeight: 900, lineHeight: 1.05 },
   tileLabel: { fontSize: 9.5, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
 
   // One row that slides sideways when there are more restaurants than fit
   // (28 Oct 2026), so a sixth never sits alone on a second line.
-  tilesGrid: { display: 'flex', gap: 10, margin: '-4px -6px 16px', padding: '8px 6px 10px', overflowX: 'auto', scrollSnapType: 'x proximity', scrollbarWidth: 'thin' },
+  tilesGrid: { display: 'flex', gap: 10, margin: '-4px -6px 16px', padding: '8px 6px 10px', overflowX: 'auto', scrollSnapType: 'x proximity' },
   tilesGridNarrow: { display: 'flex', gap: 9, margin: '-4px -22px 14px', padding: '8px 22px 10px', scrollPaddingLeft: 22, overflowX: 'auto', scrollSnapType: 'x proximity', scrollbarWidth: 'none' },
   brandTile: {
     position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5, minHeight: 96,
@@ -392,7 +447,7 @@ const styles = {
   needsScroll: { position: 'relative', flex: 1, minHeight: 260 },
   needsInner: { position: 'absolute', inset: 0, overflowY: 'auto' },
   needsPlain: {},
-  needsInnerNarrow: { background: 'var(--bg-card)', borderRadius: 14, overflow: 'hidden auto', maxHeight: 380, display: 'flex', flexDirection: 'column' },
+  needsInnerNarrow: { background: 'var(--bg-card)', borderRadius: 14, overflow: 'hidden auto', maxHeight: 420, display: 'flex', flexDirection: 'column' },
   recentRow: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border)' },
   recentWhen: { fontSize: 11.5, color: 'var(--text-tertiary)', flexShrink: 0 },
   zone: { marginBottom: 22, minWidth: 0 },

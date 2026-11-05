@@ -154,6 +154,8 @@ const TOPIC_LABEL = {
  *   details    [label, value] rows for the email
  *   button     the email button's label
  *   why        the footer line: why this person got it
+ *   quiet      the bell only - no email now and nothing in the 8am summary
+ *              (folder posts nobody asked to email, 2 Nov 2026).
  *   emailLater no email now - it goes in the 5pm "Assigned to you today"
  *              email instead (assignments, 15 Oct 2026). Still urgent
  *              everywhere else: the bell, Home and the morning summary.
@@ -164,7 +166,7 @@ const TOPIC_LABEL = {
 async function notifyPeople(people, title, body, opts = {}) {
   const {
     speed = AMBIENT, path = '/', throttleKey = null, topic: topicIn = null, kind: legacyTopic = null,
-    ref = null, details = null, button = null, why = null, emailLater = false, ...data
+    ref = null, details = null, button = null, why = null, emailLater = false, quiet = false, ...data
   } = opts;
   const topic = topicIn ?? legacyTopic ?? null;
   // The one backstop: whatever list a caller worked out, nobody inactive or
@@ -202,6 +204,7 @@ async function notifyPeople(people, title, body, opts = {}) {
       emailedAt: null,
       resolvedAt: null,
       ...(emailLater ? { emailLater: true } : {}),
+      ...(quiet ? { quiet: true } : {}),
     });
   });
   await batch.commit();
@@ -209,7 +212,7 @@ async function notifyPeople(people, title, body, opts = {}) {
   await push(wanted.map((p) => p.pushToken).filter(Boolean), title, body, { path });
 
   for (const p of wanted) {
-    if (!p.email || emailLater || !emailsNow(p, speed) || throttled.has(p.uid)) continue;
+    if (!p.email || emailLater || quiet || !emailsNow(p, speed) || throttled.has(p.uid)) continue;
     const res = await sendEmail({
       to: [p.email],
       subject: (speed === ACTION ? 'Needs you: ' : '') + title,

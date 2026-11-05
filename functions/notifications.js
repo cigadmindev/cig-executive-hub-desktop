@@ -24,6 +24,9 @@ exports.onBrandPostCreated = onDocumentCreated(
   async (event) => {
     const post = event.data?.data();
     if (!post) return;
+    // A Home-only post (2 Nov 2026) just sits on Home: no bell, no email,
+    // nothing in the morning summary.
+    if (post.homeOnly === true) return;
     const brandId = await R.brandForTarget(post.targetId);
     const people = await R.postAudience(await R.activeUsers(), post);
     await notifyPeople(
@@ -50,6 +53,9 @@ exports.onCategoryPostCreated = onDocumentCreated(
       (post.authorName ?? 'Someone') + ': ' + clip(post.message, 120),
       {
         speed: AMBIENT,
+        // On the bell only, unless whoever posted ticked "Email the team
+        // about this one" (2 Nov 2026) - then it goes in the 8am summary.
+        quiet: post.emailTeam !== true,
         topic: 'folderPost',
         path: '/brand/' + brandId + '/location/' + post.locationId + '/category/' + post.categoryId,
         locationId: post.locationId,
@@ -159,7 +165,8 @@ exports.onAccessRequestCreated = onDocumentCreated(
   async (event) => {
     const req = event.data?.data();
     if (!req) return;
-    const people = R.admins(await R.activeUsers()).filter((u) => u.email !== req.userEmail);
+    // One admin decides access (2 Nov 2026), not every admin.
+    const people = R.accessDecider(await R.activeUsers()).filter((u) => u.email !== req.userEmail);
     await notifyPeople(people, (req.userName ?? 'Someone') + ' asked for access', 'To ' + (req.targetLabel ?? 'something'), {
       speed: ACTION, topic: 'accessRequest', path: '/access-requests', ref: 'accessRequest/' + event.params.id,
       button: 'Review the request', why: 'You got this because you are an admin.',

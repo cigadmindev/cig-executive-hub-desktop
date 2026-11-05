@@ -185,7 +185,7 @@ export default function OpeningChecklistScreen() {
   const [showParams] = useSearchParams();
   const [filter, setFilter] = useState(() => {
     const s = showParams.get('show');
-    return ['week', 'waiting', 'risk', 'overdue', 'mine', 'signature'].includes(s) ? s : 'all';
+    return ['week', 'waiting', 'risk', 'overdue', 'unassigned', 'mine', 'signature'].includes(s) ? s : 'all';
   });
   const [hideDone, setHideDone] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
@@ -470,6 +470,9 @@ export default function OpeningChecklistScreen() {
   const isAtRisk = (i) => !i.done && !!i.atRisk;
   const counts = {
     overdue: openingItems.filter(isOverdue).length,
+    // Late with nobody on it (2 Nov 2026): Home's "late items have nobody
+    // assigned" line opens this.
+    unassigned: openingItems.filter((i) => isOverdue(i) && assigneesOf(i).uids.length === 0).length,
     mine: openingItems.filter((i) => !i.done && isAssignedTo(i, user?.uid)).length,
     signature: openingItems.filter(isWaitingSignature).length,
     week: openingItems.filter(isDueThisWeek).length,
@@ -518,18 +521,20 @@ export default function OpeningChecklistScreen() {
     ['waiting', 'Waiting on another item', counts.waiting],
     ['risk', 'At risk', counts.atRisk],
     ['overdue', 'Overdue', counts.overdue],
+    ['unassigned', 'Late, nobody assigned', counts.unassigned],
     ['mine', 'Assigned to me', counts.mine],
     ['signature', 'Waiting on a signature', counts.signature],
   ]).filter(([key]) => !(mineOnly && key === 'mine'));
   const currentFilter = filterOptions.find(([key]) => key === filter) ?? filterOptions[0];
-  const SHORT = { all: 'All', week: 'This week', waiting: 'Waiting', risk: 'At risk', overdue: 'Overdue', mine: 'Mine', signature: 'Signature', missing: 'Missing', docs: 'Documents', expiring: 'Expiring' };
+  const SHORT = { all: 'All', week: 'This week', waiting: 'Waiting', risk: 'At risk', overdue: 'Overdue', unassigned: 'Unassigned', mine: 'Mine', signature: 'Signature', missing: 'Missing', docs: 'Documents', expiring: 'Expiring' };
   const shortLabel = ([key]) => SHORT[key] ?? 'All';
-  const countTone = (key) => (key === 'risk' || key === 'expiring' ? { color: 'var(--warn)' } : key === 'overdue' ? { color: 'var(--danger)' } : {});
+  const countTone = (key) => (key === 'risk' || key === 'expiring' ? { color: 'var(--warn)' } : key === 'overdue' || key === 'unassigned' ? { color: 'var(--danger)' } : {});
 
   const passes = (i) =>
     (!hideDone || !i.done) &&
     (filter === 'all' ||
       (filter === 'overdue' && isOverdue(i)) ||
+      (filter === 'unassigned' && isOverdue(i) && assigneesOf(i).uids.length === 0) ||
       (filter === 'week' && isDueThisWeek(i)) ||
       (filter === 'waiting' && isWaiting(i)) ||
       (filter === 'risk' && isAtRisk(i)) ||

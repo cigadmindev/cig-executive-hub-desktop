@@ -30,7 +30,8 @@ export default function HomeAnnouncementsScreen() {
   }, []);
   const { getByBrand } = useCustomLocations();
   const navigate = useNavigate();
-  const [scope, setScope] = useState('all'); // all | brand | location
+  const [scope, setScope] = useState('all'); // home | all | brand | location
+  const [title, setTitle] = useState('');
   const [brandId, setBrandId] = useState(brands[0].id);
   const [locationId, setLocationId] = useState(null);
   const [message, setMessage] = useState('');
@@ -45,8 +46,11 @@ export default function HomeAnnouncementsScreen() {
   const brand = brands.find((b) => b.id === brandId);
   const location = locationsOf(brandId).find((l) => l.id === locationId) ?? null;
 
+  const homeOnly = scope === 'home';
   const target =
-    scope === 'all'
+    scope === 'home'
+      ? { id: 'all', label: 'Home' }
+      : scope === 'all'
       ? { id: 'all', label: 'Everyone' }
       : scope === 'brand'
         ? { id: brandId, label: brand?.name }
@@ -80,7 +84,11 @@ export default function HomeAnnouncementsScreen() {
     if (!target || !message.trim()) return;
     setPosting(true);
     try {
-      await addAnnouncement(target.id, message.trim(), user?.name ?? 'Unknown', target.label, toHome ? pinDays : null, brandId);
+      if (homeOnly) {
+        await addAnnouncement('all', message.trim(), user?.name ?? 'Unknown', null, pinDays, null, { homeOnly: true, title });
+      } else {
+        await addAnnouncement(target.id, message.trim(), user?.name ?? 'Unknown', target.label, toHome ? pinDays : null, brandId);
+      }
       navigate('/');
     } catch (err) {
       notify('Could not post', plainError(err, 'Your announcement was not posted. Try again.'));
@@ -100,17 +108,18 @@ export default function HomeAnnouncementsScreen() {
 
   return (
     <div style={styles.page}>
-      <PageHeader back={{ to: '/', label: 'Home' }} title="New announcement" subtitle={'Goes to the restaurant or location you choose and into people\'s morning summary. Turn on "Post to Home" to pin it on their Home too.'} />
+      <PageHeader back={{ to: '/', label: 'Home' }} title="New announcement" subtitle={homeOnly ? 'A note at the top of everyone\'s Home. Nobody is emailed and it isn\'t in the morning summary.' : 'Goes to the restaurant or location you choose and into people\'s morning summary. Turn on "Post to Home" to pin it on their Home too.'} />
       <div style={styles.columns}>
         <div style={{ flex: '1 1 460px', minWidth: 0 }}>
 
           <p style={styles.step}>1 · Who is it for?</p>
           <div style={isNarrow ? { ...styles.scopes, gridTemplateColumns: '1fr' } : styles.scopes}>
+            {scopeCard('home', 'Home only', 'Everyone\'s Home. No email')}
             {scopeCard('all', 'Everyone', 'The whole company')}
             {scopeCard('brand', 'A restaurant', 'Every location of one')}
             {scopeCard('location', 'One location', 'Just that restaurant')}
           </div>
-          {scope !== 'all' ? (
+          {scope === 'brand' || scope === 'location' ? (
             <div style={styles.pickers}>
               <select style={styles.select} value={brandId} onChange={(e) => { setBrandId(e.target.value); setLocationId(null); }}>
                 {brands.filter((b) => !b.execOnly || hasBrandAccess(user, b.id)).map((b) => (
@@ -129,6 +138,14 @@ export default function HomeAnnouncementsScreen() {
           ) : null}
 
           <p style={styles.step}>2 · What do you want to say?</p>
+          {homeOnly ? (
+            <input
+              style={{ ...styles.textarea, minHeight: 0, height: 'auto', marginBottom: 10, fontWeight: 700 }}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Title (optional), e.g. What's new in the Hub"
+            />
+          ) : null}
           <textarea
             style={styles.textarea}
             value={message}
@@ -136,7 +153,16 @@ export default function HomeAnnouncementsScreen() {
             placeholder="Type your announcement…"
           />
 
-          <p style={styles.step}>3 · Where should it show?</p>
+          <p style={styles.step}>{homeOnly ? '3 · How long it stays on Home' : '3 · Where should it show?'}</p>
+          {homeOnly ? (
+            <div style={{ ...styles.whereCard, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {PIN.map((p) => (
+                <button key={p.key} style={{ ...styles.pin, ...(pinDays === p.key ? styles.pinOn : {}) }} onClick={() => setPinDays(p.key)}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          ) : (
           <div style={styles.whereCard}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ flex: 1 }}>
@@ -167,34 +193,37 @@ export default function HomeAnnouncementsScreen() {
               </p>
             )}
           </div>
+          )}
 
           <button
             style={{ ...styles.postButton, ...(!target || !message.trim() || posting ? { opacity: 0.4 } : {}) }}
             disabled={!target || !message.trim() || posting}
             onClick={handlePost}
           >
-            {posting ? 'Posting…' : target ? `Post to ${target.id === 'all' ? 'everyone' : target.label} (${audience})` : 'Choose a location'}
+            {posting ? 'Posting…' : homeOnly ? `Post to Home (${audience})` : target ? `Post to ${target.id === 'all' ? 'everyone' : target.label} (${audience})` : 'Choose a location'}
           </button>
         </div>
 
         <div style={{ flex: '1 1 340px', minWidth: 0 }}>
           {/* Exactly how it will look, in each place it will show, before it is posted. */}
           <p style={{ ...styles.step, marginTop: 64 }}>Here's how it will look</p>
-          {toHome ? (
+          {toHome || homeOnly ? (
             <>
               <p style={styles.where}>On Home{pinDays === 'forever' ? ' · until you remove it' : ' · for ' + (pinDays === 7 ? '1 week' : '2 weeks')}</p>
-              <p style={styles.previewKicker}>{target ? (target.id === 'all' ? 'Everyone' : target.label) : '—'} · pinned to Home</p>
+              <p style={styles.previewKicker}>{homeOnly ? 'Hub update' : target ? (target.id === 'all' ? 'Everyone' : target.label) : '—'} · pinned to Home</p>
               <div style={styles.previewFrame}>
-                <PostCard post={{ id: 'preview', authorName: user?.name ?? '', authorUid: user?.uid, message: message.trim() || 'Your message appears here.', timestamp: Date.now(), likes: 0, likedByMe: false, comments: [] }} isNewest={false} />
+                <PostCard post={{ id: 'preview', title: homeOnly ? title.trim() || null : null, authorName: user?.name ?? '', authorUid: user?.uid, message: message.trim() || 'Your message appears here.', timestamp: Date.now(), likes: 0, likedByMe: false, comments: [] }} isNewest={false} />
               </div>
             </>
           ) : null}
+          {homeOnly ? null : (<>
           <p style={styles.where}>
             {scope === 'all' ? 'On every restaurant page' : scope === 'brand' ? 'On the ' + (brand?.name ?? '') + ' page' : location ? 'On the ' + brand?.name + ' page, for ' + location.name + ' only' : 'On the restaurant page'}
           </p>
           <div style={styles.previewFrame}>
             <PostCard post={{ id: 'preview', authorName: user?.name ?? '', authorUid: user?.uid, message: message.trim() || 'Your message appears here.', timestamp: Date.now(), likes: 0, likedByMe: false, comments: [] }} isNewest />
           </div>
+          </>)}
           <p style={styles.previewMeta}>Likes and comments work once it is posted.</p>
         </div>
       </div>
@@ -207,7 +236,7 @@ const styles = {
   page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1000 },
   columns: { display: 'flex', gap: 28, flexWrap: 'wrap', marginTop: 12 },
   step: { fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '20px 0 8px' },
-  scopes: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 },
+  scopes: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 },
   scope: { textAlign: 'left', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 2 },
   scopeOn: { borderColor: 'var(--neon)', background: 'var(--accent-soft)' },
   scopeTitle: { fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' },

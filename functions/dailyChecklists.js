@@ -501,10 +501,10 @@ exports.dailyChecklistWatch = onSchedule(
       const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
       const openingMissing = (await missingLists(db, locationId, lists, today)).filter(([id]) => !isClosing(id));
       if (!openingMissing.length) continue;
-      const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
-      await notifyPeople(gms.length ? gms : R.admins(users), openingMissing.length + ' opening checklist' + (openingMissing.length === 1 ? '' : 's') + ' not signed off · ' + where, names(openingMissing), {
+      const lead = R.leadAt(users, brandId, locationId);
+      await notifyPeople(lead.people, openingMissing.length + ' opening checklist' + (openingMissing.length === 1 ? '' : 's') + ' not signed off · ' + where, names(openingMissing), {
         speed: ACTION, topic: 'assignment', path: path + '?date=' + today, button: 'Open the checklists',
-        why: gms.length ? 'You got this because you are the GM at ' + where + '.' : 'You got this because ' + where + ' has no GM in the Hub.',
+        why: 'You got this because ' + lead.why + ' ' + where + '.',
         throttleKey: 'daily-' + locationId + '-' + today,
       });
     }
@@ -524,10 +524,10 @@ exports.dailyClosingWatch = onSchedule(
       const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
       const closingMissing = (await missingLists(db, locationId, lists, tonight)).filter(([id]) => isClosing(id) && !isKitchenClosing(id));
       if (!closingMissing.length) continue;
-      const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
-      await notifyPeople(gms.length ? gms : R.admins(users), 'Tonight\'s closing checklist' + (closingMissing.length === 1 ? '' : 's') + ' not signed off yet · ' + where, names(closingMissing), {
+      const lead = R.leadAt(users, brandId, locationId);
+      await notifyPeople(lead.people, 'Tonight\'s closing checklist' + (closingMissing.length === 1 ? '' : 's') + ' not signed off yet · ' + where, names(closingMissing), {
         speed: ACTION, topic: 'assignment', path: path + '?date=' + tonight, button: 'Open the checklists',
-        why: gms.length ? 'You got this because you are the GM at ' + where + '.' : 'You got this because ' + where + ' has no GM in the Hub.',
+        why: 'You got this because ' + lead.why + ' ' + where + '.',
         throttleKey: 'daily-closing-' + locationId + '-' + tonight,
       });
     }
@@ -550,42 +550,46 @@ exports.dailyLateWatch = onSchedule(
       // line yet (18 Oct 2026). The COO hears at 3pm if it is still open.
       const kitchen = missing.filter(([id]) => isKitchenClosing(id));
       if (kitchen.length) {
-        const gms = R.atLocation(users, ['General Manager'], brandId, locationId);
-        await notifyPeople(gms.length ? gms : R.admins(users), 'Last night\'s kitchen closing not verified yet · ' + where, 'Check the kitchen and sign off ' + names(kitchen) + ' for last night.', {
+        const lead = R.leadAt(users, brandId, locationId);
+        await notifyPeople(lead.people, 'Last night\'s kitchen closing not verified yet · ' + where, 'Check the kitchen and sign off ' + names(kitchen) + ' for last night.', {
           speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'Verify it',
-          why: gms.length ? 'You got this because you are the GM at ' + where + '.' : 'You got this because ' + where + ' has no GM in the Hub.',
+          why: 'You got this because ' + lead.why + ' ' + where + '.',
           throttleKey: 'daily-kitchen-gm-' + locationId + '-' + yesterday,
         });
       }
-      const lateMissing = missing.filter(([id]) => !isKitchenClosing(id));
-      if (!lateMissing.length) continue;
-      await notifyPeople(R.approvers(users), 'Yesterday\'s checklists were never signed off · ' + where, names(lateMissing), {
-        speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'See them',
-        why: 'You got this because you are the COO or an admin.', throttleKey: 'daily-late-' + locationId + '-' + yesterday,
-      });
+      // Anything else from yesterday goes in Ronnie's one 3pm email
+      // (2 Nov 2026), not an email per location to every admin.
     }
   }
 );
 
-// 3pm: last night's kitchen closing, still not verified after the GM's 10am
-// reminder → the COO and admins (18 Oct 2026).
+// 3pm: everything from yesterday still not signed off, in one email to the
+// COO (2 Nov 2026; was per location, to the COO and admins).
 exports.dailyKitchenLateWatch = onSchedule(
   { schedule: '0 15 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 540 },
   async () => {
     const db = admin.firestore();
     const users = await R.activeUsers();
     const yesterday = daysAgo(1);
+    // One email a day to Ronnie (2 Nov 2026): every location with a list
+    // from yesterday still not signed off, kitchen closings included (their
+    // GM was reminded at 10am). It used to be one email per location, to
+    // the COO and every admin, twice a day.
+    const rows = [];
+    let firstPath = null;
     for (const [locationId, lists] of Object.entries(LISTS)) {
       const brandId = await R.brandForLocation(locationId);
       const where = await R.locationName(locationId);
-      const path = '/brand/' + brandId + '/location/' + locationId + '/daily-checklists';
-      const kitchen = (await missingLists(db, locationId, lists, yesterday)).filter(([id]) => isKitchenClosing(id));
-      if (!kitchen.length) continue;
-      await notifyPeople(R.approvers(users), 'Last night\'s kitchen closing was never verified · ' + where, names(kitchen) + ' is still not signed off. The GM was reminded at 10am.', {
-        speed: ACTION, topic: 'assignment', path: path + '?date=' + yesterday, button: 'See it',
-        why: 'You got this because you are the COO or an admin.', throttleKey: 'daily-kitchen-late-' + locationId + '-' + yesterday,
-      });
+      const missing = await missingLists(db, locationId, lists, yesterday);
+      if (!missing.length) continue;
+      firstPath ??= '/brand/' + brandId + '/location/' + locationId + '/daily-checklists?date=' + yesterday;
+      rows.push([where, names(missing)]);
     }
+    if (!rows.length) return;
+    await notifyPeople(R.backup(users), 'Yesterday\'s checklists not signed off · ' + rows.length + (rows.length === 1 ? ' location' : ' locations'), rows.map(([w]) => w).join(', '), {
+      speed: ACTION, topic: 'assignment', path: firstPath, button: 'See them', details: rows,
+      why: 'You got this because you are the COO. It comes once a day, at 3pm.', throttleKey: 'daily-late-' + yesterday,
+    });
   }
 );
 

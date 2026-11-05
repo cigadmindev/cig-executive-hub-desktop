@@ -592,7 +592,7 @@ export default function AdminUsersScreen() {
         </>
       ) : null}
 
-      {tab === 'matrix' ? <AccessMatrixEditor /> : null}
+      {tab === 'matrix' ? <AccessMatrixEditor onOpenPerson={(uid) => { setSelectedId(uid); setTab('people'); }} /> : null}
       {tab === 'viewAs' ? <ViewAsPicker /> : null}
       {tab === 'email' ? (
         <div style={styles.toolCard}>

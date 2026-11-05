@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { assigneesOf, isAssignedTo, shortNames } from '../data/assignees';
+import { assigneesOf, isAssignedTo } from '../data/assignees';
 import { brands , hasFeature } from '../data/mockData';
 import { useSchedule } from '../context/ScheduleContext';
 import { useRenewals } from '../context/RenewalsContext';
@@ -11,6 +11,7 @@ import { RENEWAL_WARNING_WINDOW_DAYS } from '../data/renewalTypes';
 import { useWaitingOnYou } from './useWaitingOnYou';
 import { blockersOf, isLate } from '../lib/openingPlan';
 import { getTemplateForLocation } from '../data/checklists';
+import { atLeast } from '../data/accessMatrix';
 
 // The calendar on the entry's own day, with the entry open. The day is the
 // local one: toISOString gave the UTC day, so an evening event linked to the
@@ -55,6 +56,18 @@ export function useHomeSummary() {
 
     const attention = [];
     const byBrand = {};
+    // Late opening items nobody is assigned to (2 Nov 2026). Needs you lists
+    // only your own work now; admins and the COO, who hand the work out, get
+    // one line saying how many have nobody on them instead of every row.
+    const handsOutWork = !!user && (user.role === 'admin' || user.job === 'COO');
+    const unassignedLate = []; // { loc, count }
+    const renewalsAt = {}; // locationId -> { loc, n }, so the tile can open one
+    // Renewals land on Needs you only for the people they are emailed to:
+    // the COO, and the GM of that location (2 Nov 2026).
+    const ownsRenewalsAt = (loc) =>
+      !!user && (user.job === 'COO' ||
+        (user.job === 'General Manager' && user.role === 'manager') ||
+        (user.alsoJob?.job === 'General Manager' && user.alsoJob.locationId === loc.id));
     const openingSoon = [];
 
     // Brand access picks the restaurants; this narrows to the locations
@@ -88,8 +101,11 @@ export function useHomeSummary() {
       // anything overdue here genuinely slipped rather than being backdated.
       const overdueItems = items.filter(lateHere);
 
-      const b = (byBrand[loc.brandId] ??= { overdue: 0, total: 0, done: 0, dueSoon: 0, openingDate: null });
+      const b = (byBrand[loc.brandId] ??= { overdue: 0, unassigned: 0, total: 0, done: 0, dueSoon: 0, openingDate: null });
       b.overdue += overdueItems.length + timelineOverdue.length;
+      // Of those, the ones nobody is assigned to (2 Nov 2026).
+      const nobodyHere = [...overdueItems, ...timelineOverdue].filter((i) => assigneesOf(i).uids.length === 0).length;
+      b.unassigned += nobodyHere;
       b.total += items.length;
       b.done += done;
       if (openingDate && openingDate > now) b.openingDate = openingDate;
@@ -97,15 +113,10 @@ export function useHomeSummary() {
       // One row per item, not one per location. "7 checklist items overdue"
       // tells you a number and nothing else - you still have to open the
       // location to find out which. The iPhone app has always listed them.
-      (canSeeChecklistItems ? overdueItems : []).forEach((item) => {
-        attention.push({
-          level: 'overdue',
-          text: item.title,
-          where: `${loc.brandName} · ${loc.name}${assigneesOf(item).names.length ? ' · ' + shortNames(assigneesOf(item).names) : ''}`,
-          to: `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`,
-          sort: item.dateTime ?? 0,
-        });
-      });
+      // Someone else's late item is no longer listed here (2 Nov 2026): it
+      // is on that person's Needs you. Late items with nobody on them are
+      // counted for the people who assign work.
+      if (handsOutWork && canSeeChecklistItems && nobodyHere > 0) unassignedLate.push({ loc, count: nobodyHere });
 
       // Anything assigned to you, whether or not it is late. Being given a
       // task is itself the signal - waiting for it to go overdue before
@@ -125,21 +136,14 @@ export function useHomeSummary() {
           });
         });
 
-      (canSeeChecklistItems ? timelineOverdue : []).forEach((item) => {
-        attention.push({
-          level: 'overdue',
-          text: item.title,
-          where: `${loc.brandName} · ${loc.name}${assigneesOf(item).names.length ? ' · ' + shortNames(assigneesOf(item).names) : ''}`,
-          to: `/brand/${loc.brandId}/location/${loc.id}/opening-checklist`,
-          sort: item.dateTime ?? 0,
-        });
-      });
 
       (hasFeature(user, 'renewals') ? renewalsFor(loc.id) ?? [] : []).forEach((r) => {
         if (!r.expirationDate) return;
         const days = Math.round((r.expirationDate - now) / DAY);
         if (days > RENEWAL_WARNING_WINDOW_DAYS) return;
         b.dueSoon += 1;
+        (renewalsAt[loc.id] ??= { loc, n: 0 }).n += 1;
+        if (!ownsRenewalsAt(loc)) return;
         attention.push({
           level: days < 0 ? 'overdue' : 'soon',
           text: days < 0 ? `${r.type} expired` : `${r.type} expires in ${days} day${days === 1 ? '' : 's'}`,
@@ -157,6 +161,7 @@ export function useHomeSummary() {
           done,
           total: items.length,
           overdue: overdueItems.length,
+          unassigned: nobodyHere,
           timelineDone,
           timelineTotal: timeline.length,
           timelineOverdue: timelineOverdue.length,
@@ -218,6 +223,19 @@ export function useHomeSummary() {
         attention.push({ level: 'header', text: 'Contacts to fill in', sort: Infinity });
         attention.push(...todo);
       }
+    }
+
+    if (unassignedLate.length > 0) {
+      const total = unassignedLate.reduce((n, u) => n + u.count, 0);
+      const most = [...unassignedLate].sort((x, y) => y.count - x.count)[0].loc;
+      attention.unshift({
+        level: 'unassigned',
+        mine: true,
+        text: `${total} late item${total === 1 ? ' has' : 's have'} nobody assigned`,
+        where: unassignedLate.map((u) => u.loc.name).join(' · '),
+        to: `/brand/${most.brandId}/location/${most.id}/opening-checklist?show=unassigned`,
+        sort: -1,
+      });
     }
 
     const locById = Object.fromEntries(visibleLocations.map((l) => [l.id, l]));
@@ -344,9 +362,18 @@ export function useHomeSummary() {
         text: `${e.doneBy || 'Someone'} signed off ${e.title}`,
         at: e.doneAt,
         where: locById[e.locationId]?.brandName ?? '',
+        // Every row on Home opens something (2 Nov 2026).
+        to: e.openingItem && hasFeature(user, 'openingChecklist')
+          ? `/brand/${locById[e.locationId].brandId}/location/${e.locationId}/opening-checklist`
+          : calendarLink(e),
       }));
+    const topRenewals = Object.values(renewalsAt).sort((x, y) => y.n - x.n)[0]?.loc ?? null;
 
     return {
+      // Whether this person works the opening checklists (ticks or edits),
+      // rather than only reading them. Overdue numbers on the restaurant
+      // tiles and the late pills are for them (2 Nov 2026).
+      worksChecklist: !!user && (user.role === 'admin' || atLeast(user, 'openingChecklist', 'tick')),
       attention,
       thisWeek,
       recent,
@@ -357,6 +384,11 @@ export function useHomeSummary() {
         // is checklist work, so for anyone else it was a number they could do
         // nothing about - "26 overdue" above a Needs You panel with nothing in it.
         overdue: attention.filter((a) => a.level === 'overdue').length,
+        // Late items with nobody on them, for the people who hand out work
+        // (null for everyone else, so the tile isn't shown).
+        unassigned: handsOutWork ? unassignedLate.reduce((n, u) => n + u.count, 0) : null,
+        renewalsTo: topRenewals ? `/brand/${topRenewals.brandId}/location/${topRenewals.id}/renewals` : null,
+        unassignedTo: unassignedLate.length ? (() => { const m = [...unassignedLate].sort((x, y) => y.count - x.count)[0].loc; return `/brand/${m.brandId}/location/${m.id}/opening-checklist?show=unassigned`; })() : null,
         // byBrand.dueSoon is incremented only by renewals inside the window,
         // so this has always been a renewal count - it just wasn't named one.
         renewals: Object.values(byBrand).reduce((n, b) => n + b.dueSoon, 0),

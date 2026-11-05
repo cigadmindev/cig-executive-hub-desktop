@@ -56,7 +56,9 @@ export default function CateringScreen() {
   // The Catering column of Who sees what (14 Oct 2026): Claim works the
   // enquiries, View sees and adds them.
   const cateringLevel = accessLevel(user, 'catering');
-  const canAct = cateringLevel === 'claim';
+  // Catering & Events claims and works enquiries - never admins, who
+  // still change a status from the ADMIN section (2 Nov 2026).
+  const canAct = cateringLevel === 'claim' && !isAdmin;
   // Anyone who looks after events at a location, and every executive, can
   // add one that came in by phone or in person, and add costs to an event.
   const canAdd = isAdmin || ['view', 'claim'].includes(cateringLevel);

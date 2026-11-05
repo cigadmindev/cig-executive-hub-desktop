@@ -17,6 +17,18 @@ export default function PostCard({ post, isNewest, onToggleLike, onAddComment, o
   const canDeletePost = isAdmin || post.authorUid === user?.uid;
   const [commentText, setCommentText] = useState('');
   const [showComments, setShowComments] = useState(false);
+  // A titled post (the Home-only kind, 2 Nov 2026) opens folded to its first
+  // paragraph, so a long update doesn't push the rest of Home down.
+  const [open, setOpen] = useState(false);
+  const paragraphs = String(post.message ?? '').split(/\n\s*\n/);
+  const folds = !!post.title && (paragraphs.length > 1 || String(post.message ?? '').length > 280);
+  const shown = folds && !open ? paragraphs[0] : post.message;
+  // Lines starting "- " read as a list.
+  const body = String(shown ?? '').split('\n').map((line, i) =>
+    /^\s*[-•]\s+/.test(line)
+      ? <span key={i} style={styles.bullet}><span aria-hidden="true" style={{ color: 'var(--neon)' }}>•</span><span>{line.replace(/^\s*[-•]\s+/, '')}</span></span>
+      : <span key={i} style={{ display: 'block', minHeight: line.trim() ? undefined : 10 }}>{line}</span>
+  );
 
   const handleDeletePost = () => {
     confirm({
@@ -58,7 +70,11 @@ export default function PostCard({ post, isNewest, onToggleLike, onAddComment, o
         ) : null}
       </div>
 
-      <p style={styles.message}>{post.message}</p>
+      {post.title ? <p style={styles.title}>{post.title}</p> : null}
+      <div style={styles.message}>{body}</div>
+      {folds ? (
+        <button style={styles.readAll} onClick={() => setOpen((v) => !v)}>{open ? 'Show less' : 'Read all of it ›'}</button>
+      ) : null}
 
       <div style={styles.actionsRow}>
         <button
@@ -165,6 +181,9 @@ const styles = {
     flexShrink: 0,
   },
   message: { fontSize: 14, margin: '0 0 14px', lineHeight: 1.6, whiteSpace: 'pre-wrap' },
+  title: { fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
+  bullet: { display: 'flex', gap: 8, paddingLeft: 4, margin: '2px 0' },
+  readAll: { background: 'none', border: 'none', padding: '0 0 14px', color: 'var(--neon)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   actionsRow: { display: 'flex', gap: 8 },
   actionPill: {
     display: 'flex',

@@ -55,7 +55,7 @@ async function buildFor(db, person, now) {
   // News: not urgent, not already emailed, from the last day and a bit.
   const news = docs.filter((d) => {
     const n = d.data();
-    return n.kind === 'ambient' && !n.emailedAt && n.createdAt > now - 1.25 * DAY;
+    return n.kind === 'ambient' && !n.emailedAt && n.quiet !== true && n.createdAt > now - 1.25 * DAY;
   });
   const groups = [];
   const used = new Set();

@@ -4,6 +4,7 @@ import { initSentry } from './sentry';
 import App from './App.jsx';
 import './index.css';
 import './lib/modalKeys';
+import './lib/scrollReveal';
 
 initSentry();
 
