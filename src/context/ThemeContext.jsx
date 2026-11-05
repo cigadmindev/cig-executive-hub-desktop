@@ -8,13 +8,16 @@ const DOC_REF = 'appSettings/theme';
 // intensity picks how vivid it is — 0 sits in soft pastel territory,
 // 100 is full neon. Saturation and lightness both move with intensity
 // so the whole range stays coherent rather than just fading to gray.
-const DEFAULT_HUE = 189; // cyan — matches the default accent, #22D3EE
+const DEFAULT_HUE = 189; // cyan — matches the default accent, var(--neon)
 const DEFAULT_INTENSITY = 78;
 
-function intensityToSL(intensity) {
+function intensityToSL(intensity, dark) {
   const t = intensity / 100;
   const saturation = 35 + t * 55; // 35% (soft pastel) → 90% (full neon)
-  const lightness = 78 - t * 24; // 78% (pale) → 54% (vivid)
+  // Glass is a light theme (Nov 2026): the accent has to be dark enough to
+  // read as text on white, so it runs 44% → 30% instead of 78% → 54%.
+  // In dark mode it runs light instead (66% → 54%) so it reads on dark glass.
+  const lightness = dark ? 66 - t * 12 : 44 - t * 14;
   return { saturation, lightness };
 }
 
@@ -45,9 +48,41 @@ function textColorFor(hex) {
 
 const ThemeContext = createContext(undefined);
 
+// Appearance (Nov 2026): each person picks Light, Dark or Match device on
+// their Profile. Kept on this device (like the iPhone's own setting), and
+// read before the page draws by the little script in index.html.
+const APPEARANCE_KEY = 'hubAppearance';
+const readAppearance = () => {
+  try { return localStorage.getItem(APPEARANCE_KEY) || 'light'; } catch { return 'light'; }
+};
+const systemDark = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
 export function ThemeProvider({ children }) {
   const [hue, setHue] = useState(DEFAULT_HUE);
   const [intensity, setIntensity] = useState(DEFAULT_INTENSITY);
+  const [appearance, setAppearanceState] = useState(readAppearance);
+  const [sysDark, setSysDark] = useState(systemDark);
+  const dark = appearance === 'dark' || (appearance === 'auto' && sysDark);
+
+  // "Match device" follows the computer or phone when it switches.
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const on = () => setSysDark(mq.matches);
+    mq.addEventListener ? mq.addEventListener('change', on) : mq.addListener(on);
+    return () => (mq.removeEventListener ? mq.removeEventListener('change', on) : mq.removeListener(on));
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', dark ? '#0E1118' : '#EDF1F6');
+  }, [dark]);
+
+  const setAppearance = (next) => {
+    setAppearanceState(next);
+    try { localStorage.setItem(APPEARANCE_KEY, next); } catch { /* private window: this visit only */ }
+  };
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, DOC_REF), (snap) => {
@@ -61,13 +96,13 @@ export function ThemeProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    const { saturation, lightness } = intensityToSL(intensity);
+    const { saturation, lightness } = intensityToSL(intensity, dark);
     const hex = hslToHex(hue, saturation, lightness);
     const textColor = textColorFor(hex);
     document.documentElement.style.setProperty('--neon', hex);
     document.documentElement.style.setProperty('--neon-text', textColor);
     document.documentElement.style.setProperty('--accent-hue', hue);
-  }, [hue, intensity]);
+  }, [hue, intensity, dark]);
 
   // Admin-only in the UI, but this itself has no permission check — the
   // Firestore rule on appSettings/* (admin-write, signed-in-read) is the
@@ -89,6 +124,9 @@ export function ThemeProvider({ children }) {
         setAccentTheme,
         previewHue: setHue,
         previewIntensity: setIntensity,
+        appearance,
+        setAppearance,
+        dark,
       }}
     >
       {children}

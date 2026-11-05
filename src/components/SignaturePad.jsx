@@ -169,7 +169,7 @@ const styles = {
     height: 130,
     borderRadius: 'var(--radius-sm)',
     border: '1px solid var(--border-strong)',
-    background: '#FFFFFF',
+    background: 'var(--surface)',
     cursor: 'crosshair',
     display: 'block',
     // Without this the browser reads a drag as a scroll and nothing is drawn.

@@ -9,6 +9,7 @@ import RequestAccessModal from '../components/RequestAccessModal';
 import RequestPill from '../components/RequestPill';
 import PageHeader from '../components/PageHeader';
 import { fmtDay } from '../lib/dates';
+import { brandColors } from '../theme/colors';
 
 // Every restaurant with an opening date set, soonest first.
 //
@@ -83,50 +84,43 @@ export default function OpeningSoonScreen() {
             style={styles.card}
             onClick={() => handleClick(loc)}
           >
-            <span style={styles.nameRow}>
-              <span style={styles.name}>{loc.brandName}</span>
-              {seesChecklist ? null : <RequestPill pending={!!user && hasPendingRequest(user.email, 'feature', 'openingChecklist')} />}
+            {/* Glass (Nov 2026): the place first and big, the countdown on the
+                right, then set-up and timeline as two labelled bars. */}
+            <span style={styles.top}>
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span style={styles.brand}>
+                  <span style={{ ...styles.dot, background: brandColors[loc.brandName] ?? 'var(--neon)' }} />
+                  {loc.brandName}
+                </span>
+                <span style={styles.name}>{loc.name}</span>
+                <span style={styles.meta}>Opens {fmtDay(loc.openingDate)}</span>
+              </span>
+              <span style={styles.days}>
+                <span style={styles.daysN}>{loc.daysOut}</span>
+                <span style={styles.daysL}>days</span>
+              </span>
             </span>
-            <span style={styles.meta}>
-              {loc.name} · {fmtDay(loc.openingDate)} ·{' '}
-              {loc.daysOut} days out
-            </span>
+            {seesChecklist ? null : <RequestPill pending={!!user && hasPendingRequest(user.email, 'feature', 'openingChecklist')} />}
 
             {seesChecklist ? (
               <>
-
-            <div style={styles.barTrack}>
-              <div
-                style={{
-                  ...styles.barFill,
-                  width: `${loc.total ? Math.round((loc.done / loc.total) * 100) : 0}%`,
-                }}
-              />
-            </div>
-            <div style={styles.statRow}>
-              <span style={styles.meta}>
-                {loc.done} of {loc.total} setup
-              </span>
-              {loc.overdue > 0 ? <span style={styles.overdue}>{loc.overdue} overdue</span> : null}
-            </div>
-
-            <div style={{ ...styles.barTrack, marginTop: 9 }}>
-              <div
-                style={{
-                  ...styles.barFill,
-                  background: 'var(--text-tertiary)',
-                  width: `${loc.timelineTotal ? Math.round((loc.timelineDone / loc.timelineTotal) * 100) : 0}%`,
-                }}
-              />
-            </div>
-            <div style={styles.statRow}>
-              <span style={styles.meta}>
-                {loc.timelineDone} of {loc.timelineTotal} timeline
-              </span>
-              {loc.timelineOverdue > 0 ? (
-                <span style={styles.overdue}>{loc.timelineOverdue} overdue</span>
-              ) : null}
-            </div>
+                {[
+                  ['Set-up', loc.done, loc.total, loc.overdue, 'var(--neon)'],
+                  ['Timeline', loc.timelineDone, loc.timelineTotal, loc.timelineOverdue, 'var(--text-quaternary)'],
+                ].map(([label, done, total, late, color]) => (
+                  <span key={label} style={styles.stat}>
+                    <span style={styles.statRow}>
+                      <span style={styles.statLabel}>{label}</span>
+                      <span style={styles.meta}>
+                        {done} of {total}
+                        {late > 0 ? <span style={styles.overdue}> · {late} late</span> : null}
+                      </span>
+                    </span>
+                    <span style={styles.barTrack}>
+                      <span style={{ ...styles.barFill, background: color, width: `${total ? Math.round((done / total) * 100) : 0}%` }} />
+                    </span>
+                  </span>
+                ))}
               </>
             ) : null}
           </button>
@@ -141,26 +135,34 @@ export default function OpeningSoonScreen() {
 }
 
 const styles = {
-  wrap: { padding: '28px max(22px, min(36px, 4vw)) 60px' },
-
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 },
+  wrap: { padding: '40px max(22px, min(48px, 4vw)) 60px', maxWidth: 1180 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 14 },
   card: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'stretch',
+    gap: 12,
     textAlign: 'left',
     background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: 12,
-    padding: 16,
+    border: '1px solid var(--glass-edge)',
+    borderRadius: 24,
+    padding: '20px 22px',
     cursor: 'pointer',
+    fontFamily: 'inherit',
+    color: 'var(--text-primary)',
   },
-  nameRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  name: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' },
-  meta: { fontSize: 12, color: 'var(--text-tertiary)' },
-
-  barTrack: { height: 4, background: 'var(--bg-inset)', borderRadius: 2, marginTop: 14, marginBottom: 7 },
-  barFill: { height: '100%', background: 'var(--neon)', borderRadius: 2 },
+  top: { display: 'flex', alignItems: 'flex-start', gap: 12 },
+  brand: { display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: 'var(--text-tertiary)' },
+  dot: { width: 9, height: 9, borderRadius: 5, flexShrink: 0 },
+  name: { display: 'block', fontSize: 24, fontWeight: 700, letterSpacing: -0.5, margin: '4px 0 2px' },
+  meta: { fontSize: 13.5, color: 'var(--text-tertiary)' },
+  days: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 },
+  daysN: { fontSize: 34, fontWeight: 800, letterSpacing: -1, lineHeight: 1 },
+  daysL: { fontSize: 12.5, fontWeight: 600, color: 'var(--text-tertiary)' },
+  stat: { display: 'flex', flexDirection: 'column', gap: 6 },
   statRow: { display: 'flex', justifyContent: 'space-between', gap: 8 },
-  overdue: { fontSize: 12, color: 'var(--danger)' },
+  statLabel: { fontSize: 13.5, fontWeight: 600, color: 'var(--text-secondary)' },
+  barTrack: { display: 'block', height: 6, background: 'rgba(var(--ink-rgb), 0.08)', borderRadius: 3, overflow: 'hidden' },
+  barFill: { display: 'block', height: '100%', borderRadius: 3 },
+  overdue: { color: 'var(--bad)', fontWeight: 600 },
 };

@@ -125,9 +125,24 @@ exports.assignPocContacts = onCall({ secrets: ['RESEND_API_KEY'], timeoutSeconds
 });
 
 // Filled in: no longer waiting on anyone who had it.
+// Once Who, Vendor / Company and Contact Name / # are all filled in, the
+// contact is done, so whoever it was assigned to comes off it (5 Nov 2026,
+// Brenner). Their bell items for it were already cleared when it first got
+// a company or number.
+const complete = (c) => ['who', 'vendor', 'contactNameNumber'].every((k) => (c[k] ?? '').toString().trim());
+
 exports.onPocContactFilled = onDocumentUpdated({ document: COLLECTION + '/{id}' }, async (event) => {
   const b = event.data?.before?.data();
   const a = event.data?.after?.data();
-  if (!a || filled(b ?? {}) || !filled(a)) return;
-  for (const uid of holdersOf(a)) await resolveRef('pocAssign/' + event.params.id + '/' + uid);
+  if (!a) return;
+  if (!filled(b ?? {}) && filled(a)) {
+    for (const uid of holdersOf(a)) await resolveRef('pocAssign/' + event.params.id + '/' + uid);
+  }
+  if (complete(a) && holdersOf(a).length) {
+    await event.data.after.ref.update({
+      assignedToUids: FieldValue.delete(), assignedToNames: FieldValue.delete(),
+      assignedToUid: FieldValue.delete(), assignedToName: FieldValue.delete(),
+      assignedByName: FieldValue.delete(), assignedAt: FieldValue.delete(),
+    });
+  }
 });

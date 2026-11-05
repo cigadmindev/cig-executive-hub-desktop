@@ -18,6 +18,8 @@ import { brands } from '../data/mockData';
 import Icon from '../components/Icon';
 import BottomBar from './BottomBar';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { useHomeSummary } from '../hooks/useHomeSummary';
+import { brandColors } from '../theme/colors';
 
 // Mirrors mobile's bottom-tab structure: Home, Messages, Master Calendar,
 // Directory, Profile — everything else (Availability, Support,
@@ -32,8 +34,12 @@ export default function AppLayout({ children }) {
   const { pathname } = useLocation();
   const contentRef = useRef(null);
   useLayoutEffect(() => {
+    // A new page starts at the top, not wherever the last one was scrolled to.
+    if (contentRef.current) contentRef.current.scrollTop = 0;
     const page = contentRef.current?.lastElementChild;
     if (!page || !page.animate || prefersReducedMotion()) return;
+    // Movement only, no fading: a fade on a section would switch off the
+    // glass inside it until the fade finished (Glass, Nov 2026).
     // The page's own sections rise in one after another, the same way Home
     // does - header first, then each block a fraction of a second later.
     // Pop-ups and anything pinned in place are left alone.
@@ -44,12 +50,13 @@ export default function AppLayout({ children }) {
     const targets = parts.length > 1 ? parts.slice(0, 10) : [page];
     targets.forEach((el, i) =>
       el.animate(
-        [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }],
-        { duration: 320, delay: Math.min(i, 7) * 45, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)', fill: 'backwards' }
+        [{ transform: 'translateY(16px)' }, { transform: 'none' }],
+        { duration: 520, delay: Math.min(i, 7) * 50, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' }
       )
     );
   }, [pathname]);
-  const { user, hasBrandAccess } = useAuth();
+  const { user, hasBrandAccess, hasLocationAccess } = useAuth();
+  const summary = useHomeSummary();
   const { unreadCount } = useChat();
   const { hasUnseenTimeOff, hasUnseenCalendar } = useViewTracking();
   const { weeklyAvailability, getWeekStart } = useAvailability();
@@ -126,8 +133,24 @@ export default function AppLayout({ children }) {
     );
   }
 
+  const navItem = (to, icon, label, dot, end = false) => (
+    <NavLink to={to} end={end} style={navItemStyle}>
+      {({ isActive }) => (
+        <div style={styles.navItemRow}>
+          <div style={styles.navItemLabel}>
+            <span style={{ display: 'flex', color: isActive ? 'var(--neon)' : 'var(--text-secondary)' }}><Icon name={icon} size={18} /></span>
+            <span>{label}</span>
+          </div>
+          {dot ? <span style={styles.navDot} /> : null}
+        </div>
+      )}
+    </NavLink>
+  );
+
   return (
     <div style={styles.window}>
+      {/* Glass sidebar (Nov 2026): a frosted panel floating over the page,
+          the four main places, then every restaurant you can open. */}
       <div style={styles.sidebar}>
         <div style={styles.dragArea} />
 
@@ -136,43 +159,21 @@ export default function AppLayout({ children }) {
           <span style={styles.brandName}>Executive Hub</span>
         </div>
 
-        <nav style={styles.nav}>
-          <NavLink to="/" end style={navItemStyle}>
-            <div style={styles.navItemRow}>
-              <div style={styles.navItemLabel}>
-                <Icon name="home" size={16} color="#FFFFFF" />
-                <span>Home</span>
-              </div>
-              {anyEventNeedsMyJob ? <span style={styles.navDot} /> : null}
-            </div>
-          </NavLink>
-          <NavLink to="/messages" style={navItemStyle}>
-            <div style={styles.navItemRow}>
-              <div style={styles.navItemLabel}>
-                <Icon name="message" size={16} color="#FFFFFF" />
-                <span>Messages</span>
-              </div>
-              {unreadCount > 0 ? <span style={styles.navDot} /> : null}
-            </div>
-          </NavLink>
-          <NavLink to="/calendar" style={navItemStyle}>
-            <div style={styles.navItemRow}>
-              <div style={styles.navItemLabel}>
-                <Icon name="calendar" size={16} color="#FFFFFF" />
-                <span>Master Calendar</span>
-              </div>
-              {anyCalendarUnseen ? <span style={styles.navDot} /> : null}
-            </div>
-          </NavLink>
-          <NavLink to="/directory" style={navItemStyle}>
-            <div style={styles.navItemRow}>
-              <div style={styles.navItemLabel}>
-                <Icon name="grid" size={16} color="#FFFFFF" />
-                <span>Directory</span>
-              </div>
-              {directoryNeedsAttention ? <span style={styles.navDot} /> : null}
-            </div>
-          </NavLink>
+        <nav style={styles.nav} aria-label="Main">
+          {navItem('/', 'home', 'Home', anyEventNeedsMyJob, true)}
+          {navItem('/messages', 'message', 'Messages', unreadCount > 0)}
+          {navItem('/calendar', 'calendar', 'Master Calendar', anyCalendarUnseen)}
+          {navItem('/directory', 'grid', 'Directory', directoryNeedsAttention)}
+
+          <SidebarRestaurants
+            user={user}
+            hasBrandAccess={hasBrandAccess}
+            hasLocationAccess={hasLocationAccess}
+            getByBrand={getByBrand}
+            pathname={pathname}
+            byBrand={summary.byBrand}
+            worksChecklist={summary.worksChecklist}
+          />
         </nav>
 
         <div style={styles.sidebarFooter}>
@@ -202,17 +203,82 @@ export default function AppLayout({ children }) {
   );
 }
 
+// Every restaurant this person can open, in the sidebar (Nov 2026). A
+// restaurant opens out to its locations; the one you are in opens by itself,
+// and the ones you open stay open on this computer. The late count is for
+// the people who work the checklists, the same rule as Home.
+function SidebarRestaurants({ user, hasBrandAccess, hasLocationAccess, getByBrand, pathname, byBrand, worksChecklist }) {
+  const [open, setOpen] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sidebarOpenBrands') || '[]'); } catch { return []; }
+  });
+  const toggle = (id) => {
+    const next = open.includes(id) ? open.filter((x) => x !== id) : [...open, id];
+    setOpen(next);
+    try { localStorage.setItem('sidebarOpenBrands', JSON.stringify(next)); } catch { /* private window */ }
+  };
+  const mine = brands.filter((b) => hasBrandAccess(user, b.id) && (!b.execOnly || hasBrandAccess(user, b.id)));
+  if (!mine.length) return null;
+  return (
+    <div style={styles.restaurants}>
+      <p style={styles.sectionLabel}>Restaurants</p>
+      {mine.map((b) => {
+        const locs = [
+          ...b.locations.filter((l) => l.status === 'active'),
+          ...getByBrand(b.id).map((l) => ({ id: l.id, name: l.name })),
+        ].filter((l) => hasLocationAccess(user, b.id, l.id));
+        const here = pathname === '/brand/' + b.id || pathname.startsWith('/brand/' + b.id + '/');
+        const isOpen = here || open.includes(b.id);
+        const late = worksChecklist ? byBrand?.[b.id]?.overdue ?? 0 : 0;
+        return (
+          <div key={b.id}>
+            <div style={styles.brandItem}>
+              <NavLink to={'/brand/' + b.id} end style={({ isActive }) => ({ ...styles.brandLink, ...(isActive ? styles.brandLinkActive : {}) })}>
+                <span style={{ ...styles.brandDot, background: brandColors[b.name] ?? '#A1A1AA' }} />
+                <span style={styles.brandLabel}>{b.name}</span>
+                {late > 0 ? <span style={styles.lateCount}>{late}</span> : null}
+              </NavLink>
+              {locs.length > 1 ? (
+                <button
+                  style={styles.chevBtn}
+                  onClick={() => toggle(b.id)}
+                  aria-expanded={isOpen}
+                  aria-label={(isOpen ? 'Hide ' : 'Show ') + b.name + ' locations'}
+                >
+                  <span style={{ display: 'inline-block', transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>›</span>
+                </button>
+              ) : null}
+            </div>
+            {isOpen && locs.length > 1
+              ? locs.map((l) => (
+                  <NavLink
+                    key={l.id}
+                    to={'/brand/' + b.id + '/location/' + l.id}
+                    style={() => {
+                      const at = pathname === '/brand/' + b.id + '/location/' + l.id || pathname.startsWith('/brand/' + b.id + '/location/' + l.id + '/');
+                      return { ...styles.locLink, ...(at ? styles.locLinkActive : {}) };
+                    }}
+                  >
+                    {l.name}
+                  </NavLink>
+                ))
+              : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const styles = {
-  window: { display: 'flex', height: '100vh' },
+  // The page sits on the colour wash; the sidebar floats on it as glass.
+  window: { display: 'flex', height: '100vh', background: 'transparent', padding: 14, gap: 14, boxSizing: 'border-box' },
   // dvh, not vh: the phone container has to shrink when the keyboard opens,
-  // or the fixed bar strands itself mid-screen. narrowContent already uses it
-  // and this parent was missed.
-  narrowWindow: { height: '100dvh', background: 'var(--bg-window)' },
+  // or the fixed bar strands itself mid-screen.
+  narrowWindow: { height: '100dvh', background: 'transparent' },
   // Bottom padding clears the floating bar: its height, its 24px offset,
   // and the home button poking out of the top.
   narrowContent: {
     height: '100dvh',
-    // Up and down only, and it stops at the ends instead of dragging the page.
     overflowX: 'hidden',
     overflowY: 'auto',
     overscrollBehavior: 'contain',
@@ -221,45 +287,60 @@ const styles = {
     paddingBottom: 'calc(130px + env(safe-area-inset-bottom, 0px))',
   },
   sidebar: {
-    width: 232,
+    width: 256,
     background: 'var(--bg-sidebar)',
-    borderRight: 'none',
+    border: '1px solid var(--glass-edge)',
+    borderRadius: 26,
+    boxShadow: 'var(--shadow-md)',
     display: 'flex',
     flexDirection: 'column',
     flexShrink: 0,
+    overflow: 'hidden',
   },
-  dragArea: { height: 30, WebkitAppRegion: 'drag' },
-  brandRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '4px 18px 20px' },
+  dragArea: { height: 14, WebkitAppRegion: 'drag' },
+  brandRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '6px 20px 18px' },
   badge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    background: 'var(--neon)',
-    color: 'var(--neon-text)',
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    background: 'var(--ink)',
+    color: 'var(--ink-text)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 10,
-    fontWeight: 900,
+    fontSize: 11,
+    fontWeight: 800,
     letterSpacing: 0.3,
   },
-  brandName: { fontSize: 13, fontWeight: 900, color: '#FFFFFF', letterSpacing: 0.2, textTransform: 'uppercase' },
-  nav: { flex: 1, padding: '2px 12px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' },
+  brandName: { fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' },
+  nav: { flex: 1, padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' },
   navItem: {
     display: 'block',
-    padding: '9px 12px',
-    borderRadius: 10,
-    fontSize: 12.5,
-    fontWeight: 700,
+    padding: '10px 12px',
+    borderRadius: 14,
+    fontSize: 15,
+    fontWeight: 600,
     color: 'var(--text-secondary)',
     textDecoration: 'none',
-    textTransform: 'uppercase',
-    letterSpacing: 0.2,
   },
-  navItemActive: { background: 'var(--bg-card)', color: 'var(--neon)', fontWeight: 900 },
+  navItemActive: { background: 'var(--surface)', color: 'var(--text-primary)', boxShadow: '0 2px 10px rgba(30,40,60,0.08)' },
   navItemRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   navItemLabel: { display: 'flex', alignItems: 'center', gap: 10 },
-  navDot: { width: 7, height: 7, borderRadius: 4, background: 'var(--danger)', flexShrink: 0 },
+  navDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--danger)', flexShrink: 0 },
+  restaurants: { marginTop: 18, display: 'flex', flexDirection: 'column', gap: 1 },
+  sectionLabel: { fontSize: 12, fontWeight: 700, color: 'var(--text-tertiary)', margin: '0 12px 6px' },
+  brandItem: { display: 'flex', alignItems: 'center', gap: 2 },
+  brandLink: {
+    flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12,
+    fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', textDecoration: 'none',
+  },
+  brandLinkActive: { background: 'var(--surface)', boxShadow: '0 2px 10px rgba(30,40,60,0.08)' },
+  brandDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0, boxShadow: 'inset 0 0 0 1px rgba(var(--ink-rgb), 0.12)' },
+  brandLabel: { flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  lateCount: { fontSize: 11.5, fontWeight: 700, color: 'var(--bad)' },
+  chevBtn: { width: 30, height: 30, border: 'none', borderRadius: 999, background: 'none', color: 'var(--text-tertiary)', fontSize: 17, fontWeight: 600, padding: 0, flexShrink: 0 },
+  locLink: { display: 'block', padding: '7px 12px 7px 32px', borderRadius: 10, fontSize: 13.5, fontWeight: 500, color: 'var(--text-secondary)', textDecoration: 'none' },
+  locLinkActive: { background: 'var(--surface)', color: 'var(--neon)', fontWeight: 700, boxShadow: '0 2px 10px rgba(30,40,60,0.08)' },
   narrowBanner: { padding: '10px 14px 0' },
   profileRow: { display: 'flex', alignItems: 'center', gap: 8 },
   sidebarFooter: { padding: 14, borderTop: '1px solid var(--border)' },
@@ -270,24 +351,24 @@ const styles = {
     width: '100%',
     textDecoration: 'none',
     padding: '6px 4px',
-    borderRadius: 10,
+    borderRadius: 12,
   },
   avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    background: 'var(--accent)',
-    color: '#FFFFFF',
-    fontSize: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    background: 'linear-gradient(135deg, #8EC5FC, #E0C3FC)',
+    color: 'var(--text-primary)',
+    fontSize: 13,
     fontWeight: 700,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    boxShadow: 'var(--shadow-sm)',
   },
-  avatarImage: { width: 30, height: 30, borderRadius: 15, objectFit: 'cover', flexShrink: 0 },
-  userName: { fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  userRole: { fontSize: 11, color: 'var(--text-tertiary)' },
-  content: { flex: 1, overflow: 'auto', background: 'var(--bg-window)' },
+  avatarImage: { width: 34, height: 34, borderRadius: 17, objectFit: 'cover', flexShrink: 0 },
+  userName: { fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  userRole: { fontSize: 12, color: 'var(--text-tertiary)' },
+  // The page scrolls inside its own area, on the wash.
+  content: { flex: 1, overflow: 'auto', background: 'var(--bg-window)', borderRadius: 26, minWidth: 0 },
 };

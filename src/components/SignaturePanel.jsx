@@ -144,16 +144,16 @@ export default function SignaturePanel({ item, me, canRequest, people, save, not
 
 const styles = {
   mine: { background: 'rgba(232,185,59,0.1)', border: '1px solid rgba(232,185,59,0.4)', borderRadius: 10, padding: '12px 14px', margin: '4px 0 12px' },
-  mineTitle: { margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--warn)' },
+  mineTitle: { margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--warn)' },
   text: { margin: '4px 0 0', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 },
   small: { margin: '4px 0 0', fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 },
   waiting: { margin: '0 0 6px', fontSize: 12, color: 'var(--warn)', lineHeight: 1.5 },
   back: { margin: '0 0 6px', fontSize: 12, color: 'var(--bad)', lineHeight: 1.5 },
   ask: { display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 420 },
-  label: { fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  label: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
   row: { display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 8, alignItems: 'center' },
   input: { flex: 1, minWidth: 160, boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px', minHeight: 40, fontSize: 13, color: 'var(--text-primary)', fontFamily: 'inherit' },
-  primary: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '0 14px', minHeight: 40, fontWeight: 800, fontSize: 13, cursor: 'pointer' },
-  ghost: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '0 12px', minHeight: 36, whiteSpace: 'nowrap', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
+  primary: { background: 'var(--ink)', color: 'var(--ink-text)', border: 'none', borderRadius: 999, padding: '0 14px', minHeight: 40, fontWeight: 600, fontSize: 13, cursor: 'pointer' },
+  ghost: { background: 'rgba(var(--paper-rgb), 0.6)', border: '1px solid rgba(var(--ink-rgb), 0.1)', color: 'var(--text-secondary)', borderRadius: 999, padding: '0 12px', minHeight: 36, whiteSpace: 'nowrap', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
   link: { background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer', marginLeft: 8, textDecoration: 'underline' },
 };

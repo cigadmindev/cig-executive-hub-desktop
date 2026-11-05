@@ -328,14 +328,14 @@ const styles = {
   cardBody: { padding: '0 16px 16px' },
   detail: { fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 12px', whiteSpace: 'pre-wrap' },
 
-  pillChange: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(34,211,238,0.14)', color: 'var(--neon)' },
-  pillHelp: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 6, background: 'rgba(201,162,39,0.16)', color: 'var(--warn)' },
+  pillChange: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', padding: '3px 7px', borderRadius: 6, background: 'rgba(10,126,164,0.14)', color: 'var(--neon)' },
+  pillHelp: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', padding: '3px 7px', borderRadius: 6, background: 'rgba(201,162,39,0.16)', color: 'var(--warn)' },
 
   responseBlock: { borderLeft: '2px solid var(--border-strong)', paddingLeft: 12, margin: '0 0 12px' },
   responseLabel: { fontSize: 11, color: 'var(--text-tertiary)', margin: '0 0 4px' },
 
   ownNote: { fontSize: 12, color: 'var(--text-tertiary)', fontStyle: 'italic', margin: '10px 0 0' },
-  label: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '14px 0 5px' },
+  label: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: '14px 0 5px' },
   input: { width: '100%', boxSizing: 'border-box', height: 36, padding: '0 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
   textarea: { width: '100%', boxSizing: 'border-box', minHeight: 90, padding: 11, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', resize: 'vertical' },
 
@@ -344,10 +344,10 @@ const styles = {
   kindButtonActive: { background: 'var(--neon)', color: 'var(--neon-text)', borderColor: 'var(--neon)' },
 
   actionRow: { display: 'flex', gap: 8, marginTop: 14 },
-  primaryButton: { flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'none', cursor: 'pointer', marginTop: 18 },
-  secondaryButton: { flex: 1, padding: '11px 0', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', marginTop: 18 },
+  primaryButton: { flex: 1, padding: '11px 0', borderRadius: 999, border: 'none', background: 'var(--ink)', color: 'var(--ink-text)', fontSize: 13, fontWeight: 600, textTransform: 'none', cursor: 'pointer', marginTop: 18 },
+  secondaryButton: { flex: 1, padding: '11px 0', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', marginTop: 18 },
 
   backdrop: { ...modalBackdrop, zIndex: 100 },
   modal: { padding: 22, ...modalSurface, width: 'min(460px, 100%)' },
-  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 4px' },
+  modalTitle: { fontSize: 21, fontWeight: 700, textTransform: 'none', letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 4px' },
 };

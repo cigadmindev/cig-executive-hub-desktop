@@ -223,7 +223,7 @@ export default function EventRequestsScreen() {
         ) : null}
         {isAdmin ? (
           <div style={d.section}>
-            <p style={d.sectionLabel}>ADMIN</p>
+            <p style={d.sectionLabel}>Admin</p>
             {changing ? (
               <>
                 <select style={d.input} value={changing.status} onChange={(e) => setChanging({ ...changing, status: e.target.value })}>
@@ -251,7 +251,7 @@ export default function EventRequestsScreen() {
           </div>
         ) : null}
         <div style={d.section}>
-          <p style={d.sectionLabel}>HISTORY</p>
+          <p style={d.sectionLabel}>History</p>
           <div style={d.history}>
             {r.createdAt ? <div>{formatDateTime(r.createdAt)} · asked by {r.requestedBy}</div> : <div>Asked by {r.requestedBy}</div>}
             {r.resolvedAt ? <div>{formatDateTime(r.resolvedAt)} · {r.status === 'denied' ? 'declined' : 'decided'}</div> : null}
@@ -462,12 +462,12 @@ const styles = {
 
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
   needsMeBadge: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', margin: '0 0 8px' },
-  saveButton: { padding: '8px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'none' },
-  cancelButton: { minHeight: 40, padding: '8px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 },
+  saveButton: { padding: '8px 16px', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 12, textTransform: 'none' },
+  cancelButton: { minHeight: 40, padding: '8px 16px', borderRadius: 999, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 },
 
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },
   modalCard: { padding: 22, ...modalSurface, width: 'min(400px, 100%)' },
-  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
+  modalTitle: { fontSize: 21, fontWeight: 700, textTransform: 'none', letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 12px' },
   label: { display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4, marginTop: 10 },
   input: {
     width: '100%',

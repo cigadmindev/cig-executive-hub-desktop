@@ -1,49 +1,184 @@
 :root {
-  /* Dark base, surfaces layered above it in translucent white. The old
-     palette ran window #292930 / card #515160 — cards lighter than the page,
-     everything inside twenty points of mid-grey, so nothing could read as
-     foreground and no amount of styling made a row stand out. Now the page is
-     near-black and each layer lifts slightly, which is what gives text and
-     accents something to sit against. */
-  --bg-window: #131317;
-  --bg-sidebar: #0E0E11;
-  --bg-card: rgba(255, 255, 255, 0.055);
-  /* Solid, for anything that floats over content. Translucent surfaces work
-     layered on the page but let text bleed through in a modal. */
-  --bg-elevated: #1E1E25;
-  --bg-card-hover: rgba(255, 255, 255, 0.09);
-  --bg-inset: rgba(255, 255, 255, 0.085);
-  --text-primary: #FFFFFF;
-  --text-secondary: #C8C8D0;
-  --text-tertiary: #83838E;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  /* Lifted for the darker base — the old value was tuned against a mid-grey
-     page and reads as almost invisible on near-black. */
-  --accent: #9A9AA8;
-  --accent-hover: #B4B4C0;
-  --neon: #22D3EE;
-  --neon-text: #0A0A0B;
-  --accent-soft: rgba(255, 255, 255, 0.13);
-  --danger: #E8524B;
-  --success: #5FA377;
+  /* Glass (Nov 2026 redesign): light, frosted surfaces over a soft colour
+     wash, dark ink for text, one accent. Every page reads these, so most of
+     the Hub changes look from here. */
+  --bg-window: transparent;
+  /* The colour under the glass. Glass only reads as glass when there is
+     colour behind it to bend, so the wash is richer than a plain tint. */
+  /* Waves (Nov 2026, Brenner's pick "E3"): thin teal and coral wave lines
+     over cream with a soft teal glow top left and coral bottom right. The
+     lines are public/bg/waves-light.svg, stretched to fill the window
+     (they stay hairline-thin at any size). #hub-bg (index.html) draws it
+     behind the whole Hub; it stays still. --bg-wash is the same look for
+     full-screen pieces that need their own background. */
+  --bg-tile: url(/bg/waves-light.svg);
+  --bg-base:
+    radial-gradient(ellipse 52% 58% at 14% 12%, rgba(150, 204, 198, 0.75) 0%, rgba(150, 204, 198, 0) 72%),
+    radial-gradient(ellipse 52% 58% at 84% 82%, rgba(236, 176, 152, 0.7) 0%, rgba(236, 176, 152, 0) 72%),
+    linear-gradient(150deg, #ECE5D9 0%, #E8E0D2 50%, #E4DBCC 100%);
+  --bg-wash: var(--bg-tile) center / cover no-repeat, var(--bg-base);
+  /* Glass: clear at the bottom right, brighter where the light hits top
+     left. The highlight edge, glow and shadow are added in the Glass
+     section at the end of this file. */
+  --bg-sidebar: linear-gradient(160deg, rgba(255, 255, 255, 0.46) 0%, rgba(255, 255, 255, 0.12) 60%, rgba(255, 255, 255, 0.24) 100%);
+  --bg-card: linear-gradient(155deg, rgba(255, 255, 255, 0.44) 0%, rgba(255, 255, 255, 0.1) 55%, rgba(255, 255, 255, 0.22) 100%);
+  /* Solid, for anything that floats over content (pop-ups, menus). */
+  --bg-elevated: #FFFFFF;
+  --bg-card-hover: rgba(255, 255, 255, 0.35);
+  /* One easing for things that move: a soft spring that settles. */
+  --seg-thumb: #FFFFFF;
+  /* A small floating surface (menus, reaction bar, pills on bubbles). */
+  --surface-pop: rgba(255, 255, 255, 0.94);
+  /* Solid surface (menus, sticky table cells, the checked tab). */
+  --surface: #FFFFFF;
+  --bar-sheen: #FFFFFF;
+  /* The two colours tints are made from (Nov 2026, so dark mode can swap
+     them): ink for hairlines and soft grey fills, paper for light fills. */
+  --ink-rgb: 29, 29, 31;
+  --paper-rgb: 255, 255, 255;
+  --text-quaternary: #AEAEB2;
+  --hover-wash: rgba(29, 29, 31, 0.05);
+  --press-wash: rgba(29, 29, 31, 0.08);
+  --glass-hover: rgba(255, 255, 255, 0.4);
+  --glass-press: rgba(255, 255, 255, 0.55);
+  --row-hover: rgba(255, 255, 255, 0.55);
+  --row-press: rgba(255, 255, 255, 0.8);
+  --field-bg: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  /* Status tints: a soft fill and a strong text colour for each meaning. */
+  --amber-bg: #FEF0C7; --amber-fg: #93370D;
+  --cyan-bg: #E0F2FE; --cyan-fg: #075985;
+  --green-bg: #DCFAE6; --green-fg: #085D3A;
+  --red-bg: #FEE4E2; --red-fg: #B42318;
+  --orange-bg: #FFEDD5; --orange-fg: #C2410C;
+  --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --bg-inset: rgba(29, 29, 31, 0.05);
+  --text-primary: #1D1D1F;
+  --text-secondary: #3A3A3C;
+  --text-tertiary: #6E6E73;
+  --border: rgba(29, 29, 31, 0.08);
+  --border-strong: rgba(29, 29, 31, 0.16);
+  --glass-edge: rgba(255, 255, 255, 0.85);
+  --accent: #6E6E73;
+  --accent-hover: #3A3A3C;
+  /* Set by ThemeContext from the admin's colour dial; this is the default. */
+  --neon: #0A7EA4;
+  --neon-text: #FFFFFF;
+  --accent-soft: rgba(29, 29, 31, 0.06);
+  /* The main button colour: near-black pills, the way the mockups show. */
+  --ink: #1D1D1F;
+  --ink-text: #FFFFFF;
+  --danger: #D92D20;
+  --success: #1F8A4C;
   /* Status colours, one meaning each: warn = someone needs to act, ok = good to go, bad = stopped or late. */
-  --warn: #E8B93B;
-  --ok: #4ADE80;
-  --bad: #F87171;
+  --warn: #B45309;
+  --ok: #15803D;
+  --bad: #B42318;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 3px rgba(30, 40, 60, 0.08);
+  --shadow-md: 0 8px 30px rgba(30, 40, 60, 0.08);
+  --shadow-lg: 0 20px 60px rgba(30, 40, 60, 0.16);
+  --glass-blur: blur(16px) saturate(185%) brightness(1.05);
+  --glass-lens: url(#hub-lens) blur(7px) saturate(185%) brightness(1.06);
+  /* Light on the glass: a bright line along the top, a fainter one along the
+     bottom, a soft glow inside and a touch of shade low down, so the pane
+     reads as thick, curved glass. */
+  --glass-shine:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.45),
+    inset 0 0 28px rgba(255, 255, 255, 0.22),
+    inset 0 -14px 26px -18px rgba(30, 40, 60, 0.14);
+  --glass-rim: linear-gradient(135deg,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 255, 255, 0.55) 10%,
+    rgba(255, 255, 255, 0) 32%,
+    rgba(255, 255, 255, 0) 64%,
+    rgba(255, 255, 255, 0.5) 88%,
+    rgba(255, 255, 255, 0.95) 100%);
+  --glass-shadow: 0 1px 2px rgba(30, 40, 60, 0.04), 0 12px 34px rgba(30, 40, 60, 0.08);
 
-  /* Tells the browser the Hub is dark, so the parts it draws itself -
-     dropdown lists, date pickers, scrollbars - are dark too. */
+  /* The parts the browser draws itself - dropdowns, date pickers - are light. */
+  color-scheme: light;
+}
+
+/* Dark mode (Nov 2026). Chosen per person on their Profile (Appearance);
+   index.html sets data-theme before the page draws. The same glass, on a
+   deep night-blue wash, with light text and white buttons. */
+:root[data-theme="dark"] {
+  --bg-tile: url(/bg/waves-dark.svg);
+  --bg-base:
+    radial-gradient(ellipse 48% 55% at 14% 12%, rgba(36, 87, 90, 0.7) 0%, rgba(36, 87, 90, 0) 70%),
+    radial-gradient(ellipse 48% 55% at 84% 82%, rgba(110, 58, 48, 0.65) 0%, rgba(110, 58, 48, 0) 70%),
+    linear-gradient(150deg, #1C2526 0%, #242829 50%, #2B2526 100%);
+  --bg-wash: var(--bg-tile) center / cover no-repeat, var(--bg-base);
+  --bg-sidebar: linear-gradient(160deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.05) 60%, rgba(255, 255, 255, 0.08) 100%);
+  --bg-card: linear-gradient(155deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 55%, rgba(255, 255, 255, 0.07) 100%);
+  --bg-elevated: #2B2D31;
+  --bg-card-hover: rgba(255, 255, 255, 0.08);
+  --seg-thumb: #3B3D42;
+  --surface-pop: rgba(47, 49, 54, 0.94);
+  --surface: #2B2D31;
+  --bar-sheen: #2A2C30;
+  --bar-rim: 0.35;
+  --ink-rgb: 235, 238, 245;
+  --paper-rgb: 45, 47, 52;
+  --bg-inset: rgba(255, 255, 255, 0.06);
+  --text-primary: #F2F4F8;
+  --text-secondary: #C5CAD3;
+  --text-tertiary: #8E96A4;
+  --text-quaternary: #5E6573;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --glass-edge: rgba(255, 255, 255, 0.14);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --accent: #8E96A4;
+  --accent-hover: #C5CAD3;
+  --accent-soft: rgba(255, 255, 255, 0.08);
+  --ink: #F2F4F8;
+  --ink-text: #17181B;
+  --danger: #F97066;
+  --success: #47CD89;
+  --warn: #FDB022;
+  --ok: #47CD89;
+  --bad: #F97066;
+  --hover-wash: rgba(255, 255, 255, 0.07);
+  --press-wash: rgba(255, 255, 255, 0.11);
+  --glass-hover: rgba(255, 255, 255, 0.08);
+  --glass-press: rgba(255, 255, 255, 0.12);
+  --row-hover: rgba(255, 255, 255, 0.06);
+  --row-press: rgba(255, 255, 255, 0.1);
+  --field-bg: rgba(255, 255, 255, 0.06);
+  --amber-bg: rgba(253, 176, 34, 0.16); --amber-fg: #FEC84B;
+  --cyan-bg: rgba(54, 191, 250, 0.16); --cyan-fg: #7CD4FD;
+  --green-bg: rgba(71, 205, 137, 0.16); --green-fg: #75E0A7;
+  --red-bg: rgba(249, 112, 102, 0.16); --red-fg: #FDA29B;
+  --orange-bg: rgba(251, 146, 60, 0.16); --orange-fg: #FDBA74;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5);
+  --glass-shine:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.07),
+    inset 0 0 28px rgba(255, 255, 255, 0.03),
+    inset 0 -14px 26px -18px rgba(0, 0, 0, 0.45);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 34px rgba(0, 0, 0, 0.35);
+  --glass-rim: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.2) 10%,
+    rgba(255, 255, 255, 0) 32%,
+    rgba(255, 255, 255, 0) 64%,
+    rgba(255, 255, 255, 0.16) 88%,
+    rgba(255, 255, 255, 0.38) 100%);
+  --rim-strength: 0.16;
   color-scheme: dark;
 }
+:root[data-theme="dark"] button[style*="background: var(--ink)"]:hover:not(:disabled) { filter: brightness(0.9); }
+
 
 /* An open dropdown list is drawn by the computer, not the page. On Windows
    it kept the page's white text on its own white background, so the list
@@ -51,8 +186,8 @@
    background of their own. */
 select option,
 select optgroup {
-  background: #1E1E25;
-  color: #FFFFFF;
+  background: var(--surface);
+  color: var(--text-primary);
 }
 
 * {
@@ -82,8 +217,10 @@ html, body, #root {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
-  background: var(--bg-window);
+  /* Figtree everywhere (Nov 2026); the system font only while it loads. */
+  font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+  background: var(--bg-base);
+  background-attachment: fixed;
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   user-select: none;
@@ -100,8 +237,8 @@ button {
   border-radius: var(--radius-sm);
   background: none;
   color: var(--text-primary);
-  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.09s ease,
-    box-shadow 0.15s ease, opacity 0.15s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.42s var(--spring),
+    box-shadow 0.3s ease, opacity 0.2s ease, filter 0.2s ease;
 }
 
 /* There was a transition here but nothing to transition to, so every control
@@ -116,14 +253,22 @@ button {
    trackpad. */
 @media (hover: hover) {
   button:hover:not(:disabled) {
-    background-color: rgba(255, 255, 255, 0.1) !important;
-    border-color: var(--border-strong);
+    background-color: var(--hover-wash) !important;
+  }
+  /* Glass buttons brighten, the way light catches them, instead of greying. */
+  button[style*="var(--bg-card)"]:hover:not(:disabled) {
+    background-color: var(--glass-hover) !important;
   }
 }
 
+/* Pressing squeezes it a touch; letting go springs back. */
 button:active:not(:disabled) {
-  transform: scale(0.972);
-  background-color: rgba(255, 255, 255, 0.15) !important;
+  transform: scale(0.965);
+  transition-duration: 0.12s;
+  background-color: var(--press-wash) !important;
+}
+button[style*="var(--bg-card)"]:active:not(:disabled) {
+  background-color: var(--glass-press) !important;
 }
 
 button:disabled {
@@ -138,46 +283,115 @@ button:disabled {
    actually tells you which line you're on. */
 [data-row] {
   position: relative;
+  isolation: isolate;
 }
+
+/* Hover (Nov 2026, "nice and neat"): a row that runs edge to edge with
+   lines between (most lists) gets a rounded glass pill that reaches a
+   little past the text on both sides, with a fine light edge, instead of a
+   square wash that stops short. It's drawn by ::before behind the row's
+   content. Rows that already have their own rounded shape keep it and
+   just gain the same fine edge. */
+[data-row]::before {
+  content: '';
+  position: absolute;
+  inset: 3px -8px;
+  z-index: -1;
+  border-radius: 14px;
+  background: var(--row-hover);
+  box-shadow: inset 0 0 0 1px var(--glass-border), 0 1px 3px rgba(var(--ink-rgb), 0.05);
+  opacity: 0;
+  transform: scale(0.985);
+  transition: opacity 0.18s ease, transform 0.3s var(--spring), background-color 0.15s ease;
+  pointer-events: none;
+}
+/* Rows that sit flush inside their card with roomy padding of their own
+   (data-inset) get the pill tucked inside instead, so the card edge never
+   cuts it off. */
+[data-row][data-inset]::before { inset: 3px 8px; }
+/* Rows already set in from the card edge use the row's own width. */
+[data-row][data-inset="flush"]::before { inset: 3px 0; }
+/* Set by rowPill.js when a pill would be clipped (--pill-x is 0 to 8px). */
+[data-row][data-inset="auto"]::before { inset: 3px var(--pill-x, 0px); }
+/* The main button inside such a line lets the line's pill do the hover. */
+[data-row-part]:hover, [data-row-part]:active { background-color: transparent !important; transform: none !important; }
+/* Rows with their own rounded shape don't need the pill. */
+[data-row][style*="border-radius"]:not([style*="border-radius: 0px"])::before { display: none; }
 
 @media (hover: hover) {
   [data-row]:hover {
-    background-color: rgba(255, 255, 255, 0.075) !important;
+    background-color: var(--row-hover) !important;
+    box-shadow: inset 0 0 0 1px var(--glass-border);
   }
+  :is([data-row]:not([style*="border-radius"]), [data-row][style*="border-radius: 0px"]):hover {
+    background-color: transparent !important;
+    box-shadow: none;
+  }
+  [data-row]:hover::before { opacity: 1; transform: scale(1); }
 }
 
 
 /* Rows that already carry a left border (yours, on Home) don't get a second
    bar on hover - the background lift is enough. */
-@media (hover: hover) {
-  [data-row]:not([data-marked]):hover::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--neon);
-  }
-}
+/* (Glass, Nov 2026: the old neon bar on the left of a hovered row is
+   gone - the row's own light wash is enough.) */
 
 [data-row]:active {
-  background-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: var(--row-press) !important;
+  transform: scale(0.992);
+}
+:is([data-row]:not([style*="border-radius"]), [data-row][style*="border-radius: 0px"]):active {
+  background-color: transparent !important;
+}
+[data-row]:active::before { opacity: 1; background: var(--row-press); }
+
+/* Clickable table rows (Catering, Expenses; Nov 2026) get the same rounded
+   pill as list rows. Tables can't round a whole row, so the cells are
+   rounded at the two ends instead, and the line between rows steps aside
+   while a row is lit up. The picked row keeps a soft accent tint. */
+table:has(> tbody > tr[style*="cursor: pointer"]) {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+tr[style*="cursor: pointer"] {
+  border-top: none !important;
+  background: transparent !important;
+}
+tr[style*="cursor: pointer"] > td {
+  box-shadow: inset 0 1px 0 var(--border);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+tr[style*="cursor: pointer"] > td:first-child { border-radius: 12px 0 0 12px; }
+tr[style*="cursor: pointer"] > td:last-child { border-radius: 0 12px 12px 0; }
+tr[style*="cursor: pointer"][style*="rgba(10, 126, 164"] > td {
+  background-color: rgba(10, 126, 164, 0.09);
+  box-shadow: none;
+}
+tr[style*="cursor: pointer"][style*="rgba(10, 126, 164"] + tr > td { box-shadow: none; }
+@media (hover: hover) {
+  tr[style*="cursor: pointer"]:hover > td {
+    background-color: var(--row-hover);
+    box-shadow: inset 0 1px 0 var(--glass-border), inset 0 -1px 0 var(--glass-border);
+  }
+  tr[style*="cursor: pointer"]:hover + tr > td { box-shadow: none; }
 }
 
 /* Cards raise rather than just brightening — the shadow does more work than
    the background at this size. */
 @media (hover: hover) {
   [data-card]:hover:not(:disabled) {
-    transform: translateY(-3px);
-    border-color: rgba(255, 255, 255, 0.28);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+    transform: translateY(-2px) scale(1.006);
+    background-color: var(--bg-card-hover) !important;
+    box-shadow: var(--glass-shine), 0 2px 4px rgba(30, 40, 60, 0.05), 0 20px 44px rgba(30, 40, 60, 0.13) !important;
   }
 }
 
-
+[data-card] {
+  transition: transform 0.45s var(--spring), box-shadow 0.3s ease, background-color 0.2s ease;
+}
 [data-card]:active:not(:disabled) {
-  transform: translateY(-1px) scale(0.99);
+  transform: scale(0.985);
+  transition-duration: 0.12s;
 }
 
 /* Expanding content fades in rather than snapping — the jump is jarring when
@@ -185,7 +399,7 @@ button:disabled {
 @keyframes revealDown {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-6px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -194,7 +408,12 @@ button:disabled {
 }
 
 [data-reveal] {
-  animation: revealDown 0.18s ease-out;
+  animation: revealDown 0.32s var(--spring);
+  transform-origin: top center;
+}
+/* Menus open from the button that opened them. */
+[role="menu"][data-reveal] {
+  transform-origin: top right;
 }
 
 /* One scroll bar everywhere, hidden until you scroll (4 Nov 2026).
@@ -208,7 +427,7 @@ button:disabled {
   scrollbar-color: transparent transparent;
 }
 .is-scrolling {
-  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  scrollbar-color: rgba(var(--ink-rgb), 0.28) transparent;
 }
 ::-webkit-scrollbar {
   width: 8px;
@@ -219,7 +438,7 @@ button:disabled {
   border-radius: 6px;
 }
 .is-scrolling::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(var(--ink-rgb), 0.28);
 }
 ::-webkit-scrollbar-track,
 ::-webkit-scrollbar-corner {
@@ -327,7 +546,7 @@ button:disabled {
 @media (hover: hover) {
   [data-bubble]:hover {
     transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.22);
+    border-color: rgba(var(--ink-rgb), 0.14);
   }
 }
 
@@ -359,17 +578,22 @@ button:disabled {
 /* Every page title (V1, 8 Oct 2026). One size everywhere; a little smaller
    on a phone so long titles fit on two lines instead of four. */
 .hub-page-title {
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: -0.5px;
-  text-transform: uppercase;
-  color: #FFFFFF;
-  line-height: 1.15;
+  /* Glass (Nov 2026): big, bold, normal capitals - not shouted. */
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -1.2px;
+  text-transform: none;
+  color: var(--text-primary);
+  line-height: 1.08;
 }
 @media (max-width: 640px) {
   .hub-page-title {
-    font-size: 22px;
-    letter-spacing: -0.4px;
+    font-size: 27px;
+    letter-spacing: -0.7px;
+    /* Wrap between words only - never "Openin g". */
+    overflow-wrap: normal !important;
+    word-break: normal;
+    hyphens: manual;
   }
 }
 
@@ -378,13 +602,13 @@ button:disabled {
    moment you pointed at it. */
 @media (hover: hover) {
   button[data-primary]:hover:not(:disabled) {
-    background-color: var(--neon) !important;
-    filter: brightness(1.1);
+    background-color: var(--ink) !important;
+    filter: brightness(1.35);
   }
 }
 button[data-primary]:active:not(:disabled) {
-  background-color: var(--neon) !important;
-  filter: brightness(0.95);
+  background-color: var(--ink) !important;
+  filter: brightness(1.15);
 }
 
 /* A small tick box or close button keeps its look, but an invisible 40px
@@ -409,7 +633,7 @@ button[data-primary]:active:not(:disabled) {
    the animation never holds a transform afterwards - hover lifts on cards
    and rows keep working exactly as before. */
 @keyframes hubRise {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
 @keyframes hubFade {
@@ -417,7 +641,7 @@ button[data-primary]:active:not(:disabled) {
   to { opacity: 1; }
 }
 @keyframes hubPop {
-  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  from { opacity: 0; transform: translateY(12px) scale(0.95); }
   to { opacity: 1; transform: none; }
 }
 @keyframes hubPulse {
@@ -432,10 +656,23 @@ button[data-primary]:active:not(:disabled) {
 
 /* Every pop-up: the shade fades in, the card rises into place. */
 [data-modal] {
-  animation: hubFade 0.18s ease-out backwards;
+  animation: hubFade 0.22s ease-out backwards;
+  /* Glass (Nov 2026): every pop-up's shade is the same soft dim with the
+     page frosted behind it, so the card in front clearly stands apart. */
+  background-color: rgba(20, 24, 32, 0.24) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+/* A side sheet (notifications) slides in from the right instead. */
+[data-modal] > [data-sheet] {
+  animation: hubSheet 0.46s var(--spring) backwards;
+}
+@keyframes hubSheet {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: none; }
 }
 [data-modal] > :first-child {
-  animation: hubPop 0.26s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation: hubPop 0.42s var(--spring) backwards;
 }
 
 /* Lists and cards come in one after another, a fraction of a second apart. */
@@ -463,7 +700,7 @@ button[data-primary]:active:not(:disabled) {
 [data-skeleton] {
   display: block;
   border-radius: 6px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.13) 40%, rgba(255,255,255,0.06) 80%);
+  background: linear-gradient(90deg, rgba(var(--ink-rgb),0.05) 0%, rgba(var(--ink-rgb),0.1) 40%, rgba(var(--ink-rgb),0.05) 80%);
   background-size: 300% 100%;
   animation: hubShimmer 1.4s linear infinite;
 }
@@ -481,3 +718,197 @@ button[data-primary]:active:not(:disabled) {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Glass (Nov 2026). Any surface painted with the card or sidebar colour
+   becomes a pane of glass: it frosts and brightens what's behind it, has a
+   bright edge where the light hits (top left) and a fainter one opposite, a
+   soft inner glow, and a shadow under it. Matched on the inline style, so
+   every card in the Hub gets it without being edited. */
+[style*="var(--bg-card)"],
+[style*="var(--bg-sidebar)"] {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-border) !important;
+  box-shadow: var(--glass-shine), var(--glass-shadow) !important;
+}
+/* The rim: a thin edge that is bright where the light hits (top left and
+   bottom right) and nearly clear along the sides, like the edge of a lens.
+   Drawn as a 1px ring over the pane. Only on panes that don't set their
+   own position, so floating menus and pinned bars are left alone. */
+[style*="var(--bg-card)"]:not([style*="position"]),
+[style*="var(--bg-sidebar)"]:not([style*="position"]) {
+  position: relative;
+}
+[style*="var(--bg-card)"]:not(.hit-40)::after,
+[style*="var(--bg-sidebar)"]:not(.hit-40)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+[style*="var(--bg-card)"] [style*="var(--bg-card)"]::after {
+  display: none;
+}
+
+/* Glass inside glass (a row or chip on a card) is lighter: just the edge
+   and a whisper of shadow, and no second blur. */
+[style*="var(--bg-card)"] [style*="var(--bg-card)"],
+[style*="var(--bg-sidebar)"] [style*="var(--bg-card)"] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, var(--rim-strength, 0.9)), 0 1px 3px rgba(30, 40, 60, 0.06) !important;
+}
+
+
+/* "Nothing here yet" (Nov 2026): a soft glass box instead of a line of
+   small grey text floating on the page. */
+.hub-empty {
+  margin: 4px 0 0;
+  padding: 28px 22px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--text-tertiary);
+  background: rgba(var(--paper-rgb), 0.5);
+  border: 1px dashed rgba(var(--ink-rgb), 0.12);
+  border-radius: 20px;
+}
+
+
+/* Tabs and filters (src/theme/segmented.js): the chosen one stays white
+   on hover; the others get a faint wash. */
+button[style*="var(--seg-thumb)"]:hover:not(:disabled),
+button[style*="var(--seg-thumb)"]:active:not(:disabled) {
+  background-color: var(--seg-thumb) !important;
+}
+
+/* Text-only buttons ("Change opening date", "Undo") don't grow a grey box
+   on hover; they just dim a touch, like a link. Icon buttons with no
+   background are the exception (they have a padding box worth showing). */
+@media (hover: hover) {
+  button[style*="background: none"][style*="padding: 0"]:hover:not(:disabled),
+  button[style*="background: none"][style*="padding: 6px 0"]:hover:not(:disabled),
+  button[style*="background: none"][style*="padding: 4px 0"]:hover:not(:disabled) {
+    background-color: transparent !important;
+    opacity: 0.7;
+  }
+}
+
+/* Any filled button (black, accent, red, green) keeps its own colour on
+   hover and press - it just lifts a shade - instead of the grey wash. */
+@media (hover: hover) {
+  button[style*="background: var(--ink)"]:hover:not(:disabled) { background-color: var(--ink) !important; filter: brightness(1.45); }
+  button[style*="background: var(--neon)"]:hover:not(:disabled) { background-color: var(--neon) !important; filter: brightness(1.1); }
+  button[style*="background: var(--danger)"]:hover:not(:disabled) { background-color: var(--danger) !important; filter: brightness(1.1); }
+  button[style*="background: var(--success)"]:hover:not(:disabled) { background-color: var(--success) !important; filter: brightness(1.1); }
+}
+button[style*="background: var(--ink)"]:active:not(:disabled) { background-color: var(--ink) !important; }
+button[style*="background: var(--neon)"]:active:not(:disabled) { background-color: var(--neon) !important; }
+button[style*="background: var(--danger)"]:active:not(:disabled) { background-color: var(--danger) !important; }
+button[style*="background: var(--success)"]:active:not(:disabled) { background-color: var(--success) !important; }
+
+/* The phone's floating bell steps aside while a chat is open. */
+body[data-chat-open] [data-bell] { display: none !important; }
+
+/* Form fields (Glass, Nov 2026): one look for every text box, dropdown and
+   note field - soft rounded white with a hairline edge, and a calm accent
+   ring when you're typing in it. Fields that are deliberately see-through
+   (inside a search pill or chat box) or already pill-shaped are left as
+   they are. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([style*="border-radius: 999"]):not([style*="background: none"]):not([style*="background: transparent"]):not([style*="border: none"]),
+select:not([style*="border-radius: 999"]):not([style*="background: none"]):not([style*="background: transparent"]):not([style*="border: none"]),
+textarea:not([style*="background: none"]):not([style*="background: transparent"]):not([style*="border: none"]) {
+  border-radius: 12px !important;
+  background-color: var(--field-bg) !important;
+  border-color: rgba(var(--ink-rgb), 0.12) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([style*="background: none"]):not([style*="background: transparent"]):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--neon) !important;
+  box-shadow: 0 0 0 3px rgba(10, 126, 164, 0.14) !important;
+  background-color: var(--surface) !important;
+}
+/* Dropdowns (Nov 2026): the browser's own arrow sat jammed against the
+   right edge. Every dropdown now draws its own small chevron, 14px in from
+   the edge, with room left for it so the text never runs under it. */
+select:not([multiple]) {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  padding-right: 40px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5' fill='none' stroke='%236E6E73' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 15px center !important;
+  background-size: 12px 8px !important;
+  cursor: pointer;
+}
+:root[data-theme="dark"] select:not([multiple]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5' fill='none' stroke='%23AEB4BF' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+}
+
+/* A typing box that sits inside its own pill (search in a list) shows no
+   second box or ring when you click into it. */
+input[style*="background: none"]:focus, input[style*="background: transparent"]:focus {
+  box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+/* Checkboxes and radio buttons take the accent colour. */
+input[type="checkbox"], input[type="radio"] { accent-color: var(--neon); }
+/* Typing boxes use the Hub's font, not the browser's typewriter default. */
+input, textarea, select { font-family: inherit; }
+
+/* Form fields painted with the card colour stay flat - the glass edge and
+   shadow are for panels, not for boxes you type in. */
+input[style*="var(--bg-card)"],
+select[style*="var(--bg-card)"],
+textarea[style*="var(--bg-card)"] {
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([style*="background: none"]):not([style*="background: transparent"]):focus,
+select:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px rgba(10, 126, 164, 0.14) !important;
+}
+/* A pop-up's title reads like a title. */
+[data-modal] > * > h2:first-child {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.4px !important;
+}
+
+/* Chrome and Edge: the glass bends what's behind it at the edges (the lens
+   filter in index.html). Safari keeps the frosted glass. */
+html.lens [style*="var(--bg-card)"]:not(input):not(select):not(textarea),
+html.lens [style*="var(--bg-sidebar)"] {
+  backdrop-filter: var(--glass-lens);
+}
+html.lens [style*="var(--bg-card)"] [style*="var(--bg-card)"],
+html.lens [style*="var(--bg-sidebar)"] [style*="var(--bg-card)"] {
+  backdrop-filter: none;
+}
+html.lens [data-frost] {
+  backdrop-filter: url(#hub-lens) blur(10px) saturate(190%) brightness(1.05) !important;
+}
+
+
+/* Taste's colour is nearly white (#EDE8DE), so on the light cream its
+   dots and markers vanished. In light mode anything filled with it gets a
+   fine warm edge (Nov 2026). */
+:root:not([data-theme="dark"]) [style*="background: rgb(237, 232, 222)"],
+:root:not([data-theme="dark"]) [style*="background-color: rgb(237, 232, 222)"] {
+  box-shadow: inset 0 0 0 1.5px rgba(120, 100, 75, 0.55);
+}
+
+/* The waves behind everything (Nov 2026). Fixed to the window, behind the
+   app, and it stays still (Brenner: no movement). */
+#hub-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--bg-wash); }

@@ -51,7 +51,7 @@ export function Ring({ pct = 0, size = 46, stroke = 4.5, color = 'var(--neon)', 
   return (
     <span style={{ position: 'relative', width: size, height: size, flexShrink: 0, display: 'inline-block' }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', display: 'block' }} aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(var(--ink-rgb), 0.08)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -65,7 +65,7 @@ export function Ring({ pct = 0, size = 46, stroke = 4.5, color = 'var(--neon)', 
           style={{ transition: `stroke-dashoffset 0.9s ${EASE}` }}
         />
       </svg>
-      <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, fontWeight: 800, color: 'var(--text-primary)' }}>
+      <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)' }}>
         {label ?? `${Math.round(pct)}%`}
       </span>
     </span>
@@ -80,7 +80,7 @@ export function SkeletonRows({ rows = 4, padding = '13px 16px' }) {
     <div aria-label="Loading" role="status">
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding, borderBottom: '1px solid var(--border)' }}>
-          <span style={{ width: 7, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
+          <span style={{ width: 7, height: 7, borderRadius: 4, background: 'rgba(var(--ink-rgb), 0.1)', flexShrink: 0 }} />
           <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
             <span data-skeleton="" style={{ height: 12, width: `${widths[i % widths.length]}%` }} />
             <span data-skeleton="" style={{ height: 9, width: `${widths[(i + 3) % widths.length] / 2}%` }} />
@@ -113,7 +113,7 @@ export function Toaster({ bottom = 24 }) {
   return (
     <div style={{ position: 'fixed', left: 0, right: 0, bottom, zIndex: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, pointerEvents: 'none', padding: '0 16px' }} aria-live="polite">
       {items.map((t) => (
-        <div key={t.id} data-toast="" style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 12, padding: '10px 15px', fontSize: 13, color: 'var(--text-secondary)', boxShadow: 'var(--shadow-lg)', maxWidth: 420 }}>
+        <div key={t.id} data-toast="" style={{ background: 'var(--bg-elevated)', border: '1px solid rgba(var(--ink-rgb), 0.14)', borderRadius: 12, padding: '10px 15px', fontSize: 13, color: 'var(--text-secondary)', boxShadow: 'var(--shadow-lg)', maxWidth: 420 }}>
           <b style={{ color: 'var(--neon)', fontWeight: 800 }}>{t.title}</b>
           {t.body ? <span> {t.body}</span> : null}
         </div>

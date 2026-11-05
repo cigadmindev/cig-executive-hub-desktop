@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { brands } from '../data/mockData';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import PageHeader from '../components/PageHeader';
+import Icon from '../components/Icon';
 
 const INTEGRATIONS = [
   { key: 'toast', label: 'Toast POS', blurb: 'Sales, labor, and shift data pulled in from Toast.' },
@@ -31,11 +32,10 @@ export default function IntegrationsScreen() {
       <div style={styles.grid}>
         {INTEGRATIONS.map((i) => (
           <div key={i.key} style={styles.card}>
+            <span style={styles.icon}><Icon name="plug" size={20} color="var(--neon)" /></span>
             <h2 style={styles.cardTitle}>{i.label}</h2>
             <p style={styles.cardBlurb}>{i.blurb}</p>
-            <button style={styles.connectButton} disabled>
-              Coming Soon
-            </button>
+            <span style={styles.soon}>Coming soon</span>
           </div>
         ))}
       </div>
@@ -44,24 +44,19 @@ export default function IntegrationsScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 760 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 980 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))', gap: 14 },
   card: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: 14,
-    padding: 20,
-    textAlign: 'center',
+    border: '1px solid var(--glass-edge)',
+    borderRadius: 24,
+    padding: 22,
   },
-  cardTitle: { fontSize: 14, fontWeight: 700, margin: '0 0 8px' },
-  cardBlurb: { fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px', minHeight: 34 },
-  connectButton: {
-    width: '100%',
-    padding: '9px 0',
-    borderRadius: 10,
-    border: '1px solid var(--border)',
-    color: 'var(--text-tertiary)',
-    fontSize: 12,
-    fontWeight: 600,
-  },
+  icon: { width: 40, height: 40, borderRadius: 12, background: 'rgba(10,126,164,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  cardTitle: { fontSize: 19, fontWeight: 700, letterSpacing: -0.3, margin: '0 0 6px' },
+  cardBlurb: { fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px', flex: 1 },
+  soon: { fontSize: 12.5, fontWeight: 600, color: 'var(--text-secondary)', background: 'rgba(var(--ink-rgb), 0.06)', borderRadius: 999, padding: '5px 11px' },
 };

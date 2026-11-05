@@ -2,11 +2,11 @@
 // these, so they share one shade, one border, one corner and one shadow, and
 // a tall one scrolls inside the screen on a phone instead of running off it.
 export const modalBackdrop = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex',
+  position: 'fixed', inset: 0, background: 'rgba(20,24,32,0.28)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex',
   alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100, boxSizing: 'border-box',
 };
 export const modalLook = {
-  background: 'var(--bg-elevated)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 16,
+  background: 'var(--bg-elevated)', border: '1px solid rgba(var(--ink-rgb), 0.08)', borderRadius: 24,
   boxShadow: 'var(--shadow-lg)', maxWidth: '100%', boxSizing: 'border-box',
 };
 export const modalSurface = { ...modalLook, maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' };

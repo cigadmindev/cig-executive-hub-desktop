@@ -151,8 +151,8 @@ export default function PostCard({ post, isNewest, onToggleLike, onAddComment, o
 const styles = {
   card: {
     background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: 14,
+    border: '1px solid var(--glass-edge)',
+    borderRadius: 20,
     padding: 18,
     marginBottom: 14,
   },

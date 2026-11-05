@@ -2,6 +2,7 @@ import { SkeletonRows } from './Motion';
 import React, { useEffect, useRef, useState } from 'react';
 import PageHeader from './PageHeader';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { segTrack, segItem, segItemOn } from '../theme/segmented';
 
 // The one layout every request page uses:
 //   title + one line on how it works, "+ New" top right
@@ -170,39 +171,39 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
 export { default as Pill } from './Pill';
 
 export const detailStyles = {
-  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18, position: 'sticky', top: 16 },
-  kicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--warn)', margin: 0 },
-  title: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '6px 0 10px' },
-  row: { display: 'flex', gap: 10, fontSize: 13, padding: '4px 0' },
-  k: { width: 90, flexShrink: 0, color: 'var(--text-tertiary)' },
-  v: { color: 'var(--text-primary)', minWidth: 0 },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 24, padding: 22, position: 'sticky', top: 16 },
+  kicker: { fontSize: 13, fontWeight: 600, letterSpacing: 0, textTransform: 'none', color: 'var(--neon)', margin: 0 },
+  title: { fontSize: 22, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text-primary)', margin: '6px 0 12px' },
+  row: { display: 'flex', gap: 12, fontSize: 14, padding: '5px 0', lineHeight: 1.45 },
+  k: { width: 96, flexShrink: 0, color: 'var(--text-tertiary)' },
+  v: { color: 'var(--text-primary)', minWidth: 0, overflowWrap: 'anywhere' },
   // Every button in one row (17 Oct 2026), sharing the width - never a
   // second row under the first.
   actions: { display: 'flex', gap: 8, flexWrap: 'nowrap', marginTop: 14 },
-  primary: { flex: '1 1 auto', minWidth: 0, minHeight: 40, background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '8px 10px', fontWeight: 800, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' },
-  ghost: { flex: '1 1 auto', minWidth: 0, minHeight: 40, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 10px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' },
-  section: { borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 12 },
-  sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, color: 'var(--text-tertiary)', margin: '0 0 8px' },
-  input: { width: '100%', boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 11px', fontSize: 13, color: 'var(--text-primary)', fontFamily: 'inherit', marginBottom: 8 },
-  history: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7 },
-  placeholder: { background: 'var(--bg-card)', border: '1px dashed var(--border)', borderRadius: 12, padding: 24, color: 'var(--text-tertiary)', fontSize: 13, textAlign: 'center' },
+  primary: { flex: '1 1 auto', minWidth: 0, minHeight: 40, background: 'var(--ink)', color: 'var(--ink-text)', border: 'none', borderRadius: 999, padding: '8px 14px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' },
+  ghost: { flex: '1 1 auto', minWidth: 0, minHeight: 40, background: 'rgba(var(--paper-rgb), 0.6)', border: '1px solid rgba(var(--ink-rgb), 0.1)', color: 'var(--text-secondary)', borderRadius: 999, padding: '7px 14px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' },
+  section: { borderTop: '1px solid var(--border)', marginTop: 18, paddingTop: 14 },
+  sectionLabel: { fontSize: 13, fontWeight: 700, letterSpacing: 0, color: 'var(--text-secondary)', margin: '0 0 8px' },
+  input: { width: '100%', boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px', fontSize: 14, color: 'var(--text-primary)', fontFamily: 'inherit', marginBottom: 8 },
+  history: { fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.7 },
+  placeholder: { background: 'rgba(var(--paper-rgb), 0.35)', border: '1px dashed rgba(var(--ink-rgb), 0.12)', borderRadius: 24, padding: '40px 24px', color: 'var(--text-tertiary)', fontSize: 15, textAlign: 'center' },
 };
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1200 },
+  page: { padding: '40px max(22px, min(48px, 4vw)) 60px', maxWidth: 1240 },
   phoneRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--border)', padding: '12px 6px', color: 'var(--text-primary)', fontFamily: 'inherit', cursor: 'pointer' },
   phoneChevron: { color: 'var(--text-tertiary)', fontSize: 18 },
-  phoneBack: { background: 'none', border: 'none', padding: '4px 0', marginBottom: 12, fontSize: 13, fontWeight: 600, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' },
-  filters: { display: 'flex', gap: 6, flexWrap: 'wrap', margin: '4px 0 12px' },
-  filtersNarrow: { flexWrap: 'nowrap', overflowX: 'auto', scrollbarWidth: 'none', marginRight: -22, paddingRight: 22 },
-  filter: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 16, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  filterOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
+  phoneBack: { background: 'none', border: 'none', padding: '4px 0', marginBottom: 12, fontSize: 13, fontWeight: 600, color: 'var(--neon)', cursor: 'pointer', fontFamily: 'inherit' },
+  filters: { ...segTrack, margin: '4px 0 14px' },
+  filtersNarrow: {},
+  filter: { ...segItem },
+  filterOn: { ...segItemOn },
   columns: { display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' },
-  tableCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '4px 8px' },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th: { textAlign: 'left', padding: '9px 10px', fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  tableCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 24, padding: '6px 10px' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13.5 },
+  th: { textAlign: 'left', padding: '10px 10px', fontSize: 12.5, fontWeight: 600, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
   tr: { cursor: 'pointer', borderTop: '1px solid var(--border)' },
-  trOn: { background: 'rgba(34,211,238,0.07)' },
+  trOn: { background: 'rgba(10,126,164,0.07)' },
   inlineTd: { padding: 0, borderTop: 'none' },
   // width 0 / min-width 100%: the details fill the row but don't count when
   // the table works out its column widths, so the columns above don't shift
@@ -210,7 +211,7 @@ const styles = {
   drawer: { display: 'grid', width: 0, minWidth: '100%', transition: 'grid-template-rows 280ms cubic-bezier(0.2, 0.7, 0.2, 1), opacity 220ms ease' },
   drawerInner: { overflow: 'hidden', minHeight: 0 },
   inlineDetail: { position: 'relative', padding: '2px 0 12px', transition: 'transform 280ms cubic-bezier(0.2, 0.7, 0.2, 1)' },
-  td: { padding: '11px 10px', color: 'var(--text-primary)', verticalAlign: 'middle' },
-  empty: { padding: 20, color: 'var(--text-tertiary)', fontSize: 13, margin: 0 },
-  note: { fontSize: 12, color: 'var(--text-tertiary)', margin: '8px 2px 0' },
+  td: { padding: '11px 8px', color: 'var(--text-primary)', verticalAlign: 'middle' },
+  empty: { padding: '40px 24px', color: 'var(--text-tertiary)', fontSize: 15, margin: 0, textAlign: 'center' },
+  note: { fontSize: 13, color: 'var(--text-tertiary)', margin: '10px 4px 0' },
 };

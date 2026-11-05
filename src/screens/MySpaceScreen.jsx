@@ -126,7 +126,7 @@ export default function MySpaceScreen() {
     return (
       <div style={styles.page}>
         <PageHeader back={{ to: '/', label: 'Home' }} title="My space" subtitle={SUBTITLE} />
-        <p style={styles.muted}>My space isn't switched on for your login.</p>
+        <p className="hub-empty" style={{ maxWidth: 760 }}>My space isn't switched on for your login.</p>
       </div>
     );
   }
@@ -334,22 +334,22 @@ export function MySpaceCard({ user }) {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1180 },
+  page: { padding: '40px max(22px, min(48px, 4vw)) 60px', maxWidth: 1180 },
   muted: { color: 'var(--text-secondary)', fontSize: 14 },
   cols: { display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start', marginTop: 8 },
   col: { flex: '1 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 },
-  cap: { margin: 0, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
-  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 },
-  row: { display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: 'var(--text-primary)' },
+  cap: { margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 },
+  row: { display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(var(--ink-rgb), 0.05)', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: 'var(--text-primary)' },
   note: { margin: 0, fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 },
   link: { color: 'var(--neon)', fontSize: 13, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' },
-  badge: { fontSize: 10, fontWeight: 800, color: 'var(--neon)', border: '1px solid rgba(34,211,238,0.5)', borderRadius: 4, padding: '2px 4px', flexShrink: 0 },
+  badge: { fontSize: 10, fontWeight: 700, color: 'var(--neon)', border: '1px solid rgba(10,126,164,0.5)', borderRadius: 4, padding: '2px 4px', flexShrink: 0 },
   fileName: { flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', color: 'var(--neon)', fontSize: 14, cursor: 'pointer', padding: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'inherit' },
   x: { background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 13, minWidth: 40, minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  dashed: { minHeight: 44, border: '1px dashed var(--border-strong)', borderRadius: 10, background: 'rgba(255,255,255,0.03)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
-  primary: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '0 16px', minHeight: 44, fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
-  notes: { width: '100%', boxSizing: 'border-box', minHeight: 160, resize: 'vertical', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: 8, padding: 12, color: 'var(--text-primary)', fontSize: 16, lineHeight: 1.6, fontFamily: 'inherit' },
+  dashed: { minHeight: 44, border: '1px dashed var(--border-strong)', borderRadius: 10, background: 'rgba(var(--ink-rgb), 0.03)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  primary: { background: 'var(--ink)', color: 'var(--ink-text)', border: 'none', borderRadius: 999, padding: '0 16px', minHeight: 44, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
+  notes: { width: '100%', boxSizing: 'border-box', minHeight: 160, resize: 'vertical', background: 'rgba(var(--ink-rgb), 0.05)', border: '1px solid var(--border)', borderRadius: 8, padding: 12, color: 'var(--text-primary)', fontSize: 16, lineHeight: 1.6, fontFamily: 'inherit' },
   addRow: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
   input: { boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 12px', minHeight: 44, fontSize: 16, color: 'var(--text-primary)', fontFamily: 'inherit', colorScheme: 'dark' },
-  homeCard: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', background: 'var(--bg-card)', border: '1px solid rgba(232,185,59,0.35)', borderRadius: 12, padding: '14px 16px', color: 'var(--text-primary)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 22 },
+  homeCard: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', background: 'var(--bg-card)', border: '1px solid rgba(232,185,59,0.35)', borderRadius: 20, padding: '14px 16px', color: 'var(--text-primary)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 22 },
 };

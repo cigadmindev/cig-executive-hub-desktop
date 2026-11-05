@@ -77,13 +77,13 @@ export default function AnnouncementsScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 560 },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 760 },
   note: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 14px' },
   textarea: {
     width: '100%',
     minHeight: 120,
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 20,
     border: 'none',
     background: 'var(--bg-card)',
     color: 'var(--text-primary)',
@@ -94,6 +94,6 @@ const styles = {
     fontFamily: 'inherit',
     resize: 'vertical',
   },
-  cancelButton: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
-  postButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
+  cancelButton: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 999, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600 },
+  postButton: { flex: 1, padding: '10px 0', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 13, textTransform: 'none' },
 };

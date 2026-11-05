@@ -5,6 +5,7 @@ import App from './App.jsx';
 import './index.css';
 import './lib/modalKeys';
 import './lib/scrollReveal';
+import './lib/rowPill';
 
 initSentry();
 

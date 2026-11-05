@@ -9,6 +9,7 @@ import { fmtDayTime } from '../lib/dates';
 import Pill from '../components/Pill';
 import { modalBackdrop, modalSurface } from '../theme/modal';
 import { plainError } from '../lib/errors';
+import { segTrack, segItem, segItemOn } from '../theme/segmented';
 
 const formatDateTime = (ts) => fmtDayTime(ts);
 
@@ -119,7 +120,7 @@ export default function WorkOrdersScreen() {
       {tab === 'queue' ? (
         <div>
           {myQueue.length === 0 ? (
-            <p style={styles.hint}>Nothing waiting on your signature.</p>
+            <p className="hub-empty">Nothing waiting on your signature.</p>
           ) : (
             myQueue.map((o) => (
               <div key={o.id} style={styles.card}>
@@ -378,12 +379,12 @@ export default function WorkOrdersScreen() {
 }
 
 const styles = {
-  modalSub: { fontSize: 11, color: 'var(--text-tertiary)', margin: '-2px 0 14px' },
+  modalSub: { fontSize: 13, color: 'var(--text-tertiary)', margin: '-2px 0 14px' },
   divider: { height: 1, background: 'var(--border)', margin: '18px 0 14px' },
   attachButton: {
     width: '100%',
     padding: '10px 12px',
-    borderRadius: 9,
+    borderRadius: 999,
     border: '1px dashed var(--border-strong)',
     background: 'transparent',
     color: 'var(--text-secondary)',
@@ -434,7 +435,7 @@ const styles = {
     height: 26,
     flexShrink: 0,
     borderRadius: 7,
-    background: 'rgba(34,211,238,0.14)',
+    background: 'rgba(10,126,164,0.14)',
     color: 'var(--neon)',
     fontSize: 10,
     fontWeight: 800,
@@ -445,12 +446,12 @@ const styles = {
   signerName: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
   signerMeta: { fontSize: 11, color: 'var(--text-tertiary)' },
 
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 680 },
-  tabRow: { display: 'flex', gap: 8, marginBottom: 20 },
-  tab: { padding: '7px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800, textTransform: 'none' },
-  tabActive: { background: 'var(--neon)', color: 'var(--neon-text)' },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 860 },
+  tabRow: { ...segTrack, marginBottom: 20 },
+  tab: { ...segItem },
+  tabActive: { ...segItemOn },
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
-  card: { background: 'var(--bg-card)', border: 'none', borderRadius: 10, padding: 16, marginBottom: 12 },
+  card: { background: 'var(--bg-card)', border: 'none', borderRadius: 20, padding: 16, marginBottom: 12 },
   cardHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { fontSize: 14, fontWeight: 700 },
   cardMeta: { fontSize: 11, color: 'var(--text-tertiary)' },
@@ -471,7 +472,7 @@ const styles = {
   errorText: { fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5, margin: '0 0 8px' },
   retryButton: { padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 600 },
   progressNote: { fontSize: 11, color: 'var(--text-tertiary)', margin: '4px 0 10px' },
-  signButton: { padding: '9px 18px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
+  signButton: { padding: '9px 18px', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 13, textTransform: 'none' },
   signaturesBlock: { marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' },
   signatureLine: { fontSize: 12, color: 'var(--text-primary)', margin: '3px 0' },
   signatureRow: { marginBottom: 6 },
@@ -480,8 +481,8 @@ const styles = {
 
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },
   modalCard: { padding: 24, ...modalSurface, width: 'min(460px, 100%)' },
-  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
-  confirmBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 12 },
+  modalTitle: { fontSize: 21, fontWeight: 700, textTransform: 'none', letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 12px' },
+  confirmBody: { fontSize: 14.5, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 12 },
   testNote: { fontSize: 11, color: 'var(--accent)', lineHeight: 1.5, marginBottom: 14, fontStyle: 'italic' },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6, marginTop: 12 },
   input: {
@@ -498,9 +499,9 @@ const styles = {
   },
   modalButtonsRow: { display: 'flex', gap: 10, marginTop: 20 },
   cancelButton: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
-  saveButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
+  saveButton: { flex: 1, padding: '10px 0', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 13, textTransform: 'none' },
   successCard: { padding: 24, textAlign: 'center', ...modalSurface, width: 'min(400px, 100%)' },
   successIcon: { fontSize: 30, color: 'var(--success)', margin: '0 0 8px' },
   successText: { fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5, margin: '0 0 18px' },
-  successButton: { width: '100%', padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
+  successButton: { width: '100%', padding: '10px 0', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 13, textTransform: 'none' },
 };

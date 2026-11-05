@@ -41,18 +41,22 @@ export default function PageHeader({ back, title, subtitle, extras, actionLabel,
             {icon}
             {title}
           </h1>
-          {subtitle ? <p style={subtitleStyle}>{subtitle}</p> : null}
-          {extrasBelow ? <div style={belowStyle}>{extras}</div> : null}
+          {subtitle && !isNarrow ? <p style={subtitleStyle}>{subtitle}</p> : null}
         </div>
         {right ? <div style={isNarrow ? { ...rightStyle, flexWrap: 'nowrap', flexShrink: 0 } : rightStyle}>{right}</div> : null}
       </div>
+      {/* On a phone the line under the title, and anything else in the
+          header, get the full width instead of a sliver beside the buttons
+          (Nov 2026). */}
+      {isNarrow && subtitle ? <p style={{ ...subtitleStyle, margin: '-10px 0 14px' }}>{subtitle}</p> : null}
+      {extrasBelow ? <div style={{ ...belowStyle, margin: '-6px 0 14px' }}>{extras}</div> : null}
     </>
   );
 }
 
 // A long label ("+ Add unavailable dates") goes onto two lines rather than
 // squeezing the title.
-const phoneAction = { whiteSpace: 'normal', maxWidth: 150, textAlign: 'center', lineHeight: 1.25 };
+const phoneAction = { whiteSpace: 'normal', maxWidth: 150, textAlign: 'center', lineHeight: 1.25, padding: '10px 16px', fontSize: 14.5, minHeight: 42 };
 const belowStyle = { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 };
-const subtitleStyle = { fontSize: 14, color: 'var(--text-secondary)', margin: '6px 0 0', lineHeight: 1.45 };
+const subtitleStyle = { fontSize: 15.5, color: 'var(--text-tertiary)', margin: '8px 0 0', lineHeight: 1.45 };
 const rightStyle = { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' };

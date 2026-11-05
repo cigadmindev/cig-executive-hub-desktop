@@ -29,6 +29,7 @@ import PageHeader from '../components/PageHeader';
 import { fmtDay } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
 import { plainError } from '../lib/errors';
+import { segTrack, segItem, segItemOn } from '../theme/segmented';
 
 const formatDate = (ts) => (ts ? fmtDay(ts) : null);
 
@@ -949,7 +950,7 @@ export default function OpeningChecklistScreen() {
               number itself, so the percent always reads (17 Oct 2026). */}
           <div style={{ ...styles.ring, ...(isNarrow ? styles.ringSmall : {}) }}>
             <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }} aria-hidden="true">
-              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
+              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(var(--ink-rgb), 0.1)" strokeWidth="8" />
               <circle cx="50" cy="50" r="44" fill="none" stroke="var(--neon)" strokeWidth="8" strokeLinecap="round"
                 strokeDasharray={`${(allPct / 100) * 2 * Math.PI * 44} ${2 * Math.PI * 44}`} style={{ display: allPct ? 'block' : 'none' }} />
             </svg>
@@ -970,7 +971,7 @@ export default function OpeningChecklistScreen() {
           <div style={isNarrow ? styles.heroSideNarrow : styles.heroSide}>
             {isProvisionalTemplate(locationId) && info.checkedForArea ? (
               <div style={styles.checkedNote}>
-                <span>Checked for {location?.name ?? 'this location'} by {info.checkedForArea.byName} · {new Date(info.checkedForArea.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span>✓ Checked for {location?.name ?? 'this location'} by {info.checkedForArea.byName} · {new Date(info.checkedForArea.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                 {isAdmin ? (
                   <button style={styles.checkedUndo} onClick={() => updateInfoField(locationId, 'checkedForArea', null).catch((err) => notify('Could not save', plainError(err, 'Try again.')))}>Undo</button>
                 ) : null}
@@ -1306,7 +1307,7 @@ export default function OpeningChecklistScreen() {
             {/* One "+ Add item" at the top of the page (V1); which list it
                 goes on is chosen here. */}
             <p style={styles.modalFieldLabel}>Which list</p>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+            <div style={{ ...segTrack, display: 'flex', marginBottom: 4 }}>
               {[['setup', 'Initial Set-Up POC'], ['timeline', 'Opening Timeline']].map(([key, label]) => (
                 <button
                   key={key}
@@ -1371,9 +1372,12 @@ export default function OpeningChecklistScreen() {
               any other item.
             </p>
 
-            <button style={styles.addConfirmButton} onClick={handleAddItem} disabled={savingNew}>
-              {savingNew ? 'Adding…' : 'Add item'}
-            </button>
+            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+              <button style={styles.addCancelButton} onClick={() => setAddingToList(null)} disabled={savingNew}>Cancel</button>
+              <button style={{ ...styles.addConfirmButton, marginTop: 0, flex: 1 }} onClick={handleAddItem} disabled={savingNew}>
+                {savingNew ? 'Adding…' : 'Add item'}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -1385,25 +1389,25 @@ export default function OpeningChecklistScreen() {
 
 const styles = {
   // ---- Summary card, section list, filters (17 Oct 2026) ----
-  summaryCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 16, overflow: 'hidden' },
-  seg: { display: 'inline-flex', border: '1px solid var(--border-strong)', borderRadius: 999, padding: 2, marginRight: 4, flexShrink: 0 },
-  segBtn: { height: 28, padding: '0 11px', borderRadius: 999, border: 'none', background: 'none', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none', whiteSpace: 'nowrap' },
-  segOn: { background: 'var(--neon)', color: 'var(--neon-text)' },
+  summaryCard: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, marginBottom: 16, overflow: 'hidden' },
+  seg: { ...segTrack, padding: 3, marginRight: 4, flexShrink: 0 },
+  segBtn: { ...segItem, minHeight: 28, height: 28, fontSize: 12.5, padding: '0 11px' },
+  segOn: { ...segItemOn },
   // Phases (19 Oct 2026).
-  phaseNum: { width: 20, height: 20, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  phaseNum: { width: 20, height: 20, borderRadius: '50%', background: 'rgba(var(--ink-rgb), 0.08)', color: 'var(--text-secondary)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   phaseNumOn: { background: 'var(--neon)', color: 'var(--neon-text)' },
   phaseBlurb: { margin: 0, padding: '8px 14px 4px', fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5 },
   holdingPill: { fontSize: 10.5, fontWeight: 700, color: 'var(--danger)', whiteSpace: 'nowrap' },
   // Operating Checklist (18 Oct 2026).
-  markOpenButton: { display: 'inline-flex', alignItems: 'center', height: 40, padding: '0 14px', borderRadius: 8, background: 'rgba(95,163,119,0.1)', border: '1px solid rgba(95,163,119,0.5)', color: 'var(--success)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
-  markOpenLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '4px 0 6px' },
+  markOpenButton: { display: 'inline-flex', alignItems: 'center', height: 40, padding: '0 16px', borderRadius: 999, background: 'rgba(31,138,76,0.1)', border: '1px solid rgba(31,138,76,0.25)', color: 'var(--success)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
+  markOpenLabel: { fontSize: 13, fontWeight: 600, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: '4px 0 6px' },
   openBadge: { width: 92, height: 92, borderRadius: '50%', border: '3px solid var(--success)', background: 'rgba(95,163,119,0.1)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, letterSpacing: 1.5, flexShrink: 0 },
   openBadgeSmall: { width: 64, height: 64, fontSize: 13, letterSpacing: 1 },
   carriedNote: { margin: '4px 14px 0', fontSize: 12, color: 'var(--text-tertiary)' },
   carriedBlock: { margin: '8px 10px 4px', border: '1px solid rgba(232,185,59,0.35)', borderRadius: 10, background: 'rgba(232,185,59,0.05)', overflow: 'hidden' },
   recRow: { display: 'flex', alignItems: 'center', gap: 12, minHeight: 52, padding: '8px 14px', cursor: 'pointer' },
   recRowNarrow: { gap: 10, padding: '8px 12px' },
-  recOk: { width: 22, height: 22, borderRadius: '50%', background: 'var(--success)', color: '#fff', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  recOk: { width: 22, height: 22, borderRadius: '50%', background: 'var(--success)', color: '#fff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   recMissing: { width: 22, height: 22, boxSizing: 'border-box', borderRadius: '50%', border: '2px dashed var(--warn)', flexShrink: 0 },
   recDetail: { flex: 1.3, minWidth: 0, fontSize: 12.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   recKey: { fontWeight: 700, color: 'var(--text-tertiary)', marginRight: 4 },
@@ -1417,30 +1421,30 @@ const styles = {
   ringTextSmall: { position: 'relative', fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' },
   ringSmall: { width: 64, height: 64 },
   ringInner: { width: 66, height: 66, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800 },
-  ringInnerSmall: { width: 50, height: 50, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800 },
+  ringInnerSmall: { width: 50, height: 50, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 },
   heroTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' },
   heroSub: { fontSize: 12.5, color: 'var(--text-tertiary)', marginTop: 3 },
   heroStats: { display: 'flex', gap: 28, marginTop: 12, flexWrap: 'wrap' },
   heroStatsNarrow: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px 14px', padding: '10px 0 0', borderTop: '1px solid var(--border)' },
   heroNum: { display: 'block', fontSize: 19, fontWeight: 800, color: 'var(--text-primary)' },
-  heroLabel: { fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  heroLabel: { fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
   heroSide: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, maxWidth: 320 },
-  heroSideNarrow: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 },
-  textLink: { background: 'none', border: 'none', padding: '6px 0', color: 'var(--neon)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textTransform: 'none' },
+  heroSideNarrow: { gridColumn: '1 / -1', display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: '4px 18px' },
+  textLink: { background: 'none', border: 'none', padding: '6px 0', color: 'var(--neon)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', textTransform: 'none' },
   cardBlock: { padding: '0 20px 14px' },
   glance: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px 18px', padding: '14px 20px', borderTop: '1px solid var(--border)' },
   glanceNarrow: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px 14px', padding: 14, borderTop: '1px solid var(--border)' },
-  glanceLabel: { display: 'block', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 3 },
+  glanceLabel: { display: 'block', fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', marginBottom: 3 },
   glanceValue: { display: 'block', fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
 
   layout: { display: 'grid', gridTemplateColumns: '230px minmax(0, 1fr)', gap: 16, alignItems: 'start' },
   layoutNarrow: { display: 'flex', flexDirection: 'column', gap: 10 },
-  nav: { position: 'sticky', top: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: 8 },
-  navGroup: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: 0, padding: '12px 10px 6px' },
+  nav: { position: 'sticky', top: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 8 },
+  navGroup: { fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: 0, padding: '12px 10px 6px' },
   navItem: { width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, textAlign: 'left', cursor: 'pointer', textTransform: 'none', fontFamily: 'inherit' },
-  navItemOn: { background: 'rgba(34,211,238,0.1)', color: 'var(--neon)' },
+  navItemOn: { background: 'rgba(10,126,164,0.1)', color: 'var(--neon)' },
   navName: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  navMini: { width: 34, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.1)', overflow: 'hidden', flexShrink: 0 },
+  navMini: { width: 34, height: 4, borderRadius: 2, background: 'rgba(var(--ink-rgb), 0.1)', overflow: 'hidden', flexShrink: 0 },
   navMiniFill: { display: 'block', height: 4, background: 'var(--neon)' },
   navCount: { fontSize: 11.5, color: 'var(--text-tertiary)', fontWeight: 700, flexShrink: 0, minWidth: 30, textAlign: 'right' },
   navChips: { display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch' },
@@ -1448,51 +1452,52 @@ const styles = {
   navChipOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
   navChipCount: { fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 700 },
 
-  listCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', minWidth: 0 },
+  listCard: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, overflow: 'hidden', minWidth: 0 },
   filters: { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid var(--border)' },
-  showBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none', whiteSpace: 'nowrap' },
+  showBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-secondary)', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none', whiteSpace: 'nowrap' },
   showVal: { color: 'var(--text-primary)', fontWeight: 700 },
   menuCatch: { position: 'fixed', inset: 0, zIndex: 40 },
-  menu: { position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 41, width: 260, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 10, padding: 6, boxShadow: '0 12px 32px rgba(0,0,0,0.45)' },
+  menu: { position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 41, width: 260, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 10, padding: 6, boxShadow: '0 12px 32px rgba(20,24,32,0.28)' },
   menuNarrow: { left: 'auto', right: -60, width: 240 },
   menuItem: { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 6, border: 'none', background: 'none', color: 'var(--text-primary)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none', textAlign: 'left' },
-  menuItemOn: { background: 'rgba(34,211,238,0.12)', color: 'var(--neon)' },
+  menuItemOn: { background: 'rgba(10,126,164,0.12)', color: 'var(--neon)' },
   menuCount: { fontWeight: 700, color: 'var(--text-tertiary)', fontSize: 12.5 },
   toggle: { display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: 'none', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none', padding: '4px 0', whiteSpace: 'nowrap' },
-  switchTrack: { width: 30, height: 18, borderRadius: 999, background: 'rgba(255,255,255,0.12)', position: 'relative', flexShrink: 0, transition: 'background 0.15s' },
+  switchTrack: { width: 30, height: 18, borderRadius: 999, background: 'rgba(var(--ink-rgb), 0.12)', position: 'relative', flexShrink: 0, transition: 'background 0.15s' },
   switchOn: { background: 'var(--neon)' },
   switchKnob: { position: 'absolute', left: 2, top: 2, width: 14, height: 14, borderRadius: '50%', background: 'var(--text-tertiary)', transition: 'left 0.15s' },
   switchKnobOn: { left: 14, background: 'var(--neon-text)' },
   filterChip: { display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
   filterChipOn: { background: 'var(--neon)', borderColor: 'var(--neon)', color: 'var(--neon-text)' },
   filterCount: { fontWeight: 800, opacity: 0.7 },
-  listGroup: { margin: 0, padding: '16px 14px 0', fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--neon)' },
+  listGroup: { margin: 0, padding: '16px 14px 0', fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--neon)' },
   sectionBlock: { scrollMarginTop: 12, marginBottom: 6 },
-  rowOpen: { background: 'rgba(255,255,255,0.035)', boxShadow: 'inset 3px 0 0 var(--neon)' },
+  rowOpen: { background: 'rgba(var(--ink-rgb), 0.035)', boxShadow: 'inset 3px 0 0 var(--neon)' },
   rowText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
   rowSub: { fontSize: 11.5, color: 'var(--text-tertiary)' },
   avatars: { display: 'inline-flex', alignItems: 'center', flexShrink: 0 },
-  avatar: { width: 24, height: 24, borderRadius: 12, background: '#3A3A44', border: '2px solid var(--bg-card)', color: '#fff', fontSize: 10.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' },
-  lockedPill: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: '#B4B4C0', background: '#24242B', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 1, minWidth: 0 },
-  latePill: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--danger)', background: 'rgba(232,82,75,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap', flexShrink: 0 },
-  primarySmall: { height: 36, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', textTransform: 'none', whiteSpace: 'nowrap' },
-  ghostSmall: { height: 36, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textTransform: 'none', whiteSpace: 'nowrap' },
+  avatar: { width: 24, height: 24, borderRadius: 12, background: 'rgba(var(--ink-rgb), 0.1)', border: '2px solid var(--surface)', color: 'var(--text-secondary)', fontSize: 10.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' },
+  lockedPill: { fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', background: 'rgba(var(--ink-rgb), 0.06)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 1, minWidth: 0 },
+  latePill: { fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--danger)', background: 'rgba(232,82,75,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap', flexShrink: 0 },
+  primarySmall: { height: 36, padding: '0 14px', borderRadius: 999, border: 'none', background: 'var(--ink)', color: 'var(--ink-text)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', textTransform: 'none', whiteSpace: 'nowrap' },
+  ghostSmall: { height: 36, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textTransform: 'none', whiteSpace: 'nowrap' },
   barDate: { fontSize: 12.5, color: 'var(--text-secondary)', padding: '0 4px' },
-  waitingPill: { fontSize: 11, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--warn)', background: 'rgba(232,185,59,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap' },
-  page: { padding: '28px max(22px, min(40px, 4vw))' },
+  waitingPill: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--warn)', background: 'rgba(232,185,59,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap' },
+  page: { padding: '40px max(22px, min(48px, 4vw))' },
   searchHint: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' },
-  section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
+  section: { background: 'var(--bg-card)', border: 'none', borderRadius: 20, padding: 18, marginBottom: 16 },
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },
-  modalCard: { padding: 22, ...modalSurface, width: 'min(460px, 100%)' },
-  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 4px' },
-  modalFieldLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 5px' },
+  modalCard: { padding: 24, ...modalSurface, width: 'min(480px, 100%)' },
+  modalTitle: { fontSize: 21, fontWeight: 700, textTransform: 'none', letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 4px' },
+  modalFieldLabel: { fontSize: 13, fontWeight: 600, letterSpacing: 0, textTransform: 'none', color: 'var(--text-secondary)', margin: '12px 0 6px' },
   modalInput: { width: '100%', boxSizing: 'border-box', height: 36, padding: '0 11px', marginBottom: 14, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
-  modalNote: { fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.6, margin: '4px 0 0' },
-  addConfirmButton: { width: '100%', marginTop: 18, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'none', cursor: 'pointer' },
+  modalNote: { fontSize: 14.5, color: 'var(--text-tertiary)', lineHeight: 1.55, margin: '12px 0 0' },
+  addConfirmButton: { width: '100%', marginTop: 18, padding: '11px 0', minHeight: 44, borderRadius: 999, border: 'none', background: 'var(--ink)', color: 'var(--ink-text)', fontSize: 15, fontWeight: 600, textTransform: 'none', cursor: 'pointer' },
   sectionHeaderRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 0 14px' },
   sectionHeader: { fontSize: 15, fontWeight: 700, margin: 0 },
-  listChoice: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 16, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  listChoiceOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
+  listChoice: { ...segItem, flex: 1, justifyContent: 'center' },
+  listChoiceOn: { ...segItemOn },
+  addCancelButton: { flex: 1, minHeight: 44, borderRadius: 999, border: 'none', background: 'rgba(var(--ink-rgb), 0.07)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
   label: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: '14px 0 8px' },
   provisionalNote: {
@@ -1507,12 +1512,13 @@ const styles = {
   },
   // Sits below the fields inside an open item. Visible only to admins, the
   // COO and the beverage manager.
-  mineOnlyNote: { fontSize: 13, color: 'var(--text-secondary)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', margin: '0 0 16px' },
-  printIcon: { width: 40, height: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0, flexShrink: 0 },
-  printButton: { display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 14px', borderRadius: 8, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
-  checkAreaButton: { marginTop: 10, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', textTransform: 'none' },
-  checkedNote: { marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, fontSize: 13, color: '#9FD3B0', background: 'rgba(95,163,119,0.12)', border: '1px solid rgba(95,163,119,0.45)', borderRadius: 8, padding: '10px 14px' },
-  checkedUndo: { background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer', textTransform: 'none' },
+  mineOnlyNote: { fontSize: 13, color: 'var(--text-secondary)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '12px 16px', margin: '0 0 16px' },
+  printIcon: { width: 40, height: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, background: 'rgba(var(--paper-rgb), 0.6)', border: '1px solid rgba(var(--ink-rgb), 0.1)', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0, flexShrink: 0 },
+  printButton: { display: 'inline-flex', alignItems: 'center', gap: 7, height: 40, padding: '0 14px', borderRadius: 999, background: 'rgba(var(--paper-rgb), 0.6)', border: '1px solid rgba(var(--ink-rgb), 0.1)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
+  checkAreaButton: { marginTop: 10, background: 'rgba(var(--paper-rgb), 0.6)', border: '1px solid rgba(var(--ink-rgb), 0.1)', color: 'var(--text-secondary)', borderRadius: 999, padding: '9px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', textTransform: 'none' },
+  // A quiet green tick line, not a box (Glass, Nov 2026).
+  checkedNote: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--success)', flexWrap: 'wrap', width: 'fit-content', maxWidth: '100%' },
+  checkedUndo: { background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', textTransform: 'none', padding: 0 },
   assignedChip: {
     fontSize: 11,
     color: 'var(--text-tertiary)',
@@ -1523,7 +1529,7 @@ const styles = {
   openingDateRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 },
   openingDateValue: { fontSize: 16, fontWeight: 700 },
   smallLinkButton: { fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 },
-  setDateButton: { padding: '9px 16px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
+  setDateButton: { padding: '9px 16px', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 13, textTransform: 'none' },
 
 
   // Rows, not cards. A card per item meant ~110px each and a 6000px page;
@@ -1545,7 +1551,7 @@ const styles = {
     fontSize: 11,
     fontWeight: 700,
     letterSpacing: 0.4,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     color: 'var(--text-secondary)',
     border: '1px solid var(--border-strong)',
     borderRadius: 'var(--radius-sm)',
@@ -1573,7 +1579,7 @@ const styles = {
     lineHeight: '15px',
     padding: 0,
   },
-  checkDone: { background: '#5FA377', borderColor: '#5FA377', color: '#0F0F12' },
+  checkDone: { background: 'var(--success)', borderColor: 'var(--success)', color: '#FFFFFF' },
   checkLocked: { borderStyle: 'dashed', fontSize: 9, cursor: 'not-allowed' },
   rowTitle: { fontSize: 14, flex: 1, minWidth: 0, color: 'var(--text-primary)' },
   rowTitleDone: { textDecoration: 'line-through', color: 'var(--text-secondary)' },
@@ -1599,17 +1605,17 @@ const styles = {
     margin: '2px 14px 12px 44px',
     padding: 0,
     overflow: 'hidden',
-    borderRadius: 12,
+    borderRadius: 18,
     border: '1px solid var(--border)',
-    background: 'var(--bg-window)',
+    background: 'rgba(var(--paper-rgb), 0.7)',
   },
   detailCardNarrow: {
     margin: '2px 8px 12px',
     padding: 0,
     overflow: 'hidden',
-    borderRadius: 12,
+    borderRadius: 18,
     border: '1px solid var(--border)',
-    background: 'var(--bg-window)',
+    background: 'rgba(var(--paper-rgb), 0.7)',
   },
 
   sectionHead: {
@@ -1623,7 +1629,7 @@ const styles = {
     fontSize: 13,
     fontWeight: 700,
     color: 'var(--text-primary)',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     letterSpacing: 0.5,
   },
   sectionCount: { fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0 },
@@ -1634,14 +1640,14 @@ const styles = {
   urgencyBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap', margin: 0, cursor: 'pointer' },
 
   dateEditRow: { display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 8px', flexWrap: 'wrap' },
-  saveDateButton: { padding: '9px 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, flexShrink: 0, textTransform: 'none' },
+  saveDateButton: { padding: '9px 14px', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 12, flexShrink: 0, textTransform: 'none' },
   cancelDateButton: { padding: '9px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12, flexShrink: 0 },
 
   confirmBackdrop: { ...modalBackdrop, zIndex: 200 },
-  confirmCard: { padding: 22, ...modalSurface, width: 'min(400px, 100%)' },
-  confirmTitle: { fontSize: 15, fontWeight: 700, marginBottom: 10 },
-  confirmBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 },
+  confirmCard: { padding: 24, ...modalSurface, width: 'min(420px, 100%)' },
+  confirmTitle: { fontSize: 21, fontWeight: 700, letterSpacing: -0.4, margin: '0 0 10px' },
+  confirmBody: { fontSize: 14.5, color: 'var(--text-secondary)', lineHeight: 1.55, margin: '0 0 18px' },
   confirmButtonsRow: { display: 'flex', gap: 10 },
-  cancelBtnFull: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13 },
-  saveBtnFull: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
+  cancelBtnFull: { minHeight: 44, flex: 1, padding: '10px 0', borderRadius: 999, border: 'none', background: 'rgba(var(--ink-rgb), 0.07)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 600 },
+  saveBtnFull: { flex: 1, minHeight: 44, padding: '10px 0', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 15, textTransform: 'none' },
 };

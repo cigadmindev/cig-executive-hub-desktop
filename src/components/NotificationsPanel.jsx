@@ -8,6 +8,7 @@ import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
 import { fmtTime } from '../lib/dates';
 import { calendarLink } from '../hooks/useHomeSummary';
+import { segTrack, segItem, segItemOn } from '../theme/segmented';
 
 // Everything you have been told, everything you have done, and what everyone
 // else has been up to.
@@ -92,7 +93,7 @@ export default function NotificationsPanel({ onClose }) {
 
   return (
     <div data-modal="" style={styles.backdrop} onClick={onClose}>
-      <div style={styles.panel} onClick={(e) => e.stopPropagation()}>
+      <div data-sheet="" style={styles.panel} onClick={(e) => e.stopPropagation()}>
         <div style={styles.head}>
           <span style={styles.title}>Notifications</span>
           {tab === 'forYou' && unreadCount > 0 ? (
@@ -149,6 +150,7 @@ export default function NotificationsPanel({ onClose }) {
                         style={{ ...styles.row, ...(unread ? styles.rowUnread : {}), ...(handled ? { opacity: 0.55 } : {}) }}
                         onClick={() => open(item)}
                       >
+                        <span style={{ ...styles.unreadDot, opacity: unread ? 1 : 0 }} aria-hidden="true" />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ ...styles.rowTitle, ...(unread ? {} : styles.rowTitleRead) }}>{item.title}</p>
                           {item.body ? <p style={styles.rowBody}>{item.body}</p> : null}
@@ -184,6 +186,7 @@ export function NotificationsBell({ onClick, floating = false }) {
   return (
     <button
       style={floating ? styles.bellFloating : styles.bell}
+      data-bell={floating ? '' : undefined}
       onClick={onClick}
       aria-label={unreadCount > 0 ? unreadCount + ' unread notifications' : 'Notifications'}
     >
@@ -195,38 +198,41 @@ export function NotificationsBell({ onClick, floating = false }) {
 
 const styles = {
   handledPill: {
-    display: 'inline-block', marginTop: 6, fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
-    textTransform: 'uppercase', color: 'var(--text-secondary)', background: 'var(--bg-inset)',
-    borderRadius: 5, padding: '3px 7px',
+    display: 'inline-block', marginTop: 6, fontSize: 12, fontWeight: 600, letterSpacing: 0,
+    textTransform: 'none', color: 'var(--text-secondary)', background: 'rgba(var(--ink-rgb), 0.06)',
+    borderRadius: 999, padding: '3px 9px',
   },
-  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 300, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '10vh 16px 16px' },
-  panel: { width: 'min(460px, 100%)', maxHeight: '76vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: 'var(--shadow-lg)', overflow: 'hidden' },
+  // Glass (Nov 2026): a sheet down the right-hand side, like the Mac's
+  // Notification Centre - full height, so more fits without scrolling.
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(20,24,32,0.24)', zIndex: 300, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', padding: 'calc(14px + env(safe-area-inset-top, 0px)) 14px calc(14px + env(safe-area-inset-bottom, 0px))', boxSizing: 'border-box' },
+  panel: { width: 'min(440px, 100%)', display: 'flex', flexDirection: 'column', background: 'rgba(var(--paper-rgb), 0.9)', WebkitBackdropFilter: 'blur(30px) saturate(180%)', backdropFilter: 'blur(30px) saturate(180%)', border: '1px solid rgba(var(--paper-rgb), 0.8)', borderRadius: 26, boxShadow: 'inset 1px 1px 0 rgba(255,255,255,0.95), 0 24px 60px rgba(30,40,60,0.22)', overflow: 'hidden' },
 
-  head: { display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px 10px' },
-  title: { flex: 1, fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' },
-  linkButton: { background: 'none', border: 'none', padding: 0, color: 'var(--neon)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  close: { minWidth: 40, minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', padding: 4, color: 'var(--text-tertiary)', fontSize: 13, cursor: 'pointer' },
+  head: { display: 'flex', alignItems: 'center', gap: 10, padding: '18px 14px 12px 22px' },
+  title: { flex: 1, fontSize: 24, fontWeight: 800, letterSpacing: -0.6, color: 'var(--text-primary)' },
+  linkButton: { background: 'none', border: 'none', padding: 0, color: 'var(--neon)', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  close: { width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--ink-rgb), 0.06)', border: 'none', borderRadius: 17, padding: 0, color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer' },
 
-  tabs: { display: 'flex', gap: 6, padding: '0 16px 12px', borderBottom: '1px solid var(--border)' },
-  tab: { padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' },
-  tabOn: { border: '1px solid var(--neon)', background: 'rgba(34,211,238,0.12)', color: 'var(--text-primary)' },
+  tabs: { ...segTrack, display: 'flex', margin: '0 18px 10px' },
+  tab: { ...segItem, flex: 1, justifyContent: 'center', minHeight: 32, height: 32, fontSize: 13 },
+  tabOn: { ...segItemOn },
   tabCount: { color: 'var(--neon)', fontWeight: 700 },
 
-  scroll: { overflowY: 'auto', padding: '4px 0 8px' },
-  empty: { fontSize: 13, color: 'var(--text-tertiary)', padding: '18px 16px' },
-  dayLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: 0, padding: '12px 16px 4px' },
-  row: { display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '10px 16px', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' },
-  rowUnread: { borderLeft: '3px solid var(--neon)', background: 'rgba(34,211,238,0.06)' },
-  rowTitle: { fontSize: 13, color: 'var(--text-primary)', margin: 0 },
-  rowTitleRead: { color: 'var(--text-secondary)' },
-  rowBody: { fontSize: 12, color: 'var(--text-tertiary)', margin: '2px 0 0' },
-  rowTime: { fontSize: 11, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', paddingTop: 2 },
-  showOlder: { width: '100%', padding: '11px 0', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' },
+  scroll: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 8px 12px' },
+  empty: { fontSize: 15, color: 'var(--text-tertiary)', padding: '40px 20px', textAlign: 'center' },
+  dayLabel: { fontSize: 13, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-secondary)', margin: 0, padding: '14px 12px 6px' },
+  row: { display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '11px 12px', background: 'none', border: 'none', borderRadius: 14, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--neon)', flexShrink: 0, marginTop: 6 },
+  rowUnread: { background: 'rgba(10,126,164,0.06)' },
+  rowTitle: { fontSize: 14.5, fontWeight: 600, lineHeight: 1.35, color: 'var(--text-primary)', margin: 0 },
+  rowTitleRead: { fontWeight: 500, color: 'var(--text-secondary)' },
+  rowBody: { fontSize: 13, lineHeight: 1.4, color: 'var(--text-tertiary)', margin: '3px 0 0' },
+  rowTime: { fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', paddingTop: 2 },
+  showOlder: { width: '100%', padding: '12px 0', background: 'none', border: 'none', color: 'var(--neon)', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
 
-  bell: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', flexShrink: 0 },
+  bell: { position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 18, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', cursor: 'pointer', flexShrink: 0 },
   dot: { position: 'absolute', top: 7, right: 8, width: 7, height: 7, borderRadius: 4, background: 'var(--danger)' },
 
   // On a phone: floating above the bottom bar, bottom right.
-  bellFloating: { position: 'fixed', right: 14, bottom: 96, zIndex: 60, /* above the bottom bar, under every pop-up */ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 20, border: '1px solid var(--border)', background: 'var(--bg-elevated)', boxShadow: 'var(--shadow-lg)', cursor: 'pointer' },
+  bellFloating: { position: 'fixed', right: 14, bottom: 104, zIndex: 60, /* above the bottom bar, under every pop-up */ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 22, border: '1px solid rgba(var(--paper-rgb), 0.8)', background: 'rgba(var(--paper-rgb), 0.6)', backdropFilter: 'blur(22px) saturate(190%)', WebkitBackdropFilter: 'blur(22px) saturate(190%)', boxShadow: 'inset 1px 1px 0 rgba(255,255,255,0.95), 0 8px 22px rgba(30,40,60,0.16)', cursor: 'pointer' },
   dotFloating: { position: 'absolute', top: 9, right: 10, width: 7, height: 7, borderRadius: 4, background: 'var(--danger)' },
 };

@@ -252,7 +252,7 @@ const styles = {
   propNarrow: { display: 'flex', flexDirection: 'column', gap: 8, padding: '12px', borderTop: '1px solid var(--border)' },
   propLabel: { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', paddingTop: 8, display: 'flex', alignItems: 'center', gap: 8 },
   propLabelNarrow: { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 },
-  count: { fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', background: 'var(--bg-inset)', borderRadius: 5, padding: '1px 6px' },
+  count: { fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', background: 'var(--bg-inset)', borderRadius: 5, padding: '1px 6px' },
   propValue: { minWidth: 0 },
   plain: { fontSize: 13, color: 'var(--text-primary)', lineHeight: '34px' },
   stack: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start', minWidth: 0 },

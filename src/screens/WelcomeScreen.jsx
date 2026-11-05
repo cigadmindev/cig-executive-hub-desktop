@@ -127,18 +127,18 @@ export default function WelcomeScreen() {
 }
 
 const styles = {
-  page: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'var(--bg-app)' },
-  card: { width: 'min(400px, 100%)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 26 },
+  page: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'transparent' },
+  card: { width: 'min(420px, 100%)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 28, padding: 32 },
   brandRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 },
-  badge: { width: 34, height: 34, borderRadius: 8, background: 'var(--neon)', color: 'var(--neon-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900 },
+  badge: { width: 34, height: 34, borderRadius: 10, background: 'var(--ink)', color: 'var(--ink-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 },
   brandName: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' },
-  title: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' },
-  body: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 20px' },
+  title: { fontSize: 28, fontWeight: 800, letterSpacing: -0.7, color: 'var(--text-primary)', margin: '0 0 8px' },
+  body: { fontSize: 15, lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 20px' },
   email: { color: 'var(--text-primary)' },
   label: { display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 5 },
   input: { width: '100%', boxSizing: 'border-box', height: 40, padding: '0 12px', marginBottom: 12, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 14 },
   error: { fontSize: 12, color: 'var(--danger)', margin: '0 0 12px' },
-  button: { width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 14, fontWeight: 800, cursor: 'pointer' },
+  button: { width: '100%', padding: '13px 0', borderRadius: 999, border: 'none', background: 'var(--ink)', color: 'var(--ink-text)', fontSize: 15, fontWeight: 600, cursor: 'pointer' },
   note: { marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)', fontSize: 12, lineHeight: 1.6, color: 'var(--text-secondary)' },
   footNote: { fontSize: 12, lineHeight: 1.6, color: 'var(--text-tertiary)', margin: '14px 0 0' },
 };

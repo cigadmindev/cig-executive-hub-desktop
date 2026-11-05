@@ -147,7 +147,7 @@ const styles = {
     fontSize: 10,
     fontWeight: 700,
     letterSpacing: 0.6,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     color: 'var(--text-tertiary)',
     marginBottom: 5,
   },

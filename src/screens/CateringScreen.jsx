@@ -16,6 +16,7 @@ import { db } from '../firebaseConfig';
 import { fmtDay } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
 import { plainError } from '../lib/errors';
+import { segTrack, segItem, segItemOn } from '../theme/segmented';
 
 // Catering orders and private event bookings, on the same layout as every
 // other request page: status filters, a table, the selected one on the right.
@@ -231,7 +232,7 @@ export default function CateringScreen() {
             ) : null}
 
             <div style={d.section}>
-              <p style={d.sectionLabel}>WHAT YOU HAVE AGREED</p>
+              <p style={d.sectionLabel}>What you have agreed</p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input style={d.input} placeholder={isCatering ? 'Order total' : 'F&B minimum'} value={dr.minimum ?? e.minimum} onChange={(ev) => setDraft({ ...draft, [e.id]: { ...dr, minimum: ev.target.value } })} />
                 <input style={d.input} placeholder="Final headcount" value={dr.finalGuests ?? e.finalGuests} onChange={(ev) => setDraft({ ...draft, [e.id]: { ...dr, finalGuests: ev.target.value } })} />
@@ -244,7 +245,7 @@ export default function CateringScreen() {
           <>
             {e.minimum || e.finalGuests || e.details ? (
               <div style={d.section}>
-                <p style={d.sectionLabel}>WHAT HAS BEEN AGREED</p>
+                <p style={d.sectionLabel}>What has been agreed</p>
                 <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{[e.minimum && (isCatering ? 'Order ' : 'Minimum ') + e.minimum, e.finalGuests && e.finalGuests + ' guests', e.details].filter(Boolean).join('\n')}</div>
               </div>
             ) : null}
@@ -255,7 +256,7 @@ export default function CateringScreen() {
 
         {isAdmin ? (
           <div style={d.section}>
-            <p style={d.sectionLabel}>ADMIN</p>
+            <p style={d.sectionLabel}>Admin</p>
             {changing && changing.status ? (
               <>
                 <select style={d.input} value={changing.status} onChange={(ev) => setChanging({ ...changing, status: ev.target.value })}>
@@ -277,7 +278,7 @@ export default function CateringScreen() {
         ) : null}
 
         <div style={d.section}>
-          <p style={d.sectionLabel}>HISTORY</p>
+          <p style={d.sectionLabel}>History</p>
           <div style={d.history}>
             {history(e).map(([what, t, who], i) => (
               <div key={i}>{dateText(t)} · {what}{who ? ' by ' + who : ''}</div>
@@ -345,16 +346,16 @@ export default function CateringScreen() {
         title="Catering"
         subtitle="Catering orders and private events. Catering & Events claims and handles each one."
         header={
-          <>
+          <div style={styles.headRow}>
             {tabBar}
             <div style={styles.kindSeg} role="group" aria-label="Show">
               {[['all', 'All'], ['catering', 'Catering'], ['privateEvent', 'Private dining']].map(([k, l], i) => (
-                <button key={k} style={{ ...styles.kindBtn, ...(i === 0 ? { borderLeft: 'none' } : {}), ...(kind === k ? styles.kindSegOn : {}) }} onClick={() => { setKind(k); setSelectedId(null); reset(); }}>
-                  {l}<span style={{ opacity: 0.7, fontWeight: 600, marginLeft: 5 }}>{allEnquiries.filter((e) => k === 'all' || (k === 'catering' ? e.kind === 'catering' : e.kind !== 'catering')).filter((e) => ['new', 'talking', 'confirmed'].includes(e.status)).length}</span>
+                <button key={k} style={{ ...styles.kindBtn, ...(kind === k ? styles.kindSegOn : {}) }} onClick={() => { setKind(k); setSelectedId(null); reset(); }}>
+                  {l}<span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>{allEnquiries.filter((e) => k === 'all' || (k === 'catering' ? e.kind === 'catering' : e.kind !== 'catering')).filter((e) => ['new', 'talking', 'confirmed'].includes(e.status)).length}</span>
                 </button>
               ))}
             </div>
-          </>
+          </div>
         }
         actionLabel={canAdd ? '+ Add enquiry' : null}
         onAction={() => setAdding({ ...BLANK, locationId: locationOptions.length === 1 ? locationOptions[0].id : '' })}
@@ -391,11 +392,13 @@ export default function CateringScreen() {
         )}
         note={canAct ? null : canAdd ? 'You can add enquiries and event costs. Catering & Events claims and handles them.' : 'You can see these but not change them. Catering & Events handles them.'}
       >
-        <div style={styles.howNote}>
-          <strong>How enquiries get here:</strong> forward any catering or private event enquiry to{' '}
+        {/* Folded away: it's useful once, then it's just in the way. */}
+        <details style={styles.howNote}>
+          <summary style={styles.howSummary}>How do enquiries get here?</summary>
+          Forward any catering or private event enquiry to{' '}
           <a href="mailto:catering@cigconcepts.com" style={{ color: 'var(--neon)', fontWeight: 700 }}>catering@cigconcepts.com</a>
           . It shows up here within five minutes, and that location's Catering &amp; Events manager is asked to claim it. One that came in by phone? Use + Add enquiry.
-        </div>
+        </details>
       </RequestPage>
 
       {adding ? (
@@ -404,7 +407,7 @@ export default function CateringScreen() {
             <h2 style={styles.modalTitle}>Add enquiry</h2>
             <p style={styles.hint}>For one that came in by phone, in person or another way. It lands in New, like the emailed ones.</p>
             <label style={styles.fieldLabel}>What kind</label>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ ...segTrack, display: 'flex', width: '100%' }}>
               {[['catering', 'Catering'], ['privateEvent', 'Private event']].map(([k, l]) => (
                 <button key={k} style={{ ...styles.kind, ...(adding.kind === k ? styles.kindOn : {}) }} onClick={() => setAdding({ ...adding, kind: k })}>{l}</button>
               ))}
@@ -414,20 +417,27 @@ export default function CateringScreen() {
               <option value="">Choose one</option>
               {locationOptions.map((l) => <option key={l.id} value={l.id}>{l.brandName} · {l.name}</option>)}
             </select>
-            {[
-              ['name', 'Name'], ['email', 'Email'], ['phone', 'Phone'], ['organisation', 'Organisation (optional)'],
-              ...(adding.kind === 'catering' ? [] : [['occasion', 'Occasion']]),
-              ['guests', 'Guests'],
-            ].map(([k, l]) => (
-              <React.Fragment key={k}>
-                <label style={styles.fieldLabel}>{l}</label>
-                <input style={d.input} value={adding[k]} onChange={(ev) => setAdding({ ...adding, [k]: ev.target.value })} />
-              </React.Fragment>
-            ))}
-            <label style={styles.fieldLabel}>Date</label>
-            <DatePickerField value={adding.date} onChange={(v) => setAdding({ ...adding, date: v })} placeholder="Choose a date" />
-            <label style={styles.fieldLabel}>Time</label>
-            <input style={d.input} placeholder="6:30pm" value={adding.preferredTime} onChange={(ev) => setAdding({ ...adding, preferredTime: ev.target.value })} />
+            {/* Two to a row, so the form fits without scrolling (Glass, Nov 2026). */}
+            <div style={styles.formGrid}>
+              {[
+                ['name', 'Name'], ['organisation', 'Organisation (optional)'], ['email', 'Email'], ['phone', 'Phone'],
+                ...(adding.kind === 'catering' ? [] : [['occasion', 'Occasion']]),
+                ['guests', 'Guests'],
+              ].map(([k, l]) => (
+                <div key={k} style={{ minWidth: 0 }}>
+                  <label style={styles.fieldLabel}>{l}</label>
+                  <input style={{ ...d.input, marginBottom: 0 }} value={adding[k]} onChange={(ev) => setAdding({ ...adding, [k]: ev.target.value })} />
+                </div>
+              ))}
+              <div style={{ minWidth: 0 }}>
+                <label style={styles.fieldLabel}>Date</label>
+                <DatePickerField value={adding.date} onChange={(v) => setAdding({ ...adding, date: v })} placeholder="Choose a date" />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <label style={styles.fieldLabel}>Time</label>
+                <input style={{ ...d.input, marginBottom: 0 }} placeholder="6:30pm" value={adding.preferredTime} onChange={(ev) => setAdding({ ...adding, preferredTime: ev.target.value })} />
+              </div>
+            </div>
             {adding.kind === 'catering' ? (
               <>
                 <label style={styles.fieldLabel}>Pick-up or delivery</label>
@@ -560,25 +570,28 @@ export default function CateringScreen() {
 }
 
 const styles = {
-  howNote: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-primary)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 },
+  formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', columnGap: 12 },
+  howNote: { fontSize: 14, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '14px 0 0', maxWidth: 680 },
+  howSummary: { cursor: 'pointer', color: 'var(--neon)', fontWeight: 600, fontSize: 14, marginBottom: 6, listStyle: 'revert' },
+  headRow: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 12 },
   link: { color: 'var(--neon)', textDecoration: 'none' },
-  linkButton: { display: 'inline-block', background: 'none', border: '1px solid var(--border-strong)', color: 'var(--neon)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, textDecoration: 'none' },
+  linkButton: { display: 'inline-block', background: 'none', border: '1px solid var(--border-strong)', color: 'var(--neon)', borderRadius: 999, padding: '7px 12px', fontWeight: 600, fontSize: 12, textDecoration: 'none' },
   done: { fontSize: 12, color: 'var(--ok)', alignSelf: 'center' },
   hint: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '8px 0 0' },
   backdrop: { ...modalBackdrop, zIndex: 100 },
-  modal: { padding: 22, ...modalSurface, width: 'min(460px, 100%)' },
-  modalTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
-  fieldLabel: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', margin: '10px 0 4px' },
-  modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
-  kind: { flex: 1, padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
-  place: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, padding: '0 12px', border: '1px solid var(--border-strong)', borderRadius: 10, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' },
-  placeOn: { borderColor: 'var(--neon)', background: 'rgba(34,211,238,0.06)' },
-  kindSeg: { display: 'inline-flex', border: '1px solid var(--border-strong)', borderRadius: 9, overflow: 'hidden', margin: '0 0 10px', maxWidth: '100%' },
-  kindBtn: { background: 'none', border: 'none', borderLeft: '1px solid var(--border)', padding: '8px 14px', fontSize: 12.5, fontWeight: 700, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', textTransform: 'none' },
-  kindSegOn: { background: 'var(--neon)', color: '#0A0A0B' },
-  kindTag: { fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', borderRadius: 5, padding: '3px 7px', background: 'rgba(255,255,255,0.07)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' },
-  tabs: { display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', margin: '0 0 14px' },
-  tab: { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '10px 14px', fontSize: 13, fontWeight: 700, color: 'var(--text-tertiary)', cursor: 'pointer', fontFamily: 'inherit', marginBottom: -1 },
-  tabOn: { color: 'var(--neon)', borderBottomColor: 'var(--neon)' },
-  kindOn: { background: 'var(--neon)', color: '#0A0A0B', borderColor: 'var(--neon)' },
+  modal: { padding: 24, ...modalSurface, width: 'min(520px, 100%)' },
+  modalTitle: { fontSize: 21, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 6px' },
+  fieldLabel: { display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', margin: '12px 0 6px' },
+  modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
+  kind: { ...segItem, flex: 1, justifyContent: 'center' },
+  place: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 46, padding: '0 14px', border: '1px solid var(--border)', borderRadius: 14, fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer' },
+  placeOn: { borderColor: 'var(--neon)', background: 'rgba(10,126,164,0.06)' },
+  kindSeg: { ...segTrack },
+  kindBtn: { ...segItem },
+  kindSegOn: { ...segItemOn },
+  kindTag: { fontSize: 12, fontWeight: 600, letterSpacing: 0, textTransform: 'none', borderRadius: 999, padding: '3px 9px', background: 'rgba(var(--ink-rgb), 0.06)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' },
+  tabs: { ...segTrack },
+  tab: { ...segItem },
+  tabOn: { ...segItemOn },
+  kindOn: { ...segItemOn },
 };

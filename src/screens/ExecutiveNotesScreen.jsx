@@ -119,8 +119,8 @@ export default function ExecutiveNotesScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 560 },
-  card: { background: 'var(--bg-card)', border: 'none', borderRadius: 14, padding: 20 },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 760 },
+  card: { background: 'var(--bg-card)', border: 'none', borderRadius: 20, padding: 20 },
   cardText: { fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 },
   input: {
@@ -134,11 +134,11 @@ const styles = {
     outline: 'none',
     boxSizing: 'border-box',
   },
-  openButton: { padding: '10px 18px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 13, textTransform: 'none' },
-  editButton: { padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
-  cancelButton: { minHeight: 40, padding: '10px 16px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
+  openButton: { padding: '10px 18px', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 13, textTransform: 'none' },
+  editButton: { padding: '10px 16px', borderRadius: 999, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600 },
+  cancelButton: { minHeight: 40, padding: '10px 16px', borderRadius: 999, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600 },
   previewBlock: { marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' },
-  previewLabel: { fontSize: 11, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 10px' },
+  previewLabel: { fontSize: 12, fontWeight: 700, color: 'var(--neon)', textTransform: 'none', letterSpacing: 0, margin: '0 0 10px' },
   previewCard: {
     display: 'flex',
     alignItems: 'center',

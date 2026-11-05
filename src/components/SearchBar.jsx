@@ -52,7 +52,7 @@ export default function SearchBar({ query, onChange, suggestions = [], placehold
   if (!open) {
     return (
       <button style={styles.iconButton} onClick={() => setOpen(true)} title="Search">
-        <Icon name="search" size={15} color="#FFFFFF" />
+        <Icon name="search" size={15} color="#6E6E73" />
       </button>
     );
   }
@@ -95,10 +95,12 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '8px 10px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)',
-    background: 'var(--bg-inset)',
+    width: 40,
+    height: 40,
+    padding: 0,
+    borderRadius: 20,
+    border: '1px solid rgba(var(--ink-rgb), 0.1)',
+    background: 'rgba(var(--paper-rgb), 0.6)',
     cursor: 'pointer',
   },
   outerWrap: { position: 'relative', maxWidth: 320, width: '100%' },
@@ -106,10 +108,11 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: 6,
-    padding: '6px 10px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border-strong)',
-    background: 'var(--bg-inset)',
+    padding: '0 14px',
+    minHeight: 40,
+    borderRadius: 999,
+    border: '1px solid rgba(var(--ink-rgb), 0.1)',
+    background: 'rgba(var(--paper-rgb), 0.7)',
   },
   input: {
     flex: 1,
@@ -117,7 +120,7 @@ const styles = {
     outline: 'none',
     background: 'transparent',
     color: 'var(--text-primary)',
-    fontSize: 13,
+    fontSize: 14,
   },
   clearButton: { fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0 },
   dropdown: {
@@ -127,8 +130,8 @@ const styles = {
     right: 0,
     marginTop: 4,
     background: 'var(--bg-elevated)',
-    border: '1px solid var(--border-strong)',
-    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border)',
+    borderRadius: 16,
     boxShadow: 'var(--shadow-lg)',
     zIndex: 300,
     overflow: 'hidden',

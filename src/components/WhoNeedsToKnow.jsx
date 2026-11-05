@@ -97,7 +97,7 @@ export default function WhoNeedsToKnow({ needs = [], people = [], onChange, labe
 // Matching the event request form, so the same control looks the same
 // wherever someone meets it.
 const styles = {
-  label: { display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 5 },
+  label: { display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 },
   // Stacked, not side by side: two selects sharing a modal's width cut
   // their own placeholder text off mid-word.
   row: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 },
@@ -105,15 +105,15 @@ const styles = {
     width: '100%',
     minWidth: 0,
     boxSizing: 'border-box',
-    height: 38,
-    padding: '0 11px',
-    borderRadius: 8,
+    height: 40,
+    padding: '0 12px',
+    borderRadius: 12,
     border: '1px solid var(--border)',
-    background: 'var(--bg-card)',
+    background: 'var(--bg-inset)',
     color: 'var(--text-primary)',
     fontSize: 13,
   },
-  list: { background: 'var(--bg-inset)', borderRadius: 9, overflow: 'hidden', marginBottom: 14 },
+  list: { background: 'var(--bg-inset)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 },
   item: {
     display: 'flex',
     alignItems: 'center',

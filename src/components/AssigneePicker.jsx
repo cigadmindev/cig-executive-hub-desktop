@@ -9,8 +9,10 @@ import Icon from './Icon';
 // plain "Add a person…" box like the Hub's other drop-downs. It opens a list
 // you can search, this location's people first and then executives, with a
 // tick by everyone who already has it. Several can be ticked in one go.
-export default function AssigneePicker({ uids: savedUids, names, people, onChange, busy = false }) {
-  const [open, setOpen] = useState(false);
+export default function AssigneePicker({ uids: savedUids, names, people, onChange, busy = false, startOpen = false }) {
+  // startOpen: shown already open (the Assign button on a line, Nov 2026).
+  const [open, setOpen] = useState(startOpen);
+  useEffect(() => { if (startOpen) setOpen(true); }, [startOpen]);
   // Ticks show straight away and build on each other, so ticking two people
   // quickly saves both rather than the second save overwriting the first.
   const [pending, setPending] = useState(null);
@@ -97,7 +99,9 @@ export default function AssigneePicker({ uids: savedUids, names, people, onChang
             aria-expanded={open}
           >
             <span>{uids.length ? 'Add a person…' : 'Choose people…'}</span>
-            <span style={styles.caret}>▾</span>
+            <svg width="12" height="8" viewBox="0 0 12 8" style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} aria-hidden="true">
+              <path d="M1.5 1.75 6 6.25l4.5-4.5" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
         ) : uids.length === 0 ? (
           <span style={styles.none}>Nobody can be given this here yet</span>
@@ -137,11 +141,11 @@ const styles = {
   tag: {
     display: 'inline-flex', alignItems: 'center', gap: 7,
     background: 'var(--bg-inset)', border: '1px solid var(--border)',
-    borderRadius: 8, padding: '3px 2px 3px 4px', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+    borderRadius: 999, padding: '4px 4px 4px 4px', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
   },
   avatar: {
-    width: 22, height: 22, borderRadius: 11, background: '#3A3A44', color: '#fff',
-    fontSize: 10.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    width: 22, height: 22, borderRadius: 11, background: 'rgba(var(--ink-rgb), 0.1)', color: 'var(--text-secondary)',
+    fontSize: 10.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   x: {
     background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 16, lineHeight: 1,
@@ -149,30 +153,31 @@ const styles = {
   },
   box: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-    minWidth: 180, height: 34, padding: '0 12px', boxSizing: 'border-box',
-    borderRadius: 8, background: 'var(--bg-inset)', border: '1px solid var(--border)',
+    minWidth: 220, height: 40, padding: '0 15px 0 14px', boxSizing: 'border-box',
+    borderRadius: 12, background: 'var(--field-bg)', border: '1px solid rgba(var(--ink-rgb), 0.12)',
     color: 'var(--text-secondary)', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer', textTransform: 'none',
   },
   boxOn: { borderColor: 'var(--neon)', color: 'var(--text-primary)' },
   caret: { fontSize: 11, color: 'var(--text-tertiary)' },
   none: { fontSize: 12, color: 'var(--text-tertiary)' },
   panel: {
-    marginTop: 8, maxWidth: 360, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)',
-    borderRadius: 10, padding: 6, boxShadow: '0 10px 28px rgba(0,0,0,.35)',
+    marginTop: 8, maxWidth: 380, background: 'var(--surface-pop)', border: '1px solid var(--glass-border)',
+    borderRadius: 16, padding: 8, boxShadow: '0 14px 36px rgba(20,25,35,0.22)',
+    WebkitBackdropFilter: 'blur(20px) saturate(160%)', backdropFilter: 'blur(20px) saturate(160%)',
   },
-  search: { display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 10px', borderRadius: 7, background: 'var(--bg-inset)', marginBottom: 4 },
+  search: { display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 12px', borderRadius: 10, background: 'var(--bg-inset)', marginBottom: 4 },
   input: { flex: 1, minWidth: 0, background: 'none', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit' },
   list: { maxHeight: 280, overflowY: 'auto' },
-  groupLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: 0, padding: '8px 8px 4px' },
+  groupLabel: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: 0, padding: '8px 8px 4px' },
   option: {
-    width: '100%', display: 'flex', alignItems: 'center', gap: 10, minHeight: 40, padding: '6px 8px', borderRadius: 7,
+    width: '100%', display: 'flex', alignItems: 'center', gap: 10, minHeight: 40, padding: '6px 10px', borderRadius: 10,
     background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left',
     cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none',
   },
-  optionOn: { background: 'rgba(34,211,238,.1)' },
+  optionOn: { background: 'rgba(10,126,164,.1)' },
   tick: {
-    width: 16, height: 16, borderRadius: 4, border: '2px solid rgba(255,255,255,.3)', boxSizing: 'border-box',
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, flexShrink: 0,
+    width: 16, height: 16, borderRadius: 4, border: '2px solid rgba(var(--ink-rgb), .3)', boxSizing: 'border-box',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0,
   },
   tickOn: { background: 'var(--neon)', borderColor: 'var(--neon)', color: 'var(--neon-text)' },
   optionName: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },

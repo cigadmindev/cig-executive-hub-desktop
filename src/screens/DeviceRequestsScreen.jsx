@@ -162,7 +162,7 @@ export default function DeviceRequestsScreen() {
       {/* Admins can correct anything, and move a request to any step. */}
       {isAdmin ? (
         <div style={d.section}>
-          <p style={d.sectionLabel}>ADMIN</p>
+          <p style={d.sectionLabel}>Admin</p>
           {editing ? (
             <>
               <input style={d.input} value={editing.deviceType} onChange={(e) => setEditing({ ...editing, deviceType: e.target.value })} placeholder="Device" />
@@ -195,7 +195,7 @@ export default function DeviceRequestsScreen() {
       ) : null}
 
       <div style={d.section}>
-        <p style={d.sectionLabel}>HISTORY</p>
+        <p style={d.sectionLabel}>History</p>
         <div style={d.history}>
           {history(selected).map(([what, t, who], i) => (
             <div key={i}>{dateText(t)} · {what}{who ? ' by ' + who : ''}</div>

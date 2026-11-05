@@ -255,7 +255,7 @@ export default function AvailabilityScreen() {
       <PageHeader
         title="Availability"
         subtitle={`Your usual hours and ${away ? 'when you\'re unavailable' : 'your time off'}${seesTeam ? ', and your team\'s' : ''}.`}
-        actionLabel={away ? '+ Add unavailable dates' : '+ Request time off'}
+        actionLabel={isNarrow ? (away ? '+ Dates' : '+ Time off') : away ? '+ Add unavailable dates' : '+ Request time off'}
         onAction={() => setFormOpen(true)}
       />
 
@@ -381,11 +381,11 @@ export default function AvailabilityScreen() {
               {loc.id === EXEC ? 'Executive team' : 'My team'} <span style={styles.muted}>· week of {teamMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: isNarrow ? '1 1 100%' : 'none', minWidth: 0 }}>
-              <button style={styles.ghost} aria-label="Week before" onClick={() => setWeekOffset(weekOffset - 1)}>‹</button>
-              <select style={{ ...styles.select, ...(isNarrow ? { flex: 1, minWidth: 0 } : {}) }} value={loc.id} onChange={(e) => setLocKey(e.target.value)}>
+              <button style={styles.weekArrow} aria-label="Week before" onClick={() => setWeekOffset(weekOffset - 1)}>‹</button>
+              <select style={{ ...styles.select, height: 40, boxSizing: 'border-box', ...(isNarrow ? { flex: 1, minWidth: 0 } : {}) }} value={loc.id} onChange={(e) => setLocKey(e.target.value)}>
                 {teamChoices.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
               </select>
-              <button style={styles.ghost} aria-label="Week after" onClick={() => setWeekOffset(weekOffset + 1)}>›</button>
+              <button style={styles.weekArrow} aria-label="Week after" onClick={() => setWeekOffset(weekOffset + 1)}>›</button>
             </div>
           </div>
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
@@ -441,8 +441,8 @@ export default function AvailabilityScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1100 },
-  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 16 },
+  page: { padding: '40px max(22px, min(48px, 4vw)) 60px', maxWidth: 1100 },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 18, marginBottom: 16 },
   cardTitle: { fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' },
   note: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.5 },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 },
@@ -450,10 +450,11 @@ const styles = {
   hourRow: { display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', padding: '8px 0', fontSize: 13, color: 'var(--text-secondary)' },
   strong: { color: 'var(--text-primary)', fontWeight: 700 },
   muted: { color: 'var(--text-tertiary)', fontSize: 13 },
-  badge: { display: 'inline-block', fontSize: 11, fontWeight: 800, color: 'var(--warn)', background: '#3A2A0E', borderRadius: 5, padding: '3px 8px', margin: '0 0 8px' },
-  primary: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '9px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer' },
-  primarySmall: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 7, padding: '6px 12px', fontWeight: 800, fontSize: 12, cursor: 'pointer' },
-  ghost: { minHeight: 40, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
+  badge: { display: 'inline-block', fontSize: 11, fontWeight: 700, color: 'var(--warn)', background: 'var(--amber-bg)', borderRadius: 5, padding: '3px 8px', margin: '0 0 8px' },
+  primary: { background: 'var(--ink)', color: 'var(--ink-text)', border: 'none', borderRadius: 999, padding: '9px 16px', fontWeight: 600, fontSize: 13, cursor: 'pointer' },
+  primarySmall: { background: 'var(--ink)', color: 'var(--ink-text)', border: 'none', borderRadius: 999, padding: '6px 12px', fontWeight: 600, fontSize: 12, cursor: 'pointer' },
+  weekArrow: { width: 40, height: 40, flexShrink: 0, padding: 0, borderRadius: 999, background: 'rgba(var(--paper-rgb), 0.6)', border: '1px solid rgba(var(--ink-rgb), 0.1)', color: 'var(--text-secondary)', fontSize: 18, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+  ghost: { minHeight: 40, background: 'rgba(var(--paper-rgb), 0.6)', border: '1px solid rgba(var(--ink-rgb), 0.1)', color: 'var(--text-secondary)', borderRadius: 999, padding: '7px 12px', fontWeight: 700, fontSize: 12, cursor: 'pointer' },
   linkDanger: { background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer' },
   label: { fontSize: 12, color: 'var(--text-secondary)', margin: '10px 0 6px' },
   input: { width: '100%', boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 14, color: 'var(--text-primary)', fontFamily: 'inherit' },
@@ -463,13 +464,14 @@ const styles = {
   editRow: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, borderTop: '1px solid var(--border)', padding: '7px 0', fontSize: 13, color: 'var(--text-secondary)' },
   editDay: { width: 36, fontWeight: 700, color: 'var(--text-primary)' },
   offLabel: { width: 90, display: 'flex', alignItems: 'center', gap: 4 },
-  time: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 6px', color: 'var(--text-primary)', fontFamily: 'inherit' },
-  grid: { borderCollapse: 'collapse', width: '100%', minWidth: 760, fontSize: 12 },
-  th: { color: 'var(--text-secondary)', fontWeight: 700, padding: '6px', textAlign: 'center', borderBottom: '1px solid var(--border)' },
-  td: { border: '1px solid var(--border)', padding: '7px 6px', textAlign: 'center', color: 'var(--text-secondary)' },
+  time: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 10, padding: '6px 8px', color: 'var(--text-primary)', fontFamily: 'inherit' },
+  grid: { borderCollapse: 'collapse', width: '100%', minWidth: 760, fontSize: 12.5 },
+  th: { color: 'var(--text-tertiary)', fontWeight: 600, padding: '8px 6px', textAlign: 'center', borderBottom: '1px solid var(--border)' },
+  // Glass (Nov 2026): hairlines between people only, no box around each cell.
+  td: { borderTop: '1px solid var(--border)', padding: '9px 6px', textAlign: 'center', color: 'var(--text-secondary)' },
   // Solid: the card colour (--bg-card over the page) as one colour, so the
   // days scrolling underneath don't show through.
-  stickyHead: { position: 'sticky', left: 0, background: '#202024', zIndex: 1 },
-  stickyCell: { position: 'sticky', left: 0, background: '#202024', zIndex: 1, minWidth: 96, maxWidth: 120 },
-  offCell: { background: '#3A2A0E', color: 'var(--warn)', fontWeight: 700 },
+  stickyHead: { position: 'sticky', left: 0, background: 'var(--surface)', zIndex: 1, textAlign: 'left' },
+  stickyCell: { position: 'sticky', left: 0, background: 'var(--surface)', zIndex: 1, minWidth: 96, maxWidth: 140, textAlign: 'left' },
+  offCell: { background: 'var(--amber-bg)', color: 'var(--warn)', fontWeight: 700, borderRadius: 8 },
 };

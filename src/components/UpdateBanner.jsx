@@ -88,7 +88,7 @@ const styles = {
     color: 'var(--neon-text)',
     fontSize: 12,
     fontWeight: 800,
-    textTransform: 'uppercase',
+    textTransform: 'none',
     cursor: 'pointer',
   },
   dismiss: {

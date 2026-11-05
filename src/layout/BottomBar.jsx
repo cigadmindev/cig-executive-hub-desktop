@@ -91,9 +91,9 @@ export default function BottomBar({ messagesBadge, calendarBadge, profileBadge, 
   const profileOn = isActive('profile', pathname);
 
   const item = (key, iconName, on, to, badge, size) => (
-    <button style={styles.item} onClick={() => navigate(to)} aria-label={key}>
+    <button style={{ ...styles.item, color: on ? "var(--text-primary)" : "var(--text-secondary)" }} onClick={() => navigate(to)} aria-label={key}>
       <span style={styles.iconWrap}>
-        <Icon name={iconName} size={size} color="#FFFFFF" filled={on} />
+        <Icon name={iconName} size={size} filled={on} />
         {badge ? <span style={styles.badgeDot} /> : null}
       </span>
       {on ? <span style={styles.activeDot} /> : null}
@@ -104,14 +104,34 @@ export default function BottomBar({ messagesBadge, calendarBadge, profileBadge, 
     <div style={styles.wrap}>
       <div ref={barRef} style={styles.bar}>
         {barWidth > 0 ? (
-          <svg style={styles.svg} width={barWidth} height={BAR_HEIGHT}>
-            <path
-              d={notchedBarPath(barWidth)}
-              fill="rgba(16,16,19,0.98)"
-              stroke="rgba(255,255,255,0.14)"
-              strokeWidth={1}
+          <>
+            {/* Glass, in two layers. Underneath: a layer cut to the bar's
+                exact shape (notch included) that frosts whatever scrolls
+                behind it. On top: a light sheen and a bright rim where the
+                light hits, drawn in the same shape. */}
+            <div
+              data-frost=""
+              style={{
+                ...styles.frost,
+                clipPath: `path('${notchedBarPath(barWidth)}')`,
+                WebkitClipPath: `path('${notchedBarPath(barWidth)}')`,
+              }}
             />
-          </svg>
+            <svg style={styles.svg} width={barWidth} height={BAR_HEIGHT}>
+              <defs>
+                <linearGradient id="bbSheen" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" style={{ stopColor: 'var(--bar-sheen)', stopOpacity: 0.78 }} />
+                  <stop offset="1" style={{ stopColor: 'var(--bar-sheen)', stopOpacity: 0.5 }} />
+                </linearGradient>
+                <linearGradient id="bbRim" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" style={{ stopColor: '#FFFFFF', stopOpacity: 'calc(var(--bar-rim, 1) * 1)' }} />
+                  <stop offset="0.5" style={{ stopColor: '#FFFFFF', stopOpacity: 'calc(var(--bar-rim, 1) * 0.25)' }} />
+                  <stop offset="1" style={{ stopColor: '#FFFFFF', stopOpacity: 'calc(var(--bar-rim, 1) * 0.85)' }} />
+                </linearGradient>
+              </defs>
+              <path d={notchedBarPath(barWidth)} fill="url(#bbSheen)" stroke="url(#bbRim)" strokeWidth={1.4} />
+            </svg>
+          </>
         ) : null}
 
         <div style={styles.iconRow}>
@@ -124,7 +144,7 @@ export default function BottomBar({ messagesBadge, calendarBadge, profileBadge, 
         </div>
 
         <button style={styles.homeButton} onClick={() => navigate('/')} aria-label="home">
-          <Icon name="home" size={24} color="#FFFFFF" filled={homeOn} />
+          <Icon name="home" size={24} filled={homeOn} />
           {/* The sidebar badges Home for events needing your job role. The
               iPhone bar has no home badge, so a straight port would have
               dropped it - worth checking whether the phone should have one. */}
@@ -145,7 +165,14 @@ const styles = {
     pointerEvents: 'none',
   },
   bar: { position: 'relative', height: BAR_HEIGHT, pointerEvents: 'auto' },
-  svg: { position: 'absolute', inset: 0, width: '100%', height: '100%' },
+  // Glass (Nov 2026): a frosted white bar with a soft shadow under it.
+  svg: { position: 'absolute', inset: 0, width: '100%', height: '100%', filter: 'drop-shadow(0 10px 22px rgba(30,40,60,0.14))' },
+  frost: {
+    position: 'absolute',
+    inset: 0,
+    WebkitBackdropFilter: 'blur(26px) saturate(190%) brightness(1.04)',
+    backdropFilter: 'blur(26px) saturate(190%) brightness(1.04)',
+  },
   iconRow: {
     position: 'relative',
     display: 'flex',
@@ -163,7 +190,7 @@ const styles = {
     border: 'none',
     height: BAR_HEIGHT,
     cursor: 'pointer',
-    color: '#FFFFFF',
+    color: 'var(--text-secondary)',
     WebkitTapHighlightColor: 'transparent',
     padding: 0,
   },
@@ -183,7 +210,7 @@ const styles = {
     width: 8,
     height: 8,
     borderRadius: 4,
-    background: '#E8524B',
+    background: 'var(--danger)',
   },
   badgeDot: {
     position: 'absolute',
@@ -192,7 +219,7 @@ const styles = {
     width: 8,
     height: 8,
     borderRadius: 4,
-    background: '#E8524B',
+    background: 'var(--danger)',
   },
   homeButton: {
     position: 'absolute',
@@ -201,14 +228,16 @@ const styles = {
     width: HOME_R * 2,
     height: HOME_R * 2,
     borderRadius: HOME_R,
-    background: '#16161A',
-    border: '1px solid rgba(255,255,255,0.14)',
+    background: 'var(--ink)',
+    border: '1px solid rgba(var(--paper-rgb), 0.7)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 3px 7px rgba(0,0,0,0.35)',
+    // A glossy dark pebble: a highlight along the top edge, a shadow under.
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 6px rgba(0,0,0,0.25), 0 8px 18px rgba(30,40,60,0.28)',
+    transition: 'transform 0.42s var(--spring)',
     cursor: 'pointer',
-    color: '#FFFFFF',
+    color: 'var(--ink-text)',
     // Safari paints its own translucent grey over a tapped button, which
     // read as the home button briefly vanishing.
     WebkitTapHighlightColor: 'transparent',

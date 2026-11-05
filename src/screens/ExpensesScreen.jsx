@@ -263,7 +263,16 @@ export default function ExpensesScreen() {
             <p style={styles.small}>{uncodedCount ? 'Give each one an account before the report.' : 'Every receipt has an account.'}</p>
           </button>
           <div style={{ ...cardStyle, ...wide }}>
-            <p style={styles.kicker}>{latest ? latest.label.split(' (')[0] + ' report' : 'Period reports'}</p>
+            {/* Rebuild sits as a small link by the heading so the two
+                download buttons share one tidy row (Nov 2026). */}
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+              <p style={styles.kicker}>{latest ? latest.label.split(' (')[0] + ' report' : 'Period reports'}</p>
+              {latest && (isAdmin || isFinance) ? (
+                <button style={styles.textBtn} disabled={rebuilding === latest.dateKey} onClick={() => rebuild(latest)}>
+                  {rebuilding === latest.dateKey ? 'Rebuilding…' : 'Rebuild'}
+                </button>
+              ) : null}
+            </div>
             {latest ? (
               <>
                 <p style={bigStyle}>
@@ -271,13 +280,8 @@ export default function ExpensesScreen() {
                   {(latest.changedReceiptIds ?? []).length ? <span style={styles.stale}> · needs a rebuild</span> : null}
                 </p>
                 <div style={styles.cardActions}>
-                  <button data-primary="" style={d.primary} onClick={() => download(latest.dateKey)}>Spreadsheet</button>
-                  {latest.archivePath ? <button style={d.ghost} onClick={() => download(latest.dateKey, 'photos')}>Photos</button> : null}
-                  {isAdmin || isFinance ? (
-                    <button style={d.ghost} disabled={rebuilding === latest.dateKey} onClick={() => rebuild(latest)}>
-                      {rebuilding === latest.dateKey ? 'Rebuilding…' : 'Rebuild'}
-                    </button>
-                  ) : null}
+                  <button data-primary="" style={{ ...d.primary, ...styles.reportBtn }} onClick={() => download(latest.dateKey)}>Spreadsheet</button>
+                  {latest.archivePath ? <button style={{ ...d.ghost, ...styles.reportBtn }} onClick={() => download(latest.dateKey, 'photos')}>Photos</button> : null}
                 </div>
               </>
             ) : (
@@ -317,13 +321,17 @@ export default function ExpensesScreen() {
           </label>
           <span style={isNarrow ? { display: 'none' } : { flex: 1 }} />
           {isNarrow ? <span style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap' }}>{[
-            isAdmin || isFinance ? <button key="a" style={d.ghost} onClick={() => setManaging(true)}>Manage accounts</button> : null,
-            isAdmin || isFinance ? <button key="e" style={d.ghost} onClick={() => setManagingEntities(true)}>Entities</button> : null,
-            older.length ? <button key="p" style={d.ghost} onClick={() => setPastOpen((v) => !v)}>{pastOpen ? 'Hide past reports' : `Past reports · ${older.length}`}</button> : null,
+            isAdmin || isFinance ? <button key="a" style={styles.toolBtn} onClick={() => setManaging(true)}>Manage accounts</button> : null,
+            isAdmin || isFinance ? <button key="e" style={styles.toolBtn} onClick={() => setManagingEntities(true)}>Entities</button> : null,
+            older.length ? <button key="p" style={styles.toolBtn} onClick={() => setPastOpen((v) => !v)}>{pastOpen ? 'Hide past reports' : `Past reports · ${older.length}`}</button> : null,
           ]}</span> : null}
-          {!isNarrow && (isAdmin || isFinance) ? <button style={d.ghost} onClick={() => setManaging(true)}>Manage accounts</button> : null}
-          {!isNarrow && (isAdmin || isFinance) ? <button style={d.ghost} onClick={() => setManagingEntities(true)}>Entities</button> : null}
-          {!isNarrow && older.length ? <button style={d.ghost} onClick={() => setPastOpen((v) => !v)}>{pastOpen ? 'Hide past reports' : `Past reports · ${older.length}`}</button> : null}
+          {!isNarrow ? (
+            <span style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', marginLeft: 'auto' }}>
+              {isAdmin || isFinance ? <button style={styles.toolBtn} onClick={() => setManaging(true)}>Manage accounts</button> : null}
+              {isAdmin || isFinance ? <button style={styles.toolBtn} onClick={() => setManagingEntities(true)}>Entities</button> : null}
+              {older.length ? <button style={styles.toolBtn} onClick={() => setPastOpen((v) => !v)}>{pastOpen ? 'Hide past reports' : `Past reports · ${older.length}`}</button> : null}
+            </span>
+          ) : null}
         </div>
       ) : null}
       {seesAll && pastOpen ? (
@@ -407,7 +415,7 @@ export default function ExpensesScreen() {
 
       {canFinance ? (
         <div style={d.section}>
-          <p style={d.sectionLabel}>FINANCE</p>
+          <p style={d.sectionLabel}>Finance</p>
           <label style={styles.fieldLabel}>
             Account
             <AccountSelect accounts={accounts} value={recodeTo} onChange={setRecodeTo} includeRetired={selected.accountCode} />
@@ -1054,47 +1062,50 @@ const styles = {
   nowrap: { whiteSpace: 'nowrap', color: 'var(--text-secondary)' },
   muted: { color: 'var(--text-tertiary)', fontSize: 12 },
   warn: { background: 'rgba(232,185,59,0.1)', border: '1px solid rgba(232,185,59,0.35)', color: 'var(--text-primary)', borderRadius: 12, padding: '12px 16px', fontSize: 13, marginBottom: 14 },
-  bar: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', marginBottom: 14 },
+  bar: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '14px 18px', marginBottom: 14 },
   barStats: { display: 'flex', gap: 28, flexWrap: 'wrap' },
   cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 14 },
-  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', textAlign: 'left', color: 'var(--text-primary)', fontFamily: 'inherit' },
-  cardButton: { cursor: 'pointer' },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '14px 18px', textAlign: 'left', color: 'var(--text-primary)', fontFamily: 'inherit' },
+  cardButton: { cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'stretch', textAlign: 'left' },
   cardAmber: { borderColor: 'rgba(232,185,59,0.4)' },
-  cardActions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 },
-  kicker: { margin: 0, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  cardActions: { display: 'grid', gridAutoFlow: 'column', gridAutoColumns: '1fr', gap: 8, marginTop: 10 },
+  reportBtn: { minWidth: 0, padding: '0 10px', whiteSpace: 'nowrap' },
+  textBtn: { background: 'none', border: 'none', padding: '4px 10px', margin: '-4px -10px', minHeight: 0, borderRadius: 999, color: 'var(--neon)', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 },
+  kicker: { margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
   big: { margin: '4px 0 0', fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' },
   small: { margin: '4px 0 0', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.45 },
   stale: { fontSize: 12, fontWeight: 700, color: 'var(--warn)' },
   toolsRow: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 },
-  selectLabel: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-tertiary)' },
-  smallSelect: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, height: 32, color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 12, padding: '0 8px' },
+  selectLabel: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-tertiary)' },
+  smallSelect: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 12, height: 38, color: 'var(--text-primary)', fontFamily: 'inherit', fontSize: 13.5, padding: '0 10px' },
+  toolBtn: { ...d.ghost, flex: 'none', minHeight: 38, padding: '0 16px' },
   pastRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid var(--border)' },
   thumb: { width: 84, height: 112, borderRadius: 8, background: 'var(--bg-inset)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', padding: 0, cursor: 'pointer' },
   thumbImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  amount: { margin: '6px 0 2px', fontSize: 24, fontWeight: 900, color: 'var(--text-primary)' },
+  amount: { margin: '6px 0 2px', fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' },
   danger: { flex: '1 1 auto', minWidth: 0, minHeight: 40, whiteSpace: 'nowrap', background: 'none', border: '1px solid rgba(232,82,75,0.5)', color: 'var(--bad)', borderRadius: 8, padding: '7px 10px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' },
-  dangerFill: { background: '#B42F28', border: 'none', color: '#FFFFFF', borderRadius: 8, padding: '8px 14px', fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
+  dangerFill: { background: '#B42F28', border: 'none', color: '#FFFFFF', borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
   backdrop: { ...modalBackdrop },
   modal: { ...modalSurface, width: 'min(460px, 100%)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 },
   modalHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' },
+  modalTitle: { margin: 0, fontSize: 21, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text-primary)' },
   close: { background: 'none', border: 'none', color: 'var(--accent)', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderRadius: 8, fontSize: 16, cursor: 'pointer' },
   modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 },
   choiceGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 },
   choice: { minHeight: 48, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: '6px 10px' },
-  choiceOn: { border: '1px solid var(--neon)', background: 'rgba(34,211,238,0.1)', color: 'var(--neon)', fontWeight: 800 },
+  choiceOn: { border: '1px solid var(--neon)', background: 'rgba(10,126,164,0.1)', color: 'var(--neon)', fontWeight: 800 },
   fieldLabel: { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' },
   input: { width: '100%', boxSizing: 'border-box', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 11px', minHeight: 40, fontSize: 14, color: 'var(--text-primary)', fontFamily: 'inherit' },
-  photoButton: { minHeight: 90, border: '1px dashed var(--border-strong)', borderRadius: 12, background: 'rgba(255,255,255,0.04)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+  photoButton: { minHeight: 90, border: '1px dashed var(--border-strong)', borderRadius: 12, background: 'rgba(var(--ink-rgb), 0.04)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   previewWrap: { display: 'flex', alignItems: 'center', gap: 12 },
   preview: { width: 90, height: 120, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' },
   pdfBadge: { fontSize: 13, color: 'var(--text-secondary)' },
   pickField: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', cursor: 'pointer' },
   pickPanel: { marginTop: 6, background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 10, padding: 8 },
   pickScroll: { maxHeight: 260, overflowY: 'auto' },
-  pickHead: { margin: '8px 4px 2px', fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  pickHead: { margin: '8px 4px 2px', fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
   pickRow: { display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 8, padding: '8px 8px', color: 'var(--text-primary)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' },
-  pickRowOn: { background: 'rgba(34,211,238,0.1)' },
+  pickRowOn: { background: 'rgba(10,126,164,0.1)' },
   pickCode: { color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums', marginRight: 4 },
   viewerImg: { width: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: 10, background: '#000' },
   pdfOpen: { display: 'inline-block', padding: '12px 16px', border: '1px solid var(--border-strong)', borderRadius: 10, color: 'var(--neon)', fontWeight: 700, textDecoration: 'none' },

@@ -13,7 +13,7 @@ export default function ProfileScreen() {
   const { user, logout, deleteMyAccount, updateMyProfile , setMyEmailPreference } = useAuth();
   const { outstanding: offboardingOutstanding } = useOffboarding();
   const { requests: supportRequests } = useSupportRequests();
-  const { hue, intensity, setAccentTheme, previewHue, previewIntensity } = useTheme();
+  const { hue, intensity, setAccentTheme, previewHue, previewIntensity, appearance, setAppearance } = useTheme();
   const isAdmin = user?.role === 'admin';
   const isExecutive = user?.role === 'executive';
 
@@ -126,6 +126,35 @@ export default function ProfileScreen() {
             </div>
           </div>
 
+          {/* Appearance (Nov 2026): light, dark, or whatever this computer
+              or phone is set to. Saved on this device only. */}
+          <div style={styles.card}>
+            <p style={styles.sectionLabel}>Appearance</p>
+            <div style={styles.lookRow} role="radiogroup" aria-label="Appearance">
+              {[
+                ['light', 'Light', 'linear-gradient(135deg, #EAF6FB, #F3EEFF)', '#FFFFFF'],
+                ['dark', 'Dark', 'linear-gradient(135deg, #10202B, #1C1730)', '#2A3040'],
+                ['auto', 'Match device', 'linear-gradient(90deg, #EAF6FB 0 50%, #10202B 50% 100%)', null],
+              ].map(([key, label, bg, card]) => {
+                const on = appearance === key;
+                return (
+                  <button key={key} role="radio" aria-checked={on} style={{ ...styles.lookTile, ...(on ? styles.lookTileOn : {}) }} onClick={() => setAppearance(key)}>
+                    <span style={{ ...styles.lookPreview, background: bg }}>
+                      {card ? <span style={{ ...styles.lookCard, background: card }} /> : (
+                        <>
+                          <span style={{ ...styles.lookCard, background: '#FFFFFF', right: '52%' }} />
+                          <span style={{ ...styles.lookCard, background: '#2A3040', left: '52%' }} />
+                        </>
+                      )}
+                    </span>
+                    <span style={styles.lookLabel}>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p style={styles.cardNote}>Just for you, on this computer or phone. Match device follows your computer's or phone's own light and dark setting.</p>
+          </div>
+
           <div style={styles.card}>
             <p style={styles.sectionLabel}>Email from the Hub</p>
             <div style={styles.prefWrap}>
@@ -209,7 +238,7 @@ export default function ProfileScreen() {
               { label: 'How to get help', sub: 'Who to contact, and how', href: '/support.html' },
               { label: 'Privacy policy', sub: 'What the Hub keeps about you, and why', href: '/privacy.html' },
             ].map((l) => (
-              <a key={l.label} href={l.href} target="_blank" rel="noreferrer" style={{ ...styles.linkRow, textDecoration: 'none' }}>
+              <a key={l.label} data-row="" href={l.href} target="_blank" rel="noreferrer" style={{ ...styles.linkRow, textDecoration: 'none' }}>
                 <span style={{ flex: 1 }}>
                   <span style={{ ...styles.linkText, display: 'block' }}>{l.label}</span>
                   <span style={styles.helpSub}>{l.sub}</span>
@@ -286,38 +315,44 @@ export default function ProfileScreen() {
 }
 
 const styles = {
-  helpLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '14px 16px 4px' },
+  lookRow: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 },
+  lookTile: { display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8, padding: 8, borderRadius: 18, border: '1.5px solid var(--border)', background: 'rgba(var(--paper-rgb), 0.4)', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-primary)' },
+  lookTileOn: { borderColor: 'var(--neon)', boxShadow: '0 0 0 3px rgba(10,126,164,0.14)' },
+  lookPreview: { position: 'relative', display: 'block', height: 64, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' },
+  lookCard: { position: 'absolute', left: 10, right: 10, top: 14, height: 26, borderRadius: 8, boxShadow: '0 2px 6px rgba(0,0,0,0.12)' },
+  lookLabel: { fontSize: 13.5, fontWeight: 600, textAlign: 'center' },
+  helpLabel: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: '14px 16px 4px' },
   helpSub: { display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 },
   helpArrow: { fontSize: 16, color: 'var(--text-secondary)', marginLeft: 10 },
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 980 },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 980 },
   // Two columns on a computer, one on a phone (17 Oct 2026).
   columns: { display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' },
   column: { flex: '1 1 360px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 },
-  card: { background: 'var(--bg-card)', borderRadius: 14, padding: 18 },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, padding: 18 },
   hero: { display: 'flex', alignItems: 'center', gap: 16 },
   avatar: { width: 64, height: 64, borderRadius: 32, flexShrink: 0, background: 'var(--accent)', color: '#FFFFFF', fontSize: 24, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   heroText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
   email: { fontSize: 12.5, color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   tagRow: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  tag: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', borderRadius: 6, padding: '3px 7px', background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' },
-  tagCyan: { background: 'rgba(34,211,238,0.14)', color: 'var(--neon)' },
-  smallButton: { border: '1px solid var(--border-strong)', borderRadius: 8, padding: '8px 14px', background: 'none', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0, textTransform: 'none', fontFamily: 'inherit' },
-  sectionLabel: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 10px' },
+  tag: { fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', borderRadius: 6, padding: '3px 7px', background: 'rgba(var(--ink-rgb), 0.08)', color: 'var(--text-secondary)' },
+  tagCyan: { background: 'rgba(10,126,164,0.14)', color: 'var(--neon)' },
+  smallButton: { border: '1px solid rgba(var(--ink-rgb), 0.1)', borderRadius: 999, padding: '8px 14px', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0, textTransform: 'none', fontFamily: 'inherit' },
+  sectionLabel: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: '0 0 10px' },
   cardNote: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, margin: '10px 0 0' },
   radio: { width: 16, height: 16, borderRadius: 8, border: '2px solid var(--border-strong)', flexShrink: 0, marginTop: 1, boxSizing: 'border-box' },
-  radioOn: { borderColor: 'var(--neon)', background: 'var(--neon)', boxShadow: 'inset 0 0 0 3px var(--bg-card)' },
+  radioOn: { borderColor: 'var(--neon)', background: 'var(--neon)', boxShadow: 'inset 0 0 0 3px var(--surface)' },
   linkRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 2px', background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)', fontFamily: 'inherit', textTransform: 'none' },
   linkText: { flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' },
   linkHint: { fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' },
   colorBox: { padding: '4px 2px 6px' },
-  signOut: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', height: 44, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, cursor: 'pointer', textTransform: 'none', fontFamily: 'inherit' },
+  signOut: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', height: 44, borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, cursor: 'pointer', textTransform: 'none', fontFamily: 'inherit' },
   deleteLink: { display: 'block', margin: '12px auto 0', background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: 'pointer', textTransform: 'none', fontFamily: 'inherit' },
   profileCard: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    background: 'var(--bg-card)',
-    borderRadius: 16,
+    background: 'var(--bg-card)', border: '1px solid var(--glass-edge)',
+    borderRadius: 20,
     padding: 28,
     marginBottom: 18,
   },
@@ -346,41 +381,41 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    border: '2px solid var(--bg-card)',
+    border: '2px solid var(--surface)',
     fontSize: 11,
   },
-  name: { fontSize: 18, fontWeight: 900, color: '#FFFFFF', textTransform: 'uppercase' },
-  role: { fontSize: 12, fontWeight: 700, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2, marginBottom: 14 },
+  name: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', textTransform: 'none' },
+  role: { fontSize: 12, fontWeight: 700, color: 'var(--neon)', textTransform: 'none', letterSpacing: 0, marginTop: 2, marginBottom: 14 },
   editProfileButton: {
     border: '1px solid var(--border-strong)',
-    borderRadius: 10,
+    borderRadius: 999,
     padding: '8px 18px',
     background: 'none',
-    color: '#FFFFFF',
+    color: 'var(--text-primary)',
     fontSize: 12,
-    fontWeight: 700,
+    fontWeight: 600,
     cursor: 'pointer',
   },
-  menuCard: { background: 'var(--bg-card)', borderRadius: 16, marginBottom: 18, overflow: 'hidden' },
+  menuCard: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, marginBottom: 18, overflow: 'hidden' },
   menuItem: {
     display: 'flex',
     alignItems: 'center',
     gap: 12,
     padding: '15px 18px',
-    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    borderBottom: '1px solid rgba(var(--ink-rgb), 0.06)',
     width: '100%',
     textAlign: 'left',
     border: 'none',
     background: 'none',
     cursor: 'pointer',
   },
-  menuItemText: { color: '#FFFFFF', fontSize: 14, fontWeight: 600, flex: 1 },
+  menuItemText: { color: 'var(--text-primary)', fontSize: 14, fontWeight: 600, flex: 1 },
   menuDot: { width: 9, height: 9, borderRadius: 4.5, background: 'var(--danger)' },
 
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },
   modalCard: { padding: 24, ...modalSurface, width: 'min(400px, 100%)' },
-  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
-  modalBody: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.55 },
+  modalTitle: { fontSize: 21, fontWeight: 700, textTransform: 'none', letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 12px' },
+  modalBody: { fontSize: 14.5, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.55 },
   input: {
     width: '100%',
     padding: '9px 12px',
@@ -393,19 +428,19 @@ const styles = {
     boxSizing: 'border-box',
   },
   errorText: { color: 'var(--danger)', fontSize: 12, marginTop: 8 },
-  cancelButton: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 },
-  dangerButton: { flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--danger)', color: '#FFFFFF', fontWeight: 900, fontSize: 13, textTransform: 'none' },
+  cancelButton: { minHeight: 40, flex: 1, padding: '10px 0', borderRadius: 999, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600 },
+  dangerButton: { flex: 1, padding: '10px 0', borderRadius: 999, background: 'var(--danger)', color: '#FFFFFF', fontWeight: 600, fontSize: 13, textTransform: 'none' },
   prefWrap: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 },
   prefRow: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', textAlign: 'left' },
-  prefRowOn: { borderColor: 'var(--neon)', background: 'rgba(34,211,238,0.08)' },
+  prefRowOn: { borderColor: 'var(--neon)', background: 'rgba(10,126,164,0.08)' },
   prefTick: { color: 'var(--neon)', fontSize: 12, lineHeight: '18px' },
   prefLabel: { display: 'block', fontSize: 13, color: 'var(--text-primary)' },
   prefSub: { display: 'block', fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 },
   fieldLabel: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 },
   customizeSection: { marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--border)' },
-  customizeTitle: { fontSize: 12, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+  customizeTitle: { fontSize: 12, fontWeight: 700, color: 'var(--neon)', textTransform: 'none', letterSpacing: 0, marginBottom: 6 },
   customizeNote: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 14 },
   sliderLabelRow: { display: 'flex', justifyContent: 'space-between', marginBottom: 4, marginTop: 12 },
-  sliderLabel: { fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  saveProfileButton: { flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 800, fontSize: 13 },
+  sliderLabel: { fontSize: 12, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'none', letterSpacing: '0.05em' },
+  saveProfileButton: { flex: 1, padding: '10px 0', borderRadius: 'var(--radius-sm)', background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 13 },
 };

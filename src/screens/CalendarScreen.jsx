@@ -56,6 +56,14 @@ export default function CalendarScreen() {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   })();
   const [selectedDate, setSelectedDate] = useState(linkedDate ?? null);
+  // On a phone the day's list sits under the month, out of sight - so
+  // picking a day brings it into view (Glass, Nov 2026).
+  const dayCardRef = React.useRef(null);
+  const firstPick = React.useRef(true);
+  React.useEffect(() => {
+    if (firstPick.current) { firstPick.current = false; return; }
+    if (isNarrow && selectedDate && dayCardRef.current) dayCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [selectedDate, isNarrow]);
   const [editingOpeningDateId, setEditingOpeningDateId] = useState(null);
   // One row open at a time, same as the checklist and renewals. A link from
   // Home's This week opens its entry: /calendar?date=…&entry=… (14 Oct 2026).
@@ -377,7 +385,7 @@ export default function CalendarScreen() {
                         {newDay ? (
                           <p style={styles.upDay}>{d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</p>
                         ) : null}
-                        <button data-row="" style={styles.upRow} onClick={() => setSelectedDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()))}>
+                        <button data-row="" data-inset="" style={styles.upRow} onClick={() => setSelectedDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()))}>
                           <span style={{ ...styles.upBar, background: info?.color ?? 'var(--border-strong)' }} />
                           <span style={styles.upText}>
                             <span style={styles.upTitle}>{e.title}</span>
@@ -397,13 +405,13 @@ export default function CalendarScreen() {
                 header with arrows to step a day, the time on the left and a
                 colour bar per restaurant, done items last, and overdue work
                 as one card instead of a box per opening. */}
-            <div style={styles.dayCard}>
+            <div style={{ ...styles.dayCard, scrollMarginTop: 16 }} ref={dayCardRef}>
               <div style={styles.dayHead}>
-                <h2 style={styles.dayTitle}>{selectedDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</h2>
+                <h2 style={{ ...styles.dayTitle, whiteSpace: 'nowrap', ...(isNarrow ? { fontSize: 19 } : {}) }}>{selectedDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</h2>
                 <span style={{ flex: 1 }} />
                 <button style={styles.dayArrow} aria-label="Previous day" onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() - 1))}>‹</button>
                 <button style={styles.dayArrow} aria-label="Next day" onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + 1))}>›</button>
-                <button style={styles.backToUpcoming} onClick={() => setSelectedDate(null)}>Coming up</button>
+                <button style={{ ...styles.backToUpcoming, whiteSpace: 'nowrap' }} onClick={() => setSelectedDate(null)}>{isNarrow ? 'Upcoming' : 'Coming up'}</button>
               </div>
 
               <p style={styles.secLabel}><span>On this day</span><span>{dueToday.length || ''}</span></p>
@@ -437,6 +445,7 @@ export default function CalendarScreen() {
                     <div key={e.id} id={'entry-' + e.id} style={styles.row}>
                       <div
                         data-row=""
+                        data-inset="flush"
                         style={{
                           ...styles.rowMain,
                           ...(overdue ? styles.rowOverdue : {}),
@@ -447,11 +456,11 @@ export default function CalendarScreen() {
                         {/* Read-only here: signing off happens on the
                             checklist, where what it depends on is visible. */}
                         {real && real.done ? (
-                          <span style={{ ...styles.rowTime, color: 'var(--success)' }}>✓ Done</span>
+                          <span style={{ ...styles.rowTime, ...(isNarrow ? styles.rowTimeNarrow : {}), color: 'var(--success)' }}>✓ Done</span>
                         ) : overdue ? (
-                          <span style={{ ...styles.rowTime, color: 'var(--danger)' }}>{e.source === 'renewal' ? 'Expired' : 'Overdue'}</span>
+                          <span style={{ ...styles.rowTime, ...(isNarrow ? styles.rowTimeNarrow : {}), color: 'var(--danger)' }}>{e.source === 'renewal' ? 'Expired' : 'Overdue'}</span>
                         ) : (
-                          <span style={styles.rowTime}>{e.source === 'renewal' ? 'All day' : fmtTime(e.dateTime)}</span>
+                          <span style={{ ...styles.rowTime, ...(isNarrow ? styles.rowTimeNarrow : {}) }}>{e.source === 'renewal' ? 'All day' : (e.openingItem || e.renewalItem) ? '' : fmtTime(e.dateTime)}</span>
                         )}
                         <span style={{ ...styles.rowBar, background: info.color }} />
 
@@ -555,7 +564,7 @@ export default function CalendarScreen() {
                 <>
                   <p style={styles.secLabel}><span>Overdue, carried forward</span><span /></p>
                   <div style={styles.odCard}>
-                    <button style={styles.odHead} onClick={() => setOverdueOpen((o) => !o)} aria-expanded={overdueOpen}>
+                    <button data-row="" data-inset="flush" style={styles.odHead} onClick={() => setOverdueOpen((o) => !o)} aria-expanded={overdueOpen}>
                       <span style={{ flex: 1 }}>
                         {overdueTotal} {overdueTotal === 1 ? 'item' : 'items'} across {overdueGroups.length} {overdueGroups.length === 1 ? 'location' : 'locations'}
                       </span>
@@ -570,6 +579,7 @@ export default function CalendarScreen() {
                             <Link
                               key={locId}
                               data-row=""
+                              data-inset="flush"
                               style={styles.odRow}
                               to={g ? '/brand/' + g.brandId + '/location/' + locId + (allRenewals ? '/renewals' : '/opening-checklist?show=overdue') : '/calendar'}
                             >
@@ -619,19 +629,22 @@ export default function CalendarScreen() {
                     </option>
                   ))}
                 </select>
-                <WhoNeedsToKnow
-                  needs={formNeeds}
-                  people={formPeople}
-                  onChange={({ needs, people }) => {
-                    setFormNeeds(needs);
-                    setFormPeople(people);
-                  }}
-                />
               </div>
-              <div style={{ width: 120, flexShrink: 0 }}>
+              <div style={{ width: 130, flexShrink: 0 }}>
                 <label style={styles.label}>Time</label>
                 <TimePickerField value={formTime} onChange={setFormTime} />
               </div>
+            </div>
+            {/* Full width under the place and time (Glass, Nov 2026). */}
+            <div style={{ marginTop: 12 }}>
+              <WhoNeedsToKnow
+                needs={formNeeds}
+                people={formPeople}
+                onChange={({ needs, people }) => {
+                  setFormNeeds(needs);
+                  setFormPeople(people);
+                }}
+              />
             </div>
 
             <label style={styles.label}>Note</label>
@@ -676,7 +689,7 @@ export default function CalendarScreen() {
 }
 
 const styles = {
-  modalDate: { fontSize: 12, color: 'var(--text-tertiary)', margin: '-6px 0 16px' },
+  modalDate: { fontSize: 14, color: 'var(--text-tertiary)', margin: '-6px 0 8px' },
   formRow: { display: 'flex', gap: 10, alignItems: 'flex-start' },
   row: { borderTop: '1px solid var(--border)' },
   rowMain: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px 10px 10px', cursor: 'pointer' },
@@ -689,18 +702,18 @@ const styles = {
     borderRadius: 5,
     border: '1.5px solid var(--border-strong)',
     background: 'transparent',
-    color: '#0F0F12',
+    color: '#FFFFFF',
     fontSize: 11,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkDone: { background: '#5FA377', borderColor: '#5FA377' },
+  checkDone: { background: 'var(--success)', borderColor: 'var(--success)' },
   dot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0, marginLeft: 5, marginRight: 5 },
   rowText: { flex: 1, minWidth: 0 },
-  rowTitle: { fontSize: 14, color: 'var(--text-primary)' },
+  rowTitle: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' },
   rowTitleDone: { textDecoration: 'line-through', color: 'var(--text-secondary)' },
-  rowWhere: { fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 },
+  rowWhere: { fontSize: 12.5, color: 'var(--text-tertiary)', marginTop: 2 },
   rowMeta: { fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0 },
   rowOverdueLabel: { fontSize: 12, fontWeight: 600, color: 'var(--danger)', flexShrink: 0 },
   chevron: { fontSize: 10, color: 'var(--text-tertiary)', flexShrink: 0 },
@@ -708,7 +721,7 @@ const styles = {
   rowNote: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px' },
   rowActions: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
 
-  page: { padding: '32px max(22px, min(40px, 4vw))', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
+  page: { padding: '40px max(22px, min(48px, 4vw))', minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
   header: { marginBottom: 24 },
   filterRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   filterRowNarrow: { flexWrap: 'nowrap', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2, marginRight: -22, paddingRight: 22 },
@@ -733,17 +746,18 @@ const styles = {
   bodyNarrow: { display: 'block', flex: 'none', minHeight: 0, gap: 0 },
   calendarColNarrow: { width: '100%', minWidth: 0 },
   detailColNarrow: { width: '100%', minWidth: 0, paddingTop: 18 },
-  backToUpcoming: { background: 'none', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '7px 12px', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  upList: { display: 'flex', flexDirection: 'column', marginTop: 6 },
-  upDay: { fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '16px 0 6px' },
-  upRow: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '11px 14px', marginBottom: 6, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'left', cursor: 'pointer' },
+  backToUpcoming: { background: 'rgba(var(--paper-rgb), 0.6)', border: '1px solid rgba(var(--ink-rgb), 0.1)', borderRadius: 999, padding: '7px 12px', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  // One glass list grouped by day, like Calendar's list view (Glass, Nov 2026).
+  upList: { display: 'flex', flexDirection: 'column', marginTop: 12, background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 24, padding: '4px 0 8px', overflow: 'hidden' },
+  upDay: { fontSize: 13, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-secondary)', margin: 0, padding: '14px 18px 6px' },
+  upRow: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 18px', background: 'none', border: 'none', borderRadius: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' },
   upBar: { width: 4, alignSelf: 'stretch', borderRadius: 2, flexShrink: 0 },
   upText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
-  upTitle: { fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  upWhere: { fontSize: 11.5, color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  upTime: { fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0 },
+  upTitle: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  upWhere: { fontSize: 13, color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  upTime: { fontSize: 13, color: 'var(--text-secondary)', flexShrink: 0 },
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 },
-  overdueGroupLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '22px 0 8px' },
+  overdueGroupLabel: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: '22px 0 8px' },
   overdueGroup: { background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 7, overflow: 'hidden' },
   overdueGroupHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'none', border: 'none', padding: '12px 15px', cursor: 'pointer', textAlign: 'left' },
   overdueChevron: { color: 'var(--text-tertiary)', fontSize: 11 },
@@ -754,42 +768,44 @@ const styles = {
   overdueItemTitle: { flex: 1, fontSize: 13, color: 'var(--text-primary)' },
   overdueItemLabel: { fontSize: 11, color: 'var(--danger)' },
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
-  menuButton: { display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
+  menuButton: { display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 14px', borderRadius: 20, border: '1px solid var(--border-strong)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
   menuCatch: { position: 'fixed', inset: 0, zIndex: 40 },
-  menu: { position: 'absolute', top: 46, right: 0, width: 270, zIndex: 41, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', boxShadow: '0 12px 32px rgba(0,0,0,0.45)' },
+  menu: { position: 'absolute', top: 46, right: 0, width: 270, zIndex: 41, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 6, display: 'flex', flexDirection: 'column', boxShadow: '0 12px 32px rgba(20,24,32,0.28)' },
   menuItem: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 40, padding: '0 10px', borderRadius: 8, border: 'none', background: 'none', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left', textTransform: 'none', fontFamily: 'inherit' },
-  menuItemOn: { background: 'rgba(34,211,238,0.1)', color: 'var(--neon)' },
+  menuItemOn: { background: 'rgba(10,126,164,0.1)', color: 'var(--neon)' },
   menuCount: { fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 },
   menuFoot: { margin: '4px 10px 6px', fontSize: 11, color: 'var(--text-tertiary)' },
-  dayCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' },
-  dayHead: { display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', borderBottom: '1px solid var(--border)' },
-  dayTitle: { margin: 0, fontSize: 18, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF' },
-  dayArrow: { width: 34, height: 34, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', fontSize: 16, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
-  secLabel: { display: 'flex', justifyContent: 'space-between', margin: 0, padding: '14px 18px 6px', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.9, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
-  rowTime: { width: 62, flexShrink: 0, textAlign: 'right', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' },
+  dayCard: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 24, overflow: 'hidden' },
+  dayHead: { display: 'flex', alignItems: 'center', gap: 8, padding: '16px 18px', borderBottom: '1px solid var(--border)' },
+  dayTitle: { margin: 0, fontSize: 22, fontWeight: 700, textTransform: 'none', letterSpacing: -0.2, color: 'var(--text-primary)' },
+  dayArrow: { width: 34, height: 34, borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-secondary)', fontSize: 16, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
+  secLabel: { display: 'flex', justifyContent: 'space-between', margin: 0, padding: '14px 18px 6px', fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
+  // On a phone the time only takes the room it needs.
+  rowTimeNarrow: { width: 'auto', minWidth: 0, textAlign: 'left' },
+  rowTime: { width: 64, flexShrink: 0, textAlign: 'right', fontSize: 12.5, fontWeight: 600, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' },
   rowBar: { width: 3, alignSelf: 'stretch', minHeight: 32, borderRadius: 2, flexShrink: 0 },
-  odCard: { margin: '4px 16px 16px', border: '1px solid rgba(242,146,141,0.25)', background: 'rgba(242,146,141,0.05)', borderRadius: 10, overflow: 'hidden' },
-  odHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 44, padding: '0 14px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left', textTransform: 'none', fontFamily: 'inherit' },
-  odRow: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 40, padding: '0 14px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' },
-  odCount: { fontSize: 11, fontWeight: 800, color: '#F2928D', background: 'rgba(232,82,75,0.18)', borderRadius: 5, padding: '2px 7px' },
+  odCard: { margin: '4px 16px 16px', border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.45)', borderRadius: 16, overflow: 'hidden', padding: '0 8px 6px' },
+  odHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 48, padding: '0 8px', background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left', textTransform: 'none', fontFamily: 'inherit' },
+  odRow: { display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, padding: '0 8px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' },
+  odCount: { fontSize: 11.5, fontWeight: 700, color: 'var(--red-fg)', background: 'var(--red-bg)', borderRadius: 999, padding: '2px 8px' },
   detailHeaderRow: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18 },
-  detailEyebrow: { fontSize: 11, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 2px' },
-  detailTitle: { fontSize: 24, fontWeight: 900, letterSpacing: -0.5, margin: 0, textTransform: 'uppercase', color: '#FFFFFF' },
+  detailEyebrow: { fontSize: 12, fontWeight: 700, color: 'var(--neon)', textTransform: 'none', letterSpacing: 0, margin: '0 0 2px' },
+  detailTitle: { fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0, textTransform: 'none', color: 'var(--text-primary)' },
   confirmOpeningBody: { fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 },
   linkButton: { fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 },
 
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },
   modalCard: { padding: 24, ...modalSurface, width: 'min(460px, 100%)' },
-  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
-  label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 5, marginTop: 12 },
+  modalTitle: { fontSize: 21, fontWeight: 700, textTransform: 'none', letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 12px' },
+  label: { display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6, marginTop: 14 },
   input: {
     width: '100%',
-    padding: '9px 11px',
-    borderRadius: 10,
-    border: 'none',
+    padding: '10px 12px',
+    borderRadius: 12,
+    border: '1px solid var(--border)',
     background: 'var(--bg-inset)',
     color: 'var(--text-primary)',
-    fontSize: 13,
+    fontSize: 14,
     outline: 'none',
     boxSizing: 'border-box',
   },
@@ -798,20 +814,20 @@ const styles = {
     minHeight: 40,
     flex: 1,
     padding: '10px 0',
-    borderRadius: 10,
+    borderRadius: 999,
     border: 'none',
     background: 'var(--bg-inset)',
     color: 'var(--text-secondary)',
     fontSize: 13,
-    fontWeight: 700,
+    fontWeight: 600,
   },
   saveButton: {
     flex: 1,
     padding: '10px 0',
-    borderRadius: 10,
-    background: 'var(--neon)',
-    color: 'var(--neon-text)',
-    fontWeight: 900,
+    borderRadius: 999,
+    background: 'var(--ink)',
+    color: 'var(--ink-text)',
+    fontWeight: 600,
     fontSize: 13,
     textTransform: 'none',
   },

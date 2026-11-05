@@ -325,11 +325,11 @@ function InsuranceSection({ isAdmin, notify }) {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 820 },
-  editButton: { padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 820 },
+  editButton: { padding: '7px 12px', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
 
-  sectionLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '18px 0 8px' },
-  card: { background: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px', marginBottom: 10 },
+  sectionLabel: { fontSize: 20, fontWeight: 700, letterSpacing: -0.3, textTransform: 'none', color: 'var(--text-primary)', margin: '26px 0 12px' },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, padding: '14px 16px', marginBottom: 10 },
   formName: { fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 },
   formWhen: { fontSize: 13, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '6px 0 10px' },
   formNote: { fontSize: 12, lineHeight: 1.6, color: 'var(--text-tertiary)', margin: '4px 0 0' },
@@ -343,12 +343,12 @@ const styles = {
 
   backdrop: { ...modalBackdrop, zIndex: 100 },
   modal: { padding: 22, ...modalSurface, width: 'min(460px, 100%)' },
-  modalTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
-  modalBody: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '0 0 6px' },
+  modalTitle: { fontSize: 21, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 6px' },
+  modalBody: { fontSize: 13.5, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '0 0 6px' },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 5, marginTop: 10 },
-  input: { width: '100%', boxSizing: 'border-box', minHeight: 38, padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13 },
+  input: { width: '100%', boxSizing: 'border-box', minHeight: 38, padding: '8px 11px', borderRadius: 20, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13 },
   textarea: { minHeight: 64, resize: 'vertical' },
   modalButtons: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
-  button: { padding: '9px 14px', borderRadius: 9, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  buttonQuiet: { minHeight: 40, padding: '9px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  button: { padding: '9px 14px', borderRadius: 999, border: 'none', background: 'var(--ink)', color: 'var(--ink-text)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  buttonQuiet: { minHeight: 40, padding: '9px 14px', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
 };

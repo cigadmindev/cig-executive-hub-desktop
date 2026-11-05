@@ -92,8 +92,8 @@ export default function EventCosts({ enquiry, canAdd, notify }) {
   return (
     <div style={d.section}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-        <p style={d.sectionLabel}>COSTS FOR THIS EVENT</p>
-        {costs.length ? <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>{money(total)}</span> : null}
+        <p style={d.sectionLabel}>Costs for this event</p>
+        {costs.length ? <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{money(total)}</span> : null}
       </div>
       {costs.map((c) => (
         <div key={c.id} style={styles.row}>
@@ -152,6 +152,6 @@ const styles = {
   muted: { color: 'var(--text-tertiary)' },
   filed: { color: 'var(--ok)' },
   remove: { background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', width: 32, height: 32, borderRadius: 8 },
-  add: { width: '100%', minHeight: 44, border: '1px dashed var(--border-strong)', borderRadius: 10, background: 'rgba(255,255,255,0.03)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 },
+  add: { width: '100%', minHeight: 44, border: '1px dashed var(--border-strong)', borderRadius: 10, background: 'rgba(var(--ink-rgb), 0.03)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 },
   hint: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '8px 0 0' },
 };

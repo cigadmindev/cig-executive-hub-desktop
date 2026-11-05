@@ -196,7 +196,7 @@ export function useHomeSummary() {
           pocMine.push({
             level: 'tagged',
             mine: true,
-            text: `Assigned to you · ${c.item}`,
+            text: c.item,
             where: `POC · ${loc.name}`,
             to: `/brand/${loc.brandId}/location/${loc.id}/operational-poc`,
             sort: Infinity,

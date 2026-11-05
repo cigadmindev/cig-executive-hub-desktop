@@ -15,6 +15,7 @@ import PageHeader from '../components/PageHeader';
 import Icon from '../components/Icon';
 import { plainError } from '../lib/errors';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { segTrack, segItem, segItemOn, chipOn } from '../theme/segmented';
 
 function toggleInArray(arr, id) {
   return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
@@ -61,7 +62,7 @@ const FILTERS = [
   ['test', 'Test', (u) => u.isGhost],
 ];
 const TAG_TONES = {
-  grey: { background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' },
+  grey: { background: 'rgba(var(--ink-rgb), 0.08)', color: 'var(--text-secondary)' },
   amber: { background: 'rgba(201,162,39,0.16)', color: '#E8D48A' },
   red: { background: 'rgba(232,82,75,0.15)', color: '#F2928D' },
 };
@@ -840,36 +841,36 @@ function AccessPanel({ mode, draft, setDraft, locationsFor, allLocations, preset
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 1180 },
-  tabs: { display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', margin: '6px 0 16px', overflowX: 'auto', scrollbarWidth: 'none' },
-  tab: { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '10px 12px', color: 'var(--text-tertiary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
-  tabOn: { color: 'var(--text-primary)', borderBottomColor: 'var(--neon)' },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 1180 },
+  tabs: { ...segTrack, margin: '6px 0 16px' },
+  tab: { ...segItem },
+  tabOn: { ...segItemOn },
   filterRow: { display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14 },
   search: { flex: '1 1 240px', minWidth: 0, height: 40, boxSizing: 'border-box', padding: '0 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit' },
   chips: { display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', maxWidth: '100%' },
   chip: { border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', borderRadius: 999, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', textTransform: 'none', fontFamily: 'inherit' },
-  chipOn: { background: 'var(--neon)', color: 'var(--neon-text)', borderColor: 'var(--neon)' },
+  chipOn: { ...chipOn },
   chipCount: { opacity: 0.7, marginLeft: 2 },
   split: { display: 'flex', gap: 16, alignItems: 'flex-start' },
   listCol: { flex: '1 1 520px', minWidth: 0 },
   detailCol: { flex: '0 1 380px', minWidth: 320, position: 'sticky', top: 16 },
-  groupLabel: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.9, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: 0, padding: '12px 14px 6px' },
+  groupLabel: { fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: 0, padding: '12px 14px 6px' },
   personRow: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 14px', background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)', fontFamily: 'inherit', textTransform: 'none' },
-  personRowOn: { background: 'rgba(34,211,238,0.07)' },
+  personRowOn: { background: 'rgba(10,126,164,0.07)' },
   personText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
   personJob: { fontSize: 12, color: 'var(--text-tertiary)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
-  tag: { display: 'inline-block', fontSize: 10, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', borderRadius: 6, padding: '2px 6px', marginLeft: 4 },
+  tag: { display: 'inline-block', fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', borderRadius: 6, padding: '2px 6px', marginLeft: 4 },
   tagRow: { display: 'flex', flexWrap: 'wrap', gap: 6, margin: '12px 0 14px' },
   lastActive: { fontSize: 11.5, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' },
   empty: { fontSize: 13, color: 'var(--text-tertiary)', padding: 14 },
-  detail: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18 },
+  detail: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 18 },
   detailEmpty: { color: 'var(--text-tertiary)', fontSize: 13, textAlign: 'center', padding: '40px 18px' },
   detailHead: { display: 'flex', alignItems: 'center', gap: 12 },
   detailName: { fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 2px' },
   backButton: { background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700, padding: '0 0 12px', cursor: 'pointer', textTransform: 'none', fontFamily: 'inherit' },
-  toolCard: { background: 'var(--bg-card)', borderRadius: 12, padding: 18 },
+  toolCard: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, padding: 18 },
 
-  list: { background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 },
+  list: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, overflow: 'hidden', marginBottom: 14 },
   row: { borderBottom: '1px solid var(--border)' },
   rowInactive: { opacity: 0.55 },
   rowHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)' },
@@ -881,21 +882,21 @@ const styles = {
   chevron: { fontSize: 11, color: 'var(--text-tertiary)' },
   rowBody: { padding: '0 14px 14px' },
   email: { fontSize: 12, color: 'var(--text-tertiary)', margin: '0 0 10px' },
-  accessLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 3px' },
+  accessLabel: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: '0 0 3px' },
   accessValue: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)', margin: '0 0 10px' },
   actions: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4, alignItems: 'center' },
-  actionButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  dangerButton: { padding: '7px 12px', borderRadius: 10, border: 'none', background: 'rgba(232,82,75,0.12)', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  actionButton: { padding: '7px 12px', borderRadius: 999, border: 'none', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  dangerButton: { padding: '7px 12px', borderRadius: 999, border: 'none', background: 'rgba(232,82,75,0.12)', color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   selfNote: { color: 'var(--text-secondary)', fontSize: 11, fontStyle: 'italic' },
 
-  repairRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 14px', borderRadius: 12, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 12 },
+  repairRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 12 },
 
-  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(20,24,32,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   panel: { width: 'min(560px, calc(100vw - 32px))', maxHeight: '86vh', overflowY: 'auto', background: 'var(--bg-elevated)', borderRadius: 18, padding: 22, boxShadow: 'var(--shadow-lg)' },
-  panelTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: 'var(--text-primary)', margin: '0 0 6px' },
-  sectionLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '16px 0 6px' },
+  panelTitle: { fontSize: 19, fontWeight: 800, textTransform: 'none', letterSpacing: -0.2, color: 'var(--text-primary)', margin: '0 0 6px' },
+  sectionLabel: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: '16px 0 6px' },
   twoCol: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8, marginBottom: 8 },
-  input: { width: '100%', boxSizing: 'border-box', height: 38, padding: '0 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13 },
+  input: { width: '100%', boxSizing: 'border-box', height: 38, padding: '0 11px', borderRadius: 20, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13 },
   readOnly: { fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 8px' },
   box: { border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 8 },
   brandBlock: { padding: '2px 0' },
@@ -905,6 +906,6 @@ const styles = {
   linkButton: { background: 'none', border: 'none', padding: 0, color: 'var(--neon)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   note: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, margin: '6px 0 0' },
   panelFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 20, flexWrap: 'wrap' },
-  cancelButton: { minHeight: 40, padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
-  saveButton: { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 13, fontWeight: 900, textTransform: 'none', cursor: 'pointer' },
+  cancelButton: { minHeight: 40, padding: '10px 16px', borderRadius: 999, border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  saveButton: { padding: '10px 18px', borderRadius: 999, border: 'none', background: 'var(--ink)', color: 'var(--ink-text)', fontSize: 13, fontWeight: 600, textTransform: 'none', cursor: 'pointer' },
 };

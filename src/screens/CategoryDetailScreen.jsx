@@ -92,23 +92,29 @@ export default function CategoryDetailScreen() {
       />
 
       <div style={styles.itemsList}>
-        {category.items.map((item) => {
+        {category.items.map((item, idx) => {
+          const first = idx === 0 ? { borderTop: 'none' } : {};
           if (item === 'Permits, Licenses & Certifications') {
             return (
-              <button key={item} style={{ ...styles.row, ...nike.card }} onClick={() => handleItemClick(item)}>
-                <span style={styles.itemName}>{item}</span>
-                <span style={nike.chevron}>›</span>
-              </button>
+              <div key={item} style={{ ...styles.rowWrap, ...first }}>
+                <button data-row="" data-inset="flush" style={{ ...styles.row, borderTop: 'none' }} onClick={() => handleItemClick(item)}>
+                  <span style={styles.itemName}>{item}</span>
+                  <span style={nike.chevron}>›</span>
+                </button>
+              </div>
             );
           }
           const link = getLink(locationId, categoryId, item);
           const isConnecting = connectingItem === item;
           return (
-            <div key={item}>
-              <button style={{ ...styles.row, ...nike.card }} onClick={() => handleItemClick(item)}>
+            <div key={item} style={{ ...styles.rowWrap, ...first }}>
+              {/* One glass list, one line per folder (Glass, Nov 2026). The
+                  admin's Edit sits inside the line instead of under it. */}
+              <div data-row="" data-inset="flush" style={styles.rowLine}>
+              <button data-row-part="" style={{ ...styles.row, borderTop: 'none' }} onClick={() => handleItemClick(item)}>
                 <span style={styles.itemName}>{item}</span>
                 {link && isAdmin ? (
-                  <span style={{ ...styles.connectedBadge, color: 'var(--neon)' }}>✓</span>
+                  <span style={styles.connectedBadge}>Linked</span>
                 ) : link ? (
                   <span style={nike.chevron}>›</span>
                 ) : isAdmin ? (
@@ -117,6 +123,19 @@ export default function CategoryDetailScreen() {
                   <span style={nike.chevron}>›</span>
                 )}
               </button>
+              {link && isAdmin && !isConnecting ? (
+                <button
+                  style={styles.editLinkButton}
+                  onClick={() => {
+                    setConnectingItem(item);
+                    setLinkDraft(link);
+                    setSaveError(null);
+                  }}
+                >
+                  Edit
+                </button>
+              ) : null}
+              </div>
               {isConnecting ? (
                 <>
                   <div style={styles.connectRow}>
@@ -138,18 +157,6 @@ export default function CategoryDetailScreen() {
                   {saveError ? <p style={styles.connectError}>Couldn't save — {saveError}</p> : null}
                 </>
               ) : null}
-              {link && isAdmin && !isConnecting ? (
-                <button
-                  style={styles.editLinkButton}
-                  onClick={() => {
-                    setConnectingItem(item);
-                    setLinkDraft(link);
-                    setSaveError(null);
-                  }}
-                >
-                  Edit link
-                </button>
-              ) : null}
             </div>
           );
         })}
@@ -161,7 +168,7 @@ export default function CategoryDetailScreen() {
       {posts.length > 0 ? (
         <div style={styles.postsSection}>
           <div style={styles.divider} />
-          <h2 style={{ ...styles.postsHeader, ...nike.sectionLabel, fontSize: 12 }}>TEAM POSTS</h2>
+          <h2 style={styles.postsHeader}>Team posts</h2>
           {posts.map((post, index) => (
             <PostCard
               key={post.id}
@@ -182,35 +189,48 @@ export default function CategoryDetailScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 640 },
-  itemsList: {},
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 760 },
+  itemsList: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 24, padding: '8px 12px', overflow: 'hidden' },
+  rowWrap: { borderTop: '1px solid var(--border)' },
+  rowLine: { display: 'flex', alignItems: 'center' },
   row: {
-    width: '100%',
+    flex: 1,
+    minWidth: 0,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
     textAlign: 'left',
-    marginBottom: 6,
+    background: 'none',
+    border: 'none',
+    borderTop: '1px solid var(--border)',
+    borderRadius: 0,
+    padding: '15px 14px',
+    minHeight: 54,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    color: 'var(--text-primary)',
+    width: '100%',
   },
-  itemName: { fontSize: 13 },
-  connectedBadge: { fontSize: 11, fontWeight: 600, color: 'var(--success)' },
-  connectHint: { fontSize: 11, fontWeight: 600, color: 'var(--accent)' },
-  connectRow: { display: 'flex', gap: 8, marginBottom: 8, marginTop: 4 },
-  connectError: { fontSize: 11, color: 'var(--danger)', marginBottom: 8 },
+  itemName: { fontSize: 15.5, fontWeight: 600 },
+  connectedBadge: { fontSize: 13, fontWeight: 600, color: 'var(--success)' },
+  connectHint: { fontSize: 13.5, fontWeight: 600, color: 'var(--neon)' },
+  connectRow: { display: 'flex', gap: 8, padding: '0 14px 14px' },
+  connectError: { fontSize: 12.5, color: 'var(--danger)', padding: '0 14px 12px', margin: 0 },
   connectInput: {
     flex: 1,
-    padding: '8px 10px',
-    borderRadius: 8,
+    padding: '10px 14px',
+    borderRadius: 12,
     border: '1px solid var(--border-strong)',
-    background: 'var(--bg-inset)',
+    background: 'rgba(var(--paper-rgb), 0.8)',
     color: 'var(--text-primary)',
-    fontSize: 12,
+    fontSize: 14,
     outline: 'none',
   },
-  connectSaveButton: { padding: '0 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'none' },
-  connectCancelButton: { minHeight: 40, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
-  editLinkButton: { fontSize: 10, color: 'var(--text-tertiary)', marginBottom: 8, marginLeft: 4 },
+  connectSaveButton: { padding: '0 18px', borderRadius: 999, fontWeight: 600, fontSize: 14, textTransform: 'none', minHeight: 40 },
+  connectCancelButton: { minHeight: 40, padding: '0 14px', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-secondary)', fontSize: 13 },
+  editLinkButton: { flexShrink: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', background: 'rgba(var(--ink-rgb), 0.05)', border: 'none', borderRadius: 999, padding: '6px 12px', marginRight: 10, cursor: 'pointer', fontFamily: 'inherit' },
   postsSection: { marginTop: 28 },
   divider: { height: 1, background: 'var(--border)', marginBottom: 18 },
-  postsHeader: { fontSize: 15, fontWeight: 800, margin: '0 0 12px', letterSpacing: 0.5 },
+  postsHeader: { fontSize: 22, fontWeight: 700, margin: '0 0 12px', letterSpacing: -0.4 },
 };

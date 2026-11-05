@@ -15,6 +15,8 @@ import { nike } from '../theme/nike';
 import { SEC_CITIES, SEC_STATE_NAMES } from '../data/secCities';
 import PageHeader from '../components/PageHeader';
 import { plainError } from '../lib/errors';
+import { useHomeSummary } from '../hooks/useHomeSummary';
+import { brandColors } from '../theme/colors';
 
 export default function BrandScreen() {
   const { dialogNode, confirm, notify } = useDialog();
@@ -28,6 +30,7 @@ export default function BrandScreen() {
   const { getByBrand: getPostsByBrand, toggleLike, addComment, toggleCommentLike, deletePost, deleteComment } = useBrandAnnouncements();
   const { markBrandViewed, hasUnseenForLocation, hasUnseenBrandPosts } = useViewTracking();
 
+  const summary = useHomeSummary();
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLat, setNewLat] = useState('');
@@ -212,21 +215,52 @@ export default function BrandScreen() {
         <div style={styles.grid}>
           {allLocations.map((loc) => (
             <div key={loc.id} style={styles.cardWrap}>
-              <button
-                style={{ ...styles.card, ...nike.card, ...(canOpen(loc) ? {} : styles.cardLocked) }}
-                onClick={() => openLocation(loc)}
-              >
-                <span style={nike.cardName}>{loc.name}</span>
-                {canOpen(loc) ? (
-                  <span style={nike.chevron}>›</span>
-                ) : (
-                  <RequestPill pending={user ? hasPendingRequest(user.email, 'location', loc.id) : false} />
-                )}
-              </button>
+              {/* Glass (Nov 2026): each location card says where it stands -
+                  open, or how far from opening and how ready - so the brand
+                  page is worth looking at before you click in. */}
+              {(() => {
+                const o = summary.openingSoon.find((x) => x.id === loc.id);
+                const pct = o && o.total ? Math.round((o.done / o.total) * 100) : 0;
+                const late = o && summary.worksChecklist ? o.overdue : 0;
+                return (
+                  <button
+                    data-card=""
+                    style={{ ...styles.card, ...(canOpen(loc) ? {} : styles.cardLocked) }}
+                    onClick={() => openLocation(loc)}
+                  >
+                    <span style={styles.cardTop}>
+                      <span style={{ ...styles.cardDot, background: brandColors[brand.name] ?? 'var(--neon)' }} />
+                      <span style={styles.cardName}>{loc.name}</span>
+                      {canOpen(loc) ? (
+                        <span style={styles.cardChevron}>›</span>
+                      ) : (
+                        <RequestPill pending={user ? hasPendingRequest(user.email, 'location', loc.id) : false} />
+                      )}
+                    </span>
+                    {o ? (
+                      <>
+                        <span style={styles.cardSub}>
+                          Opens {new Date(o.openingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: o.daysOut > 300 ? 'numeric' : undefined })} · {o.daysOut} {o.daysOut === 1 ? 'day' : 'days'}
+                        </span>
+                        <span style={styles.bar}><span style={{ ...styles.barFill, width: pct + '%' }} /></span>
+                        <span style={styles.cardMeta}>
+                          <span>{pct}% ready</span>
+                          {late ? <span style={{ color: 'var(--bad)', fontWeight: 700 }}>{late} late</span> : null}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span style={styles.cardSub}><span style={styles.openDot} />Open</span>
+                        <span style={{ ...styles.cardMeta, marginTop: 'auto' }}>Checklists, folders and requests</span>
+                      </>
+                    )}
+                  </button>
+                );
+              })()}
               {canOpen(loc) && hasUnseenForLocation(loc.id) ? <span style={styles.unseenDot} /> : null}
               {loc.isCustom && user?.role === 'admin' ? (
                 <button style={styles.deleteLink} onClick={() => handleDeleteLocation(loc)} title="Delete location">
-                  ✕
+                  Delete
                 </button>
               ) : null}
             </div>
@@ -242,7 +276,7 @@ export default function BrandScreen() {
         <div style={styles.postsSection}>
           <div style={styles.divider} />
           <div style={styles.postsHeaderRow}>
-            <h2 style={styles.postsHeader}>TEAM POSTS</h2>
+            <h2 style={styles.postsHeader}>Team posts</h2>
             {hasUnseenBrandPosts(brand.id) ? <span style={styles.postsDot} /> : null}
           </div>
           {posts.map((post, index) => {
@@ -278,24 +312,24 @@ export default function BrandScreen() {
 }
 
 const styles = {
-  page: { padding: '32px max(22px, min(40px, 4vw))', maxWidth: 800 },
-  addForm: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 16 },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 1180 },
+  addForm: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 16, marginBottom: 16 },
   input: {
     width: '100%',
     padding: '9px 12px',
     borderRadius: 8,
     border: '1px solid var(--border)',
-    background: 'rgba(255,255,255,0.04)',
+    background: 'rgba(var(--ink-rgb), 0.04)',
     color: 'var(--text-primary)',
     fontSize: 13,
     outline: 'none',
     boxSizing: 'border-box',
   },
-  modalNote: { fontSize: 11, color: 'var(--text-secondary)', margin: '8px 0', lineHeight: 1.5 },
-  pickerLabel: { fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 700, margin: '10px 0 6px' },
+  modalNote: { fontSize: 13, color: 'var(--text-secondary)', margin: '8px 0', lineHeight: 1.5 },
+  pickerLabel: { fontSize: 12, color: 'var(--text-secondary)', textTransform: 'none', fontWeight: 700, margin: '10px 0 6px' },
   chipWrap: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   stateChip: {
-    background: 'rgba(255,255,255,0.05)',
+    background: 'rgba(var(--ink-rgb), 0.05)',
     border: '1px solid var(--border)',
     borderRadius: 8,
     padding: '7px 12px',
@@ -304,30 +338,45 @@ const styles = {
     color: 'var(--text-secondary)',
     cursor: 'pointer',
   },
-  stateChipActive: { background: 'var(--accent)', borderColor: 'var(--accent)', color: '#0A0A0B', fontWeight: 800 },
-  cancelButton: { minHeight: 40, flex: 1, padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
-  saveButton: { flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'none' },
+  stateChipActive: { background: 'var(--ink)', borderColor: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 800 },
+  cancelButton: { minHeight: 40, flex: 1, padding: '9px 0', borderRadius: 999, border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 12 },
+  saveButton: { flex: 1, padding: '9px 0', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 12, textTransform: 'none' },
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))', gap: 14 },
   cardWrap: { position: 'relative' },
   cardLocked: { opacity: 0.55 },
   unseenDot: { position: 'absolute', top: 10, left: 10, width: 10, height: 10, borderRadius: 5, background: 'var(--danger)' },
   card: {
     width: '100%',
+    minHeight: 124,
     background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: 12,
+    border: '1px solid var(--glass-edge)',
+    borderRadius: 24,
     padding: '18px 20px',
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+    gap: 8,
     textAlign: 'left',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    color: 'var(--text-primary)',
   },
-  deleteLink: { position: 'absolute', top: 10, right: 10, fontSize: 12, color: 'var(--danger)', background: 'var(--bg-window)', borderRadius: 4, padding: '2px 6px' },
+  cardTop: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 },
+  cardDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0, boxShadow: 'inset 0 0 0 1px rgba(var(--ink-rgb), 0.12)' },
+  cardName: { flex: 1, minWidth: 0, fontSize: 20, fontWeight: 700, letterSpacing: -0.4 },
+  cardChevron: { color: 'var(--text-tertiary)', fontSize: 22, lineHeight: 1 },
+  cardSub: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--text-secondary)' },
+  openDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--success)' },
+  bar: { display: 'block', height: 6, borderRadius: 3, background: 'rgba(var(--ink-rgb), 0.08)', overflow: 'hidden', marginTop: 'auto' },
+  barFill: { display: 'block', height: '100%', borderRadius: 3, background: 'var(--neon)' },
+  cardMeta: { display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-tertiary)' },
+  deleteLink: { position: 'absolute', top: 18, right: 40, fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'rgba(var(--paper-rgb), 0.7)', border: 'none', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' },
   postsSection: { marginTop: 32 },
   postsHeaderRow: { display: 'flex', alignItems: 'center', gap: 10 },
   postsDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--danger)' },
   divider: { height: 1, background: 'var(--border)', marginBottom: 20 },
-  postsHeader: { fontSize: 12, fontWeight: 900, color: 'var(--neon)', textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 14px' },
+  postsHeader: { fontSize: 12, fontWeight: 700, color: 'var(--neon)', textTransform: 'none', letterSpacing: 0, margin: '0 0 14px' },
   postLocationTag: { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 4px' },
 };

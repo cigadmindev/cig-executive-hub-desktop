@@ -278,7 +278,7 @@ export default function OutreachPanel({ tabs, locationOptions, locationName, onM
         ) : null}
 
         <div style={d.section}>
-          <p style={d.sectionLabel}>VISITS</p>
+          <p style={d.sectionLabel}>Visits</p>
           {visits.length === 0 ? <p style={styles.muted}>No visits logged yet.</p> : visits.map((v) => (
             <div key={v.id} style={styles.visit}>
               <b style={{ color: 'var(--text-primary)' }}>{fmtDay(v.at)}</b> · {v.byName}
@@ -291,7 +291,7 @@ export default function OutreachPanel({ tabs, locationOptions, locationName, onM
         {/* Notes: Ronnie's, or anyone's who can see the place - the manager
             sees them all. */}
         <div style={d.section}>
-          <p style={d.sectionLabel}>NOTES</p>
+          <p style={d.sectionLabel}>Notes</p>
           {notes.map((n) => (
             <div key={n.id} style={{ ...styles.visit, borderLeftColor: 'var(--warn)' }}>
               <div style={{ whiteSpace: 'pre-wrap' }}>{n.text}</div>
@@ -580,33 +580,33 @@ export default function OutreachPanel({ tabs, locationOptions, locationName, onM
 const styles = {
   tiles: { display: 'flex', gap: 12, margin: '4px 0 14px' },
   tilesNarrow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, margin: '4px 0 14px' },
-  tile: { flex: 1, minWidth: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 },
-  tileLabel: { fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  tile: { flex: 1, minWidth: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 },
+  tileLabel: { fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
   tileNum: { fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' },
   tileOf: { fontSize: 12.5, color: 'var(--text-tertiary)', fontWeight: 600 },
   bar: { height: 6, borderRadius: 3, background: 'var(--bg-inset)', overflow: 'hidden' },
   barFill: { height: '100%', background: 'var(--neon)' },
-  overview: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 12px 10px', marginBottom: 14 },
-  events: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 12px 10px', marginTop: 18 },
+  overview: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '12px 12px 10px', marginBottom: 14 },
+  events: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '12px 12px 10px', marginTop: 18 },
   overHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '2px 4px 8px' },
-  overTitle: { fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-secondary)' },
-  smallBtn: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-primary)', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' },
+  overTitle: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-secondary)' },
+  smallBtn: { background: 'rgba(var(--paper-rgb), 0.6)', border: '1px solid rgba(var(--ink-rgb), 0.1)', color: 'var(--text-primary)', borderRadius: 999, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' },
   playbook: { display: 'inline-block', margin: '0 2px 14px', fontSize: 12.5, fontWeight: 700, color: 'var(--neon)', textDecoration: 'none' },
   linkBtn: { background: 'none', border: 'none', padding: 0, color: 'var(--neon)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th: { textAlign: 'left', padding: '8px 10px', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' },
+  th: { textAlign: 'left', padding: '8px 10px', fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' },
   tr: { cursor: 'pointer', borderTop: '1px solid var(--border)' },
-  trOn: { background: 'rgba(34,211,238,0.07)' },
+  trOn: { background: 'rgba(10,126,164,0.07)' },
   evRow: { display: 'flex', flexDirection: 'column', gap: 3, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--border)', padding: '11px 4px', fontSize: 14, fontFamily: 'inherit', cursor: 'pointer' },
   td: { padding: '10px 10px', color: 'var(--text-primary)', verticalAlign: 'middle' },
   statusChip: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 16, padding: '6px 11px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
-  statusOn: { borderColor: 'var(--neon)', color: 'var(--neon)', background: 'rgba(34,211,238,0.07)' },
+  statusOn: { borderColor: 'var(--neon)', color: 'var(--neon)', background: 'rgba(10,126,164,0.07)' },
   visit: { borderLeft: '2px solid var(--border-strong)', padding: '2px 0 2px 12px', margin: '0 0 10px', fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 },
   muted: { fontSize: 12.5, color: 'var(--text-tertiary)', margin: '0 0 6px', lineHeight: 1.5 },
   mutedSmall: { fontSize: 11.5, color: 'var(--text-tertiary)', margin: '4px 0 0' },
   backdrop: { ...modalBackdrop, zIndex: 100 },
   modal: { padding: 22, ...modalSurface, width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto' },
-  modalTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' },
+  modalTitle: { fontSize: 21, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 8px' },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', margin: '8px 0 4px' },
   two: { display: 'flex', gap: 10 },
   buttons: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 16 },

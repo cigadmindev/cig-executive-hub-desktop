@@ -4,6 +4,7 @@ import { COLUMNS, ROWS, ALL_FOLDERS } from '../data/accessMatrix';
 import { categories } from '../data/mockData';
 import { useAccessMatrix } from '../context/AccessMatrixContext';
 import { useAuth } from '../context/AuthContext';
+import { segTrack, segItem, segItemOn } from '../theme/segmented';
 
 // Manage Logins → Who sees what. The table every login's access comes from.
 // Click a cell to change it; the change applies to everyone with that job.
@@ -119,21 +120,21 @@ function CompareTable() {
 }
 
 const styles = {
-  wrap: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18, marginBottom: 20 },
+  wrap: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 18, marginBottom: 20 },
   title: { fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--text-primary)' },
   note: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 14px', lineHeight: 1.5 },
   scroll: { overflowX: 'auto' },
   table: { borderCollapse: 'collapse', fontSize: 12.5, minWidth: 1700 },
   // Solid colours, not the theme's see-through card colour: these sit on top
   // of other cells while the table scrolls sideways.
-  th: { textAlign: 'left', verticalAlign: 'bottom', padding: '8px 6px', color: 'var(--text-secondary)', fontWeight: 700, borderBottom: '1px solid var(--border)', background: '#16161A' },
+  th: { textAlign: 'left', verticalAlign: 'bottom', padding: '8px 6px', color: 'var(--text-secondary)', fontWeight: 700, borderBottom: '1px solid var(--border)', background: 'var(--surface)' },
   td: { padding: '6px', borderBottom: '1px solid var(--border)', verticalAlign: 'top' },
-  sticky: { position: 'sticky', left: 0, background: '#16161A', zIndex: 2, boxShadow: '6px 0 8px -6px rgba(0,0,0,0.8)', borderRight: '1px solid var(--border)' },
-  job: { fontWeight: 800, fontSize: 13.5, color: 'var(--text-primary)', minWidth: 170 },
+  sticky: { position: 'sticky', left: 0, background: 'var(--surface)', zIndex: 2, boxShadow: '6px 0 8px -6px rgba(20,24,32,0.28)', borderRight: '1px solid var(--border)' },
+  job: { fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)', minWidth: 170 },
   sub: { fontWeight: 400, fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, maxWidth: 200 },
   cell: { background: 'none', border: '1px solid transparent', borderRadius: 6, padding: '4px 6px', textAlign: 'left', cursor: 'pointer', fontSize: 12.5, fontFamily: 'inherit', maxWidth: 170 },
   changed: { borderColor: 'var(--warn)' },
-  menu: { position: 'absolute', top: '100%', left: 0, zIndex: 5, background: '#1E1E24', border: '1px solid var(--border-strong)', borderRadius: 8, padding: 6, minWidth: 170, boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column' },
+  menu: { position: 'absolute', top: '100%', left: 0, zIndex: 5, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: 6, minWidth: 170, boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column' },
   menuItem: { background: 'none', border: 'none', textAlign: 'left', padding: '7px 8px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' },
   check: { fontSize: 13, color: 'var(--text-primary)', padding: '4px 8px', display: 'block' },
 };
@@ -389,33 +390,33 @@ const ws = {
   head: { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 14, marginBottom: 16 },
   title: { fontSize: 18, fontWeight: 800, margin: 0, color: 'var(--text-primary)' },
   sub: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.5 },
-  tabs: { display: 'flex', gap: 4, background: 'var(--bg-card)', padding: 4, borderRadius: 10, flexWrap: 'wrap' },
-  tab: { fontFamily: 'inherit', fontSize: 13, fontWeight: 700, padding: '8px 12px', minHeight: 38, borderRadius: 8, border: 'none', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer' },
-  tabOn: { background: 'var(--neon)', color: 'var(--neon-text)' },
+  tabs: { ...segTrack, flexWrap: 'wrap', borderRadius: 20 },
+  tab: { ...segItem },
+  tabOn: { ...segItemOn },
   layout: { display: 'flex', flexWrap: 'wrap', gap: 18, alignItems: 'flex-start' },
-  nav: { flex: '1 1 240px', maxWidth: 280, background: 'var(--bg-card)', borderRadius: 14, padding: 8, display: 'flex', flexDirection: 'column' },
+  nav: { flex: '1 1 240px', maxWidth: 280, background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, padding: 8, display: 'flex', flexDirection: 'column' },
   input: { fontFamily: 'inherit', fontSize: 13.5, background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', color: 'var(--text-primary)' },
   jobBtn: { fontFamily: 'inherit', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 10px', minHeight: 40, borderRadius: 8, border: 'none', background: 'none', color: 'var(--text-primary)', cursor: 'pointer' },
-  jobBtnOn: { background: 'rgba(34,211,238,0.14)', color: 'var(--neon)', fontWeight: 700 },
+  jobBtnOn: { background: 'rgba(10,126,164,0.14)', color: 'var(--neon)', fontWeight: 700 },
   main: { flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 },
-  card: { background: 'var(--bg-card)', borderRadius: 14, padding: '18px 20px', display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, padding: '18px 20px', display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' },
   h2: { fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)' },
-  section: { background: 'var(--bg-card)', borderRadius: 14, padding: '6px 20px 10px', marginBottom: 0 },
-  kicker: { fontSize: 11, fontWeight: 800, letterSpacing: 0.9, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '12px 0 6px' },
+  section: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, padding: '6px 20px 10px', marginBottom: 0 },
+  kicker: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: '12px 0 6px' },
   row: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: '11px 0', borderTop: '1px solid var(--border)' },
   rowText: { flex: '1 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 },
   rowName: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' },
   rowSays: { fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.45 },
   changed: { fontSize: 11.5, fontWeight: 600, color: 'var(--warn)' },
-  seg: { display: 'flex', gap: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 9, padding: 3, flexWrap: 'wrap' },
-  segBtn: { fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, padding: '7px 11px', minHeight: 34, borderRadius: 7, border: 'none', background: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' },
-  segOn: { background: 'var(--neon)', color: 'var(--neon-text)' },
-  segOff: { background: 'rgba(255,255,255,0.14)', color: 'var(--text-primary)' },
+  seg: { ...segTrack, padding: 3, flexWrap: 'wrap', borderRadius: 14 },
+  segBtn: { ...segItem, minHeight: 30, height: 30, fontSize: 12.5, padding: '0 11px' },
+  segOn: { ...segItemOn },
+  segOff: { ...segItemOn, color: 'var(--text-tertiary)' },
   chips: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   chip: { fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, padding: '6px 10px', minHeight: 32, borderRadius: 7, border: '1px solid var(--border)', background: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' },
-  chipOn: { background: 'rgba(34,211,238,0.14)', borderColor: 'transparent', color: 'var(--neon)' },
-  tag: { fontSize: 12.5, padding: '6px 10px', borderRadius: 7, background: 'rgba(255,255,255,0.07)', color: 'var(--text-secondary)' },
+  chipOn: { background: 'rgba(10,126,164,0.14)', borderColor: 'transparent', color: 'var(--neon)' },
+  tag: { fontSize: 12.5, padding: '6px 10px', borderRadius: 7, background: 'rgba(var(--ink-rgb), 0.07)', color: 'var(--text-secondary)' },
   foot: { fontSize: 12, color: 'var(--text-tertiary)', margin: '6px 0 6px' },
-  who: { fontSize: 11, fontWeight: 800, letterSpacing: 0.4, background: 'rgba(232,185,59,0.14)', color: 'var(--warn)', padding: '4px 8px', borderRadius: 6 },
-  ghostBtn: { fontFamily: 'inherit', fontSize: 13, fontWeight: 700, padding: '8px 12px', minHeight: 38, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', cursor: 'pointer' },
+  who: { fontSize: 11, fontWeight: 700, letterSpacing: 0.4, background: 'rgba(232,185,59,0.14)', color: 'var(--warn)', padding: '4px 8px', borderRadius: 6 },
+  ghostBtn: { fontFamily: 'inherit', fontSize: 13, fontWeight: 700, padding: '8px 12px', minHeight: 38, borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-primary)', cursor: 'pointer' },
 };

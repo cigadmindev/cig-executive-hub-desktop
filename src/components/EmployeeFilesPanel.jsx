@@ -92,7 +92,7 @@ export default function EmployeeFilesPanel({ locationId, locationName, notify })
           <div style={styles.list}>
             {data.archived.map((p) => (
               <div key={p.folderId} style={styles.row}>
-                <span style={{ ...styles.av, background: 'rgba(255,255,255,0.06)', color: 'var(--text-tertiary)' }}>{initials(p.name)}</span>
+                <span style={{ ...styles.av, background: 'rgba(var(--ink-rgb), 0.06)', color: 'var(--text-tertiary)' }}>{initials(p.name)}</span>
                 <span style={styles.who}>
                   <span style={styles.name}>{p.name}</span>
                   <span style={styles.sub}>
@@ -142,24 +142,24 @@ export default function EmployeeFilesPanel({ locationId, locationName, notify })
 
 const btn = { height: 32, padding: '0 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none', whiteSpace: 'nowrap' };
 const styles = {
-  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginTop: 22, display: 'flex', flexDirection: 'column', gap: 12 },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 16, marginTop: 22, display: 'flex', flexDirection: 'column', gap: 12 },
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
-  title: { margin: 0, fontSize: 15, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4 },
+  title: { margin: 0, fontSize: 15, fontWeight: 800, textTransform: 'none', letterSpacing: 0 },
   muted: { margin: '4px 0 0', fontSize: 12.5, color: 'var(--text-tertiary)', lineHeight: 1.5 },
-  cap: { margin: '4px 0 0', fontSize: 11, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  cap: { margin: '4px 0 0', fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
   search: { height: 36, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', padding: '0 12px', fontSize: 13, fontFamily: 'inherit' },
   list: { border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' },
   row: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderBottom: '1px solid var(--border)' },
   rowNarrow: { flexWrap: 'wrap' },
-  av: { width: 30, height: 30, borderRadius: '50%', background: 'rgba(34,211,238,0.12)', color: 'var(--neon)', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  av: { width: 30, height: 30, borderRadius: '50%', background: 'rgba(10,126,164,0.12)', color: 'var(--neon)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   who: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 },
   name: { fontSize: 13.5, color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 600 },
   sub: { fontSize: 11.5, color: 'var(--text-tertiary)' },
   actions: { display: 'flex', gap: 6, flexShrink: 0 },
   ghost: { ...btn, display: 'inline-flex', alignItems: 'center', border: '1px solid var(--border-strong)', color: 'var(--text-primary)', textDecoration: 'none', flexShrink: 0 },
   ghostBtn: { ...btn, background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-primary)' },
-  primaryBtn: { ...btn, background: 'var(--neon)', border: '1px solid var(--neon)', color: 'var(--neon-text)' },
-  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 },
+  primaryBtn: { ...btn, background: 'var(--ink)', border: '1px solid var(--neon)', color: 'var(--ink-text)' },
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(20,24,32,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 },
   dialog: { width: '100%', maxWidth: 420, background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 },
   dlgTitle: { margin: 0, fontSize: 16, fontWeight: 800 },
   dlgBody: { margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 },

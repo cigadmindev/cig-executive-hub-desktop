@@ -81,7 +81,7 @@ const styles = {
   },
   add: {
     display: 'inline-flex', alignItems: 'center', gap: 8, height: 64, padding: '0 16px', borderRadius: 10,
-    background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.35)', color: 'var(--neon)',
+    background: 'rgba(10,126,164,0.08)', border: '1px solid rgba(10,126,164,0.35)', color: 'var(--neon)',
     fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', textTransform: 'none',
   },
   error: { width: '100%', fontSize: 12, color: 'var(--warn)', margin: '2px 0 0' },

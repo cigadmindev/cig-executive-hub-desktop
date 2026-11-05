@@ -41,7 +41,7 @@ export default function AccessRequestsScreen() {
 
   if (!isAdmin) {
     return (
-      <div style={{ padding: '28px max(22px, min(36px, 4vw)) 60px' }}>
+      <div style={{ padding: '40px max(22px, min(48px, 4vw)) 60px' }}>
         <PageHeader title="Access requests" subtitle="Only admins can see this page." />
       </div>
     );
@@ -142,7 +142,7 @@ export default function AccessRequestsScreen() {
       ) : null}
 
       <div style={d.section}>
-        <p style={d.sectionLabel}>ADMIN</p>
+        <p style={d.sectionLabel}>Admin</p>
         {changing && declining !== selected.id && changing.status ? (
           <>
             <select style={d.input} value={changing.status} onChange={(e) => setChanging({ ...changing, status: e.target.value })}>
@@ -163,7 +163,7 @@ export default function AccessRequestsScreen() {
       </div>
 
       <div style={d.section}>
-        <p style={d.sectionLabel}>HISTORY</p>
+        <p style={d.sectionLabel}>History</p>
         <div style={d.history}>
           {history(selected).map(([what, t, who], i) => (
             <div key={i}>{dateText(t)} · {what}{who ? ' by ' + who : ''}</div>

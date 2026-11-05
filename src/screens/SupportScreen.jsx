@@ -8,6 +8,7 @@ import PageHeader from '../components/PageHeader';
 import { fmtDayTime } from '../lib/dates';
 import { modalBackdrop, modalSurface } from '../theme/modal';
 import { plainError } from '../lib/errors';
+import { segTrack, segItem, segItemOn, chipOn } from '../theme/segmented';
 
 const formatDateTime = (ts) => fmtDayTime(ts);
 
@@ -231,7 +232,7 @@ function AdminSupportView() {
       {tab === 'requests' ? (
         <div>
           {sortedRequests.length === 0 ? (
-            <p style={styles.hint}>No requests yet.</p>
+            <p className="hub-empty">No requests yet.</p>
           ) : (
             sortedRequests.map((r) => {
               const urgency = getUrgency(r.timestamp, r.status, now);
@@ -338,13 +339,13 @@ function AdminSupportView() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 680 },
-  tabRow: { display: 'flex', gap: 8, marginBottom: 20 },
-  tab: { padding: '7px 14px', borderRadius: 20, border: 'none', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 800, textTransform: 'none' },
-  tabActive: { background: 'var(--neon)', color: 'var(--neon-text)' },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 860 },
+  tabRow: { ...segTrack, marginBottom: 20 },
+  tab: { ...segItem },
+  tabActive: { ...segItemOn },
   hint: { color: 'var(--text-secondary)', fontSize: 13 },
 
-  form: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18 },
+  form: { background: 'var(--bg-card)', border: 'none', borderRadius: 20, padding: 18 },
   label: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6, marginTop: 12 },
   input: {
     width: '100%',
@@ -359,9 +360,9 @@ const styles = {
     fontFamily: 'inherit',
     resize: 'vertical',
   },
-  submitButton: { width: '100%', padding: '11px 0', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 14, marginTop: 16, textTransform: 'none' },
+  submitButton: { width: '100%', padding: '11px 0', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 14, marginTop: 16, textTransform: 'none' },
 
-  postCard: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 16, marginBottom: 12 },
+  postCard: { background: 'var(--bg-card)', border: 'none', borderRadius: 20, padding: 16, marginBottom: 12 },
   postHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   postAuthor: { fontSize: 13, fontWeight: 700 },
   postTime: { fontSize: 11, color: 'var(--text-tertiary)' },
@@ -383,9 +384,9 @@ const styles = {
     fontSize: 12,
     outline: 'none',
   },
-  commentSendButton: { padding: '0 14px', borderRadius: 10, background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, fontSize: 12, textTransform: 'none' },
+  commentSendButton: { padding: '0 14px', borderRadius: 999, background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 600, fontSize: 12, textTransform: 'none' },
 
-  requestCard: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 16, marginBottom: 12 },
+  requestCard: { background: 'var(--bg-card)', border: 'none', borderRadius: 20, padding: 16, marginBottom: 12 },
   requestHeaderRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   requestSubmitter: { fontSize: 14, fontWeight: 700 },
   urgencyBadge: { fontSize: 10, fontWeight: 700, color: '#FFFFFF', borderRadius: 6, padding: '3px 8px' },
@@ -397,10 +398,9 @@ const styles = {
   everyoneButtonActive: { background: 'var(--neon)', color: 'var(--neon-text)', borderColor: 'var(--neon)' },
   chipWrap: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   chip: { padding: '6px 12px', borderRadius: 16, border: '1px solid var(--border)', background: 'var(--bg-inset)', color: 'var(--text-secondary)', fontSize: 12 },
-  chipActive: { background: 'var(--neon)', color: 'var(--neon-text)', fontWeight: 900, borderColor: 'var(--neon)' },
-
+  chipActive: { ...chipOn, fontWeight: 700 },
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },
   modalCard: { padding: 24, textAlign: 'center', ...modalSurface, width: 'min(400px, 100%)' },
-  modalTitle: { fontSize: 19, fontWeight: 900, textTransform: 'uppercase', letterSpacing: -0.2, color: '#FFFFFF', margin: '0 0 12px' },
-  modalBody: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 18, lineHeight: 1.6 },
+  modalTitle: { fontSize: 21, fontWeight: 700, textTransform: 'none', letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 12px' },
+  modalBody: { fontSize: 14.5, color: 'var(--text-secondary)', marginBottom: 18, lineHeight: 1.6 },
 };

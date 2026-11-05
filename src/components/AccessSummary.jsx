@@ -90,8 +90,8 @@ export default function AccessSummary({ person }) {
 }
 
 const styles = {
-  box: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: '3px solid var(--neon)', borderRadius: 10, padding: '14px 16px', margin: '14px 0' },
-  kicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--neon)', margin: '0 0 6px' },
+  box: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: '3px solid var(--neon)', borderRadius: 20, padding: '14px 16px', margin: '14px 0' },
+  kicker: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--neon)', margin: '0 0 6px' },
   text: { fontSize: 14, lineHeight: 1.55, color: 'var(--text-primary)', margin: '0 0 6px' },
   muted: { color: 'var(--text-secondary)' },
   foot: { fontSize: 12, color: 'var(--text-tertiary)', margin: '8px 0 0' },

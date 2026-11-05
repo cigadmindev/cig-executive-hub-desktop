@@ -1,16 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 // value/onChange work with plain 'YYYY-MM-DD' strings, same as a native
 // date input, so this drops in wherever one was used before.
 export default function DatePickerField({ value, onChange, placeholder = 'Select date', min, max }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
+  const popRef = useRef(null);
+  // The calendar opens on top of everything, placed under the field (or
+  // above it when there isn't room), so a pop-up or a card can never cut it
+  // off (Glass, Nov 2026).
+  const [pos, setPos] = useState(null);
+  const place = () => {
+    const r = wrapRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const h = 330;
+    const below = window.innerHeight - r.bottom;
+    const top = below < h + 12 && r.top > h + 12 ? r.top - h - 6 : r.bottom + 6;
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - 298));
+    setPos({ top, left });
+  };
   const selected = value ? new Date(`${value}T00:00:00`) : null;
   const [viewDate, setViewDate] = useState(selected ?? new Date());
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      if (wrapRef.current && !wrapRef.current.contains(e.target) && !(popRef.current && popRef.current.contains(e.target))) setOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -48,13 +63,13 @@ export default function DatePickerField({ value, onChange, placeholder = 'Select
 
   return (
     <div style={styles.wrap} ref={wrapRef}>
-      <button type="button" style={styles.trigger} onClick={() => setOpen((v) => !v)}>
+      <button type="button" style={styles.trigger} onClick={() => { place(); setOpen((v) => !v); }}>
         <span style={{ color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{display}</span>
         
       </button>
 
-      {open ? (
-        <div style={styles.popover}>
+      {open && pos ? createPortal(
+        <div ref={popRef} data-reveal="" style={{ ...styles.popover, position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000 }}>
           <div style={styles.headerRow}>
             <button type="button" style={styles.navButton} onClick={() => setViewDate(new Date(year, month - 1, 1))}>
               ‹
@@ -97,7 +112,8 @@ export default function DatePickerField({ value, onChange, placeholder = 'Select
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </div>
   );
@@ -107,12 +123,14 @@ const styles = {
   wrap: { position: 'relative' },
   trigger: {
     width: '100%',
-    padding: '9px 11px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)',
-    background: 'var(--bg-inset)',
+    minHeight: 40,
+    padding: '9px 12px',
+    borderRadius: 12,
+    border: '1px solid rgba(var(--ink-rgb), 0.12)',
+    background: 'rgba(var(--paper-rgb), 0.78)',
     color: 'var(--text-primary)',
-    fontSize: 13,
+    fontSize: 14,
+    fontFamily: 'inherit',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -126,21 +144,21 @@ const styles = {
     // Above the confirm modals, which sit at 200 — otherwise the calendar
     // opens behind the dialog that contains it.
     zIndex: 300,
-    width: 260,
+    width: 290,
     background: 'var(--bg-elevated)',
-    border: '1px solid var(--border-strong)',
-    borderRadius: 'var(--radius-md)',
-    boxShadow: 'var(--shadow-lg)',
+    border: '1px solid var(--border)',
+    borderRadius: 18,
+    boxShadow: '0 18px 44px rgba(30,40,60,0.18)',
     padding: 14,
   },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  monthLabel: { fontSize: 13, fontWeight: 700 },
+  monthLabel: { fontSize: 15, fontWeight: 700 },
   navButton: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: 'var(--bg-inset)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    border: 'none',
+    background: 'rgba(var(--ink-rgb), 0.06)',
     color: 'var(--text-secondary)',
     fontSize: 13,
     display: 'flex',
@@ -148,19 +166,20 @@ const styles = {
     justifyContent: 'center',
   },
   weekdayRow: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 },
-  weekdayLabel: { textAlign: 'center', fontSize: 9, fontWeight: 700, color: 'var(--text-tertiary)' },
+  weekdayLabel: { textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' },
   cell: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', margin: 0 },
   dayButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     border: 'none',
     background: 'none',
     color: 'var(--text-primary)',
-    fontSize: 12,
+    fontSize: 14,
+    padding: 0,
     margin: '0 auto',
   },
-  dayToday: { border: '1px solid var(--text-secondary)' },
-  daySelected: { background: 'var(--text-primary)', color: 'var(--bg-window)', fontWeight: 700 },
+  dayToday: { color: 'var(--neon)', fontWeight: 700 },
+  daySelected: { background: 'var(--ink)', color: 'var(--ink-text)', fontWeight: 700 },
 };

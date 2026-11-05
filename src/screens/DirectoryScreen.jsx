@@ -225,10 +225,11 @@ export default function DirectoryScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 720 },
+  page: { padding: '40px max(22px, min(48px, 4vw)) 56px', maxWidth: 1180 },
   group: { marginBottom: 24 },
-  groupLabel: { fontSize: 10, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 10px' },
-  grid: { display: 'flex', flexDirection: 'column', gap: 12 },
+  groupLabel: { fontSize: 22, fontWeight: 700, letterSpacing: -0.4, textTransform: 'none', color: 'var(--text-primary)', margin: '10px 0 12px' },
+  // Two or three across on a wide window, one on a phone (Nov 2026).
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: 14 },
   card: {
     display: 'flex',
     alignItems: 'center',
@@ -242,7 +243,7 @@ const styles = {
     width: 46,
     height: 46,
     borderRadius: 23,
-    background: 'rgba(34,211,238,0.12)',
+    background: 'rgba(10,126,164,0.12)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -250,17 +251,17 @@ const styles = {
   },
   textCol: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
   cardTitleRow: { display: 'flex', alignItems: 'center', gap: 8 },
-  cardTitle: { fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: 0.2 },
+  cardTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'none', letterSpacing: 0 },
   cardSubtitle: { fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 },
   badgeDot: { position: 'absolute', top: 16, right: 16, width: 10, height: 10, borderRadius: 5, background: 'var(--danger)' },
   soonPill: {
-    background: 'rgba(255,255,255,0.08)',
+    background: 'rgba(var(--ink-rgb), 0.08)',
     color: 'var(--text-secondary)',
     fontSize: 9,
     fontWeight: 800,
     letterSpacing: 0.5,
     padding: '3px 6px',
     borderRadius: 6,
-    textTransform: 'uppercase',
+    textTransform: 'none',
   },
 };

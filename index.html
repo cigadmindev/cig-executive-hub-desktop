@@ -8,8 +8,50 @@
     <title>CIG Executive Hub</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Figtree (Nov 2026): the Hub's own typeface - clean and
+         friendly, and the same on every computer and phone. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <!-- Liquid glass (Nov 2026). A lens for the glass panes: at the edges it
+         bends what's behind the pane inward, the way real glass does. Only
+         Chrome and Edge can apply it to the page behind a pane, so it's
+         switched on for them (the "lens" class); Safari keeps the frosted
+         glass without the bending. -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <!-- How it works: the pane's outline is softened into a gentle slope,
+           then lit from the left (red) and from the top (green). Where the
+           slope faces the light the value rises, so the edges get a push
+           inward and the flat middle (half-lit) stays put. -->
+      <filter id="hub-lens" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="13" result="soft" />
+        <feDiffuseLighting in="soft" surfaceScale="7" diffuseConstant="1" lighting-color="#FF0000" result="lightX">
+          <feDistantLight azimuth="180" elevation="30" />
+        </feDiffuseLighting>
+        <feDiffuseLighting in="soft" surfaceScale="7" diffuseConstant="1" lighting-color="#00FF00" result="lightY">
+          <feDistantLight azimuth="270" elevation="30" />
+        </feDiffuseLighting>
+        <feComposite in="lightX" in2="lightY" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="map" />
+        <feDisplacementMap in="SourceGraphic" in2="map" scale="66" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
+    <script>
+      // Before the page draws: the lens where the browser supports it, and
+      // light or dark from the person's Appearance setting, so it never
+      // flashes the wrong colours.
+      (function () {
+        var d = document.documentElement;
+        if (navigator.userAgentData) d.classList.add('lens');
+        var m = 'light';
+        try { m = localStorage.getItem('hubAppearance') || 'light'; } catch (e) {}
+        if (m === 'auto') m = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        d.setAttribute('data-theme', m === 'dark' ? 'dark' : 'light');
+      })();
+    </script>
+    <!-- The waves behind the Hub; see #hub-bg in index.css. -->
+    <div id="hub-bg" aria-hidden="true"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

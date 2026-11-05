@@ -93,18 +93,18 @@ export default function EmailPreviewScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1200 },
+  page: { padding: '40px max(22px, min(48px, 4vw)) 60px', maxWidth: 1200 },
   columns: { display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' },
-  listCard: { flex: '0 0 300px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '6px 0 10px' },
-  group: { fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '14px 16px 4px' },
+  listCard: { flex: '0 0 300px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '6px 0 10px' },
+  group: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: '14px 16px 4px' },
   item: { display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderLeft: '3px solid transparent', padding: '9px 16px', cursor: 'pointer' },
   itemOn: { background: 'var(--accent-soft)', borderLeftColor: 'var(--neon)' },
   itemName: { display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' },
   itemTo: { display: 'block', fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 },
-  detail: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 18 },
+  detail: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 18 },
   detailName: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: 0 },
   detailMeta: { fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0' },
-  sendButton: { background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 800, fontSize: 14, cursor: 'pointer' },
-  frame: { width: '100%', height: 640, border: 'none', borderRadius: 10, marginTop: 16, background: '#0A0A0B' },
+  sendButton: { background: 'var(--ink)', color: 'var(--ink-text)', border: 'none', borderRadius: 999, padding: '10px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer' },
+  frame: { width: '100%', height: 640, border: 'none', borderRadius: 20, marginTop: 16, background: 'var(--surface)' },
   note: { fontSize: 12, color: 'var(--text-tertiary)', margin: '10px 0 0' },
 };

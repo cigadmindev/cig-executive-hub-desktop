@@ -74,7 +74,7 @@ export default function LocationScreen() {
           // finishing. Saying so stops a successful run reading as a failure.
           notify(
             'Still working, or something went wrong',
-            'If this took a while, the folders were probably still created - open the File Directories below to check. Otherwise: ' +
+            'If this took a while, the folders were probably still created - open the Folders below to check. Otherwise: ' +
               plainError(err, 'something went wrong.')
           );
         } finally {
@@ -132,7 +132,7 @@ export default function LocationScreen() {
         subtitle="Everything for this location: operations, folders and requests."
       />
 
-      <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel }}>Operations</h3>
+      <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel, ...styles.bigHead }}>Operations</h3>
       <div style={styles.grid}>
         {OPERATIONAL_ITEMS.filter((item) =>
           item.key === 'daily-checklists'
@@ -176,7 +176,7 @@ export default function LocationScreen() {
       </div>
 
       <div style={styles.directoryHead}>
-        <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel, margin: 0 }}>File Directories</h3>
+        <h3 style={{ ...styles.sectionHeader, ...nike.sectionLabel, ...styles.bigHead, margin: 0 }}>Folders</h3>
         {user?.role === 'admin' ? (
           <button style={styles.setupButton} disabled={settingUp} onClick={runDriveSetup}>
             {settingUp ? 'Setting up…' : 'Set up Drive folders'}
@@ -223,15 +223,16 @@ export default function LocationScreen() {
 }
 
 const styles = {
-  page: { padding: '32px max(22px, min(40px, 4vw))', maxWidth: 760 },
+  bigHead: { fontSize: 22, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text-primary)' },
+  page: { padding: '40px max(22px, min(48px, 4vw)) 56px', maxWidth: 1180 },
   directoryHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 22, marginBottom: 10 },
-  setupButton: { padding: '7px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  setupButton: { padding: '7px 12px', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   sectionHeader: { margin: '32px 0 12px' },
-  grid: { display: 'flex', flexDirection: 'column', gap: 10 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: 14 },
   gridTwo: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
-  gridTwoWide: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 },
+  gridTwoWide: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 },
   cardSmall: { gap: 10, padding: '12px 12px', minHeight: 60, alignItems: 'center' },
-  iconSmall: { width: 32, height: 32, borderRadius: 16, background: 'rgba(34,211,238,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  iconSmall: { width: 32, height: 32, borderRadius: 16, background: 'rgba(10,126,164,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   card: {
     width: '100%',
     display: 'flex',
@@ -243,7 +244,7 @@ const styles = {
     width: 46,
     height: 46,
     borderRadius: 23,
-    background: 'rgba(34,211,238,0.12)',
+    background: 'rgba(10,126,164,0.12)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

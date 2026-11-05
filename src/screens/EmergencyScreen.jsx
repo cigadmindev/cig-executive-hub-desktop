@@ -200,7 +200,7 @@ export default function EmergencyScreen() {
           const open = openKey === s.key;
           return (
             <div key={s.key} style={styles.item}>
-              <button style={styles.itemHead} onClick={() => setOpenKey(open ? null : s.key)}>
+              <button data-row="" data-inset="" style={styles.itemHead} onClick={() => setOpenKey(open ? null : s.key)}>
                 <span style={styles.itemTitle}>{s.title}</span>
                 <span style={styles.chevron}>{open ? '▾' : '▸'}</span>
               </button>
@@ -261,27 +261,27 @@ export default function EmergencyScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 820 },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 820 },
 
-  list: { background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden' },
+  list: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 24, overflow: 'hidden' },
   item: { borderBottom: '1px solid var(--border)' },
-  itemHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' },
-  itemTitle: { flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' },
-  chevron: { fontSize: 11, color: 'var(--text-tertiary)' },
+  itemHead: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderRadius: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' },
+  itemTitle: { flex: 1, fontSize: 15.5, fontWeight: 600, color: 'var(--text-primary)' },
+  chevron: { fontSize: 13, color: 'var(--text-tertiary)' },
 
-  steps: { padding: '0 16px 16px' },
+  steps: { padding: '0 20px 18px' },
   step: { display: 'flex', gap: 10, padding: '6px 0' },
   stepNumber: { flexShrink: 0, width: 20, height: 20, borderRadius: 10, background: 'var(--bg-inset)', color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  stepText: { fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' },
-  contactsButton: { marginTop: 10, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--neon)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  stepText: { fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-secondary)' },
+  contactsButton: { marginTop: 10, padding: '8px 12px', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--neon)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
 
-  closing: { fontSize: 12, lineHeight: 1.6, color: 'var(--text-tertiary)', margin: '18px 0 0' },
+  closing: { fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-tertiary)', margin: '18px 0 0' },
 
   backdrop: { ...modalBackdrop, zIndex: 100 },
   modal: { padding: 22, ...modalSurface, width: 'min(400px, 100%)' },
-  modalTitle: { fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
-  modalBody: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '0 0 14px' },
+  modalTitle: { fontSize: 21, fontWeight: 700, letterSpacing: -0.4, color: 'var(--text-primary)', margin: '0 0 6px' },
+  modalBody: { fontSize: 13.5, lineHeight: 1.5, color: 'var(--text-tertiary)', margin: '0 0 14px' },
   brandBlock: { marginBottom: 14 },
-  brandName: { fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', margin: '0 0 6px' },
+  brandName: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', margin: '0 0 6px' },
   locationButton: { display: 'block', width: '100%', padding: '10px 12px', marginBottom: 6, borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left', cursor: 'pointer' },
 };

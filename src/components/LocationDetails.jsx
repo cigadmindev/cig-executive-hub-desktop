@@ -188,21 +188,21 @@ export default function LocationDetails({ info, canEdit, onSave, notify }) {
 }
 
 const card = {
-  background: 'rgba(255,255,255,0.045)', border: '1px solid var(--border)', borderRadius: 10,
+  background: 'rgba(var(--ink-rgb), 0.045)', border: '1px solid var(--border)', borderRadius: 10,
   padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0,
 };
 
 const styles = {
   wrap: { borderTop: '1px solid var(--border)' },
   head: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '12px 20px' },
-  title: { fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' },
+  title: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' },
   headButtons: { display: 'flex', gap: 8 },
-  ghost: { height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textTransform: 'none', whiteSpace: 'nowrap' },
-  primary: { height: 34, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', textTransform: 'none', whiteSpace: 'nowrap' },
+  ghost: { height: 34, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', textTransform: 'none', whiteSpace: 'nowrap' },
+  primary: { height: 34, padding: '0 14px', borderRadius: 999, border: 'none', background: 'var(--ink)', color: 'var(--ink-text)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', textTransform: 'none', whiteSpace: 'nowrap' },
   cards: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, padding: '0 20px 10px' },
   cardsNarrow: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, padding: '0 14px 8px' },
   card,
-  role: { display: 'block', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  role: { display: 'block', fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
   name: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', overflowWrap: 'anywhere', lineHeight: 1.3 },
   link: { fontSize: 13, fontWeight: 600, color: 'var(--neon)', textDecoration: 'none', overflowWrap: 'anywhere' },
   empty: { fontSize: 13, color: 'var(--text-tertiary)' },
@@ -210,8 +210,8 @@ const styles = {
   addressWrapNarrow: { padding: '0 14px 10px' },
   address: { ...card, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   addressText: { display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginTop: 3 },
-  sub: { margin: 0, padding: '2px 20px 8px', fontSize: 11, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
-  subNarrow: { margin: 0, padding: '2px 14px 8px', fontSize: 11, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  sub: { margin: 0, padding: '2px 20px 8px', fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
+  subNarrow: { margin: 0, padding: '2px 14px 8px', fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
   numbers: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, padding: '0 20px 18px' },
   numbersNarrow: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, padding: '0 14px 14px' },
   form: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14, padding: '0 20px 18px' },

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from './Icon';
+import { createPortal } from 'react-dom';
 
 // value/onChange work with plain 'HH:MM' (24hr) strings, same as a native
 // time input, so this drops in wherever one was used before.
@@ -22,10 +23,20 @@ export default function TimePickerField({ value, onChange }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const listRef = useRef(null);
+  // Opens on top of everything so a pop-up can't cut the list off.
+  const [pos, setPos] = useState(null);
+  const place = () => {
+    const r = wrapRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const h = 230;
+    const below = window.innerHeight - r.bottom;
+    const top = below < h + 12 && r.top > h + 12 ? r.top - h - 6 : r.bottom + 6;
+    setPos({ top, left: r.left, width: Math.max(150, r.width) });
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      if (wrapRef.current && !wrapRef.current.contains(e.target) && !(listRef.current && listRef.current.contains(e.target))) setOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -50,13 +61,13 @@ export default function TimePickerField({ value, onChange }) {
 
   return (
     <div style={styles.wrap} ref={wrapRef}>
-      <button type="button" style={styles.trigger} onClick={() => setOpen((v) => !v)}>
+      <button type="button" style={styles.trigger} onClick={() => { place(); setOpen((v) => !v); }}>
         <span style={{ color: value ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{display}</span>
         <Icon name="clock" size={14} color="var(--text-secondary)" />
       </button>
 
-      {open ? (
-        <div style={styles.popover} ref={listRef}>
+      {open && pos ? createPortal(
+        <div style={{ ...styles.popover, position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 1000 }} ref={listRef} data-reveal="">
           {TIME_OPTIONS.map((o) => (
             <button
               key={o.value}
@@ -71,7 +82,8 @@ export default function TimePickerField({ value, onChange }) {
               {o.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       ) : null}
     </div>
   );
@@ -81,12 +93,14 @@ const styles = {
   wrap: { position: 'relative' },
   trigger: {
     width: '100%',
-    padding: '9px 11px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)',
-    background: 'var(--bg-inset)',
+    minHeight: 40,
+    padding: '9px 12px',
+    borderRadius: 12,
+    border: '1px solid rgba(var(--ink-rgb), 0.12)',
+    background: 'rgba(var(--paper-rgb), 0.78)',
     color: 'var(--text-primary)',
-    fontSize: 13,
+    fontSize: 14,
+    fontFamily: 'inherit',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -102,21 +116,21 @@ const styles = {
     maxHeight: 220,
     overflowY: 'auto',
     background: 'var(--bg-elevated)',
-    border: '1px solid var(--border-strong)',
-    borderRadius: 'var(--radius-md)',
-    boxShadow: 'var(--shadow-lg)',
+    border: '1px solid var(--border)',
+    borderRadius: 18,
+    boxShadow: '0 18px 44px rgba(30,40,60,0.18)',
     padding: 6,
   },
   option: {
     display: 'block',
     width: '100%',
     textAlign: 'left',
-    padding: '7px 10px',
-    borderRadius: 'var(--radius-sm)',
+    padding: '9px 12px',
+    borderRadius: 10,
     border: 'none',
     background: 'none',
     color: 'var(--text-primary)',
-    fontSize: 13,
+    fontSize: 14,
   },
-  optionActive: { background: 'var(--bg-card-hover)', fontWeight: 600 },
+  optionActive: { background: 'rgba(10,126,164,0.1)', color: 'var(--neon)', fontWeight: 600 },
 };

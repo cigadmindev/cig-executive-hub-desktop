@@ -1,42 +1,26 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-// Reactions on a message: a hover picker, and a pill showing what's been added.
+// Reactions on a message (rebuilt Nov 2026): a rounded bar of six clear
+// marks, like a phone's tapbacks, and a small pill on the bubble showing what
+// has been added. One reaction per person - picking another swaps it, picking
+// the same one again takes it off.
 //
-// Monochrome line icons rather than colour emoji — colour emoji render
-// differently on every platform and read as decoration next to an interface
-// built entirely from stroked icons.
-// Reactions for an operations thread rather than a social one — what people
-// need to signal here is acknowledgment and status, not sentiment. A heart on
-// a permit deadline says nothing.
-// Reactions for an operations thread rather than a social one — what people
-// need to signal here is acknowledgment and status, not sentiment.
-//
-// Marks inside a circle are drawn oversized: at 13px the circle takes the full
-// viewbox and a proportionally-sized mark inside it disappears.
+// Line icons rather than colour emoji, so they look the same on every
+// computer and phone. The keys of the first four ('up', 'urgent',
+// 'question', 'laugh') are the ones older messages already use.
 const OPTIONS = [
-  {
-    key: 'up',
-    label: 'Got it',
-    paths: ['M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3'],
-  },
-  { key: 'urgent', label: 'Urgent', paths: ['M12 3v13M12 20.5h.01'] },
-  {
-    key: 'question',
-    label: 'Question',
-    paths: ['M7.5 7.5a4.5 4.5 0 0 1 8.8 1.5c0 3-4.3 4.5-4.3 4.5M12 20.5h.01'],
-  },
-  {
-    key: 'laugh',
-    label: 'Ha',
-    circle: true,
-    paths: ['M18 13a6 6 0 0 1-6 5 6 6 0 0 1-6-5h12z', 'M9 9h.01', 'M15 9h.01'],
-  },
+  { key: 'up', label: 'Got it', paths: ['M7 10v11', 'M15 5.9 14 10h5.8a2 2 0 0 1 1.9 2.6l-2.3 7A2 2 0 0 1 17.5 21H7V10l4.3-7.4A1.9 1.9 0 0 1 15 5.9z'] },
+  { key: 'done', label: 'Done', paths: ['M5 12.5l4.5 4.5L19 7'] },
+  { key: 'heart', label: 'Love it', paths: ['M19.5 13.6 12 21l-7.5-7.4A5 5 0 0 1 12 6.7a5 5 0 0 1 7.5 6.9z'] },
+  { key: 'urgent', label: 'Urgent', paths: ['M9 4v10', 'M15 4v10', 'M9 19.5h.01', 'M15 19.5h.01'] },
+  { key: 'question', label: 'Question', paths: ['M8.5 8.5a3.6 3.6 0 0 1 7 1.2c0 2.4-3.5 3.3-3.5 5.3', 'M12 19.5h.01'] },
+  { key: 'laugh', label: 'Ha', circle: true, paths: ['M8 14a4.5 4.5 0 0 0 8 0z', 'M9 9.5h.01', 'M15 9.5h.01'] },
 ];
 
-function Glyph({ option, size = 13, color = 'currentColor' }) {
+function Glyph({ option, size = 18, color = 'currentColor' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      {option.circle ? <circle cx="12" cy="12" r="10" /> : null}
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {option.circle ? <circle cx="12" cy="12" r="9.5" /> : null}
       {option.paths.map((d, i) => (
         <path key={i} d={d} />
       ))}
@@ -44,100 +28,97 @@ function Glyph({ option, size = 13, color = 'currentColor' }) {
   );
 }
 
-export function ReactionPicker({ onPick }) {
+// The bar that appears beside a message when you point at it (or tap it on
+// a phone). The one you've already picked is lit.
+export function ReactionPicker({ onPick, mine }) {
   return (
-    <div style={styles.inlinePicker}>
-      {OPTIONS.map((o) => (
-        <button key={o.key} style={styles.pickerButton} onClick={() => onPick(o.key)} title={o.label}>
-          <Glyph option={o} size={13} color="var(--text-secondary)" />
-        </button>
-      ))}
+    <div style={styles.bar} data-reveal="" onClick={(e) => e.stopPropagation()}>
+      {OPTIONS.map((o) => {
+        const on = mine === o.key;
+        return (
+          <button
+            key={o.key}
+            style={{ ...styles.barButton, ...(on ? styles.barButtonOn : {}) }}
+            onClick={() => onPick(o.key)}
+            title={o.label}
+            aria-label={o.label}
+            aria-pressed={on}
+          >
+            <Glyph option={o} color={on ? 'var(--neon-text)' : 'var(--text-primary)'} />
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-// The pill sits on the bubble's inner corner — the edge facing the
-// conversation. Your messages are right-aligned so that's their left corner;
-// theirs are left-aligned so it's their right.
-export default function MessageReactions({ reactions, onToggle, isMe, myUid, pillsOnly }) {
-  const [picking, setPicking] = useState(false);
-
-  // Grouped so five people reacting with the same thing is one pill, not five.
+// The pill sits on the bubble's inner top corner - the edge facing the
+// conversation. Your messages are on the right, so it's their left corner.
+export default function MessageReactions({ reactions, onToggle, isMe, myUid }) {
   const counts = OPTIONS.map((o) => ({
     option: o,
     people: reactions.filter((r) => r.emoji === o.key),
   })).filter((g) => g.people.length > 0);
+  if (counts.length === 0) return null;
 
   return (
-    <div style={{ ...styles.wrap, ...(isMe ? { left: -6 } : { right: -6 }) }}>
-      {counts.length > 0 ? (
-        <div style={styles.pillRow}>
-          {counts.map(({ option, people }) => {
-            const mine = people.some((p) => p.uid === myUid);
-            return (
-              <button
-                key={option.key}
-                style={{ ...styles.pill, ...(mine ? styles.pillMine : {}) }}
-                onClick={() => onToggle(option.key)}
-                title={people.map((p) => p.name).join(', ')}
-              >
-                <Glyph option={option} color={mine ? 'var(--neon)' : 'var(--text-secondary)'} />
-                {people.length > 1 ? <span style={styles.count}>{people.length}</span> : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-
+    <div style={{ ...styles.wrap, ...(isMe ? { left: -8 } : { right: -8 }) }}>
+      {counts.map(({ option, people }) => {
+        const mineHere = people.some((p) => p.uid === myUid);
+        return (
+          <button
+            key={option.key}
+            style={{ ...styles.pill, ...(mineHere ? styles.pillMine : {}) }}
+            onClick={(e) => { e.stopPropagation(); onToggle(option.key); }}
+            title={option.label + ' · ' + people.map((p) => p.name).join(', ')}
+          >
+            <Glyph option={option} size={14} color={mineHere ? 'var(--neon-text)' : 'var(--text-primary)'} />
+            {people.length > 1 ? <span style={{ ...styles.count, ...(mineHere ? { color: 'var(--neon-text)' } : {}) }}>{people.length}</span> : null}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 const styles = {
-  wrap: { position: 'absolute', top: -11, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 },
-  inlinePicker: { display: 'flex', gap: 2 },
-  pillRow: { display: 'flex', gap: 3 },
-  pill: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 3,
-    padding: '2px 7px',
-    borderRadius: 9,
-    border: '1px solid var(--border-strong)',
-    background: 'var(--bg-elevated)',
-  },
-  pillMine: { borderColor: 'var(--neon)' },
-  count: { fontSize: 10, color: 'var(--text-secondary)', fontWeight: 600 },
-  addButton: {
-    width: 22,
-    height: 22,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--bg-elevated)',
-    opacity: 0,
-    padding: 0,
-  },
-  picker: {
+  bar: {
     display: 'flex',
     gap: 2,
-    padding: 3,
-    borderRadius: 9,
-    border: '1px solid var(--border-strong)',
-    background: 'var(--bg-elevated)',
-    boxShadow: 'var(--shadow-md)',
+    padding: 4,
+    borderRadius: 999,
+    background: 'var(--surface-pop)',
+    border: '1px solid var(--border)',
+    boxShadow: '0 8px 24px rgba(30,40,60,0.16)',
+    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+    backdropFilter: 'blur(20px) saturate(180%)',
   },
-  pickerButton: {
-    width: 26,
-    height: 26,
+  barButton: {
+    width: 36,
+    height: 36,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 6,
+    borderRadius: 18,
     border: 'none',
     background: 'none',
     padding: 0,
+    cursor: 'pointer',
   },
+  barButtonOn: { background: 'var(--neon)' },
+  wrap: { position: 'absolute', top: -14, display: 'flex', gap: 4, zIndex: 2 },
+  pill: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    height: 26,
+    padding: '0 8px',
+    borderRadius: 13,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-pop)',
+    boxShadow: '0 2px 8px rgba(30,40,60,0.12)',
+    cursor: 'pointer',
+  },
+  pillMine: { background: 'var(--neon)', borderColor: 'var(--neon)' },
+  count: { fontSize: 12, color: 'var(--text-secondary)', fontWeight: 700 },
 };

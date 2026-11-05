@@ -88,10 +88,10 @@ export default function PreOpeningDocsScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 900 },
-  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '6px 0', marginTop: 10 },
+  page: { padding: '40px max(22px, min(48px, 4vw)) 60px', maxWidth: 900 },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '6px 0', marginTop: 10 },
   row: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderTop: '1px solid var(--border)', color: 'var(--text-primary)', textDecoration: 'none' },
-  icon: { width: 34, height: 34, borderRadius: 17, background: 'rgba(34,211,238,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  icon: { width: 34, height: 34, borderRadius: 17, background: 'rgba(10,126,164,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   name: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   meta: { fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' },
   muted: { fontSize: 13, color: 'var(--text-secondary)', padding: '14px 18px', margin: 0 },

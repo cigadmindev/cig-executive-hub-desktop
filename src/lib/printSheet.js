@@ -74,7 +74,7 @@ const CSS = `
   body { font-family: 'Poppins', 'Liberation Sans', Arial, sans-serif; color: #000; background: #E9E9EC; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #111; color: #fff; font-size: 13px; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; }
   .bar span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bar button { flex-shrink: 0; background: #22D3EE; color: #0A0A0B; border: 0; border-radius: 8px; padding: 9px 16px; font-weight: 800; font-size: 13px; cursor: pointer; }
+  .bar button { flex-shrink: 0; background: var(--neon); color: #0A0A0B; border: 0; border-radius: 8px; padding: 9px 16px; font-weight: 800; font-size: 13px; cursor: pointer; }
   .pages { padding: 16px 0 40px; }
   .page { width: 8.5in; height: 11in; padding: 0.42in; background: #fff; margin: 0 auto 18px; box-shadow: 0 6px 30px rgba(0,0,0,.18); overflow: hidden; break-after: page; }
   .page:last-child { break-after: auto; }

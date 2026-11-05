@@ -88,9 +88,9 @@ const styles = {
   input: { flex: 1, minWidth: 0, background: 'none', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit' },
   // In the page's flow rather than floating, so nothing below shows through
   // it and it scrolls with the item.
-  panel: { marginTop: 8, maxWidth: 420, maxHeight: 340, overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 10, padding: 4, boxShadow: '0 10px 28px rgba(0,0,0,.35)' },
+  panel: { marginTop: 8, maxWidth: 420, maxHeight: 340, overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 10, padding: 4, boxShadow: '0 10px 28px rgba(30,40,60,0.2)' },
   secRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 10px 4px' },
-  secName: { fontSize: 10, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--text-tertiary)' },
+  secName: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)' },
   secAdd: { background: 'none', border: 'none', color: 'var(--neon)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0, textTransform: 'none' },
   item: { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 6, background: 'none', border: 'none', color: 'var(--text-primary)', fontSize: 13, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'none' },
   itemAdd: { fontSize: 11, color: 'var(--text-tertiary)' },

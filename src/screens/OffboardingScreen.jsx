@@ -69,7 +69,7 @@ export default function OffboardingScreen() {
       <PageHeader title="Offboarding" subtitle="What to turn off outside the Hub when someone leaves." />
 
       {records.length === 0 ? (
-        <p style={styles.hint}>Nobody has been deactivated.</p>
+        <p className="hub-empty">Nobody has been deactivated.</p>
       ) : (
         records.map((r) => {
           const returning = !!r.reactivatedAt;
@@ -162,10 +162,10 @@ export default function OffboardingScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw))', maxWidth: 680 },
+  page: { padding: '40px max(22px, min(48px, 4vw))', maxWidth: 860 },
   hint: { fontSize: 13, color: 'var(--text-tertiary)' },
 
-  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 12, overflow: 'hidden' },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, marginBottom: 12, overflow: 'hidden' },
   cardOpen: { borderColor: 'rgba(201,162,39,0.4)' },
   cardHead: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)' },
   name: { fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0 },
@@ -174,9 +174,9 @@ const styles = {
   steps: { padding: '4px 14px 12px' },
   stepRow: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 0', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' },
   // The same tick box as the checklists: an empty square, filled with a ✓ when done.
-  tick: { width: 20, height: 20, flexShrink: 0, boxSizing: 'border-box', borderRadius: 5, border: '1.5px solid var(--border-strong)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#0A0A0B' },
+  tick: { width: 20, height: 20, flexShrink: 0, boxSizing: 'border-box', borderRadius: 5, border: '1.5px solid var(--border-strong)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#0A0A0B' },
   tickDone: { background: 'var(--neon)', borderColor: 'var(--neon)' },
   stepLabel: { fontSize: 13, color: 'var(--text-primary)', margin: 0 },
   stepMeta: { fontSize: 12, color: 'var(--text-secondary)', margin: '1px 0 0' },
-  driveButton: { padding: '6px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },
+  driveButton: { padding: '6px 11px', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },
 };

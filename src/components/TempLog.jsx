@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { TEMP_LOG_HOURS, isTasted } from '../data/dailyChecklists';
+import { segTrack, segItem, segItemOn } from '../theme/segmented';
 
 // The Daily Time & Temperature Log (18 Oct 2026, sketch 22). A box per item
 // per check time. The chef types the number and the Hub adds the degree sign,
@@ -172,15 +173,15 @@ export default function TempLog({ record, list, canEdit, setCell, setTasted, isT
 }
 
 const styles = {
-  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--glass-edge)', borderRadius: 20, overflow: 'hidden' },
   grid: { display: 'grid', fontSize: 12.5 },
-  head: { padding: '9px 8px', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-strong)', display: 'flex', flexDirection: 'column', gap: 2 },
+  head: { padding: '9px 8px', fontSize: 12.5, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-strong)', display: 'flex', flexDirection: 'column', gap: 2 },
   headNow: { color: 'var(--neon)' },
   headCount: { fontWeight: 600, letterSpacing: 0, textTransform: 'none', fontSize: 10.5 },
   name: { padding: '0 10px', minHeight: 44, borderBottom: '1px solid var(--border)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' },
   dot: { width: 6, height: 6, borderRadius: 3, background: '#7A1F2B', flexShrink: 0 },
   cell: { padding: '5px 5px', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' },
-  cellNow: { background: 'rgba(34,211,238,0.05)' },
+  cellNow: { background: 'rgba(10,126,164,0.05)' },
   inputWrap: { position: 'relative', display: 'flex', alignItems: 'center', height: 34, borderRadius: 7, background: 'var(--bg-inset)', border: '1px solid transparent' },
   inputWrapBig: { width: 108, height: 42, flexShrink: 0 },
   input: { width: '100%', height: '100%', boxSizing: 'border-box', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 700, padding: '0 26px 0 7px', fontFamily: 'inherit', minWidth: 0 },
@@ -190,14 +191,14 @@ const styles = {
   readCell: { position: 'relative', height: 34, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px', fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' },
   readCellBig: { width: 108, height: 42, flexShrink: 0, background: 'var(--bg-inset)' },
   dash: { color: 'var(--text-tertiary)', fontWeight: 400 },
-  tabs: { display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 10 },
-  tab: { flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, height: 36, padding: '0 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 700, textTransform: 'none', fontFamily: 'inherit' },
-  tabOn: { background: 'var(--neon)', borderColor: 'var(--neon)', color: 'var(--neon-text)' },
+  tabs: { ...segTrack, marginBottom: 10 },
+  tab: { ...segItem },
+  tabOn: { ...segItemOn },
   tabCount: { fontSize: 10.5, opacity: 0.75 },
   phoneRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderTop: '1px solid var(--border)' },
   phoneName: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' },
   taste: { width: '100%', height: 24, boxSizing: 'border-box', borderRadius: 6, border: '1px solid var(--border-strong)', background: 'none', color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, fontFamily: 'inherit', textTransform: 'none' },
   tasteBig: { width: 86, height: 42, flexShrink: 0, boxSizing: 'border-box', borderRadius: 8, border: '1.5px solid var(--border-strong)', background: 'none', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, fontFamily: 'inherit', textTransform: 'none' },
-  tasteOn: { background: '#0E2E22', borderColor: '#5FA377', color: '#7ED3A0' },
+  tasteOn: { background: 'var(--green-bg)', borderColor: 'var(--success)', color: 'var(--green-fg)' },
   hint: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.5, margin: '10px 2px 0' },
 };

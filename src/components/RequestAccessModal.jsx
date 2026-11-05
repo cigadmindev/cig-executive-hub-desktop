@@ -43,8 +43,8 @@ export default function RequestAccessModal({ target, onSubmit, onClose }) {
 const styles = {
   modalBackdrop: { ...modalBackdrop, zIndex: 100 },
   modalCard: { padding: 24, ...modalSurface, width: 'min(400px, 100%)' },
-  modalTitle: { fontSize: 17, fontWeight: 700, margin: '0 0 8px', letterSpacing: -0.2 },
-  modalBody: { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 },
+  modalTitle: { fontSize: 21, fontWeight: 700, margin: '0 0 8px', letterSpacing: -0.4 },
+  modalBody: { fontSize: 14.5, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.5 },
   label: { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 },
   textarea: {
     width: '100%',
@@ -77,8 +77,8 @@ const styles = {
     padding: '10px 0',
     borderRadius: 'var(--radius-sm)',
     border: 'none',
-    background: 'var(--neon)',
-    color: '#0A0A0B',
+    background: 'var(--ink)',
+    color: 'var(--ink-text)',
     fontWeight: 800,
     fontSize: 13,
   },

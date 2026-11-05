@@ -166,7 +166,7 @@ export default function HomeAnnouncementsScreen() {
           <div style={styles.whereCard}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14 }}>Post to Home</div>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>Post to Home</div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Pinned at the top of Home for the people above</div>
               </div>
               <button
@@ -233,26 +233,26 @@ export default function HomeAnnouncementsScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(36px, 4vw)) 60px', maxWidth: 1000 },
+  page: { padding: '40px max(22px, min(48px, 4vw)) 60px', maxWidth: 1000 },
   columns: { display: 'flex', gap: 28, flexWrap: 'wrap', marginTop: 12 },
-  step: { fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '20px 0 8px' },
+  step: { fontSize: 17, fontWeight: 700, letterSpacing: -0.2, color: 'var(--text-primary)', margin: '22px 0 10px' },
   scopes: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 },
-  scope: { textAlign: 'left', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 2 },
+  scope: { textAlign: 'left', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: 14, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 2 },
   scopeOn: { borderColor: 'var(--neon)', background: 'var(--accent-soft)' },
-  scopeTitle: { fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' },
+  scopeTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' },
   scopeSub: { fontSize: 12, color: 'var(--text-secondary)' },
   pickers: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' },
   select: { background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit' },
   textarea: { width: '100%', boxSizing: 'border-box', minHeight: 120, background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: 8, padding: 12, color: 'var(--text-primary)', fontSize: 14, lineHeight: 1.5, fontFamily: 'inherit', resize: 'vertical' },
-  pin: { background: 'none', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  pin: { background: 'rgba(var(--paper-rgb), 0.6)', border: '1px solid rgba(var(--ink-rgb), 0.1)', color: 'var(--text-secondary)', borderRadius: 999, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   pinOn: { borderColor: 'var(--neon)', color: 'var(--neon)' },
-  postButton: { marginTop: 24, background: 'var(--neon)', color: '#0A0A0B', border: 'none', borderRadius: 8, padding: '11px 20px', fontWeight: 800, fontSize: 14, cursor: 'pointer' },
-  whereCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' },
+  postButton: { marginTop: 24, background: 'var(--ink)', color: 'var(--ink-text)', border: 'none', borderRadius: 999, padding: '11px 20px', fontWeight: 600, fontSize: 14, cursor: 'pointer' },
+  whereCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '14px 16px' },
   switch: { position: 'relative', width: 40, height: 23, borderRadius: 12, border: 'none', background: 'var(--border-strong)', cursor: 'pointer', flexShrink: 0 },
   switchOn: { background: 'var(--neon)' },
-  knob: { position: 'absolute', top: 3, left: 3, width: 17, height: 17, borderRadius: 9, background: '#0A0A0B', transition: 'left .15s' },
+  knob: { position: 'absolute', top: 3, left: 3, width: 17, height: 17, borderRadius: 9, background: 'var(--surface)', boxShadow: '0 1px 3px rgba(30,40,60,0.3)', transition: 'left .15s' },
   where: { fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', margin: '14px 0 6px' },
   previewFrame: { pointerEvents: 'none' },
-  previewKicker: { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--neon)', margin: 0 },
+  previewKicker: { fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--neon)', margin: 0 },
   previewMeta: { fontSize: 12, color: 'var(--text-tertiary)', margin: 0 },
 };

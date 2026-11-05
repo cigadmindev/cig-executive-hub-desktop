@@ -27,6 +27,8 @@ export default function OperationalPOCScreen() {
   const brand = brands.find((b) => b.id === brandId);
   const { getByBrand } = useCustomLocations();
   const [expandedId, setExpandedId] = useState(null);
+  // Set when you press Assign on a line: that line opens with its people list already showing.
+  const [assignOpenId, setAssignOpenId] = useState(null);
   const { loaded, watch, assignContacts, getByLocation: getContacts, ensureSeeded, updateContactField, addContact, deleteContact } =
     useOpeningOngoingContacts();
   // Load this location's contacts while the page is open (15 Oct 2026).
@@ -199,7 +201,7 @@ export default function OperationalPOCScreen() {
                   {/* Unlike the checklist, values stay visible when collapsed —
                       on a contact list the number is the content, so hiding it
                       behind a disclosure would defeat the point. */}
-                  <div style={styles.rowMain} data-row="" onClick={() => setExpandedId(isOpen ? null : c.id)}>
+                  <div style={styles.rowMain} data-row="" onClick={() => { setExpandedId(isOpen ? null : c.id); setAssignOpenId(null); }}>
                     {/* On a phone the company and number go under the item
                         (15 Oct 2026); three columns cut the number off. */}
                     {isNarrow ? (
@@ -217,11 +219,19 @@ export default function OperationalPOCScreen() {
                         <span style={styles.rowContact}>{c.contactNameNumber ? <Linkified text={c.contactNameNumber} /> : '—'}</span>
                         {/* Who has it, while it is not filled in. */}
                         <span style={styles.rowAssigned}>
-                          {assigneesOf(c).uids.length && !isFilled(c) ? <span style={styles.assignedChip} title={assigneesOf(c).names.join(', ')}>{shortNames(assigneesOf(c).names)}</span> : !isFilled(c) && canAssign ? <span style={styles.assignLink}>Assign</span> : null}
+                          {assigneesOf(c).uids.length && !isFilled(c) ? <span style={styles.assignedChip} title={assigneesOf(c).names.join(', ')}>{shortNames(assigneesOf(c).names)}</span> : !isFilled(c) && canAssign ? (
+                            <button
+                              type="button"
+                              style={styles.assignLink}
+                              onClick={(e) => { e.stopPropagation(); setExpandedId(c.id); setAssignOpenId(c.id); }}
+                            >
+                              Assign
+                            </button>
+                          ) : null}
                         </span>
                       </>
                     )}
-                    <span style={styles.chevron}>{isOpen ? '▾' : '▸'}</span>
+                    <span style={{ ...styles.chevron, transform: isOpen ? 'rotate(90deg)' : 'none' }}>›</span>
                   </div>
                   {isOpen ? (
                     <div style={styles.rowBody} data-reveal="">
@@ -234,12 +244,12 @@ export default function OperationalPOCScreen() {
                         readOnly={!canEdit && !mineOnly}
                       />
                       {canAssign ? (
-                        <div style={{ marginBottom: 10 }}>
+                        <div style={styles.bodyWide}>
                           <span style={styles.fieldLabel}>Assigned to</span>
-                          <AssigneePicker {...assigneesOf(c)} people={assignable} onChange={(uids) => assignOne(c, uids)} />
+                          <AssigneePicker {...assigneesOf(c)} people={assignable} onChange={(uids) => assignOne(c, uids)} startOpen={assignOpenId === c.id} />
                         </div>
                       ) : assigneesOf(c).uids.length ? (
-                        <p style={styles.assignedNote}>Assigned to {assigneesOf(c).names.join(', ')}{c.assignedByName ? ' by ' + c.assignedByName : ''}</p>
+                        <p style={{ ...styles.assignedNote, ...styles.bodyWide }}>Assigned to {assigneesOf(c).names.join(', ')}{c.assignedByName ? ' by ' + c.assignedByName : ''}</p>
                       ) : null}
                       {canEdit ? (
                         <div style={styles.removeWrap}>
@@ -318,49 +328,51 @@ export default function OperationalPOCScreen() {
 }
 
 const styles = {
-  page: { padding: '28px max(22px, min(40px, 4vw))' },
+  page: { padding: '40px max(22px, min(48px, 4vw))' },
   searchHint: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 14px' },
-  section: { background: 'var(--bg-card)', border: 'none', borderRadius: 12, padding: 18, marginBottom: 16 },
+  section: { background: 'var(--bg-card)', border: 'none', borderRadius: 24, padding: '8px 10px 10px', marginBottom: 16 },
   sectionHead: {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '14px 14px 9px',
-    borderBottom: '1px solid var(--border-strong)',
+    padding: '14px 14px 10px',
+    borderBottom: '1px solid var(--border)',
   },
   sectionName: {
-    fontSize: 13,
+    fontSize: 18,
     fontWeight: 700,
     color: 'var(--text-primary)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    textTransform: 'none',
+    letterSpacing: -0.3,
   },
   row: { borderBottom: '1px solid var(--border)' },
-  rowMain: { display: 'flex', alignItems: 'center', gap: 14, padding: '10px 14px', cursor: 'pointer' },
-  rowTitle: { fontSize: 14, color: 'var(--text-primary)', flex: '0 0 190px' },
-  rowVendor: { fontSize: 13, color: 'var(--text-secondary)', flex: 1, minWidth: 0, overflowWrap: 'anywhere' },
-  rowContact: { fontSize: 13, color: 'var(--text-secondary)', flex: '0 0 150px', minWidth: 0, overflowWrap: 'anywhere' },
+  rowMain: { display: 'flex', alignItems: 'center', gap: 16, padding: '12px 14px', cursor: 'pointer' },
+  rowTitle: { fontSize: 14.5, fontWeight: 600, color: 'var(--text-primary)', flex: '0 0 30%', minWidth: 0 },
+  rowVendor: { fontSize: 13.5, color: 'var(--text-secondary)', flex: '0 0 22%', minWidth: 0, overflowWrap: 'break-word' },
+  rowContact: { fontSize: 13.5, color: 'var(--text-secondary)', flex: 1, minWidth: 0, overflowWrap: 'break-word' },
   rowAssigned: { flex: '0 0 96px', display: 'flex', justifyContent: 'flex-start' },
-  assignedChip: { fontSize: 11, fontWeight: 700, color: 'var(--neon)', background: 'rgba(34,211,238,0.14)', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 96 },
-  assignLink: { fontSize: 12, color: 'var(--accent)' },
-  fieldLabel: { display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 4 },
+  assignedChip: { fontSize: 12, fontWeight: 600, color: 'var(--neon)', background: 'rgba(10,126,164,0.1)', borderRadius: 999, padding: '3px 9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 96 },
+  assignLink: { fontSize: 13, fontWeight: 700, color: 'var(--neon)', background: 'rgba(10,126,164,0.1)', border: 'none', borderRadius: 999, padding: '5px 12px', minHeight: 0, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
+  fieldLabel: { display: 'block', fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-tertiary)', marginBottom: 4 },
   assignSelect: { width: '100%', height: 40, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', padding: '0 10px', fontFamily: 'inherit', fontSize: 13 },
   assignedNote: { fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px' },
-  ghostAction: { background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 10, padding: '10px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 40 },
+  ghostAction: { background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 999, padding: '10px 14px', fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', minHeight: 40 },
   bulkBackdrop: { ...modalBackdrop },
   bulkCard: { ...modalSurface, padding: 22, width: 'min(460px, 100%)' },
   tickList: { maxHeight: 260, overflowY: 'auto', marginBottom: 12, display: 'flex', flexDirection: 'column' },
   tickRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 2px', fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer' },
   tickJob: { fontSize: 12, color: 'var(--text-tertiary)' },
   bulkTitle: { fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' },
-  chevron: { fontSize: 10, color: 'var(--text-tertiary)' },
-  rowBody: { padding: '4px 14px 14px 14px', maxWidth: 420 },
+  chevron: { fontSize: 18, lineHeight: 1, width: 16, textAlign: 'center', color: 'var(--text-tertiary)', flexShrink: 0, transition: 'transform 0.25s var(--spring)' },
+  // The opened line: its fields side by side in a soft panel (Nov 2026).
+  rowBody: { margin: '2px 4px 12px', padding: '14px 16px 12px', borderRadius: 16, background: 'rgba(var(--paper-rgb), 0.35)', border: '1px solid rgba(var(--ink-rgb), 0.07)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', columnGap: 16, rowGap: 2, alignItems: 'start' },
+  bodyWide: { gridColumn: '1 / -1', marginTop: 4, marginBottom: 6 },
 
-  removeWrap: { marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' },
-  removeLink: { background: 'none', border: 'none', padding: 0, color: 'var(--danger)', opacity: 0.75, fontSize: 11, cursor: 'pointer' },
+  removeWrap: { gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: 4, paddingTop: 10, borderTop: '1px solid var(--border)' },
+  removeLink: { background: 'none', border: 'none', padding: '4px 10px', minHeight: 0, borderRadius: 999, color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
   addRow: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' },
   addInput: { flex: 1, minWidth: 180, maxWidth: 260, height: 34, boxSizing: 'border-box', padding: '0 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--bg-inset)', color: 'var(--text-primary)', fontSize: 13 },
-  addConfirm: { height: 40, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--neon)', color: 'var(--neon-text)', fontSize: 12, fontWeight: 800, cursor: 'pointer' },
-  addCancel: { height: 40, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  addConfirm: { height: 40, padding: '0 14px', borderRadius: 999, border: 'none', background: 'var(--ink)', color: 'var(--ink-text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  addCancel: { height: 40, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--ink-rgb), 0.1)', background: 'rgba(var(--paper-rgb), 0.6)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   hint: { fontSize: 13, color: 'var(--text-secondary)' },
 };
