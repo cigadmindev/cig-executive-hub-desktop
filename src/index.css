@@ -644,6 +644,11 @@ button[data-primary]:active:not(:disabled) {
   from { opacity: 0; transform: translateY(12px) scale(0.95); }
   to { opacity: 1; transform: none; }
 }
+/* The message reaction bar pops in (uses scale, so it can sit with its own transform). */
+@keyframes hubBarIn {
+  from { opacity: 0; scale: 0.94; }
+  to { opacity: 1; scale: 1; }
+}
 @keyframes hubPulse {
   0% { transform: scale(1); }
   40% { transform: scale(1.14); }

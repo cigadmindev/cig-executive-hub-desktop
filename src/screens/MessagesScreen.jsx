@@ -74,6 +74,17 @@ export default function MessagesScreen() {
   }, [activeId]);
   const [text, setText] = useState('');
   const [hoveredMsgId, setHoveredMsgId] = useState(null);
+  // Where a message's reaction bar goes (Nov 2026): beside the bubble when
+  // there is room, so it never covers the message above; above it otherwise.
+  const [barBeside, setBarBeside] = useState(true);
+  const placeBar = (row, isMe) => {
+    const bubble = row.querySelector('[data-bubble]');
+    if (!bubble) return;
+    const r = row.getBoundingClientRect();
+    const b = bubble.getBoundingClientRect();
+    const room = isMe ? b.left - r.left : r.right - b.right;
+    setBarBeside(room >= 214);
+  };
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [editText, setEditText] = useState('');
 
@@ -455,7 +466,7 @@ export default function MessagesScreen() {
                     style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: 18, gap: 8, alignItems: 'flex-end', position: 'relative' }}
                     // On a phone there is no hover: a tap shows the actions.
                     onClick={isNarrow ? () => setHoveredMsgId((prev) => (prev === m.id ? null : m.id)) : undefined}
-                    onMouseEnter={() => setHoveredMsgId(m.id)}
+                    onMouseEnter={(e) => { placeBar(e.currentTarget, isMe); setHoveredMsgId(m.id); }}
                     onMouseLeave={() => setHoveredMsgId((prev) => (prev === m.id ? null : prev))}
                   >
                     {!isMe && isGroup ? (
@@ -470,17 +481,31 @@ export default function MessagesScreen() {
                       </div>
                     ) : null}
                     {hoveredMsgId === m.id && !isEditing ? (
-                      <div style={{ ...styles.msgActions, ...(isMe ? { right: 0 } : { left: isGroup ? 40 : 0 }) }}>
+                      <div
+                        style={{
+                          ...styles.msgActions,
+                          ...(barBeside && !isNarrow
+                            ? { ...styles.msgActionsBeside, alignItems: isMe ? 'flex-end' : 'flex-start', ...(isMe ? { right: 'var(--bar-gap)' } : { left: 'var(--bar-gap)' }) }
+                            : isMe ? { right: 0 } : { left: isGroup ? 40 : 0 }),
+                          '--bar-gap': (() => {
+                            const row = typeof document !== 'undefined' ? document.querySelector('[data-msg-id="' + m.id + '"]') : null;
+                            const bub = row && row.querySelector('[data-bubble]');
+                            if (!row || !bub) return '0px';
+                            const r = row.getBoundingClientRect(); const bb = bub.getBoundingClientRect();
+                            return (isMe ? r.right - bb.left : bb.right - r.left) + 10 + 'px';
+                          })(),
+                        }}
+                      >
                         <ReactionPicker mine={(m.reactions ?? []).find((r) => r.uid === user?.uid)?.emoji} onPick={(emoji) => react(m, emoji)} />
                         {isMe ? (
-                          <>
+                          <span style={styles.msgEditRow}>
                             <button style={styles.msgActionButton} onClick={() => startEditMessage(m)} title="Edit" aria-label="Edit">
                               ✎
                             </button>
                             <button style={styles.msgActionButton} onClick={() => handleDeleteMessage(m.id)} title="Delete" aria-label="Delete">
                               <Icon name="close" size={14} />
                             </button>
-                          </>
+                          </span>
                         ) : null}
                       </div>
                     ) : null}
@@ -779,10 +804,12 @@ const styles = {
     position: 'relative',
   },
   // Glass (Nov 2026): yours in the accent colour, theirs on white glass.
+  // Your messages (Nov 2026, Brenner): a softer wash of the accent instead
+  // of the full bright colour, with normal text on it, in light and dark.
   bubbleMe: {
-    background: 'var(--neon)',
-    border: '1px solid transparent',
-    color: 'var(--neon-text)',
+    background: 'color-mix(in srgb, var(--neon) 42%, var(--surface))',
+    border: '1px solid color-mix(in srgb, var(--neon) 30%, transparent)',
+    color: 'var(--text-primary)',
   },
   bubbleOther: {
     background: 'rgba(var(--paper-rgb), 0.85)',
@@ -806,8 +833,12 @@ const styles = {
   msgTime: { fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: 'right' },
   // Floats just above the message, so pointing at a message never squeezes
   // or resizes it (Nov 2026).
-  msgActions: { position: 'absolute', bottom: 'calc(100% - 6px)', zIndex: 5, display: 'flex', alignItems: 'center', gap: 4 },
-  msgActionButton: { width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, color: 'var(--text-secondary)', padding: 0, borderRadius: 18, border: '1px solid var(--border)', background: 'var(--surface-pop)', cursor: 'pointer' },
+  msgActions: { position: 'absolute', bottom: 'calc(100% + 4px)', zIndex: 5, display: 'flex', alignItems: 'center', gap: 4, animation: 'hubBarIn 0.22s var(--spring)' },
+  // Beside the bubble, level with its middle (Nov 2026). --bar-gap is the
+  // bubble's far edge measured from the row's edge, plus 10px.
+  msgActionsBeside: { bottom: 'auto', top: '50%', transform: 'translateY(-50%)', flexDirection: 'column', gap: 6 },
+  msgEditRow: { display: 'flex', gap: 6 },
+  msgActionButton: { width: 32, height: 32, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, color: 'var(--text-secondary)', padding: 0, borderRadius: 18, border: '1px solid var(--glass-border)', background: 'var(--surface-pop)', boxShadow: '0 6px 18px rgba(20,25,35,0.16)', WebkitBackdropFilter: 'blur(20px) saturate(170%)', backdropFilter: 'blur(20px) saturate(170%)', cursor: 'pointer' },
   editInput: {
     padding: '6px 8px',
     borderRadius: 6,
