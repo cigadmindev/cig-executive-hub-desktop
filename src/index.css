@@ -214,6 +214,24 @@ html, body, #root {
   [data-modal], [data-modal] * {
     overscroll-behavior: contain;
   }
+  /* Pop-ups scroll on a phone (Nov 2026). Safari counts 100vh as the screen
+     behind its own toolbars, so a tall pop-up "fitted" while its bottom was
+     hidden, and a swipe on it scrolled the page behind instead. Each pop-up
+     is now held to the part of the screen you can actually see (dvh, inside
+     the notch and home bar) and scrolls itself; the shade around it can
+     scroll too, so a swipe never reaches the page underneath. */
+  [data-modal] {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-top: calc(16px + env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  [data-modal] > :first-child:not([data-sheet]) {
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 body {

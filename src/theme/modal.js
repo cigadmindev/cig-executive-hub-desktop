@@ -9,4 +9,4 @@ export const modalLook = {
   background: 'var(--bg-elevated)', border: '1px solid rgba(var(--ink-rgb), 0.08)', borderRadius: 24,
   boxShadow: 'var(--shadow-lg)', maxWidth: '100%', boxSizing: 'border-box',
 };
-export const modalSurface = { ...modalLook, maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' };
+export const modalSurface = { ...modalLook, maxHeight: 'calc(100dvh - 32px)', overflowY: 'auto' };
