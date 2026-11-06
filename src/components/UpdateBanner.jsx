@@ -50,59 +50,67 @@ export default function UpdateBanner() {
 
   return (
     <div style={styles.bar}>
-      <span style={styles.dot} />
-      <span style={styles.text}>The Hub was updated. Reload when you can.</span>
+      <div style={styles.top}>
+        <span style={styles.dot} />
+        <span style={styles.text}>
+          <span style={styles.title}>New update ready</span>
+          <span style={styles.sub}>Reload for the latest version.</span>
+        </span>
+        <button
+          style={styles.dismiss}
+          onClick={() => setHiddenUntil(Date.now() + HIDE_FOR)}
+          aria-label="Hide for now"
+          title="Hide for now"
+        >
+          ✕
+        </button>
+      </div>
       <button data-primary="" style={styles.reload} onClick={() => window.location.reload()}>
         Reload
-      </button>
-      <button
-        style={styles.dismiss}
-        onClick={() => setHiddenUntil(Date.now() + HIDE_FOR)}
-        aria-label="Hide for now"
-        title="Hide for now"
-      >
-        ✕
       </button>
     </div>
   );
 }
 
-// Glass, like the rest of the Hub (Nov 2026): a soft frosted card with a
-// small accent dot, a pill Reload button in the Hub's main button style, and
-// a round hide button.
+// Glass, like the rest of the Hub (Nov 2026). Two lines so it fits the
+// narrow sidebar: a heading with a small accent dot and a round hide button,
+// then a full-width Reload pill in the Hub's main button style.
 const styles = {
   // Placed in the layout rather than floating over the page - inline in the
   // sidebar above the profile, and in the header on a phone.
   bar: {
     display: 'flex',
-    alignItems: 'center',
+    flexDirection: 'column',
     gap: 10,
-    padding: '8px 8px 8px 14px',
+    padding: 12,
     marginBottom: 10,
     borderRadius: 18,
     background: 'rgba(var(--paper-rgb), 0.55)',
     border: '1px solid var(--glass-border)',
     boxShadow: '0 4px 14px rgba(20, 25, 35, 0.08)',
   },
-  dot: { width: 8, height: 8, borderRadius: 4, background: 'var(--neon)', flexShrink: 0, boxShadow: '0 0 0 3px color-mix(in srgb, var(--neon) 22%, transparent)' },
-  text: { flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 },
+  top: { display: 'flex', alignItems: 'flex-start', gap: 10 },
+  dot: { width: 8, height: 8, borderRadius: 4, marginTop: 5, background: 'var(--neon)', flexShrink: 0, boxShadow: '0 0 0 3px color-mix(in srgb, var(--neon) 22%, transparent)' },
+  text: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 },
+  title: { fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 },
+  sub: { fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.3 },
   reload: {
-    height: 32,
+    width: '100%',
+    height: 34,
     padding: '0 14px',
     borderRadius: 999,
     border: 'none',
     background: 'var(--ink)',
     color: 'var(--ink-text)',
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: 700,
     fontFamily: 'inherit',
     textTransform: 'none',
     cursor: 'pointer',
-    flexShrink: 0,
   },
   dismiss: {
-    width: 28,
-    height: 28,
+    width: 24,
+    height: 24,
     flexShrink: 0,
     display: 'inline-flex',
     alignItems: 'center',
@@ -112,7 +120,7 @@ const styles = {
     border: 'none',
     padding: 0,
     color: 'var(--text-tertiary)',
-    fontSize: 11,
+    fontSize: 10,
     cursor: 'pointer',
   },
 };
