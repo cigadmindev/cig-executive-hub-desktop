@@ -9,11 +9,7 @@
 // block remote images by default — real icons can layer in later once there's
 // a public asset host.
 const IOS_DOWNLOAD_URL = 'https://apps.apple.com/app/id6790941894';
-// Folder rather than a single file, so one link serves both the manager and
-// the executive walkthrough. The /u/0/ prefix is deliberately absent - it
-// forces whichever Google account signed in first and breaks for anyone with
-// more than one.
-const TRAINING_VIDEO_URL = 'https://drive.google.com/file/d/1PheYqqLZlmMl5f7y8UIKqU7R9mGkj4LG/view';
+// The walkthrough video was taken out of this email (6 Nov 2026, Brenner).
 const WEB_URL = 'https://hub.cigconcepts.com';
 
 // Same look as every other Hub email (Nov 2026): built on emailTemplate's
@@ -108,8 +104,6 @@ function welcomeHtml({ name, link, job = null, where = null }) {
     `${linkTo(WEB_URL, 'hub.cigconcepts.com')} &mdash; nothing to install, works on any computer or phone. On a phone, add it to your home screen.`);
   const iosStep = step(3, false, 'Install on iPhone',
     `${linkTo(IOS_DOWNLOAD_URL, 'Get it from the App Store')} and sign in with the same email and password.`);
-  const videoStep = step(3, false, 'Watch the walkthrough',
-    `${linkTo(TRAINING_VIDEO_URL, 'See how it works')} &mdash; about ten minutes, and worth it before you start.`);
   const feats = featuresFor(job);
   const rows = [];
   for (let i = 0; i < feats.length; i += 2) {
@@ -136,7 +130,6 @@ function welcomeHtml({ name, link, job = null, where = null }) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       ${step(1, true, 'Set your password', 'Use the button above. The link works until you use it.')}
       ${webStep}
-      ${videoStep}
     </table>
   `)}
 
