@@ -143,7 +143,7 @@ export default function BottomBar({ messagesBadge, calendarBadge, profileBadge, 
           {item('profile', 'person', profileOn, '/profile', profileBadge, 25)}
         </div>
 
-        <button style={styles.homeButton} onClick={() => navigate('/')} aria-label="home">
+        <button data-frost="" style={{ ...styles.homeButton, color: homeOn ? 'var(--text-primary)' : 'var(--text-secondary)' }} onClick={() => navigate('/')} aria-label="home">
           <Icon name="home" size={24} filled={homeOn} />
           {/* The sidebar badges Home for events needing your job role. The
               iPhone bar has no home badge, so a straight port would have
@@ -221,6 +221,8 @@ const styles = {
     borderRadius: 4,
     background: 'var(--danger)',
   },
+  // Glass like the bar it sits in (Nov 2026): the same frost, the same
+  // light sheen and the same bright rim, in light and dark.
   homeButton: {
     position: 'absolute',
     left: `calc(50% - ${HOME_R}px)`,
@@ -228,16 +230,16 @@ const styles = {
     width: HOME_R * 2,
     height: HOME_R * 2,
     borderRadius: HOME_R,
-    background: 'var(--ink)',
-    border: '1px solid rgba(var(--paper-rgb), 0.7)',
+    background: 'linear-gradient(180deg, color-mix(in srgb, var(--bar-sheen) 78%, transparent), color-mix(in srgb, var(--bar-sheen) 50%, transparent))',
+    border: '1.4px solid rgba(255, 255, 255, calc(var(--bar-rim, 1) * 0.85))',
+    WebkitBackdropFilter: 'blur(26px) saturate(190%) brightness(1.04)',
+    backdropFilter: 'blur(26px) saturate(190%) brightness(1.04)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    // A glossy dark pebble: a highlight along the top edge, a shadow under.
-    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 6px rgba(0,0,0,0.25), 0 8px 18px rgba(30,40,60,0.28)',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, calc(var(--bar-rim, 1) * 0.6)), 0 10px 22px rgba(30, 40, 60, 0.14)',
     transition: 'transform 0.42s var(--spring)',
     cursor: 'pointer',
-    color: 'var(--ink-text)',
     // Safari paints its own translucent grey over a tapped button, which
     // read as the home button briefly vanishing.
     WebkitTapHighlightColor: 'transparent',

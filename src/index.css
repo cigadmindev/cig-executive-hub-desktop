@@ -225,10 +225,12 @@ html, body, #root {
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
     padding-top: calc(16px + env(safe-area-inset-top, 0px)) !important;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    /* Stops above the bottom bar and the home button that pokes up out of
+       it (bar 24px up + 62px tall + home button 29px + a little air). */
+    padding-bottom: calc(126px + env(safe-area-inset-bottom, 0px)) !important;
   }
   [data-modal] > :first-child:not([data-sheet]) {
-    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    max-height: calc(100dvh - 142px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
   }
