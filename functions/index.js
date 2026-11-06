@@ -193,7 +193,7 @@ function inviteHtml({ name, link, isReset }) {
     title: isReset ? 'Reset your password' : 'Your account is ready',
     intro: (name ? name.split(' ')[0] + ', ' : '') +
       (isReset ? 'use the button below to choose a new password for your CIG Executive Hub account.' : 'an account has been created for you in the CIG Executive Hub. Set a password to get started.'),
-    bodyHtml: '<div style="font-family:Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#6C6C76;">If the button does not work, paste this into your browser:<br><span style="color:#22D3EE;word-break:break-all;">' + T.esc(link) + '</span></div>',
+    bodyHtml: T.linkFallback(link),
     button: { label: isReset ? 'Set a new password' : 'Set your password', url: link },
     footer: 'This link expires in one hour. If you were not expecting it, you can ignore this email.',
     settingsLine: false,
