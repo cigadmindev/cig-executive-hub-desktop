@@ -205,9 +205,11 @@ const styles = {
   // Glass (Nov 2026): a sheet down the right-hand side, like the Mac's
   // Notification Centre - full height, so more fits without scrolling.
   backdrop: { position: 'fixed', inset: 0, background: 'rgba(20,24,32,0.24)', zIndex: 300, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', padding: 'calc(14px + env(safe-area-inset-top, 0px)) 14px calc(14px + env(safe-area-inset-bottom, 0px))', boxSizing: 'border-box' },
-  panel: { width: 'min(440px, 100%)', display: 'flex', flexDirection: 'column', background: 'rgba(var(--paper-rgb), 0.9)', WebkitBackdropFilter: 'blur(30px) saturate(180%)', backdropFilter: 'blur(30px) saturate(180%)', border: '1px solid rgba(var(--paper-rgb), 0.8)', borderRadius: 26, boxShadow: 'inset 1px 1px 0 rgba(255,255,255,0.95), 0 24px 60px rgba(30,40,60,0.22)', overflow: 'hidden' },
+  // The edge and its highlight follow the theme (Nov 2026): a bright rim in
+  // light mode, a faint one in dark instead of a hard white line.
+  panel: { width: 'min(440px, 100%)', display: 'flex', flexDirection: 'column', background: 'linear-gradient(160deg, rgba(var(--paper-rgb), 0.92), rgba(var(--paper-rgb), 0.84))', WebkitBackdropFilter: 'blur(30px) saturate(180%)', backdropFilter: 'blur(30px) saturate(180%)', border: '1px solid var(--glass-border)', borderRadius: 26, boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, calc(var(--bar-rim, 1) * 0.7)), 0 24px 60px rgba(10, 14, 22, 0.28)', overflow: 'hidden' },
 
-  head: { display: 'flex', alignItems: 'center', gap: 10, padding: '18px 14px 12px 22px' },
+  head: { display: 'flex', alignItems: 'center', gap: 12, padding: '20px 16px 14px 22px' },
   title: { flex: 1, fontSize: 24, fontWeight: 800, letterSpacing: -0.6, color: 'var(--text-primary)' },
   linkButton: { background: 'none', border: 'none', padding: 0, color: 'var(--neon)', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
   close: { width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--ink-rgb), 0.06)', border: 'none', borderRadius: 17, padding: 0, color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer' },
@@ -222,7 +224,7 @@ const styles = {
   dayLabel: { fontSize: 13, fontWeight: 700, letterSpacing: 0, textTransform: 'none', color: 'var(--text-secondary)', margin: 0, padding: '14px 12px 6px' },
   row: { display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '11px 12px', background: 'none', border: 'none', borderRadius: 14, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' },
   unreadDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--neon)', flexShrink: 0, marginTop: 6 },
-  rowUnread: { background: 'rgba(10,126,164,0.06)' },
+  rowUnread: { background: 'color-mix(in srgb, var(--neon) 9%, transparent)' },
   rowTitle: { fontSize: 14.5, fontWeight: 600, lineHeight: 1.35, color: 'var(--text-primary)', margin: 0 },
   rowTitleRead: { fontWeight: 500, color: 'var(--text-secondary)' },
   rowBody: { fontSize: 13, lineHeight: 1.4, color: 'var(--text-tertiary)', margin: '3px 0 0' },
@@ -233,6 +235,6 @@ const styles = {
   dot: { position: 'absolute', top: 7, right: 8, width: 7, height: 7, borderRadius: 4, background: 'var(--danger)' },
 
   // On a phone: floating above the bottom bar, bottom right.
-  bellFloating: { position: 'fixed', right: 14, bottom: 104, zIndex: 60, /* above the bottom bar, under every pop-up */ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 22, border: '1px solid rgba(var(--paper-rgb), 0.8)', background: 'rgba(var(--paper-rgb), 0.6)', backdropFilter: 'blur(22px) saturate(190%)', WebkitBackdropFilter: 'blur(22px) saturate(190%)', boxShadow: 'inset 1px 1px 0 rgba(255,255,255,0.95), 0 8px 22px rgba(30,40,60,0.16)', cursor: 'pointer' },
+  bellFloating: { position: 'fixed', right: 14, bottom: 104, zIndex: 60, /* above the bottom bar, under every pop-up */ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 22, border: '1.4px solid rgba(255, 255, 255, calc(var(--bar-rim, 1) * 0.85))', background: 'linear-gradient(180deg, color-mix(in srgb, var(--bar-sheen) 78%, transparent), color-mix(in srgb, var(--bar-sheen) 50%, transparent))', backdropFilter: 'blur(26px) saturate(190%) brightness(1.04)', WebkitBackdropFilter: 'blur(26px) saturate(190%) brightness(1.04)', boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, calc(var(--bar-rim, 1) * 0.6)), 0 10px 22px rgba(30, 40, 60, 0.14)', cursor: 'pointer' },
   dotFloating: { position: 'absolute', top: 9, right: 10, width: 7, height: 7, borderRadius: 4, background: 'var(--danger)' },
 };
