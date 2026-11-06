@@ -50,8 +50,9 @@ export default function UpdateBanner() {
 
   return (
     <div style={styles.bar}>
-      <span style={styles.text}>Updated — reload when you can.</span>
-      <button style={styles.reload} onClick={() => window.location.reload()}>
+      <span style={styles.dot} />
+      <span style={styles.text}>The Hub was updated. Reload when you can.</span>
+      <button data-primary="" style={styles.reload} onClick={() => window.location.reload()}>
         Reload
       </button>
       <button
@@ -66,37 +67,52 @@ export default function UpdateBanner() {
   );
 }
 
+// Glass, like the rest of the Hub (Nov 2026): a soft frosted card with a
+// small accent dot, a pill Reload button in the Hub's main button style, and
+// a round hide button.
 const styles = {
   // Placed in the layout rather than floating over the page - inline in the
   // sidebar above the profile, and in the header on a phone.
   bar: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    padding: '8px 10px',
+    gap: 10,
+    padding: '8px 8px 8px 14px',
     marginBottom: 10,
-    borderRadius: 10,
-    background: 'rgba(201,162,39,0.12)',
-    border: '1px solid rgba(201,162,39,0.35)',
+    borderRadius: 18,
+    background: 'rgba(var(--paper-rgb), 0.55)',
+    border: '1px solid var(--glass-border)',
+    boxShadow: '0 4px 14px rgba(20, 25, 35, 0.08)',
   },
-  text: { flex: 1, fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.3 },
+  dot: { width: 8, height: 8, borderRadius: 4, background: 'var(--neon)', flexShrink: 0, boxShadow: '0 0 0 3px color-mix(in srgb, var(--neon) 22%, transparent)' },
+  text: { flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 },
   reload: {
-    padding: '5px 10px',
-    borderRadius: 8,
+    height: 32,
+    padding: '0 14px',
+    borderRadius: 999,
     border: 'none',
-    background: 'var(--neon)',
-    color: 'var(--neon-text)',
-    fontSize: 12,
-    fontWeight: 800,
+    background: 'var(--ink)',
+    color: 'var(--ink-text)',
+    fontSize: 12.5,
+    fontWeight: 700,
+    fontFamily: 'inherit',
     textTransform: 'none',
     cursor: 'pointer',
+    flexShrink: 0,
   },
   dismiss: {
-    background: 'none',
+    width: 28,
+    height: 28,
+    flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    background: 'rgba(var(--ink-rgb), 0.06)',
     border: 'none',
-    padding: 4,
+    padding: 0,
     color: 'var(--text-tertiary)',
-    fontSize: 13,
+    fontSize: 11,
     cursor: 'pointer',
   },
 };
