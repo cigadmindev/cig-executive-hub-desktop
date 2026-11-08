@@ -13,7 +13,8 @@ import { modalBackdrop, modalSurface } from '../theme/modal';
 
 // Outreach (26 Oct 2026, sketch 30): Ronnie's local-marketing binder as a tab
 // on Catering & Events. Catering & Events managers keep a list of the places
-// they have been or want to go - schools, churches, businesses, hotels - log
+// they have been or want to go - schools, churches, businesses, hotels,
+// hospitals, wedding venues - log
 // each visit, and are reminded by email when a follow-up comes due (a month
 // after a visit unless they pick another date). The binder's event plan sheet
 // is the Planned events list underneath. Executives see every location; the
@@ -24,8 +25,11 @@ export const BUCKETS = {
   schools: { label: 'Schools', color: '#4FB3F6' },
   sports: { label: 'Sports', color: '#7ED3A0' },
   neighborhood: { label: 'Neighborhood', color: '#C084FC' },
+  // Added 8 Nov 2026 (Brenner).
+  hospitals: { label: 'Hospitals', color: '#F87171' },
+  weddings: { label: 'Weddings', color: '#F9A8D4' },
 };
-const TYPES = ['Business', 'School', 'Church', 'Hotel', 'Apartment complex', 'Military', 'Sports team or league', 'Nonprofit', 'Other'];
+const TYPES = ['Business', 'School', 'Church', 'Hotel', 'Hospital', 'Wedding venue or planner', 'Apartment complex', 'Military', 'Sports team or league', 'Nonprofit', 'Other'];
 const STATUS = {
   toVisit: ['To visit', 'amber'],
   visited: ['Visited', 'grey'],
@@ -427,7 +431,7 @@ export default function OutreachPanel({ tabs, locationOptions, locationName, onM
         selectedId={selected?.id}
         onSelect={(id) => setSelectedId(id)}
         detail={detail}
-        empty={!loaded ? 'Loading…' : filter === 'due' ? 'No follow-ups due.' : canWork ? 'No places yet. Add the schools, churches, businesses and hotels you are reaching out to.' : 'No places yet.'}
+        empty={!loaded ? 'Loading…' : filter === 'due' ? 'No follow-ups due.' : canWork ? 'No places yet. Add the schools, churches, businesses, hotels, hospitals and wedding venues you are reaching out to.' : 'No places yet.'}
         phoneRow={(p) => (
           <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>{p.name}</span>
