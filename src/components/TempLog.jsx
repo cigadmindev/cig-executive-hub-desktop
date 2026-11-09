@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useIsNarrow } from '../hooks/useIsNarrow';
-import { TEMP_LOG_HOURS, isTasted } from '../data/dailyChecklists';
+import { TEMP_LOG_HOURS, hourOfTime, isTasted } from '../data/dailyChecklists';
 import { segTrack, segItem, segItemOn } from '../theme/segmented';
 
 // The Daily Time & Temperature Log (18 Oct 2026, sketch 22). A box per item
@@ -13,12 +13,14 @@ const initialsOf = (name) => String(name ?? '').split(/\s+/).filter(Boolean).map
 export const cellText = (c) => (!c ? '' : c.temp != null && c.temp !== '' ? c.temp + '°' : c.note ?? '');
 
 // Which check is "now": the latest check time that has started, on today's
-// log; the first one before 11.
-export function currentSlot(isToday) {
+// log; the first one before the first check. Reads the day's own saved
+// times, so a log started under the old six times still lines up.
+export function currentSlot(isToday, times) {
   if (!isToday) return -1;
   const h = Number(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', hour: 'numeric', hour12: false }));
   let k = 0;
-  TEMP_LOG_HOURS.forEach((hh, i) => { if (h >= hh) k = i; });
+  const hours = times?.length ? times.map(hourOfTime) : TEMP_LOG_HOURS;
+  hours.forEach((hh, i) => { if (hh != null && h >= hh) k = i; });
   return k;
 }
 
@@ -90,7 +92,7 @@ export default function TempLog({ record, list, canEdit, setCell, setTasted, isT
   const tasted = record?.tasted ?? {};
   const taste = (r, c) => () => setTasted?.(r, c, !tasted[r + '_' + c]).catch(() => notify?.('Could not save', 'That was not saved. Try again.'));
   const tastedIn = (c) => items.filter((name, r) => isTasted(name) && tasted[r + '_' + c]).length;
-  const now = currentSlot(isToday);
+  const now = currentSlot(isToday, times);
   const [slot, setSlot] = useState(now >= 0 ? now : 0);
   const refs = useRef({});
 

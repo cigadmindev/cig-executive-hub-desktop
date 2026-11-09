@@ -249,8 +249,9 @@ async function drawPdf(r, locationName, photos = {}) {
 const CHEF_JOBS = ['Executive Chef', 'Sous Chef'];
 const TEMP_LOG_ID = 'temp-log';
 const TEMP_LOG_LOCATIONS = ['taste-starkville', 'taste-ridgeland'];
-const TEMP_LOG_TIMES = ['11:00 AM', '1:00 PM', '3:00 PM', '5:00 PM', '7:00 PM', '9:00 PM'];
-const TEMP_LOG_HOURS = [11, 13, 15, 17, 19, 21];
+// Three checks a day from 10 Nov 2026 (Brenner): 10am, 2pm and 5pm.
+const TEMP_LOG_TIMES = ['10:00 AM', '2:00 PM', '5:00 PM'];
+const TEMP_LOG_HOURS = [10, 14, 17];
 function chefHere(me, brandId, locationId) {
   if (CHEF_JOBS.includes(me.alsoJob?.job) && me.alsoJob?.locationId === locationId) return true;
   return CHEF_JOBS.includes(me.job) && R.seesLocation(me, brandId, locationId);
@@ -597,7 +598,7 @@ exports.dailyKitchenLateWatch = onSchedule(
 // executive chef and sous chef only. 30 minutes after each check time, if
 // nothing at all has been logged for it...
 exports.tempLogSlotWatch = onSchedule(
-  { schedule: '30 11,13,15,17,19,21 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 300 },
+  { schedule: '30 10,14,17 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 300 },
   async () => {
     const db = admin.firestore();
     const users = await R.activeUsers();
@@ -610,7 +611,11 @@ exports.tempLogSlotWatch = onSchedule(
       const x = snap.exists ? snap.data() : null;
       if (x?.status === 'filed') continue;
       const items = x?.items ?? [];
-      if (x && items.some((_, i) => x.cells?.[i + '_' + c])) continue;
+      // Find this check's column on the day's own record (a day started
+      // under the old six times keeps its own columns).
+      const col = x?.times ? x.times.indexOf(TEMP_LOG_TIMES[c]) : c;
+      if (col < 0) continue;
+      if (x && items.some((_, i) => x.cells?.[i + '_' + col])) continue;
       const brandId = await R.brandForLocation(locationId);
       const chefs = chefsAt(users, brandId, locationId);
       if (!chefs.length) continue;
@@ -623,9 +628,10 @@ exports.tempLogSlotWatch = onSchedule(
   }
 );
 
-// ...and at 11pm if the day's log has not been signed off.
+// ...and at 7pm (two hours after the last check; was 11pm until Nov 2026)
+// if the day's log has not been signed off.
 exports.tempLogUnsignedWatch = onSchedule(
-  { schedule: '0 23 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 300 },
+  { schedule: '0 19 * * *', timeZone: ZONE, secrets: ['RESEND_API_KEY'], timeoutSeconds: 300 },
   async () => {
     const db = admin.firestore();
     const users = await R.activeUsers();

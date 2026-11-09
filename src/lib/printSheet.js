@@ -430,7 +430,7 @@ export function printTempLogSheet({ location, brand, items, times }) {
     <div class="lsign"><div>Signed off by <i></i></div><div>Date / time <i></i></div><div>Notes <i></i></div></div></div>`;
   const meta = { eyebrow: eyebrowFor(brand, location), title: 'Daily Time & Temperature Log' };
   return open(location + ' - Temperature Log', 'Temperature log (blank) · ' + location, LOG_CSS, [{
-    head: header({ ...meta, subtitle: 'Hot-Holding & Cold-Holding Temperature Record — Store-Level Food Safety Check', lede: 'Record the temperature and initial each item and line station every two hours during service. Consistent recording protects food safety and keeps HACCP records audit-ready.' }),
+    head: header({ ...meta, subtitle: 'Hot-Holding & Cold-Holding Temperature Record — Store-Level Food Safety Check', lede: 'Record the temperature and initial each item and line station at 10:00 AM, 2:00 PM and 5:00 PM. Consistent recording protects food safety and keeps HACCP records audit-ready.' }),
     cont: contHeader(meta), category: 'Food Safety Log', fit: true, blocks: [body],
   }]);
 }

@@ -90,7 +90,7 @@ export default function DailyChecklistScreen() {
               </p>
             ) : (
               <p style={styles.small}>
-                {canLog ? 'Sign off after the 9:00 PM check, once every box has a temperature or a note.' : 'Kept by the executive chef and sous chef. You can see it, not change it.'}
+                {canLog ? 'Sign off after the ' + (times[times.length - 1] || 'last') + ' check, once every box has a temperature or a note.' : 'Kept by the executive chef and sous chef. You can see it, not change it.'}
                 {' '}Filed to Taste {place} › Operations › Temperature Logs › {dateKey.slice(0, 7)}.
               </p>
             )}

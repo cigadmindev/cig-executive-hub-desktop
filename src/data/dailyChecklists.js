@@ -523,12 +523,16 @@ DAILY_CHECKLISTS.push({ ...DAILY_CHECKLISTS.find((l) => l.id === 'ridgeland-chef
 // every item gets a temperature at each check time. Just the number, no
 // hot or cold limits. Filed to Operations › Temperature Logs, not in the
 // weekly report, and only the location's chefs are reminded.
-export const TEMP_LOG_TIMES = ['11:00 AM', '1:00 PM', '3:00 PM', '5:00 PM', '7:00 PM', '9:00 PM'];
-export const TEMP_LOG_HOURS = [11, 13, 15, 17, 19, 21];
+// Three checks a day from 10 Nov 2026 (Brenner): 10am, 2pm and 5pm. Days
+// logged before then keep their own six times, saved on that day's record.
+export const TEMP_LOG_TIMES = ['10:00 AM', '2:00 PM', '5:00 PM'];
+export const TEMP_LOG_HOURS = [10, 14, 17];
+// "5:00 PM" -> 17, so a day's own saved times can be read as hours.
+export const hourOfTime = (t) => { const m = /^(\d+):\d+\s*([AP])M$/i.exec(String(t).trim()); if (!m) return null; const h = Number(m[1]) % 12; return m[2].toUpperCase() === 'P' ? h + 12 : h; };
 DAILY_CHECKLISTS.push({
   id: 'temp-log', kind: 'log', title: 'Daily Time & Temperature Log',
   subtitle: 'Hot-Holding & Cold-Holding Temperature Record — Store-Level Food Safety Check',
-  intro: 'Record the temperature and initial each item and line station every two hours during service. Consistent recording protects food safety and keeps HACCP records audit-ready.',
+  intro: 'Record the temperature and initial each item and line station at 10:00 AM, 2:00 PM and 5:00 PM. Consistent recording protects food safety and keeps HACCP records audit-ready.',
   workers: [],
   tasks: [],
   times: TEMP_LOG_TIMES,

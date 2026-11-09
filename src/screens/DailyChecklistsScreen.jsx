@@ -49,7 +49,7 @@ export default function DailyChecklistsScreen() {
     const doneAt = (c) => items.every((_, i) => cells[i + '_' + c]);
     const filled = Object.keys(cells).length, total = items.length * times.length;
     const doneTimes = times.filter((_, c) => doneAt(c));
-    const now = currentSlot(isToday);
+    const now = currentSlot(isToday, times);
     const next = times.findIndex((_, c) => !doneAt(c));
     let pill = ['Not started', 'amber'];
     if (r?.status === 'filed') pill = ['Done · filed to Drive', 'grey'];
@@ -122,7 +122,7 @@ export default function DailyChecklistsScreen() {
           <div style={styles.grid}>{lists.filter((l) => l.kind === 'log').map(card)}</div>
         </>
       ) : null}
-      <p style={styles.note}>Openings not signed off by 5pm, or closings by midnight → this location's GM is emailed. Still not signed off by 10am the next day → the COO and admins are emailed. The kitchen closing is verified by the GM the next morning: the GM is reminded at 10am, and the COO and admins at 3pm. The temperature log is the chefs': they are reminded 30 minutes after a check with nothing logged, and at 11pm if it is not signed off.</p>
+      <p style={styles.note}>Openings not signed off by 5pm, or closings by midnight → this location's GM is emailed. Still not signed off by 10am the next day → the COO and admins are emailed. The kitchen closing is verified by the GM the next morning: the GM is reminded at 10am, and the COO and admins at 3pm. The temperature log is the chefs': they are reminded 30 minutes after a check with nothing logged, and at 7pm if it is not signed off.</p>
       {dialogNode}
     </div>
   );
