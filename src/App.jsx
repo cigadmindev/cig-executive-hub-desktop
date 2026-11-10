@@ -1,4 +1,27 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
+
+// Each page loads only when it's opened (Nov 2026 launch check): the Hub
+// used to download every page in one 1.7 MB file before showing anything.
+// After a deploy, a tab left open still points at the old page files, which
+// are gone; if one fails to load, the page reloads once to pick up the new
+// version instead of showing an error.
+function lazyPage(load) {
+  return lazy(() =>
+    load().then((page) => {
+      try { sessionStorage.removeItem('hubChunkReload'); } catch (e) {}
+      return page;
+    }).catch((err) => {
+      let tried = false;
+      try { tried = sessionStorage.getItem('hubChunkReload') === '1'; } catch (e) {}
+      if (!tried) {
+        try { sessionStorage.setItem('hubChunkReload', '1'); } catch (e) {}
+        window.location.reload();
+        return new Promise(() => {});
+      }
+      throw err;
+    })
+  );
+}
 import { assignedWorkOnly } from './data/accessMatrix';
 import { HashRouter, BrowserRouter, Routes, Route, Navigate , useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -25,51 +48,51 @@ import { WorkOrdersProvider } from './context/WorkOrdersContext';
 import { ThemeProvider } from './context/ThemeContext';
 import LoginScreen from './screens/LoginScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
-import DirectoryScreen from './screens/DirectoryScreen';
-import ProfileScreen from './screens/ProfileScreen';
+const DirectoryScreen = lazyPage(() => import('./screens/DirectoryScreen'));
+const ProfileScreen = lazyPage(() => import('./screens/ProfileScreen'));
 import AppLayout from './layout/AppLayout';
 import HomeScreen from './screens/HomeScreen';
-import BrandScreen from './screens/BrandScreen';
-import LocationScreen from './screens/LocationScreen';
-import CategoryDetailScreen from './screens/CategoryDetailScreen';
-import AnnouncementsScreen from './screens/AnnouncementsScreen';
-import HomeAnnouncementsScreen from './screens/HomeAnnouncementsScreen';
-import MessagesScreen from './screens/MessagesScreen';
-import MySpaceScreen from './screens/MySpaceScreen';
-import CalendarScreen from './screens/CalendarScreen';
-import AvailabilityScreen from './screens/AvailabilityScreen';
-import EventRequestsScreen from './screens/EventRequestsScreen';
-import EmailPreviewScreen from './screens/EmailPreviewScreen';
-import DailyChecklistsScreen from './screens/DailyChecklistsScreen';
-import DailyChecklistScreen from './screens/DailyChecklistScreen';
+const BrandScreen = lazyPage(() => import('./screens/BrandScreen'));
+const LocationScreen = lazyPage(() => import('./screens/LocationScreen'));
+const CategoryDetailScreen = lazyPage(() => import('./screens/CategoryDetailScreen'));
+const AnnouncementsScreen = lazyPage(() => import('./screens/AnnouncementsScreen'));
+const HomeAnnouncementsScreen = lazyPage(() => import('./screens/HomeAnnouncementsScreen'));
+const MessagesScreen = lazyPage(() => import('./screens/MessagesScreen'));
+const MySpaceScreen = lazyPage(() => import('./screens/MySpaceScreen'));
+const CalendarScreen = lazyPage(() => import('./screens/CalendarScreen'));
+const AvailabilityScreen = lazyPage(() => import('./screens/AvailabilityScreen'));
+const EventRequestsScreen = lazyPage(() => import('./screens/EventRequestsScreen'));
+const EmailPreviewScreen = lazyPage(() => import('./screens/EmailPreviewScreen'));
+const DailyChecklistsScreen = lazyPage(() => import('./screens/DailyChecklistsScreen'));
+const DailyChecklistScreen = lazyPage(() => import('./screens/DailyChecklistScreen'));
 import { AccessMatrixProvider } from './context/AccessMatrixContext';
 import { atLeast } from './data/accessMatrix';
-import RenewalsScreen from './screens/RenewalsScreen';
-import AdminUsersScreen from './screens/AdminUsersScreen';
-import AccessRequestsScreen from './screens/AccessRequestsScreen';
-import SupportScreen from './screens/SupportScreen';
-import IntegrationRequestsScreen from './screens/IntegrationRequestsScreen';
-import OpeningSoonScreen from './screens/OpeningSoonScreen';
-import WaresInventoryScreen from './screens/WaresInventoryScreen';
+const RenewalsScreen = lazyPage(() => import('./screens/RenewalsScreen'));
+const AdminUsersScreen = lazyPage(() => import('./screens/AdminUsersScreen'));
+const AccessRequestsScreen = lazyPage(() => import('./screens/AccessRequestsScreen'));
+const SupportScreen = lazyPage(() => import('./screens/SupportScreen'));
+const IntegrationRequestsScreen = lazyPage(() => import('./screens/IntegrationRequestsScreen'));
+const OpeningSoonScreen = lazyPage(() => import('./screens/OpeningSoonScreen'));
+const WaresInventoryScreen = lazyPage(() => import('./screens/WaresInventoryScreen'));
 import { UnderRepairGate } from './components/UnderRepair';
 import { AccessPresetsProvider } from './context/AccessPresetsContext';
 import { OffboardingProvider } from './context/OffboardingContext';
 import { NotificationsProvider } from './context/NotificationsContext';
 import { DeviceRequestsProvider } from './context/DeviceRequestsContext';
 import { CateringProvider } from './context/CateringContext';
-import CateringScreen from './screens/CateringScreen';
-import DeviceRequestsScreen from './screens/DeviceRequestsScreen';
-import EmergencyScreen from './screens/EmergencyScreen';
-import HRScreen from './screens/HRScreen';
-import PreOpeningDocsScreen from './screens/PreOpeningDocsScreen';
-import OffboardingScreen from './screens/OffboardingScreen';
-import OpeningChecklistScreen from './screens/OpeningChecklistScreen';
-import OpeningReplanScreen from './screens/OpeningReplanScreen';
-import OperationalPOCScreen from './screens/OperationalPOCScreen';
-import IntegrationsScreen from './screens/IntegrationsScreen';
-import ExecutiveNotesScreen from './screens/ExecutiveNotesScreen';
-import WorkOrdersScreen from './screens/WorkOrdersScreen';
-import ExpensesScreen from './screens/ExpensesScreen';
+const CateringScreen = lazyPage(() => import('./screens/CateringScreen'));
+const DeviceRequestsScreen = lazyPage(() => import('./screens/DeviceRequestsScreen'));
+const EmergencyScreen = lazyPage(() => import('./screens/EmergencyScreen'));
+const HRScreen = lazyPage(() => import('./screens/HRScreen'));
+const PreOpeningDocsScreen = lazyPage(() => import('./screens/PreOpeningDocsScreen'));
+const OffboardingScreen = lazyPage(() => import('./screens/OffboardingScreen'));
+const OpeningChecklistScreen = lazyPage(() => import('./screens/OpeningChecklistScreen'));
+const OpeningReplanScreen = lazyPage(() => import('./screens/OpeningReplanScreen'));
+const OperationalPOCScreen = lazyPage(() => import('./screens/OperationalPOCScreen'));
+const IntegrationsScreen = lazyPage(() => import('./screens/IntegrationsScreen'));
+const ExecutiveNotesScreen = lazyPage(() => import('./screens/ExecutiveNotesScreen'));
+const WorkOrdersScreen = lazyPage(() => import('./screens/WorkOrdersScreen'));
+const ExpensesScreen = lazyPage(() => import('./screens/ExpensesScreen'));
 
 function Gate() {
   const { user, loading } = useAuth();
@@ -95,6 +118,7 @@ function Gate() {
     <Providers>
     <AppLayout>
       <UnderRepairGate>
+      <Suspense fallback={<div style={{ minHeight: '60vh' }} />}>
       <Routes>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/brand/:brandId" element={<RequireBrand><BrandScreen /></RequireBrand>} />
@@ -139,6 +163,7 @@ function Gate() {
         <Route path="/pre-opening-documents" element={<RequireExecutive><PreOpeningDocsScreen /></RequireExecutive>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
       </UnderRepairGate>
     </AppLayout>
     </Providers>
