@@ -947,3 +947,11 @@ html.lens [data-frost] {
   to { transform: none; opacity: 1; }
 }
 .hub-side-scroll::-webkit-scrollbar { display: none; }
+
+/* The sidebar sliding out of the slim strip stays glass, frosted without
+   the lens bend, which is too heavy to redraw while it widens. A little
+   stronger frost, since the page behind is busy. */
+html [data-flyout][style*="var(--bg-sidebar)"] {
+  -webkit-backdrop-filter: blur(26px) saturate(185%) brightness(1.05);
+  backdrop-filter: blur(26px) saturate(185%) brightness(1.05);
+}

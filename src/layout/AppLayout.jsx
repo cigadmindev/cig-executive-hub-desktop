@@ -175,7 +175,7 @@ export default function AppLayout({ children }) {
   );
 
   const fullSidebar = (
-      <div style={slim ? { ...styles.sidebar, ...styles.flyoutPanel } : styles.sidebar}>
+      <div style={slim ? { ...styles.sidebar, ...styles.flyoutPanel } : styles.sidebar} data-flyout={slim ? '' : undefined}>
         <div style={styles.dragArea} />
 
         <div style={styles.brandRow}>
@@ -393,12 +393,13 @@ const styles = {
   railBrands: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, overflowY: 'auto', minHeight: 0 },
   // The full sidebar sliding out over the page from the slim strip.
   // The full sidebar out of the strip (Nov 2026): it starts exactly where
-  // and as big as the strip, then widens - only its size animates, and it
-  // is solid (not the see-through glass), so it moves smoothly.
+  // and as big as the strip, then widens - only its size animates. It is
+  // glass like the strip (Brenner), frosted without the lens bend so it
+  // stays smooth while it moves.
   flyout: { position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 61, overflow: 'hidden', boxShadow: '0 20px 60px rgba(20,24,32,0.30)', willChange: 'width' },
   flyoutOpen: { width: 256, borderRadius: 26, transition: 'width 0.36s cubic-bezier(0.22, 1, 0.36, 1), border-radius 0.36s' },
   flyoutShut: { width: 64, borderRadius: 22, boxShadow: 'none', transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.28s, box-shadow 0.28s' },
-  flyoutPanel: { width: 256, height: '100%', boxSizing: 'border-box', background: 'var(--bg-sidebar-solid)', border: '1px solid var(--glass-edge)', borderRadius: 26, boxShadow: 'none' },
+  flyoutPanel: { width: 256, height: '100%', boxSizing: 'border-box', borderRadius: 26 },
   scrim: { position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(20, 24, 32, 0.16)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', opacity: 0, pointerEvents: 'none', transition: 'opacity 0.3s ease' },
   scrimOn: { opacity: 1, pointerEvents: 'auto' },
   // dvh, not vh: the phone container has to shrink when the keyboard opens,
