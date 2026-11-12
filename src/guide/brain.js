@@ -118,7 +118,7 @@ function findFolder(s) {
   let best = null;
   for (const cat of categories) {
     for (const item of cat.items) {
-      const extra = (FOLDER_WORDS[item] ?? []).map((w) => (s.includes(w) ? w.length + 3 : 0));
+      const extra = (FOLDER_WORDS[item] ?? []).map((w) => (has(s, w) ? w.length + 3 : 0));
       const score = Math.max(0, s.includes(item.toLowerCase()) ? item.length : 0, ...extra);
       if (score > (best?.score ?? 0)) best = { cat, item, score };
     }
@@ -219,8 +219,9 @@ function renewalsAnswer(s, ctx, memory) {
   const locs = named && p.loc ? [p.loc] : p.many ?? ctx.locations;
   const rows = [];
   for (const loc of locs) for (const r of ctx.renewalsFor(loc.id) ?? []) if (r.expirationDate && !r.hidden) rows.push({ r, loc, days: Math.round((r.expirationDate - ctx.now) / DAY) });
-  const typeWord = ['liquor', 'beer', 'food', 'health', 'privilege', 'business', 'lease', 'sign', 'building', 'occupancy'].find((w) => has(s, w));
-  let list = typeWord ? rows.filter((x) => String(x.r.type).toLowerCase().includes(typeWord)) : rows;
+  const typeWord = ['liquor', 'alcohol', 'beer', 'food', 'health', 'privilege', 'business', 'lease', 'sign', 'building', 'occupancy', 'fire'].find((w) => has(s, w));
+  const alias = { alcohol: ['liquor', 'beer', 'alcohol'], health: ['health', 'food'], food: ['food', 'health'], liquor: ['liquor'], beer: ['beer'] }[typeWord] ?? [typeWord];
+  let list = typeWord ? rows.filter((x) => alias.some((w) => String(x.r.type).toLowerCase().includes(w))) : rows;
   const expired = /expired/.test(s);
   if (expired) list = list.filter((x) => x.days < 0);
   else if (!typeWord) list = list.filter((x) => x.days <= 60);
@@ -240,7 +241,10 @@ function calendarAnswer(s, ctx, memory) {
   if (!ctx.can('calendar')) return null;
   const today = startOfDay(ctx.now);
   let from = today, to = today + DAY, label = 'today';
-  if (has(s, 'tomorrow')) { from = today + DAY; to = today + 2 * DAY; label = 'tomorrow'; }
+  const WD = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const wd = WD.findIndex((w) => has(s, w));
+  if (wd >= 0) { const diff = (wd - new Date(ctx.now).getDay() + 7) % 7; from = today + diff * DAY; to = from + DAY; label = diff === 0 ? 'today' : 'on ' + WD[wd][0].toUpperCase() + WD[wd].slice(1); }
+  else if (has(s, 'tomorrow')) { from = today + DAY; to = today + 2 * DAY; label = 'tomorrow'; }
   else if (/this week|the week|coming up|upcoming/.test(s)) { to = today + 7 * DAY; label = 'in the next 7 days'; }
   const { list: named } = findPlaces(s, ctx);
   const ids = named.length ? new Set(named.map((l) => l.id)) : null;
@@ -321,7 +325,8 @@ function peopleAnswer(s, ctx, memory) {
     if (places.length) list = list.filter((u) => places.some((l) => (side(u) && u.alsoJob.locationId === l.id) || (mainJob(u) && u.role === 'manager' && ctx.hasLocationAccess(u, l.brandId, l.id) && !ctx.seesEverything(u))));
     const where = places.length ? ' at ' + locLabel(places[0]) : '';
     if (!list.length) return { text: `I can't find a ${job[1]}${where} in the Hub.` };
-    return { text: list.length === 1 ? `${list[0].name} is the ${side(list[0]) && !mainJob(list[0]) ? list[0].alsoJob.job : list[0].job}${where}.` : `${where ? 'The ' + job[1] + 's' + where + ' are' : 'They are'} ${list.map((u) => u.name).join(' and ')}.`, cards: list.slice(0, 4).map(personCard) };
+    const names = list.length > 1 ? list.slice(0, -1).map((u) => u.name).join(', ') + ' and ' + list[list.length - 1].name : list[0].name;
+    return { text: list.length === 1 ? `${list[0].name} is the ${side(list[0]) && !mainJob(list[0]) ? list[0].alsoJob.job : list[0].job}${where}.` : `${names} (${job[1]}${where}).`, cards: list.slice(0, 4).map(personCard) };
   }
   if (/who works|who is at|who's at|team at|staff at|people at/.test(s) && places.length) {
     const l = places[0];
@@ -370,7 +375,8 @@ function expensesAnswer(s, ctx) {
     return { text: `${plural(list.length, 'receipt')} ${list.length === 1 ? "isn't" : "aren't"} coded yet.`, go: { to: '/expenses', label: 'Expenses' } };
   }
   if (period && /period|report|due|deadline/.test(s)) {
-    return { text: `We're in ${period.label ?? period.id}, ${period.startKey} to ${period.endKey}. Receipts for it should be in by the end of the period, when the report goes to Sam.`, go: { to: '/expenses', label: 'Expenses' } };
+    const left = Math.max(0, Math.round((new Date(period.endKey + 'T23:59:59').getTime() - ctx.now) / DAY));
+    return { text: `We're in ${period.label ?? period.id}, which ends ${fmtDay(new Date(period.endKey + 'T12:00:00').getTime())} (${plural(left, 'day')} left). Get your receipts in before then, when the report goes to Sam.`, go: { to: '/expenses', label: 'Expenses' } };
   }
   return null;
 }
@@ -392,6 +398,7 @@ const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${Stri
 // "Did Starkville sign off today?" - answered from the signed PDFs the Hub
 // files into each location's Drive the moment a checklist is signed.
 function signoffQuery(s, ctx, memory) {
+  if (/who (closed|opened)|did .* (close|open) (last night|yesterday|today|this morning)|closed last night|close last night/.test(s)) s = s + (/last night|yesterday/.test(s) ? ' yesterday' : '') + ' signed off';
   if (!/sign(ed)? ?off|signoff|checklists? (done|finished|complete|filed)|did .* (do|finish|complete) .*checklist|temperatures? (log )?(done|logged|taken|in|filled)|(log|logged|take|taken|do|did) .*temperature/.test(s)) return null;
   const p = placeFor(s, ctx, memory);
   if (p.many) return whichOne(p.many, s.includes('temp') ? 'Were temps logged today at' : 'Did they sign off today at');
@@ -443,6 +450,33 @@ function dueSoonAnswer(s, ctx, memory) {
   return { text: `${plural(list.length, 'item')} ${list.length === 1 ? 'is' : 'are'} due ${label}:`, cards: list.slice(0, 5).map((i) => itemCard(i, ctx.locations.find((l) => l.id === i.locationId), ctx)) };
 }
 
+// "How's Chelsea doing?" / "is Chelsea on track?" / "what's holding up Nashville?"
+function summaryAnswer(s, ctx, memory) {
+  const p = placeFor(s, ctx, memory);
+  if (p.many) return whichOne(p.many, 'How is');
+  if (!p.loc || (p.implied && !/\bhere\b/.test(s))) return null;
+  const loc = p.loc;
+  const { all, setup, tpl, late } = openingAt(ctx, loc);
+  const o = (ctx.summary?.openingSoon ?? []).find((x) => x.id === loc.id);
+  const memo = { lastLocId: loc.id, lastIntent: 'ready' };
+  if (!all.length || !o) {
+    const r = (ctx.renewalsFor(loc.id) ?? []).filter((x) => x.expirationDate && x.expirationDate - ctx.now < 60 * DAY);
+    const ev = ctx.entries.filter((e) => !e.openingItem && e.locationId === loc.id && e.dateTime >= startOfDay(ctx.now) && e.dateTime < startOfDay(ctx.now) + 7 * DAY);
+    return { text: `${locLabel(loc)} is open. ${r.length ? plural(r.length, 'renewal') + ' due in the next 60 days' : 'No renewals due soon'}, and ${plural(ev.length, 'thing')} on the calendar this week.`, chips: [`Did ${loc.name} sign off today?`, `What renews at ${loc.name}?`], memory: memo };
+  }
+  const nobody = late.filter((i) => assigneesOf(i).uids.length === 0).length;
+  const pct = o.total ? Math.round((o.done / o.total) * 100) : 0;
+  const blockers = setup.filter((i) => !i.done).map((i) => ({ i, n: dependentsOf(i, setup, tpl).length })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+  const big = blockers[0];
+  const verdict = late.length === 0 ? 'On track.' : late.length < 5 ? 'Mostly on track, with a few late items.' : 'Behind.';
+  return {
+    text: `${verdict} ${locLabel(loc)} opens ${fmtDay(o.openingDate)} (${plural(o.daysOut, 'day')}), and it's ${pct}% ready with ${plural(late.length, 'late item')}${nobody ? `, ${nobody} with nobody on them` : ''}.${big ? ` The biggest hold-up is ${big.i.title}: ${plural(big.n, 'item')} ${big.n === 1 ? 'is' : 'are'} waiting on it.` : ''}`,
+    cards: big ? [itemCard(big.i, loc, ctx)] : [],
+    chips: [`What's late in ${loc.name}?`, nobody ? `What's unassigned at ${loc.name}?` : null, big ? `Why does ${shortTitle(big.i.title)} matter?` : null].filter(Boolean),
+    memory: { ...memo, lastItemId: big?.i.id },
+  };
+}
+
 function countAnswer(s, ctx, memory) {
   const p = placeFor(s, ctx, memory);
   if (p.many) return whichOne(p.many, 'How many items are done at');
@@ -476,7 +510,9 @@ function approvalsAnswer(s, ctx) {
 function nextEventAnswer(s, ctx) {
   const { list: places } = findPlaces(s, ctx);
   const catering = /catering|party|private/.test(s);
-  const evs = ctx.entries.filter((e) => !e.openingItem && e.dateTime > ctx.now && (!places.length || places.some((l) => l.id === e.locationId)) && (!catering || /catering|party|private/i.test(e.title))).sort((a, b) => a.dateTime - b.dateTime);
+  const meeting = /meeting/.test(s);
+  const evs = ctx.entries.filter((e) => !e.openingItem && e.dateTime > ctx.now && (!places.length || places.some((l) => l.id === e.locationId)) && (!catering || /catering|party|private/i.test(e.title)) && (!meeting || /meeting|huddle|1:1|one on one|review/i.test(e.title))).sort((a, b) => a.dateTime - b.dateTime);
+  if (!evs.length && meeting) return { text: "I don't see a meeting on the calendar. If it's on someone's own calendar, it won't show up here.", go: { to: '/calendar', label: 'Open the calendar' } };
   if (!evs.length) return { text: `Nothing coming up${places.length ? ' there' : ''} on the calendar.` };
   const e = evs[0];
   const l = ctx.locations.find((x) => x.id === e.locationId);
@@ -608,7 +644,15 @@ function timeRange(s, now) {
 }
 
 function docQuery(s, ctx, memory) {
-  if (/\b(put|upload|save|store|file it|add it|send it)\b/.test(s) && !/(was|were|got) (put|uploaded|saved)/.test(s)) return null;
+  if (/what restaurants|which restaurants|(restaurants|locations) do we have|how many (restaurants|locations)/.test(s)) return null;
+  const putting = (/\b(put|upload|save|store|file it|add it|send it)\b/.test(s) && !/(was|were|got) (put|uploaded|saved)/.test(s)) || /where (do|does|should|would) .* (go|belong|live)\b/.test(s);
+  if (putting) {
+    // "Where do incident reports go?" - where that kind of document belongs.
+    const t = docType(s)?.t;
+    if (t && !findFolder(s)) return folderHint(t, findPlaces(s, ctx).list, ctx, 'Good question.');
+    return null;
+  }
+  if (/^ ?how (do|can|should|would) (i|we|you)\b/.test(s) && !/\bfind\b/.test(s)) return null;
   const typeHit = docType(s);
   const type = typeHit?.t ?? null;
   const verbs = /\b(find|search|look(ing)? for|pull up|get me|do we have|is there|have we got|any (files?|docs?|documents?|pdfs?)|anything (about|on|that mentions|mentioning)|files? (that|which) mention|mention(s|ing)? )/.test(s);
@@ -752,8 +796,8 @@ function pageAnswer(s, ctx, memory) {
   let best = null;
   for (const p of PAGES) {
     const score = p.k.reduce((n, k) => {
-      if (s.includes(k)) return n + k.length + 2;
-      const kw = k.split(' ').filter((w) => w.length >= 3);
+      if (s.includes(k)) return n + k.length + 3;
+      const kw = k.split(' ').filter((w) => w.length >= 3 && !['what', 'where', 'how', 'the', 'does', 'who', 'can', 'are', 'for', 'and', "what's", 'whats'].includes(w));
       return kw.length >= 2 && kw.every((w) => has(s, w)) ? n + k.length : n;
     }, 0);
     if (score > (best?.score ?? 0)) best = { p, score };
@@ -846,6 +890,7 @@ export function answer(raw, ctx, memory = {}) {
   if (/what (got|was|has been) (done|finished|ticked|completed)|what did .* (finish|tick|complete)|done this week|finished this week|completed this week/.test(s)) { const a = doneAnswer(s, ctx, memory); if (a) return done(a); }
   if (/due (today|tomorrow)|what's due$|whats due$/.test(s)) return done(dueSoonAnswer(s, ctx, memory));
   if (/how many (items|things|tasks).*(done|left|to go)|how many are done|items left/.test(s)) { const a = countAnswer(s, ctx, memory); if (a) return done(a); }
+  if (/how('s| is| are) .* (doing|going|looking)|on track|holding (up|things up)|biggest (problem|issue|hold)|what's going on (at|in|with)|whats going on (at|in|with)|status of|update on|what's happening (at|in)|whats happening (at|in)/.test(s) && !/time off|request|receipt/.test(s)) { const a = summaryAnswer(s, ctx, memory); if (a) return done(a); }
   if (/next (event|catering|party|thing on the calendar)|what's next|whats next|when is the next/.test(s)) return done(nextEventAnswer(s, ctx));
   const doc = docQuery(s, ctx, memory); if (doc) return done(doc);
   const nav = navAnswer(s, ctx, memory); if (nav) return done(nav);
@@ -866,20 +911,20 @@ export function answer(raw, ctx, memory = {}) {
   // Live data questions.
   const how = /^(how do|how can|how to|where do i|can i|where can i)/.test(t);
   if (!how) {
-    if (/what needs me|my (items|tasks|to-?do|work)|assigned to me|on my plate|what do i (have|need)|anything for me/.test(s)) return done(mineAnswer(s, ctx));
+    if (/what needs me|my (items|tasks|to-?do|work)|assigned to me|on my plate|what do i (have|need)|anything for me|work on (today|first|next)|focus on|start with|my priorit|what should i do/.test(s)) return done(mineAnswer(s, ctx));
     if (/unassigned|nobody assigned|no one assigned|nobody on/.test(s)) return done(lateAnswer(s, ctx, memory, true));
     if (/\blate\b/.test(s) && !/time off/.test(s)) return done(lateAnswer(s, ctx, memory));
     if (/due (this|next) week|this week.*(checklist|opening)|coming up on/.test(s)) { const a = weekAnswer(s, ctx, memory); if (a) return done(a); }
     if (/how ready|how far|progress|percent|% ready|when does .* open|opening date|when .* opens?|how close/.test(s)) return done(readyAnswer(s, ctx, memory));
     if (/renew|expir|\blease\b/.test(s) || (/\b(license|permit)\b/.test(s) && /when|expire/.test(s))) return done(renewalsAnswer(s, ctx, memory));
     const t1 = timeOffAnswer(s, ctx); if (t1) return done(t1);
-    if (/\bcontact\b|toast|payroll|gift card|music|linen|pest|grease|hood|knife|uniform|alarm|security|produce|dairy|beer distributor|wine distributor/.test(s) && /who|contact|number|email|what|which/.test(s)) {
+    if (/\bcontact\b|toast|payroll|gift card|music|linen|pest|grease|hood|knife|alarm|security|produce|dairy|beer distributor|wine distributor/.test(s) && /who|contact|number|email|what|which/.test(s)) {
       const a = contactAnswer(s, ctx, memory); if (a) return done({ ...a, memory: { ...(a.memory ?? {}), lastQuery: s } });
     }
     if (/address|where is .* (location|restaurant)|landlord|contractor|project manager|property manager/.test(s)) { const a = detailsAnswer(s, ctx, memory); if (a) return done(a); }
-    if (/today|tomorrow|this week|calendar|what's on|whats on|happening|events?\b/.test(s) && !/add|how/.test(s)) { const a = calendarAnswer(s, ctx, memory); if (a) return done(a); }
-    if (/catering|enquir|inquir|leads?\b|parties|party\b|confirmed|private dining/.test(s)) { const a = cateringAnswer(s, ctx); if (a) return done(a); }
-    if (/period|how much .*spent|spent this|uncoded|not coded|report due/.test(s)) { const a = expensesAnswer(s, ctx); if (a) return done(a); }
+    if (/today|tomorrow|this week|calendar|what's on|whats on|happening|events?\b|monday|tuesday|wednesday|thursday|friday|saturday|sunday/.test(s) && !/add|how/.test(s)) { const a = calendarAnswer(s, ctx, memory); if (a) return done(a); }
+    if (/(catering|enquir|inquir|leads?\b|parties|party\b|events?\b|private dining).*\b(new|any|confirmed|waiting|list|how many|open|unclaimed|this week|status)\b|\b(new|any|confirmed|unclaimed|open) (catering|enquir|inquir|leads?|parties|events?)\b|^ ?what('s| is) confirmed/.test(s)) { const a = cateringAnswer(s, ctx); if (a) return done(a); }
+    if (/period|how much .*spent|spent this|uncoded|not coded|report due|deadline|receipts due|expenses due/.test(s) && /receipt|expense|period|report|spent|coded|deadline/.test(s)) { const a = expensesAnswer(s, ctx); if (a) return done(a); }
     if (/to sign|signature.*(waiting|me)|anything to sign/.test(s)) { const q = ctx.signQueue ?? []; return done({ text: q.length ? `${plural(q.length, 'document')} ${q.length === 1 ? 'is' : 'are'} waiting for your signature:` : 'Nothing is waiting for your signature.', cards: q.slice(0, 4).map((w) => ({ icon: 'page', title: w.title, sub: 'Signature Directory', to: '/work-orders' })) }); }
     if (/what restaurants|which restaurants|our restaurants|list (of )?(the )?(restaurants|locations)|how many (restaurants|locations)/.test(s)) {
       return done({ text: `You can open ${plural(ctx.locations.length, 'location')}:`, cards: ctx.locations.slice(0, 6).map((l) => ({ icon: 'pin', title: locLabel(l), sub: 'Open its page', to: locPath(l) })) });
@@ -889,7 +934,7 @@ export function answer(raw, ctx, memory = {}) {
   if (folder && (/where|folder|find|put|upload|save/.test(s) || !page)) { const f = folderAnswer(s, ctx, memory, folder); return done({ ...f, memory: { ...(f.memory ?? {}), lastQuery: s } }); }
   if (page && how) return done(page);
   const ppl = peopleAnswer(s, ctx, memory); if (ppl) return done(ppl);
-  if (!page) { const st = itemStatus(s, ctx, memory); if (st) return done(st); }
+  if (!page && !how) { const st = itemStatus(s, ctx, memory); if (st) return done(st); }
   if (page) return done(page);
   if (OUTSIDE_WORDS.some((w) => s.includes(w))) return done({ text: pick(JOKES.outside), chips: ['What can you do?', "What's late?"], mood: 'joke' });
 

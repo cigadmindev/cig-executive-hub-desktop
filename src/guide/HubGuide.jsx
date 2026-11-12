@@ -31,7 +31,7 @@ import { useIsNarrow } from '../hooks/useIsNarrow';
 // open. No AI behind it - see brain.js. ⌘K / Ctrl+K opens it.
 
 // Admins and executives first; switch on for everyone once it has settled.
-const FOR_EVERYONE = false;
+const FOR_EVERYONE = true;
 
 const ICON = { doc: 'document', check: 'clipboard', phone: 'phone', folder: 'folder', page: 'document', person: 'person', cal: 'calendar', pin: 'pin' };
 
