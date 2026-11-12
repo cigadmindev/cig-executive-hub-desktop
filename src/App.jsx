@@ -5,7 +5,25 @@ import React, { Suspense, lazy } from 'react';
 // After a deploy, a tab left open still points at the old page files, which
 // are gone; if one fails to load, the page reloads once to pick up the new
 // version instead of showing an error.
+// Every page's file, fetched quietly in the background once the Hub has
+// settled (Nov 2026), so clicking a page swaps it in at once instead of
+// showing an empty moment while it downloads.
+const pageLoaders = [];
+if (typeof window !== 'undefined') {
+  const warm = () => {
+    let i = 0;
+    const next = () => {
+      if (i >= pageLoaders.length) return;
+      pageLoaders[i++]().catch(() => {});
+      (window.requestIdleCallback || ((f) => setTimeout(f, 120)))(next);
+    };
+    next();
+  };
+  window.addEventListener('load', () => setTimeout(warm, 1500), { once: true });
+}
+
 function lazyPage(load) {
+  pageLoaders.push(load);
   return lazy(() =>
     load().then((page) => {
       try { sessionStorage.removeItem('hubChunkReload'); } catch (e) {}
@@ -296,7 +314,7 @@ export default function App() {
           build, and Electron in dev against the Vite server) has a real
           origin and a history fallback, so BrowserRouter gives clean,
           shareable URLs instead of /#/messages. */}
-      <Router>
+      <Router future={{ v7_startTransition: true }}>
         <Gate />
       </Router>
     </AuthProvider>

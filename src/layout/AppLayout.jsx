@@ -32,14 +32,34 @@ export default function AppLayout({ children }) {
   const slim = useSlimSidebar();
   // Half-screen windows (Nov 2026): the sidebar is a slim strip of icons and
   // restaurant dots, and slides out in full when you point at it or click it.
-  const [flyout, setFlyout] = useState(false);
+  // `shown` puts the full sidebar in place (over the strip, the same size);
+  // `flyout` then widens it. Closing narrows it back first, then swaps the
+  // strip back in - one surface the whole time, so nothing peeks through.
+  const [flyout, setFlyoutState] = useState(false);
+  const [shown, setShown] = useState(false);
+  const timers = useRef({});
+  const setFlyout = (open, delay = 0) => {
+    const t = timers.current;
+    clearTimeout(t.intent);
+    t.intent = setTimeout(() => {
+      clearTimeout(t.swap);
+      if (open) {
+        setShown(true);
+        // Next frame, so it grows from the strip's width.
+        requestAnimationFrame(() => requestAnimationFrame(() => setFlyoutState(true)));
+      } else {
+        setFlyoutState(false);
+        t.swap = setTimeout(() => setShown(false), 300);
+      }
+    }, delay);
+  };
   const [notifOpen, setNotifOpen] = useState(false);
   // Each page settles in when you arrive on it (28 Oct 2026). The page itself
   // is animated in place - nothing is re-mounted, so no page loses its state.
   const { pathname } = useLocation();
   const contentRef = useRef(null);
   const pageWidth = useMeasuredWidth(contentRef);
-  useLayoutEffect(() => setFlyout(false), [pathname]);
+  useLayoutEffect(() => { if (shown) setFlyout(false); }, [pathname]);
   useLayoutEffect(() => {
     // A new page starts at the top, not wherever the last one was scrolled to.
     if (contentRef.current) contentRef.current.scrollTop = 0;
@@ -57,8 +77,8 @@ export default function AppLayout({ children }) {
     const targets = parts.length > 1 ? parts.slice(0, 10) : [page];
     targets.forEach((el, i) =>
       el.animate(
-        [{ transform: 'translateY(16px)' }, { transform: 'none' }],
-        { duration: 520, delay: Math.min(i, 7) * 50, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' }
+        [{ transform: 'translateY(10px)' }, { transform: 'none' }],
+        { duration: 460, delay: Math.min(i, 7) * 40, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'backwards' }
       )
     );
   }, [pathname]);
@@ -203,15 +223,20 @@ export default function AppLayout({ children }) {
       {/* Glass sidebar (Nov 2026): a frosted panel floating over the page,
           the four main places, then every restaurant you can open. */}
       {slim ? (
+        // The rest of the page softly blurs while the sidebar is out.
+        <div style={{ ...styles.scrim, ...(flyout ? styles.scrimOn : {}) }} onClick={() => setFlyout(false)} aria-hidden="true" />
+      ) : null}
+      {slim ? (
         <div
           style={styles.railWrap}
-          onMouseEnter={() => setFlyout(true)}
-          onMouseLeave={() => setFlyout(false)}
+          onMouseEnter={() => setFlyout(true, 70)}
+          onMouseLeave={() => setFlyout(false, 140)}
           onFocus={() => setFlyout(true)}
           onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setFlyout(false); }}
           onKeyDown={(e) => { if (e.key === 'Escape') setFlyout(false); }}
         >
           <SlimRail
+            hidden={shown}
             onOpen={() => setFlyout(true)}
             user={user}
             hasBrandAccess={hasBrandAccess}
@@ -220,9 +245,11 @@ export default function AppLayout({ children }) {
             dots={{ home: anyEventNeedsMyJob, messages: unreadCount > 0, calendar: anyCalendarUnseen, directory: directoryNeedsAttention, profile: profileNeedsAttention }}
             onBell={() => setNotifOpen(true)}
           />
-          <div style={{ ...styles.flyout, ...(flyout ? styles.flyoutOpen : styles.flyoutShut) }} aria-hidden={flyout ? undefined : true}>
-            {fullSidebar}
-          </div>
+          {shown ? (
+            <div style={{ ...styles.flyout, ...(flyout ? styles.flyoutOpen : styles.flyoutShut) }}>
+              {fullSidebar}
+            </div>
+          ) : null}
         </div>
       ) : (
         fullSidebar
@@ -241,7 +268,7 @@ export default function AppLayout({ children }) {
 // The slim sidebar for half-screen windows (Nov 2026): the four main places
 // as icons, a coloured dot per restaurant, and you at the bottom. Red dots
 // stay. Pointing at it (or clicking it) slides the full sidebar out.
-function SlimRail({ onOpen, user, hasBrandAccess, byBrand, worksChecklist, dots, onBell }) {
+function SlimRail({ hidden, onOpen, user, hasBrandAccess, byBrand, worksChecklist, dots, onBell }) {
   const { pathname } = useLocation();
   const icon = (to, name, label, dot, end = false) => (
     <NavLink to={to} end={end} aria-label={label} title={label} style={({ isActive }) => ({ ...styles.railItem, ...(isActive ? styles.railItemActive : {}) })}>
@@ -255,7 +282,7 @@ function SlimRail({ onOpen, user, hasBrandAccess, byBrand, worksChecklist, dots,
   );
   const mine = brands.filter((b) => hasBrandAccess(user, b.id));
   return (
-    <div style={styles.rail}>
+    <div style={{ ...styles.rail, visibility: hidden ? 'hidden' : 'visible' }}>
       <div style={styles.dragArea} />
       <button style={{ ...styles.badge, border: 'none', cursor: 'pointer', marginBottom: 14 }} onClick={onOpen} aria-label="Open the sidebar">CIG</button>
       {icon('/', 'home', 'Home', dots.home, true)}
@@ -359,20 +386,21 @@ const styles = {
     width: 64, background: 'var(--bg-sidebar)', border: '1px solid var(--glass-edge)', borderRadius: 22, boxShadow: 'var(--shadow-md)',
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '0 0 14px', boxSizing: 'border-box', overflow: 'hidden',
   },
-  railItem: { position: 'relative', width: 42, height: 40, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 },
+  railItem: { transition: 'background-color 0.22s ease, box-shadow 0.22s ease', position: 'relative', width: 42, height: 40, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 },
   railItemActive: { background: 'var(--surface)', boxShadow: '0 2px 10px rgba(30,40,60,0.08)' },
   railDot: { position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 4, background: 'var(--danger)' },
   railSep: { width: 26, height: 1, background: 'var(--border)', margin: '10px 0' },
   railBrands: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, overflowY: 'auto', minHeight: 0 },
   // The full sidebar sliding out over the page from the slim strip.
-  // The full sidebar is always there, inside a holder that is only as
-  // wide as the strip until you point at it; opening widens the holder from
-  // the strip outwards, so the strip never peeks through (Nov 2026). Width,
-  // not a clip, because a clip switches off the glass lens in Chrome.
-  flyout: { position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 61, overflow: 'hidden', borderRadius: 26, boxShadow: '0 18px 50px rgba(20,24,32,0.28)' },
-  flyoutOpen: { width: 256, opacity: 1, pointerEvents: 'auto', transition: 'width 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.06s linear' },
-  flyoutShut: { width: 64, opacity: 0, pointerEvents: 'none', transition: 'width 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.08s linear 0.2s' },
-  flyoutPanel: { width: 256, height: '100%', boxSizing: 'border-box', background: 'var(--bg-sidebar-solid, var(--bg-sidebar))' },
+  // The full sidebar out of the strip (Nov 2026): it starts exactly where
+  // and as big as the strip, then widens - only its size animates, and it
+  // is solid (not the see-through glass), so it moves smoothly.
+  flyout: { position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 61, overflow: 'hidden', boxShadow: '0 20px 60px rgba(20,24,32,0.30)', willChange: 'width' },
+  flyoutOpen: { width: 256, borderRadius: 26, transition: 'width 0.36s cubic-bezier(0.22, 1, 0.36, 1), border-radius 0.36s' },
+  flyoutShut: { width: 64, borderRadius: 22, boxShadow: 'none', transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.28s, box-shadow 0.28s' },
+  flyoutPanel: { width: 256, height: '100%', boxSizing: 'border-box', background: 'var(--bg-sidebar-solid)', border: '1px solid var(--glass-edge)', borderRadius: 26, boxShadow: 'none' },
+  scrim: { position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(20, 24, 32, 0.16)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', opacity: 0, pointerEvents: 'none', transition: 'opacity 0.3s ease' },
+  scrimOn: { opacity: 1, pointerEvents: 'auto' },
   // dvh, not vh: the phone container has to shrink when the keyboard opens,
   // or the fixed bar strands itself mid-screen.
   narrowWindow: { height: '100dvh', background: 'transparent' },
@@ -423,6 +451,7 @@ const styles = {
     fontWeight: 600,
     color: 'var(--text-secondary)',
     textDecoration: 'none',
+    transition: 'background-color 0.22s ease, color 0.22s ease, box-shadow 0.22s ease',
   },
   navItemActive: { background: 'var(--surface)', color: 'var(--text-primary)', boxShadow: '0 2px 10px rgba(30,40,60,0.08)' },
   navItemRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
@@ -434,6 +463,7 @@ const styles = {
   brandLink: {
     flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12,
     fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', textDecoration: 'none',
+    transition: 'background-color 0.22s ease, box-shadow 0.22s ease',
   },
   brandLinkActive: { background: 'var(--surface)', boxShadow: '0 2px 10px rgba(30,40,60,0.08)' },
   brandDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0, boxShadow: 'inset 0 0 0 1px rgba(var(--ink-rgb), 0.12)' },
