@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Orb from './Orb';
 import Icon from '../components/Icon';
-import { answer, liveMatches, openingLines } from './brain';
+import { answer, liveMatches, openingLines, docsAnswer } from './brain';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { brands } from '../data/mockData';
 import { accessLevel, seesEveryRestaurant } from '../data/accessMatrix';
 import { useAuth } from '../context/AuthContext';
@@ -27,10 +28,10 @@ import { useIsNarrow } from '../hooks/useIsNarrow';
 // Admins and executives first; switch on for everyone once it has settled.
 const FOR_EVERYONE = false;
 
-const ICON = { check: 'clipboard', phone: 'phone', folder: 'folder', page: 'document', person: 'person', cal: 'calendar', pin: 'pin' };
+const ICON = { doc: 'document', check: 'clipboard', phone: 'phone', folder: 'folder', page: 'document', person: 'person', cal: 'calendar', pin: 'pin' };
 
 function useGuideContext(pathname) {
-  const { user, activeUsers, hasLocationAccess, hasBrandAccess } = useAuth();
+  const { user, activeUsers, hasLocationAccess, hasBrandAccess, viewAs } = useAuth();
   const { entries } = useSchedule();
   const { getByLocation: renewalsFor } = useRenewals();
   const { getInfo } = useOpeningInfo();
@@ -60,6 +61,7 @@ function useGuideContext(pathname) {
   return {
     now: Date.now(),
     user,
+    viewAsUid: viewAs?.uid ?? null,
     users: activeUsers ?? [],
     isAdmin: user?.role === 'admin',
     can: (col) => user?.role === 'admin' || !['none', undefined, null].includes(accessLevel(user, col)),
@@ -89,8 +91,10 @@ function useGuideContext(pathname) {
 }
 
 export default function HubGuide() {
-  const { user } = useAuth();
-  if (!user || (!FOR_EVERYONE && !['admin', 'executive'].includes(user.role))) return null;
+  const { user, realUser } = useAuth();
+  // While an admin views the Hub as someone, the Guide stays, answering as them.
+  const who = realUser ?? user;
+  if (!user || !who || (!FOR_EVERYONE && !['admin', 'executive'].includes(who.role))) return null;
   return <GuideInner />;
 }
 
@@ -189,6 +193,19 @@ function GuideInner() {
         if (h?.locationId && /operational-poc/.test(pathname) && h.locationId !== key) ctxRef.current.watchContacts(h.brandId, h.locationId);
       }
       if (a.load) a = { text: "I couldn't load that location's contacts just now. Here's their page.", go: { to: `/brand/${a.load.brandId}/location/${a.load.locationId}/operational-poc`, label: 'Contacts' } };
+    }
+    // Documents: the server searches the shared Drive and keeps only files
+    // this person may open.
+    if (a.search) {
+      try {
+        const fns = getFunctions(undefined, 'us-central1');
+        const viewAs = ctxRef.current.viewAsUid;
+        const res = await httpsCallable(fns, 'guideDriveSearch', { timeout: 45000 })({ ...a.search, ...(viewAs ? { asUid: viewAs } : {}) });
+        a = { ...docsAnswer(res.data, a.meta, ctxRef.current), memory: a.memory };
+      } catch (err) {
+        console.error('[Hub Guide] Drive search', err);
+        a = { text: "I couldn't reach Google Drive just now. Try again in a minute, or open the folders yourself.", memory: a.memory };
+      }
     }
     memory.current = a.memory ?? memory.current;
     await say(a);

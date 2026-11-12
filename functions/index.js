@@ -284,6 +284,8 @@ Object.assign(exports, require('./expensePeriods'));
 Object.assign(exports, require('./sweepIntegrationRequests'));
 
 Object.assign(exports, require('./documentUrls'));
+// The Hub Guide's document search (Nov 2026).
+Object.assign(exports, require('./guideDrive'));
 
 Object.assign(exports, require('./assembleSignedDocument'));
 

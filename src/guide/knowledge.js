@@ -253,3 +253,63 @@ export const JOKES = {
 
 export const OUTSIDE_WORDS = ['weather', 'forecast', 'rain', 'game', 'score', 'football', 'baseball', 'basketball', 'stock', 'stocks', 'news', 'movie', 'traffic', 'president', 'election', 'crypto', 'bitcoin', 'lottery', 'horoscope', 'recipe for', 'how do i make', 'how do you make', 'how to cook', 'translate', 'capital of', 'spell ', 'math', 'calculate', 'song', 'lyrics'];
 export const RUDE_WORDS = ['useless', 'dumb', 'stupid', 'idiot', 'trash', 'sucks', 'worst', 'garbage', 'hate you'];
+
+// ------------------------------------------------------------- documents
+// Everyday names for documents, and the Hub folder each kind belongs in.
+// `only: true` means the folder is where those files ARE (signed checklists,
+// temperature logs, P&Ls, schedules), so a search looks just there. The
+// others search everything you can see, and the folder is where it should
+// go if nothing turns up.
+export const DOC_TYPES = [
+  { w: ['opening checklist pdf', 'closing checklist', 'opening checklists', 'closing checklists', 'checklists', 'checklist pdfs', 'daily checklists'], cat: 'operations', item: 'Opening & Closing Checklists', label: 'signed checklists', only: true },
+  { w: ['temperature logs', 'temperature log', 'temp logs'], cat: 'operations', item: 'Temperature Logs', label: 'temperature logs', only: true },
+  { w: ['p&l', 'p&ls', 'profit'], cat: 'financials', item: 'P&L Reports (by month/year)', label: 'P&Ls', only: true },
+  { w: ['employee schedule', 'employee schedules', 'schedules', 'schedule'], cat: 'staffing', item: 'Employee Schedules', label: 'schedules', only: true },
+  { w: ['shift report', 'shift reports'], cat: 'operations', item: 'Daily Shift Reports', label: 'shift reports', only: true },
+  { w: ['sales report', 'sales reports', 'sales summary'], cat: 'financials', item: 'Sales Reports & Summaries', label: 'sales reports', only: true },
+  { w: ['inventory report', 'r365 export', 'inventory export'], cat: 'inventory', item: 'Inventory Reports (Restaurant365 exports)', label: 'inventory reports', only: true },
+  { w: ['stock count', 'stock counts', 'inventory count'], cat: 'inventory', item: 'Stock Counts & Audits', label: 'stock counts', only: true },
+  { w: ['inspection', 'inspections', 'health inspection', 'inspection report'], cat: 'compliance', item: 'Health & Safety Inspection Reports', label: 'inspection reports' },
+  { w: ['haccp', 'food safety'], cat: 'compliance', item: 'Food Safety & HACCP Documents', label: 'food safety documents' },
+  { w: ['incident', 'incident report', 'accident report', 'accident'], cat: 'compliance', item: 'Incident & Accident Reports', label: 'incident reports' },
+  { w: ['lease', 'leases', 'legal'], cat: 'compliance', item: 'Legal & Regulatory Documents', label: 'leases and legal documents' },
+  { w: ['coi', 'certificate of insurance', 'insurance certificate', 'insurance policy', 'policy'], cat: 'compliance', item: 'Legal & Regulatory Documents', label: 'insurance certificates' },
+  { w: ['license copy', 'permit copy', 'certificate', 'certificates', 'license', 'permit'], cat: 'projects', item: 'Permits, Licenses & Certifications', label: 'permits and licenses' },
+  { w: ['invoice', 'invoices', 'bill', 'bills', 'w-9', 'w9', 'statement'], cat: 'financials', item: 'Invoices & Vendor Payments', label: 'invoices and vendor paperwork' },
+  { w: ['budget', 'budgets', 'forecast'], cat: 'financials', item: 'Budgets & Forecasts', label: 'budgets' },
+  { w: ['tax', 'taxes', '1099', 'year-end'], cat: 'financials', item: 'Tax & Year-End Documents', label: 'tax documents' },
+  { w: ['cogs', 'food cost', 'cost analysis'], cat: 'financials', item: 'Cost Analysis & COGS', label: 'cost reports' },
+  { w: ['contract', 'contracts', 'agreement', 'agreements', 'proposal', 'quote', 'quotes', 'bid', 'bids', 'estimate'], cat: 'projects', item: 'Vendor Contracts & Proposals', label: 'contracts and quotes' },
+  { w: ['floor plan', 'floor plans', 'blueprint', 'blueprints', 'drawings', 'construction plans', 'build-out'], cat: 'projects', item: 'Renovation & Construction Plans', label: 'plans and drawings' },
+  { w: ['render', 'renders', 'rendering', 'sketch', 'sketches'], cat: 'projects', item: '3D Renders, Sketches & Design Files', label: 'renders and design files' },
+  { w: ['timeline', 'project timeline'], cat: 'projects', item: 'Project Timelines & Updates', label: 'project timelines' },
+  { w: ['recipe', 'recipes', 'recipe card', 'spec', 'specs', 'plating guide'], cat: 'menu', item: 'Recipe Cards & Standards', label: 'recipe cards' },
+  { w: ['menu', 'menus', 'menu pdf'], cat: 'menu', item: 'Current Menus (by location/concept)', label: 'menus' },
+  { w: ['seasonal menu', 'special menu', 'holiday menu', 'brunch menu'], cat: 'menu', item: 'Seasonal & Special Menus', label: 'seasonal menus' },
+  { w: ['job description', 'job descriptions'], cat: 'staffing', item: 'Job Descriptions', label: 'job descriptions' },
+  { w: ['training', 'training manual', 'handbook', 'manual', 'guidelines', 'training video'], cat: 'staffing', item: 'Training Materials & Guidelines', label: 'training materials' },
+  { w: ['onboarding', 'new hire', 'i-9', 'i9', 'w-4', 'w4', 'application', 'applications'], cat: 'staffing', item: 'Onboarding Forms', label: 'onboarding forms' },
+  { w: ['write up', 'write-up', 'writeup', 'review', 'reviews', 'evaluation'], cat: 'staffing', item: 'Performance Reviews & Feedback', label: 'reviews and write-ups' },
+  { w: ['employee file', 'personnel file'], cat: 'staffing', item: 'Employee Files', label: 'employee files' },
+  { w: ['hr policy', 'policies', 'hr form', 'hr forms'], cat: 'staffing', item: 'HR Policies & Forms', label: 'HR forms' },
+  { w: ['timesheet', 'timesheets', 'attendance', 'time card'], cat: 'staffing', item: 'Time & Attendance Records', label: 'time and attendance records' },
+  { w: ['standard operating procedures', 'procedure', 'procedures'], cat: 'operations', item: 'Standard Operating Procedures (SOPs)', label: 'SOPs', only: true },
+  { w: ['logo', 'logos', 'brand assets', 'graphics', 'flyer', 'flyers', 'poster', 'printable', 'printables', 'table tent'], cat: 'marketing', item: 'Marketing Visual Assets', label: 'marketing graphics' },
+  { w: ['photo', 'photos', 'picture', 'pictures', 'headshot', 'headshots'], cat: 'marketing', item: 'Interior & Exterior Photos', label: 'photos' },
+  { w: ['food photo', 'food photos', 'dish photos', 'menu photos'], cat: 'marketing', item: 'Food & Menu Photography', label: 'food photos' },
+  { w: ['video', 'videos'], cat: 'marketing', item: 'Videos (Training, Marketing, Events)', label: 'videos' },
+  { w: ['social post', 'instagram', 'facebook post', 'social media'], cat: 'marketing', item: 'Social Media Content', label: 'social media content' },
+  { w: ['loyalty'], cat: 'marketing', item: 'Loyalty Program Documents', label: 'loyalty documents' },
+  { w: ['maintenance log', 'equipment log', 'service record', 'service records'], cat: 'maintenance', item: 'Equipment Maintenance Logs', label: 'maintenance logs' },
+  { w: ['repair', 'repair quote', 'work order', 'hood cleaning', 'pest control', 'pest report'], cat: 'maintenance', item: 'Repair Requests & Work Orders', label: 'repair paperwork' },
+  { w: ['manual', 'equipment manual', 'spec sheet', 'warranty', 'warranties'], cat: 'maintenance', item: 'Equipment Specifications', label: 'equipment manuals' },
+  { w: ['cleaning schedule', 'cleaning checklist'], cat: 'maintenance', item: 'Cleaning Schedules & Checklists', label: 'cleaning schedules' },
+  { w: ['purchase order', 'purchase orders', 'po'], cat: 'inventory', item: 'Purchase Orders', label: 'purchase orders' },
+  { w: ['supplier', 'suppliers', 'vendor list', 'order guide'], cat: 'inventory', item: 'Supplier Information & Contacts', label: 'supplier information' },
+  { w: ['waste log', 'spoilage', 'variance'], cat: 'inventory', item: 'Waste, Spoilage & Variance Logs', label: 'waste logs' },
+  { w: ['toast setup', 'pos setup', 'toast notes'], cat: 'techai', item: 'Toast POS Setup & Notes', label: 'Toast setup notes' },
+  { w: ['network', 'wifi password', 'router', 'it docs'], cat: 'techai', item: 'Tech Infrastructure & Network Docs', label: 'network documents' },
+];
+
+// Words that mean "find me a file".
+export const DOC_WORDS = ['file', 'files', 'document', 'documents', 'doc', 'docs', 'pdf', 'pdfs', 'spreadsheet', 'sheet', 'excel', 'word doc', 'copy of', 'paperwork', 'scan', 'scanned'];

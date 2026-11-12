@@ -4,7 +4,7 @@ export * from '@firebase/functions';
 import * as F from '@firebase/functions';
 import { assertWritable } from './state';
 
-const READS = new Set(['getReceiptUrls', 'getExpenseReportUrl', 'getExecutiveNotesFile', 'getPermitDocUrl', 'getWorkOrderFileUrl', 'describeAccountSetup']);
+const READS = new Set(['getReceiptUrls', 'getExpenseReportUrl', 'getExecutiveNotesFile', 'getPermitDocUrl', 'getWorkOrderFileUrl', 'describeAccountSetup', 'guideDriveSearch']);
 
 export const httpsCallable = (functions, name, options) => {
   const call = F.httpsCallable(functions, name, options);

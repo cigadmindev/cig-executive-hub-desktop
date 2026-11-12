@@ -6,7 +6,7 @@
 // answer(text, ctx, memory) -> { text, cards, chips, mood, memory, load }
 //   cards: { icon, title, sub, tag: [text, tone], to, copy, whyId }
 //   load:  { brandId, locationId } when it needs a location's contacts first
-import { PAGES, SAME, SPELLING, BRAND_NICKNAMES, JOKES, OUTSIDE_WORDS, RUDE_WORDS, FOLDER_WORDS } from './knowledge';
+import { PAGES, SAME, SPELLING, BRAND_NICKNAMES, JOKES, OUTSIDE_WORDS, RUDE_WORDS, FOLDER_WORDS, DOC_TYPES, DOC_WORDS } from './knowledge';
 import { categories } from '../data/mockData';
 import { canSeeFolder } from '../data/accessMatrix';
 import { assigneesOf, isAssignedTo } from '../data/assignees';
@@ -446,6 +446,135 @@ function whyAnswer(s, ctx, memory) {
   return { text, cards: deps.slice(0, 4).map((d) => itemCard(d, loc, ctx, { waiting: true })), chips: [item.done ? null : 'Why is it late?', 'Who can I ask?'].filter(Boolean), memory: memo };
 }
 
+// ------------------------------------------------------------- documents
+// "Find the Chelsea lease", "October temperature logs at Ridgeland",
+// "what was added this week?". Builds a search for the server (it reads
+// the shared Drive and keeps only what this person may open); docsAnswer
+// then turns what comes back into an answer.
+const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+const MONTH_SHORT = ['jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec'];
+const DOC_STOP = new Set([...['find', 'search', 'look', 'looking', 'pull', 'get', 'have', 'got', 'there', 'any', 'anything', 'about', 'mention', 'mentions', 'mentioning', 'that', 'which', 'with', 'latest', 'newest', 'most', 'recent', 'recently', 'new', 'added', 'uploaded', 'changed', 'updated', 'last', 'this', 'week', 'month', 'year', 'today', 'yesterday', 'show', 'open', 'see', 'copy', 'our', 'the', 'for', 'from', 'where', "where's", 'wheres', 'are', 'can', 'you', 'please', 'folder', 'folders', 'drive', 'google', 'what', "what's", 'whats', 'was', 'were', 'all', 'some', 'one', 'and', 'did', 'does', 'someone', 'anyone', 'put', 'saved', 'in', 'at', 'on', 'of', 'to', 'is', 'me', 'we', 'do', 'it', 'a', 'an', 'my', 'need'], ...DOC_WORDS]);
+const stem = (w) => (w.length > 4 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w);
+
+function docType(s) {
+  let best = null;
+  for (const t of DOC_TYPES) for (const w of t.w) if (has(s, w) && w.length > (best?.len ?? 0)) best = { t, len: w.length, w };
+  return best;
+}
+
+function timeRange(s, now) {
+  const d = new Date(now);
+  const day = startOfDay(now);
+  if (has(s, 'today')) return { since: day, label: 'today' };
+  if (has(s, 'yesterday')) return { since: day - DAY, until: day, label: 'yesterday' };
+  if (/last week|past week|this week|past 7 days/.test(s)) return { since: day - 7 * DAY, label: 'in the last week' };
+  if (/last month|past month/.test(s)) { const a = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime(); const b = new Date(d.getFullYear(), d.getMonth(), 1).getTime(); return { since: a, until: b, label: 'last month' }; }
+  if (/this month/.test(s)) return { since: new Date(d.getFullYear(), d.getMonth(), 1).getTime(), label: 'this month' };
+  let month = MONTHS.findIndex((m) => m !== 'may' && has(s, m));
+  if (month < 0) {
+    const i = ['jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec'].findIndex((m) => has(s, m));
+    if (i >= 0) month = [0, 1, 2, 3, 5, 6, 7, 8, 8, 9, 10, 11][i];
+  }
+  if (month < 0 && /\b(in|from|for|during) may\b|\bmay (20\d\d|p&l|report|log|menu|schedule|checklist|invoice)/.test(s)) month = 4;
+  if (month >= 0) {
+    const y = month > d.getMonth() ? d.getFullYear() - 1 : d.getFullYear();
+    return { since: new Date(y, month, 1).getTime(), until: new Date(y, month + 1, 1).getTime(), label: `in ${MONTHS[month][0].toUpperCase() + MONTHS[month].slice(1)}` };
+  }
+  return null;
+}
+
+function docQuery(s, ctx, memory) {
+  if (/\b(put|upload|save|store|file it|add it|send it)\b/.test(s) && !/(was|were|got) (put|uploaded|saved)/.test(s)) return null;
+  const typeHit = docType(s);
+  const type = typeHit?.t ?? null;
+  const verbs = /\b(find|search|look(ing)? for|pull up|get me|do we have|is there|have we got|any (files?|docs?|documents?|pdfs?)|anything (about|on|that mentions|mentioning)|files? (that|which) mention|mention(s|ing)? )/.test(s);
+  const recent = /\b(latest|newest|most recent|recently|new files|added|uploaded|been changed|updated)\b/.test(s);
+  const docWord = DOC_WORDS.some((w) => has(s, w));
+  const asksWhere = /\bwhere('s| is| are)?\b|\bshow\b|\bsee\b|\bopen\b/.test(s);
+  const time = timeRange(s, ctx.now);
+  const { list: places } = findPlaces(s, ctx);
+  const placeWords = new Set();
+  places.forEach((l) => { l.name.toLowerCase().split(' ').forEach((w) => placeWords.add(w)); (BRAND_NICKNAMES[l.brandId] ?? []).forEach((n) => n.split(' ').forEach((w) => placeWords.add(w))); l.brandName.toLowerCase().split(' ').forEach((w) => placeWords.add(w)); });
+  ctx.locations.forEach((l) => placeWords.add(l.name.toLowerCase()));
+  const typeWords = new Set(type ? typeHit.w.split(' ') : []);
+  const all = [...new Set(s.split(/[^a-z0-9&\-]+/)
+    .filter((w) => w.length >= 2 && !DOC_STOP.has(w) && !STOP.has(w) && !placeWords.has(w) && !MONTHS.includes(w) && !MONTH_SHORT.includes(w) && !/^(19|20)\d\d$/.test(w) && !['report', 'reports', 'card', 'cards', 'log', 'logs'].includes(w)))];
+  const extra = all.filter((w) => !typeWords.has(w));
+  // Questions other answers own, unless they plainly ask for a file.
+  const asksFile = verbs || docWord;
+  if (!asksFile && /renew|expir|\blate\b|unassigned|assigned|who('s| is)|when does|how ready|due (this|next)/.test(s)) return null;
+  // An opening checklist item by that name ("floor plan nashville") is answered as the item.
+  if (!asksFile && type && ctx.entries.some((e) => e.openingItem && s.includes(' ' + e.title.toLowerCase().replace(/\s*\(.*?\)\s*/g, ' ').trim() + ' '))) return null;
+  if (!(asksFile || recent || (type && (asksWhere || type.only || places.length || time || extra.length)))) return null;
+  if (recent && !asksFile && !type && !/file|doc|folder|drive|added|uploaded/.test(s)) return null;
+  // Search by the other words; the kind of document only when it's all there is.
+  const words = (type?.only ? extra : extra.length ? extra : all).map(stem).slice(0, 6);
+
+  if (!words.length && !type?.only && !time && !recent) {
+    if (type) return folderHint(type, places, ctx, `Here's where ${type.label} live.`);
+    return { text: 'What should I look for? For example "find the Chelsea lease" or "October temperature logs at Ridgeland".' };
+  }
+  return {
+    text: '',
+    search: { words, locationIds: places.length ? places.map((l) => l.id) : null, categoryId: type?.only ? type.cat : null, itemName: type?.only ? type.item : null, since: time?.since ?? null, until: time?.until ?? null },
+    meta: { type, places: places.map((l) => l.id), timeLabel: time?.label ?? (recent && !words.length ? 'in the last two weeks' : ''), words, recent },
+    memory: { lastLocId: places[0]?.id ?? memory.lastLocId },
+  };
+}
+
+function folderHint(type, places, ctx, lead) {
+  const cat = categories.find((c) => c.id === type.cat);
+  if (!cat) return { text: lead };
+  if (!canSeeFolder(ctx.user, cat.id)) return { text: `${type.label[0].toUpperCase() + type.label.slice(1)} go in ${cat.label} › ${type.item}, which isn't part of your access.` };
+  const locs = places.length ? places : ctx.here?.loc ? [ctx.here.loc] : [];
+  return {
+    text: `${lead} ${type.label[0].toUpperCase() + type.label.slice(1)} belong in ${cat.label} › ${type.item}${locs.length ? '' : ' at each location'}.`,
+    cards: locs.slice(0, 3).map((l) => ({ icon: 'folder', title: type.item, sub: `${shortLoc(l)} · ${cat.label}`, to: locPath(l, '/category/' + cat.id) })),
+    chips: locs.length ? [] : ctx.locations.slice(0, 4).map((l) => `${type.label} at ${shortLoc(l)}`),
+  };
+}
+
+const KIND = (m = '') => (m.includes('pdf') ? 'PDF' : m.includes('spreadsheet') || m.includes('excel') || m.includes('sheet') ? 'Sheet' : m.includes('document') || m.includes('word') ? 'Doc' : m.includes('presentation') ? 'Slides' : m.startsWith('image/') ? 'Photo' : m.startsWith('video/') ? 'Video' : 'File');
+function ago(t, now) {
+  const days = Math.floor((startOfDay(now) - startOfDay(t)) / DAY);
+  if (days <= 0) return 'changed today';
+  if (days === 1) return 'changed yesterday';
+  if (days < 14) return `changed ${days} days ago`;
+  return 'changed ' + new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: days > 300 ? 'numeric' : undefined });
+}
+
+export function docsAnswer(res, meta, ctx) {
+  const files = res?.files ?? [];
+  const places = (meta?.places ?? []).map((id) => ctx.locations.find((l) => l.id === id)).filter(Boolean);
+  const where = places.length === 1 ? ` at ${shortLoc(places[0])}` : places.length > 1 ? ` at ${places[0].name}` : '';
+  const what = meta?.words?.length ? `“${meta.words.join(' ')}”` : meta?.type?.label ?? 'files';
+  if (!files.length) {
+    const lead = `I couldn't find ${what}${where}${meta?.timeLabel ? ' ' + meta.timeLabel : ''} in the folders you can open.`;
+    if (meta?.type) {
+      const h = folderHint(meta.type, places, ctx, lead);
+      return { ...h, text: h.text + ' If it was saved somewhere else, it should be moved here.' };
+    }
+    return { text: `${lead} ${pick(JOKES.lost).replace(/\.$/, '')}, so try fewer words, or add the location.`, chips: ['What was added this week?'] };
+  }
+  const newest = files[0];
+  const by = newest.modifiedBy ? ` by ${newest.modifiedBy}` : '';
+  const text = files.length === 1
+    ? `Found it${where}: ${newest.name}, ${ago(new Date(newest.modifiedTime).getTime(), ctx.now)}${by}.`
+    : `I found ${files.length >= 15 ? 'at least 15' : files.length} ${meta?.words?.length || !meta?.type ? 'files' : meta.type.label}${where}${meta?.timeLabel ? ' ' + meta.timeLabel : ''}. The newest is ${newest.name}, ${ago(new Date(newest.modifiedTime).getTime(), ctx.now)}${by}.`;
+  const cards = files.slice(0, 6).map((f) => {
+    const loc = ctx.locations.find((l) => l.id === f.locationId);
+    const folder = [f.itemName, ...(f.path ?? [])].filter(Boolean).slice(-2).join(' › ');
+    return { icon: 'doc', title: f.name, sub: [loc ? shortLoc(loc) : null, folder || null, ago(new Date(f.modifiedTime).getTime(), ctx.now)].filter(Boolean).join(' · '), tag: [KIND(f.mimeType), 'grey'], href: f.url };
+  });
+  const out = { text, cards };
+  if (meta?.type && places.length === 1) {
+    const cat = categories.find((c) => c.id === meta.type.cat);
+    if (cat) out.go = { to: locPath(places[0], '/category/' + cat.id), label: `${cat.label} folders at ${places[0].name}` };
+  }
+  if (files.length > 6) out.chips = ['Narrow it down: add a location or a month'];
+  return out;
+}
+
 // "Show me the Starkville opening checklist" / "open Chelsea's contacts".
 function navAnswer(s, ctx, memory) {
   if (!/^ ?(show me|open|take me to|go to|bring up|pull up|show)\b/.test(s)) return null;
@@ -577,6 +706,7 @@ export function answer(raw, ctx, memory = {}) {
     }
   }
   if (memory.lastItemId && /^(what's it|what is it|whats it|is it) (waiting|blocked|holding)|what('s| is) (it|this) waiting on|what's holding it up/.test(t)) return done(whyAnswer('why is it locked waiting', ctx, memory));
+  const doc = docQuery(s, ctx, memory); if (doc) return done(doc);
   const nav = navAnswer(s, ctx, memory); if (nav) return done(nav);
   if (/^(who|what) are you|are you (a )?(robot|bot|ai|real|human)|your name/.test(t)) return done({ text: pick(JOKES.who), chips: ['What can you do?'], mood: 'joke' });
   if (RUDE_WORDS.some((w) => has(s, w)) && t.split(' ').length <= 6) return done({ text: pick(JOKES.rude), chips: ["What's late?", 'How do I request time off?'], mood: 'joke' });
