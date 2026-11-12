@@ -662,7 +662,7 @@ export function docsAnswer(res, meta, ctx) {
   const by = robot(newest.modifiedBy) ? (newest.modifiedBy ? ' (filed by the Hub)' : '') : ` by ${newest.modifiedBy}`;
   const text = files.length === 1
     ? `Found it${where}: ${newest.name}, ${ago(new Date(newest.modifiedTime).getTime(), ctx.now)}${by}.`
-    : `I found ${files.length >= 15 ? 'at least 15' : files.length} ${meta?.words?.length || !meta?.type ? 'files' : meta.type.label}${where}${meta?.timeLabel ? ' ' + meta.timeLabel : ''}. The newest is ${newest.name}, ${ago(new Date(newest.modifiedTime).getTime(), ctx.now)}${by}.`;
+    : `I found ${files.length >= 15 ? 'at least 15' : files.length} ${meta?.words?.length || !meta?.type ? 'files' : meta.type.label}${where}${meta?.timeLabel ? ' ' + meta.timeLabel : ''}. ${meta?.words?.length ? 'The best match is' : 'The newest is'} ${newest.name}, ${ago(new Date(newest.modifiedTime).getTime(), ctx.now)}${by}.`;
   const cards = files.slice(0, 6).map((f) => {
     const loc = ctx.locations.find((l) => l.id === f.locationId);
     const folder = [f.itemName, ...(f.path ?? [])].filter(Boolean).slice(-2).join(' › ');
