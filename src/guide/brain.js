@@ -504,7 +504,7 @@ function docQuery(s, ctx, memory) {
   const asksFile = verbs || docWord;
   if (!asksFile && /renew|expir|\blate\b|unassigned|assigned|who('s| is)|when does|how ready|due (this|next)/.test(s)) return null;
   // An opening checklist item by that name ("floor plan nashville") is answered as the item.
-  if (!asksFile && type && ctx.entries.some((e) => e.openingItem && s.includes(' ' + e.title.toLowerCase().replace(/\s*\(.*?\)\s*/g, ' ').trim() + ' '))) return null;
+  if (!asksFile && !recent && !time && type && ctx.entries.some((e) => e.openingItem && s.includes(' ' + e.title.toLowerCase().replace(/\s*\(.*?\)\s*/g, ' ').trim() + ' '))) return null;
   if (!(asksFile || recent || (type && (asksWhere || type.only || places.length || time || extra.length)))) return null;
   if (recent && !asksFile && !type && !/file|doc|folder|drive|added|uploaded/.test(s)) return null;
   // Search by the other words; the kind of document only when it's all there is.
@@ -557,7 +557,8 @@ export function docsAnswer(res, meta, ctx) {
     return { text: `${lead} ${pick(JOKES.lost).replace(/\.$/, '')}, so try fewer words, or add the location.`, chips: ['What was added this week?'] };
   }
   const newest = files[0];
-  const by = newest.modifiedBy ? ` by ${newest.modifiedBy}` : '';
+  const robot = (n) => !n || /gserviceaccount|compute@|@developer/.test(n);
+  const by = robot(newest.modifiedBy) ? (newest.modifiedBy ? ' (filed by the Hub)' : '') : ` by ${newest.modifiedBy}`;
   const text = files.length === 1
     ? `Found it${where}: ${newest.name}, ${ago(new Date(newest.modifiedTime).getTime(), ctx.now)}${by}.`
     : `I found ${files.length >= 15 ? 'at least 15' : files.length} ${meta?.words?.length || !meta?.type ? 'files' : meta.type.label}${where}${meta?.timeLabel ? ' ' + meta.timeLabel : ''}. The newest is ${newest.name}, ${ago(new Date(newest.modifiedTime).getTime(), ctx.now)}${by}.`;

@@ -106,7 +106,10 @@ function GuideInner() {
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
   // In the preview only: lets the question-bank test reach the same data.
-  if (import.meta.env.DEV) window.__guideCtx = ctx;
+  if (import.meta.env.DEV) {
+    window.__guideCtx = ctx;
+    window.__guideSearch = (data) => httpsCallable(getFunctions(undefined, 'us-central1'), 'guideDriveSearch', { timeout: 45000 })(data).then((r) => r.data);
+  }
 
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([]); // { id, who: 'me'|'hub', text, shown, cards, chips, go }
@@ -200,7 +203,9 @@ function GuideInner() {
       try {
         const fns = getFunctions(undefined, 'us-central1');
         const viewAs = ctxRef.current.viewAsUid;
-        const res = await httpsCallable(fns, 'guideDriveSearch', { timeout: 45000 })({ ...a.search, ...(viewAs ? { asUid: viewAs } : {}) });
+        const call = () => httpsCallable(fns, 'guideDriveSearch', { timeout: 45000 })({ ...a.search, ...(viewAs ? { asUid: viewAs } : {}) });
+        // One quiet retry: the first search after a quiet spell can stumble while the server wakes.
+        const res = await call().catch(() => new Promise((r) => setTimeout(r, 800)).then(call));
         a = { ...docsAnswer(res.data, a.meta, ctxRef.current), memory: a.memory };
       } catch (err) {
         console.error('[Hub Guide] Drive search', err);
