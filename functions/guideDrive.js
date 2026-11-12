@@ -103,10 +103,15 @@ exports.guideDriveSearch = onCall({ timeoutSeconds: 60, memory: '512MiB' }, asyn
 
   let found = [];
   if (terms.length) {
-    // Name or contents, every word.
-    const q = [...base, ...terms.map((w) => `(name contains '${w}' or fullText contains '${w}')`)].join(' and ');
-    const res = await d.files.list({ q, fields: FILE_FIELDS, pageSize: 100, ...SHARED });
+    // Name or contents, every word. If nothing has every word, any word
+    // will do - the best matches still come first (ranked below).
+    const one = (w) => `(name contains '${w}' or fullText contains '${w}')`;
+    const res = await d.files.list({ q: [...base, ...terms.map(one)].join(' and '), fields: FILE_FIELDS, pageSize: 100, ...SHARED });
     found = res.data.files ?? [];
+    if (!found.length && terms.length > 1) {
+      const any = await d.files.list({ q: [...base, `(${terms.map(one).join(' or ')})`].join(' and '), fields: FILE_FIELDS, pageSize: 100, ...SHARED });
+      found = any.data.files ?? [];
+    }
   } else if (!categoryId && !itemName) {
     // No words and no folder: the newest files anywhere they can see
     // ("what was added this week?"), two weeks back unless told otherwise.
@@ -134,7 +139,15 @@ exports.guideDriveSearch = onCall({ timeoutSeconds: 60, memory: '512MiB' }, asyn
   // Keep only what this person may open.
   const checked = await Promise.all(found.slice(0, 60).map(async (f) => ({ f, ...(await placeOf(d, f, byFolder)) })));
   const allowed = checked.filter(({ link }) => (link ? can(link) : isAdmin && !locationIds && !categoryId && !itemName));
-  allowed.sort((a, b) => new Date(b.f.modifiedTime) - new Date(a.f.modifiedTime));
+  // Best match first: words in the file's name count most, then words in its
+  // folder names; newest breaks a tie.
+  const lower = terms.map((w) => w.toLowerCase());
+  const score = ({ f, path, link }) => {
+    const name = f.name.toLowerCase();
+    const where = [link?.itemName ?? '', ...path].join(' ').toLowerCase();
+    return lower.reduce((n, w) => n + (name.includes(w) ? 3 : 0) + (where.includes(w) ? 1 : 0), 0);
+  };
+  allowed.sort((a, b) => score(b) - score(a) || new Date(b.f.modifiedTime) - new Date(a.f.modifiedTime));
   const seen = new Set();
   const files = allowed.filter(({ f }) => (seen.has(f.id) ? false : seen.add(f.id))).slice(0, 15).map(({ f, link, path }) => ({
     id: f.id,

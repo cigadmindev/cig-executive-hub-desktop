@@ -17,6 +17,11 @@ import { useExpenses } from '../context/ExpensesContext';
 import { useCatering } from '../context/CateringContext';
 import { useWorkOrders } from '../context/WorkOrdersContext';
 import { useHomeSummary, calendarLink } from '../hooks/useHomeSummary';
+import { useChat } from '../context/ChatContext';
+import { useNotifications } from '../context/NotificationsContext';
+import { useEventRequests } from '../context/EventRequestsContext';
+import { useAccessRequests } from '../context/AccessRequestsContext';
+import { atLeast } from '../data/accessMatrix';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 
 // The Hub Guide (Nov 2026): the glowing orb in the corner. Ask it anything
@@ -42,6 +47,10 @@ function useGuideContext(pathname) {
   const { enquiries } = useCatering();
   const { getMyQueue } = useWorkOrders();
   const summary = useHomeSummary();
+  const chat = useChat();
+  const notes = useNotifications();
+  const { requests: eventRequests } = useEventRequests();
+  const { requests: accessRequests } = useAccessRequests();
 
   const locations = useMemo(
     () =>
@@ -87,6 +96,15 @@ function useGuideContext(pathname) {
     signQueue: getMyQueue?.() ?? [],
     summary,
     calendarLink,
+    unreadMessages: chat.unreadCount ?? 0,
+    conversations: chat.conversations ?? [],
+    unreadFor: chat.getUnreadCountForConversation,
+    notifications: notes.forYou ?? [],
+    unreadNotes: notes.unreadCount ?? 0,
+    eventRequests: eventRequests ?? [],
+    accessRequests: accessRequests ?? [],
+    canApproveTimeOff: user?.role === 'admin' || atLeast(user, 'availability', 'approve'),
+    canApproveEvents: user?.role === 'admin' || atLeast(user, 'eventRequests', 'approve'),
   };
 }
 

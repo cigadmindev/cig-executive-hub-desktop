@@ -386,6 +386,103 @@ function cateringAnswer(s, ctx) {
   return { text: n.length ? `${plural(n.length, 'new enquiry', 'new enquiries')} waiting:` : 'No new enquiries right now.', cards: n.slice(0, 4).map((e) => ({ icon: 'cal', title: e.name || 'No name', sub: `${e.locationName || 'No location'} · ${e.guests || '?'} guests`, tag: [e.ownerName ? e.ownerName : 'Unclaimed', e.ownerName ? 'grey' : 'amber'], to: '/catering' })), go: { to: '/catering', label: 'Catering & Events' } };
 }
 
+// ------------------------------------------------------------- more live answers
+const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+// "Did Starkville sign off today?" - answered from the signed PDFs the Hub
+// files into each location's Drive the moment a checklist is signed.
+function signoffQuery(s, ctx, memory) {
+  if (!/sign(ed)? ?off|signoff|checklists? (done|finished|complete|filed)|did .* (do|finish|complete) .*checklist|temperatures? (log )?(done|logged|taken|in|filled)|(log|logged|take|taken|do|did) .*temperature/.test(s)) return null;
+  const p = placeFor(s, ctx, memory);
+  if (p.many) return whichOne(p.many, s.includes('temp') ? 'Were temps logged today at' : 'Did they sign off today at');
+  if (!p.loc) return { text: 'Which location? For example "did Starkville sign off today?"' };
+  const yest = has(s, 'yesterday');
+  const day = startOfDay(ctx.now) - (yest ? DAY : 0);
+  const temps = /temp/.test(s);
+  return {
+    text: '',
+    search: { words: [], locationIds: [p.loc.id], categoryId: 'operations', itemName: temps ? 'Temperature Logs' : 'Opening & Closing Checklists', since: day - 2 * DAY },
+    meta: { signoff: { key: dayKey(day), label: yest ? 'yesterday' : 'today', temps }, places: [p.loc.id], words: [] },
+    memory: { lastLocId: p.loc.id },
+  };
+}
+
+function signoffAnswer(res, meta, ctx) {
+  const loc = ctx.locations.find((l) => l.id === meta.places[0]);
+  const files = (res?.files ?? []).filter((f) => f.name.startsWith(meta.signoff.key));
+  const where = loc ? shortLoc(loc) : 'there';
+  if (!files.length) return { text: meta.signoff.temps ? `No temperature log has been filed for ${where} ${meta.signoff.label} yet. It's filed when the log is signed at the end of the day.` : `Nothing has been signed off at ${where} ${meta.signoff.label} yet. Each checklist is filed to Drive the moment the manager on duty signs it.`, go: loc ? { to: locPath(loc, '/daily-checklists'), label: `${loc.name} · Daily Checklists` } : null };
+  const names = files.map((f) => f.name.replace(/^\d{4}-\d{2}-\d{2}\s*/, '').replace(/\.pdf$/i, ''));
+  return {
+    text: meta.signoff.temps ? `Yes, ${where}'s temperature log for ${meta.signoff.label} is filed.` : `${where} has signed off ${plural(files.length, 'checklist')} ${meta.signoff.label}: ${names.join(', ')}.`,
+    cards: files.slice(0, 6).map((f) => ({ icon: 'doc', title: f.name, sub: `${where} · ${f.itemName}`, tag: ['PDF', 'grey'], href: f.url })),
+    go: loc ? { to: locPath(loc, '/daily-checklists'), label: `${loc.name} · Daily Checklists` } : null,
+  };
+}
+
+function doneAnswer(s, ctx, memory) {
+  const p = placeFor(s, ctx, memory);
+  if (p.many) return whichOne(p.many, 'What got done this week at');
+  if (!p.loc) return null;
+  const since = /today/.test(s) ? startOfDay(ctx.now) : startOfDay(ctx.now) - 7 * DAY;
+  const list = ctx.entries.filter((e) => e.openingItem && e.locationId === p.loc.id && e.done && e.doneAt && e.doneAt >= since).sort((a, b) => b.doneAt - a.doneAt);
+  const label = /today/.test(s) ? 'today' : 'in the last 7 days';
+  if (!list.length) return { text: `Nothing was ticked off on ${p.loc.name}'s opening checklist ${label}.`, memory: { lastLocId: p.loc.id } };
+  return { text: `${plural(list.length, 'item')} ticked off at ${locLabel(p.loc)} ${label}. Nice work, team.`, cards: list.slice(0, 5).map((i) => ({ icon: 'check', title: i.title, sub: `${i.doneBy ?? 'Someone'} · ${fmtDay(i.doneAt)}`, tag: ['Done', 'green'], to: locPath(p.loc, '/opening-checklist') })), memory: { lastLocId: p.loc.id } };
+}
+
+function dueSoonAnswer(s, ctx, memory) {
+  const p = placeFor(s, ctx, memory);
+  if (p.many) return whichOne(p.many, has(s, 'tomorrow') ? "What's due tomorrow at" : "What's due today at");
+  const tomorrow = has(s, 'tomorrow');
+  const from = startOfDay(ctx.now) + (tomorrow ? DAY : 0);
+  const locs = p.loc && !p.implied ? [p.loc] : ctx.locations;
+  const list = ctx.entries.filter((e) => e.openingItem && !e.done && e.dateTime >= from && e.dateTime < from + DAY && locs.some((l) => l.id === e.locationId));
+  const label = tomorrow ? 'tomorrow' : 'today';
+  if (!list.length) return { text: `Nothing on the opening checklists is due ${label}${p.loc && !p.implied ? ' at ' + p.loc.name : ''}.` };
+  return { text: `${plural(list.length, 'item')} ${list.length === 1 ? 'is' : 'are'} due ${label}:`, cards: list.slice(0, 5).map((i) => itemCard(i, ctx.locations.find((l) => l.id === i.locationId), ctx)) };
+}
+
+function countAnswer(s, ctx, memory) {
+  const p = placeFor(s, ctx, memory);
+  if (p.many) return whichOne(p.many, 'How many items are done at');
+  if (!p.loc) return null;
+  const { all, late } = openingAt(ctx, p.loc);
+  const done = all.filter((i) => i.done).length;
+  return { text: `${locLabel(p.loc)}: ${done} of ${all.length} opening checklist items done, ${all.length - done} to go, ${late.length} late.`, memory: { lastLocId: p.loc.id } };
+}
+
+function inboxAnswer(s, ctx) {
+  if (/message|chat|dm|text/.test(s)) {
+    const n = ctx.unreadMessages ?? 0;
+    if (!n) return { text: 'No unread messages. Inbox zero, look at you.', go: { to: '/messages', label: 'Messages' } };
+    const convos = (ctx.conversations ?? []).map((c) => ({ c, n: ctx.unreadFor?.(c.id) ?? 0 })).filter((x) => x.n > 0).slice(0, 4);
+    return { text: `You have ${plural(n, 'unread message')}.`, cards: convos.map(({ c, n: k }) => ({ icon: 'person', title: c.name || 'A chat', sub: plural(k, 'unread message'), to: '/messages' })), go: { to: '/messages', label: 'Messages' } };
+  }
+  const items = (ctx.notifications ?? []).filter((i) => !i.readAt).slice(0, 4);
+  if (!items.length) return { text: "No new notifications. It's quiet. Too quiet." };
+  return { text: `You have ${plural(ctx.unreadNotes ?? items.length, 'new notification')}:`, cards: items.map((i) => ({ icon: 'page', title: i.title || 'Notification', sub: String(i.body ?? '').slice(0, 70), to: i.link || '/' })) };
+}
+
+function approvalsAnswer(s, ctx) {
+  const rows = [];
+  if (ctx.canApproveTimeOff) (ctx.timeOff ?? []).filter((r) => r.status === 'pending' && r.uid !== ctx.user?.uid).forEach((r) => { const u = ctx.users.find((x) => x.uid === r.uid); rows.push({ icon: 'cal', title: `Time off · ${u?.name ?? 'Someone'}`, sub: `${fmtDay(r.startDate)} – ${fmtDay(r.endDate)}`, to: '/availability' }); });
+  if (ctx.canApproveEvents) (ctx.eventRequests ?? []).filter((r) => r.status === 'pending').forEach((r) => { const l = ctx.locations.find((x) => x.id === r.locationId); rows.push({ icon: 'cal', title: `Event · ${r.title ?? 'Request'}`, sub: l ? shortLoc(l) : 'Event request', to: l ? locPath(l, '/event-requests') : '/' }); });
+  if (ctx.isAdmin) (ctx.accessRequests ?? []).filter((r) => r.status === 'pending').forEach((r) => rows.push({ icon: 'person', title: `Access · ${r.requesterName ?? r.name ?? 'Someone'}`, sub: 'Access request', to: '/access-requests' }));
+  if (!rows.length) return { text: 'Nothing is waiting for your approval.' };
+  return { text: `${plural(rows.length, 'thing')} ${rows.length === 1 ? 'is' : 'are'} waiting for your approval:`, cards: rows.slice(0, 6) };
+}
+
+function nextEventAnswer(s, ctx) {
+  const { list: places } = findPlaces(s, ctx);
+  const catering = /catering|party|private/.test(s);
+  const evs = ctx.entries.filter((e) => !e.openingItem && e.dateTime > ctx.now && (!places.length || places.some((l) => l.id === e.locationId)) && (!catering || /catering|party|private/i.test(e.title))).sort((a, b) => a.dateTime - b.dateTime);
+  if (!evs.length) return { text: `Nothing coming up${places.length ? ' there' : ''} on the calendar.` };
+  const e = evs[0];
+  const l = ctx.locations.find((x) => x.id === e.locationId);
+  return { text: `Next up: ${e.title}, ${fmtDay(e.dateTime)} at ${fmtTime(e.dateTime)}${l ? ' (' + shortLoc(l) + ')' : ''}.`, cards: evs.slice(0, 3).map((x) => { const lx = ctx.locations.find((y) => y.id === x.locationId); return { icon: 'cal', title: x.title, sub: `${fmtDay(x.dateTime)} ${fmtTime(x.dateTime)}${lx ? ' · ' + shortLoc(lx) : ''}`, to: ctx.calendarLink(x) }; }) };
+}
+
 // ------------------------------------------------------------- why
 const STOP = new Set(['the', 'and', 'for', 'does', 'need', 'needs', 'done', 'this', 'that', 'matter', 'matters', 'item', 'what', "what's", 'whats', 'late', 'locked', 'waiting', 'with', 'have', 'there', 'about', 'important', 'why', 'how', 'who', 'where', "where's", 'wheres', 'status', 'show', 'tell', 'me', 'is', 'it', 'at', 'in', 'of', 'to', 'our', 'its', 'are', 'was', 'can', 'did', 'has', 'any', 'all', 'still', 'yet', 'get', 'got', 'assigned', "who's", 'whos', 'due', 'when']);
 const itemWords = (s) => s.split(/[^a-z0-9/]+/).filter((w) => w.length >= 3 && !STOP.has(w));
@@ -504,12 +601,15 @@ function docQuery(s, ctx, memory) {
   const asksFile = verbs || docWord;
   if (!asksFile && /renew|expir|\blate\b|unassigned|assigned|who('s| is)|when does|how ready|due (this|next)/.test(s)) return null;
   // An opening checklist item by that name ("floor plan nashville") is answered as the item.
-  if (!asksFile && !recent && !time && type && ctx.entries.some((e) => e.openingItem && s.includes(' ' + e.title.toLowerCase().replace(/\s*\(.*?\)\s*/g, ' ').trim() + ' '))) return null;
+  if (!asksFile && !recent && !time && !asksWhere && type && ctx.entries.some((e) => e.openingItem && s.includes(' ' + e.title.toLowerCase().replace(/\s*\(.*?\)\s*/g, ' ').trim() + ' '))) return null;
   if (!(asksFile || recent || (type && (asksWhere || type.only || places.length || time || extra.length)))) return null;
   if (recent && !asksFile && !type && !/file|doc|folder|drive|added|uploaded/.test(s)) return null;
   // Search by the other words; the kind of document only when it's all there is.
-  const words = (type?.only ? extra : extra.length ? extra : all).map(stem).slice(0, 6);
+  const words = (type?.only ? extra : all).map(stem).slice(0, 6);
 
+  if (!words.length && !type?.only && !time && !recent && places.length && !type) {
+    return { text: '', search: { words: [], locationIds: places.map((l) => l.id), since: ctx.now - 60 * DAY }, meta: { places: places.map((l) => l.id), timeLabel: 'in the last 60 days', words: [] }, memory: { lastLocId: places[0].id } };
+  }
   if (!words.length && !type?.only && !time && !recent) {
     if (type) return folderHint(type, places, ctx, `Here's where ${type.label} live.`);
     return { text: 'What should I look for? For example "find the Chelsea lease" or "October temperature logs at Ridgeland".' };
@@ -517,7 +617,7 @@ function docQuery(s, ctx, memory) {
   return {
     text: '',
     search: { words, locationIds: places.length ? places.map((l) => l.id) : null, categoryId: type?.only ? type.cat : null, itemName: type?.only ? type.item : null, since: time?.since ?? null, until: time?.until ?? null },
-    meta: { type, places: places.map((l) => l.id), timeLabel: time?.label ?? (recent && !words.length ? 'in the last two weeks' : ''), words, recent },
+    meta: { type, places: places.map((l) => l.id), timeLabel: time?.label ?? (recent && !words.length && !type?.only ? 'in the last two weeks' : ''), words, recent },
     memory: { lastLocId: places[0]?.id ?? memory.lastLocId },
   };
 }
@@ -544,6 +644,7 @@ function ago(t, now) {
 }
 
 export function docsAnswer(res, meta, ctx) {
+  if (meta?.signoff) return signoffAnswer(res, meta, ctx);
   const files = res?.files ?? [];
   const places = (meta?.places ?? []).map((id) => ctx.locations.find((l) => l.id === id)).filter(Boolean);
   const where = places.length === 1 ? ` at ${shortLoc(places[0])}` : places.length > 1 ? ` at ${places[0].name}` : '';
@@ -583,6 +684,11 @@ function navAnswer(s, ctx, memory) {
   const part = parts.find(([w]) => s.includes(w));
   const { list } = findPlaces(s, ctx);
   if (!list.length) return null;
+  if (!part) {
+    const pw = new Set(list.flatMap((l) => [...l.name.toLowerCase().split(' '), ...l.brandName.toLowerCase().split(' '), ...(BRAND_NICKNAMES[l.brandId] ?? [])]));
+    const left = s.split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !pw.has(w) && !['show', 'open', 'take', 'bring', 'pull', 'the', 'page', 'location', 'restaurant', 'for', 'me'].includes(w));
+    if (left.length) return null;
+  }
   const p = placeFor(s, ctx, memory);
   if (p.many) return whichOne(p.many, `Show me the ${part ? part[2] : 'page'} for`);
   if (!p.loc) return null;
@@ -707,6 +813,13 @@ export function answer(raw, ctx, memory = {}) {
     }
   }
   if (memory.lastItemId && /^(what's it|what is it|whats it|is it) (waiting|blocked|holding)|what('s| is) (it|this) waiting on|what's holding it up/.test(t)) return done(whyAnswer('why is it locked waiting', ctx, memory));
+  const so = signoffQuery(s, ctx, memory); if (so) return done(so);
+  if (/unread|new messages|any messages|did anyone message|notifications?\b|anything new for me/.test(s) && !/how|turn off|stop|setting/.test(s)) return done(inboxAnswer(s, ctx));
+  if (/approve|approval|waiting on me to|need(s)? my (ok|okay|sign-off)|pending requests/.test(s) && !/how do|who approves/.test(s)) return done(approvalsAnswer(s, ctx));
+  if (/what (got|was|has been) (done|finished|ticked|completed)|what did .* (finish|tick|complete)|done this week|finished this week|completed this week/.test(s)) { const a = doneAnswer(s, ctx, memory); if (a) return done(a); }
+  if (/due (today|tomorrow)|what's due$|whats due$/.test(s)) return done(dueSoonAnswer(s, ctx, memory));
+  if (/how many (items|things|tasks).*(done|left|to go)|how many are done|items left/.test(s)) { const a = countAnswer(s, ctx, memory); if (a) return done(a); }
+  if (/next (event|catering|party|thing on the calendar)|what's next|whats next|when is the next/.test(s)) return done(nextEventAnswer(s, ctx));
   const doc = docQuery(s, ctx, memory); if (doc) return done(doc);
   const nav = navAnswer(s, ctx, memory); if (nav) return done(nav);
   if (/^(who|what) are you|are you (a )?(robot|bot|ai|real|human)|your name/.test(t)) return done({ text: pick(JOKES.who), chips: ['What can you do?'], mood: 'joke' });
