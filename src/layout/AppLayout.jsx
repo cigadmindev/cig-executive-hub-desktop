@@ -18,6 +18,7 @@ import { brands } from '../data/mockData';
 import Icon from '../components/Icon';
 import BottomBar from './BottomBar';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { PageWidthContext, useMeasuredWidth, useSlimSidebar } from '../hooks/usePageWidth';
 import { useHomeSummary } from '../hooks/useHomeSummary';
 import { brandColors } from '../theme/colors';
 
@@ -28,11 +29,17 @@ import { brandColors } from '../theme/colors';
 // sidebar.
 export default function AppLayout({ children }) {
   const isNarrow = useIsNarrow();
+  const slim = useSlimSidebar();
+  // Half-screen windows (Nov 2026): the sidebar is a slim strip of icons and
+  // restaurant dots, and slides out in full when you point at it or click it.
+  const [flyout, setFlyout] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   // Each page settles in when you arrive on it (28 Oct 2026). The page itself
   // is animated in place - nothing is re-mounted, so no page loses its state.
   const { pathname } = useLocation();
   const contentRef = useRef(null);
+  const pageWidth = useMeasuredWidth(contentRef);
+  useLayoutEffect(() => setFlyout(false), [pathname]);
   useLayoutEffect(() => {
     // A new page starts at the top, not wherever the last one was scrolled to.
     if (contentRef.current) contentRef.current.scrollTop = 0;
@@ -117,7 +124,7 @@ export default function AppLayout({ children }) {
             <UpdateBanner />
           </div>
           <ViewAsBar />
-          {children}
+          <PageWidthContext.Provider value={pageWidth}>{children}</PageWidthContext.Provider>
         </div>
         <NotificationsBell floating onClick={() => setNotifOpen(true)} />
         <BottomBar
@@ -147,11 +154,8 @@ export default function AppLayout({ children }) {
     </NavLink>
   );
 
-  return (
-    <div style={styles.window}>
-      {/* Glass sidebar (Nov 2026): a frosted panel floating over the page,
-          the four main places, then every restaurant you can open. */}
-      <div style={styles.sidebar}>
+  const fullSidebar = (
+      <div style={slim ? { ...styles.sidebar, ...styles.flyout } : styles.sidebar}>
         <div style={styles.dragArea} />
 
         <div style={styles.brandRow}>
@@ -192,13 +196,89 @@ export default function AppLayout({ children }) {
           </div>
         </div>
       </div>
+  );
+
+  return (
+    <div style={styles.window}>
+      {/* Glass sidebar (Nov 2026): a frosted panel floating over the page,
+          the four main places, then every restaurant you can open. */}
+      {slim ? (
+        <div
+          style={styles.railWrap}
+          onMouseEnter={() => setFlyout(true)}
+          onMouseLeave={() => setFlyout(false)}
+          onFocus={() => setFlyout(true)}
+          onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setFlyout(false); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setFlyout(false); }}
+        >
+          <SlimRail
+            onOpen={() => setFlyout(true)}
+            user={user}
+            hasBrandAccess={hasBrandAccess}
+            byBrand={summary.byBrand}
+            worksChecklist={summary.worksChecklist}
+            dots={{ home: anyEventNeedsMyJob, messages: unreadCount > 0, calendar: anyCalendarUnseen, directory: directoryNeedsAttention, profile: profileNeedsAttention }}
+            onBell={() => setNotifOpen(true)}
+          />
+          {flyout ? fullSidebar : null}
+        </div>
+      ) : (
+        fullSidebar
+      )}
 
       <div style={styles.content} ref={contentRef}>
         <ViewAsBar />
-        {children}
+        <PageWidthContext.Provider value={pageWidth}>{children}</PageWidthContext.Provider>
       </div>
       {notifOpen ? <NotificationsPanel onClose={() => setNotifOpen(false)} /> : null}
       <Toaster />
+    </div>
+  );
+}
+
+// The slim sidebar for half-screen windows (Nov 2026): the four main places
+// as icons, a coloured dot per restaurant, and you at the bottom. Red dots
+// stay. Pointing at it (or clicking it) slides the full sidebar out.
+function SlimRail({ onOpen, user, hasBrandAccess, byBrand, worksChecklist, dots, onBell }) {
+  const { pathname } = useLocation();
+  const icon = (to, name, label, dot, end = false) => (
+    <NavLink to={to} end={end} aria-label={label} title={label} style={({ isActive }) => ({ ...styles.railItem, ...(isActive ? styles.railItemActive : {}) })}>
+      {({ isActive }) => (
+        <>
+          <Icon name={name} size={19} color={isActive ? 'var(--neon)' : 'var(--text-secondary)'} />
+          {dot ? <span style={styles.railDot} /> : null}
+        </>
+      )}
+    </NavLink>
+  );
+  const mine = brands.filter((b) => hasBrandAccess(user, b.id));
+  return (
+    <div style={styles.rail}>
+      <div style={styles.dragArea} />
+      <button style={{ ...styles.badge, border: 'none', cursor: 'pointer', marginBottom: 14 }} onClick={onOpen} aria-label="Open the sidebar">CIG</button>
+      {icon('/', 'home', 'Home', dots.home, true)}
+      {icon('/messages', 'message', 'Messages', dots.messages)}
+      {icon('/calendar', 'calendar', 'Master Calendar', dots.calendar)}
+      {icon('/directory', 'grid', 'Directory', dots.directory)}
+      {mine.length ? <div style={styles.railSep} /> : null}
+      <div style={styles.railBrands}>
+        {mine.map((b) => {
+          const here = pathname === '/brand/' + b.id || pathname.startsWith('/brand/' + b.id + '/');
+          const late = worksChecklist ? byBrand?.[b.id]?.overdue ?? 0 : 0;
+          return (
+            <NavLink key={b.id} to={'/brand/' + b.id} aria-label={b.name + (late ? ', ' + late + ' late' : '')} title={b.name} style={{ ...styles.railItem, ...(here ? styles.railItemActive : {}) }}>
+              <span style={{ ...styles.brandDot, width: 12, height: 12, borderRadius: 6, boxShadow: 'inset 0 0 0 1px rgba(var(--ink-rgb), 0.28)', background: brandColors[b.name] ?? '#A1A1AA' }} />
+              {late > 0 ? <span style={styles.railDot} /> : null}
+            </NavLink>
+          );
+        })}
+      </div>
+      <div style={{ flex: 1 }} />
+      <NotificationsBell onClick={onBell} />
+      <NavLink to="/profile" aria-label="Profile" title="Profile" style={{ position: 'relative', marginTop: 8, textDecoration: 'none' }}>
+        <div style={styles.avatar}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
+        {dots.profile ? <span style={styles.railDot} /> : null}
+      </NavLink>
     </div>
   );
 }
@@ -271,7 +351,19 @@ function SidebarRestaurants({ user, hasBrandAccess, hasLocationAccess, getByBran
 
 const styles = {
   // The page sits on the colour wash; the sidebar floats on it as glass.
-  window: { display: 'flex', height: '100vh', background: 'transparent', padding: 14, gap: 14, boxSizing: 'border-box' },
+  window: { display: 'flex', height: '100vh', background: 'transparent', padding: 14, gap: 14, boxSizing: 'border-box', position: 'relative' },
+  railWrap: { position: 'relative', flexShrink: 0, display: 'flex', zIndex: 60 },
+  rail: {
+    width: 64, background: 'var(--bg-sidebar)', border: '1px solid var(--glass-edge)', borderRadius: 22, boxShadow: 'var(--shadow-md)',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '0 0 14px', boxSizing: 'border-box', overflow: 'hidden',
+  },
+  railItem: { position: 'relative', width: 42, height: 40, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 },
+  railItemActive: { background: 'var(--surface)', boxShadow: '0 2px 10px rgba(30,40,60,0.08)' },
+  railDot: { position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 4, background: 'var(--danger)' },
+  railSep: { width: 26, height: 1, background: 'var(--border)', margin: '10px 0' },
+  railBrands: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, overflowY: 'auto', minHeight: 0 },
+  // The full sidebar sliding out over the page from the slim strip.
+  flyout: { position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 61, background: 'var(--bg-sidebar-solid, var(--bg-sidebar))', backdropFilter: 'blur(28px) saturate(1.6)', WebkitBackdropFilter: 'blur(28px) saturate(1.6)', boxShadow: '0 18px 50px rgba(20,24,32,0.28)', animation: 'hubFlyIn 0.22s cubic-bezier(0.22,1,0.36,1)' },
   // dvh, not vh: the phone container has to shrink when the keyboard opens,
   // or the fixed bar strands itself mid-screen.
   narrowWindow: { height: '100dvh', background: 'transparent' },

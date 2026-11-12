@@ -15,6 +15,7 @@ import PageHeader from '../components/PageHeader';
 import Icon from '../components/Icon';
 import { plainError } from '../lib/errors';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { useTight } from '../hooks/usePageWidth';
 import { segTrack, segItem, segItemOn, chipOn } from '../theme/segmented';
 
 function toggleInArray(arr, id) {
@@ -125,7 +126,8 @@ export default function AdminUsersScreen() {
   const [repairOpen, setRepairOpen] = useState(false);
   // The redesigned page (17 Oct 2026): tabs, search, filters, grouped list
   // and a details panel beside it (a full page on a phone).
-  const isNarrow = useIsNarrow();
+  // Half-screen windows use the tidy phone layout too (Nov 2026).
+  const isNarrow = useTight(900);
   const [tab, setTab] = useState('people');
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');

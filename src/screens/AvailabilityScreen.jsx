@@ -11,6 +11,7 @@ import DatePickerField from '../components/DatePickerField';
 import { useDialog } from '../hooks/useDialog';
 import PageHeader from '../components/PageHeader';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { useTight } from '../hooks/usePageWidth';
 import { fmtDay } from '../lib/dates';
 import Pill from '../components/Pill';
 import { plainError } from '../lib/errors';
@@ -66,7 +67,9 @@ export default function AvailabilityScreen() {
   // Executives put in when they're unavailable instead of asking for time
   // off (14 Oct 2026). Not Cameron (IT & Training), Marketing or video.
   const away = usesUnavailableDates(user);
-  const isNarrow = useIsNarrow();
+  // Half-screen windows use the tidy phone layout too (Nov 2026).
+  const isNarrow = useTight(860);
+  const isPhone = useIsNarrow();
 
   useEffect(() => {
     if (seesTeam && !(users ?? []).length && refreshUsers) refreshUsers().catch(() => {});
@@ -389,7 +392,7 @@ export default function AvailabilityScreen() {
             </div>
           </div>
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table style={isNarrow ? { ...styles.grid, minWidth: 620 } : styles.grid}>
+            <table style={isNarrow ? { ...styles.grid, minWidth: isPhone ? 620 : 900 } : styles.grid}>
               <thead>
                 <tr>
                   <th style={{ ...styles.th, textAlign: 'left', ...(isNarrow ? styles.stickyHead : {}) }}>Person</th>

@@ -10,6 +10,7 @@ import Pill from '../components/Pill';
 import Icon from '../components/Icon';
 import { useDialog } from '../hooks/useDialog';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { useTight } from '../hooks/usePageWidth';
 import { printDailySheets } from '../lib/printSheet';
 
 // A location's daily checklists - every opening and closing list it runs
@@ -33,7 +34,8 @@ export default function DailyChecklistsScreen() {
   const isToday = dateKey === todayKey();
   const lists = listsFor(locationId);
   const { dialogNode, notify } = useDialog();
-  const isNarrow = useIsNarrow();
+  // Half-screen windows use the tidy phone layout too (Nov 2026).
+  const isNarrow = useTight(760);
   // Every list this location runs, one per page, to post for the team (17 Oct 2026).
   const printAll = () =>
     printDailySheets({ location: location?.name ?? '', brand: brand?.name ?? '', lists: lists.filter((l) => l.kind !== 'log') }) ||

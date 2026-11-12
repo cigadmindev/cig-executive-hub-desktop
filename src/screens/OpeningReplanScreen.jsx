@@ -9,6 +9,7 @@ import { useOpeningInfo } from '../context/OpeningInfoContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { useDialog } from '../hooks/useDialog';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { useTight } from '../hooks/usePageWidth';
 import PageHeader from '../components/PageHeader';
 import { planLocation, planWrites, PHASES, DAY } from '../lib/openingPlan';
 import { fmtDay } from '../lib/dates';
@@ -26,7 +27,8 @@ export default function OpeningReplanScreen() {
   const { getInfo } = useOpeningInfo();
   const { getByBrand } = useCustomLocations();
   const { dialogNode, notify, confirm } = useDialog();
-  const isNarrow = useIsNarrow();
+  // Half-screen windows use the tidy phone layout too (Nov 2026).
+  const isNarrow = useTight(900);
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [applying, setApplying] = useState(false);

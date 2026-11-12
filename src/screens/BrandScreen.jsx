@@ -225,7 +225,7 @@ export default function BrandScreen() {
                 return (
                   <button
                     data-card=""
-                    style={{ ...styles.card, ...(canOpen(loc) ? {} : styles.cardLocked) }}
+                    style={{ ...styles.card, ...(canOpen(loc) ? {} : styles.cardLocked), ...(loc.isCustom && user?.role === 'admin' ? { paddingBottom: 46 } : {}) }}
                     onClick={() => openLocation(loc)}
                   >
                     <span style={styles.cardTop}>
@@ -372,7 +372,9 @@ const styles = {
   bar: { display: 'block', height: 6, borderRadius: 3, background: 'rgba(var(--ink-rgb), 0.08)', overflow: 'hidden', marginTop: 'auto' },
   barFill: { display: 'block', height: '100%', borderRadius: 3, background: 'var(--neon)' },
   cardMeta: { display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-tertiary)' },
-  deleteLink: { position: 'absolute', top: 18, right: 40, fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'rgba(var(--paper-rgb), 0.7)', border: 'none', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' },
+  // Bottom right, under the card's own lines, so it never covers the name
+  // on a narrow card (Nov 2026).
+  deleteLink: { position: 'absolute', bottom: 14, right: 16, fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'rgba(var(--paper-rgb), 0.7)', border: 'none', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' },
   postsSection: { marginTop: 32 },
   postsHeaderRow: { display: 'flex', alignItems: 'center', gap: 10 },
   postsDot: { width: 8, height: 8, borderRadius: 4, background: 'var(--danger)' },

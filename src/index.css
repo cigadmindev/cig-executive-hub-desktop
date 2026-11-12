@@ -22,6 +22,8 @@
      section at the end of this file. */
   --bg-sidebar: linear-gradient(160deg, rgba(255, 255, 255, 0.46) 0%, rgba(255, 255, 255, 0.12) 60%, rgba(255, 255, 255, 0.24) 100%);
   --bg-card: linear-gradient(155deg, rgba(255, 255, 255, 0.44) 0%, rgba(255, 255, 255, 0.1) 55%, rgba(255, 255, 255, 0.22) 100%);
+  /* The full sidebar when it slides out over a page (half-screen windows). */
+  --bg-sidebar-solid: linear-gradient(160deg, rgba(255, 255, 255, 0.9) 0%, rgba(247, 242, 235, 0.92) 100%);
   /* Solid, for anything that floats over content (pop-ups, menus). */
   --bg-elevated: #FFFFFF;
   --bg-card-hover: rgba(255, 255, 255, 0.35);
@@ -118,6 +120,7 @@
   --bg-wash: var(--bg-tile) center / cover no-repeat, var(--bg-base);
   --bg-sidebar: linear-gradient(160deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.05) 60%, rgba(255, 255, 255, 0.08) 100%);
   --bg-card: linear-gradient(155deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 55%, rgba(255, 255, 255, 0.07) 100%);
+  --bg-sidebar-solid: linear-gradient(160deg, rgba(56, 59, 64, 0.94) 0%, rgba(38, 40, 44, 0.96) 100%);
   --bg-elevated: #2B2D31;
   --bg-card-hover: rgba(255, 255, 255, 0.08);
   --seg-thumb: #3B3D42;
@@ -937,3 +940,9 @@ html.lens [data-frost] {
 /* The waves behind everything (Nov 2026). Fixed to the window, behind the
    app, and it stays still (Brenner: no movement). */
 #hub-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--bg-wash); }
+
+/* The full sidebar sliding out of the slim strip (half-screen windows). */
+@keyframes hubFlyIn {
+  from { transform: translateX(-14px); opacity: 0.6; }
+  to { transform: none; opacity: 1; }
+}

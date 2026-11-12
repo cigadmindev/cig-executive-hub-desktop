@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { personColor } from '../lib/personColor';
+import { usePageWidth } from '../hooks/usePageWidth';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
@@ -48,6 +49,11 @@ function highlight(text, q, current = false) {
 
 export default function MessagesScreen() {
   const isNarrow = useIsNarrow();
+  // A half-screen window (Nov 2026) has no room for the list and the chat
+  // side by side: like the phone, the list fills the page, and a chat opens
+  // full width with a way back.
+  const pageWidth = usePageWidth();
+  const onePane = isNarrow || pageWidth < 820;
   const {
     conversations,
     getMessagesForConversation,
@@ -285,8 +291,8 @@ export default function MessagesScreen() {
   // conversation, then the thread. Desktop shows both side by side, and
   // activeId already decides what the thread pane renders - here it also
   // decides which pane exists.
-  const showList = !isNarrow || !activeId;
-  const showThread = !isNarrow || !!activeId;
+  const showList = !onePane || !activeId;
+  const showThread = !onePane || !!activeId;
 
   // Same header as every page (14 Oct 2026): "+ New message" top right,
   // "+ New group" beside it. On a phone it shows over the chat list only;
@@ -309,7 +315,7 @@ export default function MessagesScreen() {
         </div>
       ) : null}
     <div style={isNarrow ? styles.pageNarrow : styles.page}>
-      <div style={{ ...styles.list, ...(isNarrow ? styles.listNarrow : {}), ...(showList ? {} : { display: 'none' }) }}>
+      <div style={{ ...styles.list, ...(isNarrow ? styles.listNarrow : onePane ? styles.listWide : {}), ...(showList ? {} : { display: 'none' }) }}>
 
         <div style={isNarrow ? { ...styles.searchWrap, padding: '0 16px 10px' } : styles.searchWrap}>
           <input
@@ -379,7 +385,7 @@ export default function MessagesScreen() {
                       {c.name}
                       {c.type === 'group' ? <span style={styles.groupTag}>Group</span> : null}
                     </div>
-                    <div style={{ ...styles.convoPreview, ...(isNarrow ? { maxWidth: 'none', fontSize: 13 } : {}) }}>{c.lastMessageText || 'No messages yet'}</div>
+                    <div style={{ ...styles.convoPreview, ...(isNarrow ? { maxWidth: 'none', fontSize: 13 } : onePane ? { maxWidth: 'none' } : {}) }}>{c.lastMessageText || 'No messages yet'}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     <span style={styles.convoTime}>{formatTime(c.lastMessageTimestamp)}</span>
@@ -411,8 +417,8 @@ export default function MessagesScreen() {
         ) : (
           <>
             <div style={styles.threadHeaderRow}>
-              {isNarrow ? (
-                <button style={styles.backToList} onClick={() => setActiveId(null)} aria-label="Back to chats">
+              {onePane ? (
+                <button style={styles.backToList} onClick={() => setActiveId(null)} aria-label="Back to chats" title="All chats">
                   ‹
                 </button>
               ) : null}
@@ -681,6 +687,7 @@ const styles = {
   // flex child be shorter than its content.
   pageNarrow: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' },
   list: { width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', borderRadius: 24, paddingTop: 12, overflow: 'hidden' },
+  listWide: { width: 'auto', flex: 1, minWidth: 0 },
   listNarrow: { width: '100%', flex: 1, minWidth: 0, minHeight: 0, background: 'none', borderRadius: 0, paddingTop: 0, overflow: 'visible' },
   backToList: {
     background: 'none',

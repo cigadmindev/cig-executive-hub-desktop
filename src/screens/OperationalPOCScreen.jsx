@@ -20,6 +20,7 @@ import SearchBar from '../components/SearchBar';
 import { useState } from 'react';
 import PageHeader from '../components/PageHeader';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { useTight } from '../hooks/usePageWidth';
 import { plainError } from '../lib/errors';
 
 export default function OperationalPOCScreen() {
@@ -34,7 +35,8 @@ export default function OperationalPOCScreen() {
   // Load this location's contacts while the page is open (15 Oct 2026).
   useEffect(() => watch(brandId, locationId), [brandId, locationId]);
   const { user, activeUsers, hasLocationAccess, refreshUsers } = useAuth();
-  const isNarrow = useIsNarrow();
+  // Half-screen windows use the tidy phone layout too (Nov 2026).
+  const isNarrow = useTight(860);
   const { dialogNode, notify, confirm } = useDialog();
   // Full on the Operational POC column of Who sees what fills in, adds and
   // removes; View only reads (14 Oct 2026). Before, anyone could fill in but

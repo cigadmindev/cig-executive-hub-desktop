@@ -1,7 +1,7 @@
 import { SkeletonRows } from './Motion';
 import React, { useEffect, useRef, useState } from 'react';
 import PageHeader from './PageHeader';
-import { useIsNarrow } from '../hooks/useIsNarrow';
+import { useTight } from '../hooks/usePageWidth';
 import { segTrack, segItem, segItemOn } from '../theme/segmented';
 
 // The one layout every request page uses:
@@ -17,7 +17,8 @@ export default function RequestPage({ back, title, subtitle, actionLabel, onActi
   // On a phone the list and the detail don't fit side by side, and the
   // detail used to land under the list where nobody saw it. Tapping a row now
   // opens it full-screen with a way back to the list (V3).
-  const isNarrow = useIsNarrow();
+  // Tight half-screen windows get the phone's cards too (Nov 2026).
+  const isNarrow = useTight(700);
   const [phoneOpen, setPhoneOpen] = useState(false);
   // Too narrow for the list and the details side by side (27 Oct 2026,
   // Brenner on a laptop): the details used to drop below the whole list, so

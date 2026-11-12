@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CountUp } from '../components/Motion';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { useTight } from '../hooks/usePageWidth';
 import Icon from '../components/Icon';
 import { printOpeningSheet } from '../lib/printSheet';
 import { assigneesOf, assigneeFields, shortNames, isAssignedTo } from '../data/assignees';
@@ -48,7 +49,8 @@ export default function OpeningChecklistScreen() {
   // Assigned work only (16 Oct 2026, Ben): just the items given to him, which
   // he can tick off and fill in. Nothing else on the list shows.
   const mineOnly = assignedWorkOnly(user, 'openingChecklist');
-  const isNarrow = useIsNarrow();
+  // Half-screen windows use the tidy phone layout too (Nov 2026).
+  const isNarrow = useTight(900);
   const canTick = atLeast(user, 'openingChecklist', 'tick') || mineOnly;
 
   // Adding items in the app is what removes the need for a per-city template.

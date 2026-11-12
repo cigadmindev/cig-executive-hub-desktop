@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { usePageWidth } from '../hooks/usePageWidth';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useNavigate , Link } from 'react-router-dom';
 import { MySpaceCard } from './MySpaceScreen';
@@ -40,7 +41,8 @@ function useStacked() {
 
 export default function HomeScreen() {
   const isNarrow = useIsNarrow();
-  const stacked = useStacked() || isNarrow;
+  const pageWidth = usePageWidth();
+  const stacked = useStacked() || isNarrow || pageWidth < 860;
   const needsRef = useRef(null);
   const { dialogNode, notify } = useDialog();
   const { user, hasBrandAccess } = useAuth();
@@ -285,7 +287,7 @@ export default function HomeScreen() {
         </div>
       ) : null}
 
-      <div style={isNarrow ? { ...styles.tiles, gridTemplateColumns: '1fr 1fr', gap: 10 } : styles.tiles} data-stagger="">
+      <div style={isNarrow ? { ...styles.tiles, gridTemplateColumns: '1fr 1fr', gap: 10 } : pageWidth < 700 ? { ...styles.tiles, gridTemplateColumns: '1fr 1fr' } : styles.tiles} data-stagger="">
         {tiles.map((t) => (
           <button key={t.key} style={{ ...styles.tile, ...(isNarrow ? { padding: '14px 16px', borderRadius: 20, gap: 4 } : {}), cursor: t.go ? 'pointer' : 'default' }} onClick={() => t.go && t.go()} title={t.hint}>
             <CountUp value={t.n} style={{ ...styles.tileValue, ...(isNarrow ? { fontSize: 32 } : {}), color: t.color }} />
@@ -492,7 +494,9 @@ const styles = {
   updateRead: { fontSize: 14, fontWeight: 600, color: 'var(--neon)', flexShrink: 0 },
   unpin: { marginTop: 8, background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '6px 4px' },
 
-  tiles: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 },
+  // Four across when all four fit, otherwise two by two - never three
+  // and one left alone on a row (half-screen windows, Nov 2026).
+  tiles: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 },
   tile: { ...glass, borderRadius: 24, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 6, textAlign: 'left', fontFamily: 'inherit', color: 'inherit' },
   tileValue: { fontSize: 40, fontWeight: 800, letterSpacing: -1, lineHeight: 1 },
   tileLabel: { fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' },

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import RequestPage, { Pill, detailStyles as d } from '../components/RequestPage';
 import { useIsNarrow } from '../hooks/useIsNarrow';
+import { useTight } from '../hooks/usePageWidth';
 import { useAuth } from '../context/AuthContext';
 import { useCustomLocations } from '../context/CustomLocationsContext';
 import { brands } from '../data/mockData';
@@ -38,7 +39,8 @@ const money = (cents) => '$' + Number((cents ?? 0) / 100).toLocaleString('en-US'
 export default function ExpensesScreen() {
   const { dialogNode, confirm, notify } = useDialog();
   const { user, users, hasBrandAccess } = useAuth();
-  const isNarrow = useIsNarrow();
+  // Half-screen windows use the tidy phone layout too (Nov 2026).
+  const isNarrow = useTight(900);
   const { getByBrand } = useCustomLocations();
   const {
     receipts, reports, seesAll, seesStores, loading, periods, accounts,
