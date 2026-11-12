@@ -17,6 +17,7 @@ import { useExpenses } from '../context/ExpensesContext';
 import { brands } from '../data/mockData';
 import Icon from '../components/Icon';
 import BottomBar from './BottomBar';
+import HubGuide from '../guide/HubGuide';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { PageWidthContext, useMeasuredWidth, useSlimSidebar } from '../hooks/usePageWidth';
 import { useHomeSummary } from '../hooks/useHomeSummary';
@@ -143,6 +144,7 @@ export default function AppLayout({ children }) {
           profileBadge={profileNeedsAttention}
         />
         {notifOpen ? <NotificationsPanel onClose={() => setNotifOpen(false)} /> : null}
+        <HubGuide />
         <Toaster bottom={130} />
       </div>
     );
@@ -243,6 +245,7 @@ export default function AppLayout({ children }) {
         <PageWidthContext.Provider value={pageWidth}>{children}</PageWidthContext.Provider>
       </div>
       {notifOpen ? <NotificationsPanel onClose={() => setNotifOpen(false)} /> : null}
+      <HubGuide />
       <Toaster />
     </div>
   );

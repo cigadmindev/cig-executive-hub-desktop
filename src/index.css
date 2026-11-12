@@ -955,3 +955,9 @@ html [data-flyout][style*="var(--bg-sidebar)"] {
   -webkit-backdrop-filter: blur(26px) saturate(185%) brightness(1.05);
   backdrop-filter: blur(26px) saturate(185%) brightness(1.05);
 }
+
+/* The Hub Guide (Nov 2026): bits rise in, and the thinking dots bounce. */
+[data-guide-rise] { animation: hubGuideRise 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes hubGuideRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes hubGuideDot { 0%, 80%, 100% { opacity: 0.3; transform: none; } 40% { opacity: 1; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { [data-guide-rise] { animation: none; } }
