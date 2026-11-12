@@ -271,6 +271,7 @@ function GuideInner() {
       <section
         style={{ ...s.panel, ...(isNarrow ? s.panelNarrow : {}), ...(open ? s.panelOpen : s.panelShut) }}
         aria-label="Hub Guide"
+        data-guide-panel=""
         aria-hidden={open ? undefined : true}
       >
         <div style={s.head}>
@@ -390,7 +391,7 @@ const s = {
   orbBtnHidden: { transform: 'scale(0.6)', opacity: 0, pointerEvents: 'none' },
   panel: {
     position: 'fixed', right: 18, bottom: 18, top: 18, width: 410, maxWidth: 'calc(100vw - 36px)', zIndex: 290,
-    display: 'flex', flexDirection: 'column', borderRadius: 26, background: 'var(--bg-card)', border: '1px solid var(--glass-edge)',
+    display: 'flex', flexDirection: 'column', borderRadius: 26, background: 'var(--bg-sidebar)', border: '1px solid var(--glass-edge)',
     transformOrigin: 'bottom right', transition: 'transform 0.42s cubic-bezier(0.22,1,0.36,1), opacity 0.22s ease',
   },
   panelNarrow: { left: 8, right: 8, width: 'auto', maxWidth: 'none', top: 'calc(56px + env(safe-area-inset-top, 0px))', bottom: 'calc(8px + env(safe-area-inset-bottom, 0px))' },
