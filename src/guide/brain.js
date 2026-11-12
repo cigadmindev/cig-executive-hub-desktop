@@ -6,7 +6,7 @@
 // answer(text, ctx, memory) -> { text, cards, chips, mood, memory, load }
 //   cards: { icon, title, sub, tag: [text, tone], to, copy, whyId }
 //   load:  { brandId, locationId } when it needs a location's contacts first
-import { PAGES, SAME, SPELLING, BRAND_NICKNAMES, JOKES, OUTSIDE_WORDS, RUDE_WORDS, FOLDER_WORDS, DOC_TYPES, DOC_WORDS } from './knowledge';
+import { PAGES, SAME, SPELLING, BRAND_NICKNAMES, JOKES, OUTSIDE_WORDS, RUDE_WORDS, FOLDER_WORDS, DOC_TYPES, DOC_WORDS, LIMITS } from './knowledge';
 import { categories } from '../data/mockData';
 import { canSeeFolder } from '../data/accessMatrix';
 import { assigneesOf, isAssignedTo } from '../data/assignees';
@@ -483,6 +483,33 @@ function nextEventAnswer(s, ctx) {
   return { text: `Next up: ${e.title}, ${fmtDay(e.dateTime)} at ${fmtTime(e.dateTime)}${l ? ' (' + shortLoc(l) + ')' : ''}.`, cards: evs.slice(0, 3).map((x) => { const lx = ctx.locations.find((y) => y.id === x.locationId); return { icon: 'cal', title: x.title, sub: `${fmtDay(x.dateTime)} ${fmtTime(x.dateTime)}${lx ? ' · ' + shortLoc(lx) : ''}`, to: ctx.calendarLink(x) }; }) };
 }
 
+// Things the Guide can't do, and questions about itself. The catch-all
+// "can you…" only answers once nothing else has (`last`).
+function limitAnswer(raw, s, ctx, memory, last) {
+  const low = ' ' + String(raw).toLowerCase().replace(/[’‘]/g, "'") + ' ';
+  const asking = /^ ?(how|where|what|when|who|why|which|is there|do we|did)\b/.test(low) && !/what can('|no)?t you|why can'?t you|why don'?t you|who (made|built|created|programmed|designed) you|who('s| is) your/.test(low);
+  for (const L of LIMITS) {
+    const generic = L.k.source === '\\bcan you\\b';
+    if (generic !== last) continue;
+    if (!L.k.test(low)) continue;
+    if (L.route && asking) continue;
+    const out = { text: pick(L.a), mood: 'joke' };
+    if (L.to) out.go = { to: L.to, label: L.label ?? 'Take me there' };
+    if (L.route) {
+      // The verb decides where to send them, when it's a checklist job.
+      const byVerb = /\bassign/.test(low) ? 'assign' : /\b(tick|check off|mark)/.test(low) ? 'tick' : /\b(move|change) (the )?(due )?date/.test(low) ? 'duedate' : null;
+      const pg = byVerb ? PAGES.find((x) => x.id === byVerb) : null;
+      const p = pg ? { text: pg.a, go: pg.to ? { to: pg.to, label: pg.label } : (ctx.here?.loc ? { to: locPath(ctx.here.loc, '/opening-checklist'), label: 'Opening checklist' } : null) } : pageAnswer(s.replace(/\bcan you\b|\bplease\b|\bfor me\b/g, ' '), ctx, memory);
+      if (pg && !p.go) { out.text += ' ' + pg.a; return { ...out, chips: [] }; }
+      if (p?.go) { out.go = p.go; out.text += ` ${p.text}`; }
+      else out.text = "I can't change anything in the Hub, I only look things up. Tell me what you're trying to do and I'll point you to the right page.";
+    }
+    if (!out.go) out.chips = ['What can you do?', "What can't you do?"];
+    return out;
+  }
+  return null;
+}
+
 // ------------------------------------------------------------- why
 const STOP = new Set(['the', 'and', 'for', 'does', 'need', 'needs', 'done', 'this', 'that', 'matter', 'matters', 'item', 'what', "what's", 'whats', 'late', 'locked', 'waiting', 'with', 'have', 'there', 'about', 'important', 'why', 'how', 'who', 'where', "where's", 'wheres', 'status', 'show', 'tell', 'me', 'is', 'it', 'at', 'in', 'of', 'to', 'our', 'its', 'are', 'was', 'can', 'did', 'has', 'any', 'all', 'still', 'yet', 'get', 'got', 'assigned', "who's", 'whos', 'due', 'when']);
 const itemWords = (s) => s.split(/[^a-z0-9/]+/).filter((w) => w.length >= 3 && !STOP.has(w));
@@ -823,6 +850,7 @@ export function answer(raw, ctx, memory = {}) {
   const doc = docQuery(s, ctx, memory); if (doc) return done(doc);
   const nav = navAnswer(s, ctx, memory); if (nav) return done(nav);
   if (/^(who|what) are you|are you (a )?(robot|bot|ai|real|human)|your name/.test(t)) return done({ text: pick(JOKES.who), chips: ['What can you do?'], mood: 'joke' });
+  const limit = limitAnswer(raw, s, ctx, memory, false); if (limit) return done(limit);
   if (RUDE_WORDS.some((w) => has(s, w)) && t.split(' ').length <= 6) return done({ text: pick(JOKES.rude), chips: ["What's late?", 'How do I request time off?'], mood: 'joke' });
 
   // "What about Nashville?" repeats the last question somewhere else.
@@ -865,6 +893,7 @@ export function answer(raw, ctx, memory = {}) {
   if (page) return done(page);
   if (OUTSIDE_WORDS.some((w) => s.includes(w))) return done({ text: pick(JOKES.outside), chips: ['What can you do?', "What's late?"], mood: 'joke' });
 
+  const last = limitAnswer(raw, s, ctx, memory, true); if (last) return done(last);
   const cards = searchAll(s, ctx);
   return done({ text: `${pick(JOKES.lost)} ${cards.length ? 'Maybe one of these?' : 'Try a couple of key words, like "Chelsea late" or "time off".'}`, cards, chips: ['What can you do?', 'Ask Brenner in Support'], mood: 'joke' });
 }

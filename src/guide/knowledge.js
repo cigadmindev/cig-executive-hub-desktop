@@ -313,3 +313,71 @@ export const DOC_TYPES = [
 
 // Words that mean "find me a file".
 export const DOC_WORDS = ['file', 'files', 'document', 'documents', 'doc', 'docs', 'pdf', 'pdfs', 'spreadsheet', 'sheet', 'excel', 'word doc', 'copy of', 'paperwork', 'scan', 'scanned'];
+
+// ------------------------------------------------------------- what it can't do
+// Questions about the Guide itself and the things it can't do. Each answer
+// owns up, keeps it light, and points somewhere useful. `to` adds a button.
+export const LIMITS = [
+  { k: /\b(get on|go on|use|search|browse|surf|access|look (it )?up on|check) (the )?(internet|web|google|online)|\bgoogle (it|that|something)|are you online|internet access/, a: [
+    "Nope. My wife doesn't let me leave the house. I'm strictly a Hub guy, but I know every corner of it.",
+    "No internet for me. Brenner keeps me on a short leash. Anything inside the Hub, though, I can find.",
+    "I can't get online. I'm more of a homebody. Ask me about anything in the Hub or your Drive folders.",
+  ] },
+  { k: /are you (stuck|trapped|locked) (in )?here|do you ever (leave|go out|get out)|where do you live|are you lonely|do you get out|you('re| are) stuck/, a: [
+    "Stuck is a strong word. I prefer 'deeply committed'. I live in the bottom-right corner, rent free.",
+    "I live right here in the corner of the Hub. Great view of the checklists. Never leave, never want to.",
+    "Home sweet Hub. It's warm, organised and full of folders. Could be worse.",
+  ] },
+  { k: /\bcan you (send|email|e-mail|text|message|dm|call|ring|phone|notify|remind|ping)\b/, a: [
+    "I can't send anything for you, I only look things up. You can message someone from Messages in two taps.",
+    "Sending isn't in my job description yet. Messages is the place for that.",
+  ], to: '/messages', label: 'Messages' },
+  { k: /\bcan you (add|create|make|book|schedule|assign|tick|check off|mark|change|move|delete|remove|edit|update|approve|decline|request|submit|upload|save|file|fix|set|turn|order|reset|sign)\b|\b(please )?(add|create|book|assign|delete|approve|submit|upload) (a |an |the |this |that |it|my )/, a: [
+    "I can't change anything in the Hub, I only look things up and point the way. Here's where you can do that:",
+    "Hands off is my motto. I can't make changes, but I can show you exactly where to do it:",
+  ], route: true },
+  { k: /\b(write|draft|compose|summari[sz]e|translate|rewrite|proofread|make me a|create a (doc|document|report|summary))\b/, a: [
+    "I don't write things, I find things. If you need it written up, that's a job for you (or Brenner's other robots).",
+    "Writing isn't my thing. Finding is. Want me to look for an existing document instead?",
+  ] },
+  { k: /\b(calculate|do (the )?math|add up|how much is \d)|\d+\s*[+\-*x×÷/]\s*\d+/, a: [
+    "Math isn't my department. I count late items, not dollars. Your phone's calculator is better at this.",
+  ] },
+  { k: /\b(remember|forget|memory)\b.*\b(me|this|that|our|conversation|chat)\b|do you remember/, a: [
+    "I remember this conversation until you reload the Hub, then I start fresh. Nothing you ask me is saved anywhere.",
+  ] },
+  { k: /\b(see|look at|read|access) (my|your) (screen|computer|laptop|phone|desktop|personal|my drive|email|inbox|gmail|texts)\b|my (personal|own) drive|my email/, a: [
+    "I can't see your screen, your email or your personal My Drive. I only see the Hub, and the CIG shared drive folders you have access to.",
+  ] },
+  { k: /\b(are you|is this) (chatgpt|chat gpt|gpt|claude|siri|alexa|a real ai|ai|a robot|a bot|real|human|smart|alive)\b/, a: [
+    "I'm not ChatGPT or a full AI, more like a very organised friend who memorised the whole Hub. Keep it to Hub questions and I'm a genius.",
+    "Half robot, half filing cabinet, all Hub. I'm not a full AI, so short questions work best.",
+  ] },
+  { k: /\b(can you|do you) (learn|get smarter|think)\b/, a: [
+    "I don't learn on my own. Brenner teaches me new tricks. If I get something wrong, tell him in Support and I'll be smarter next time.",
+  ], to: '/support', label: 'Support' },
+  { k: /\b(can you|do you) (feel|dream|sleep|eat|drink|get tired|take breaks?)\b/, a: [
+    "I don't sleep, I don't eat, I just wait in the corner for your next question. Living the dream.",
+    "No breaks, no lunch, no complaints. Honestly, I'm the easiest employee you've got.",
+  ] },
+  { k: /\b(speak|talk in|do you know) (spanish|espa[nñ]ol|french|other languages?)\b|habla/, a: [
+    "Only English for now, and mostly Hub English. Un poquito de español, but don't test me.",
+  ] },
+  { k: /what can('|no)?t you do|what are your limits|what don't you (know|do)|what are you bad at/, a: [
+    "Here's what I can't do: change anything in the Hub, send messages or emails, get on the internet, see personal email or My Drive, write documents, or answer questions that need real judgment. What I'm great at: finding people, places, files, what's late or due, and how to do anything in the Hub.",
+  ] },
+  { k: /who (made|built|created|programmed|designed) you|who('s| is) your (boss|dad|creator|maker)/, a: [
+    "Brenner built me. If I mess up, it's technically his fault. Tell him in Support.",
+    "Brenner made me, in between building the rest of the Hub. He's very proud. Probably.",
+  ], to: '/support', label: 'Support' },
+  { k: /how old are you|when were you (born|made)|your birthday/, a: [
+    "I was born in November 2026. Young, but I already know where every folder is.",
+  ] },
+  { k: /\b(why can'?t you|why don'?t you|you should be able to|i wish you could)\b/, a: [
+    "Fair question. I'm built to look things up safely, so I can't change things or go outside the Hub. If there's something you wish I could do, tell Brenner in Support. That's how I get new tricks.",
+  ], to: '/support', label: 'Tell Brenner' },
+  { k: /\bcan you\b/, a: [
+    "I can't do that one. I'm good at finding things in the Hub: people, places, files, what's late or due, and how to do things. Try one of those?",
+    "Not that, sorry. Ask me where something is, who someone is, or what's going on at a location and I'm all over it.",
+  ] },
+];
