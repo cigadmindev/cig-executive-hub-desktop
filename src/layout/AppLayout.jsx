@@ -32,26 +32,14 @@ export default function AppLayout({ children }) {
   const slim = useSlimSidebar();
   // Half-screen windows (Nov 2026): the sidebar is a slim strip of icons and
   // restaurant dots, and slides out in full when you point at it or click it.
-  // `shown` puts the full sidebar in place (over the strip, the same size);
-  // `flyout` then widens it. Closing narrows it back first, then swaps the
-  // strip back in - one surface the whole time, so nothing peeks through.
+  // One strip that widens in place: its icons never move, the names fade in
+  // beside them (Nov 2026). A short pause before opening and closing, so
+  // brushing past it doesn't flick it open.
   const [flyout, setFlyoutState] = useState(false);
-  const [shown, setShown] = useState(false);
   const timers = useRef({});
   const setFlyout = (open, delay = 0) => {
-    const t = timers.current;
-    clearTimeout(t.intent);
-    t.intent = setTimeout(() => {
-      clearTimeout(t.swap);
-      if (open) {
-        setShown(true);
-        // Next frame, so it grows from the strip's width.
-        requestAnimationFrame(() => requestAnimationFrame(() => setFlyoutState(true)));
-      } else {
-        setFlyoutState(false);
-        t.swap = setTimeout(() => setShown(false), 300);
-      }
-    }, delay);
+    clearTimeout(timers.current.intent);
+    timers.current.intent = setTimeout(() => setFlyoutState(open), delay);
   };
   const [notifOpen, setNotifOpen] = useState(false);
   // Each page settles in when you arrive on it (28 Oct 2026). The page itself
@@ -59,7 +47,7 @@ export default function AppLayout({ children }) {
   const { pathname } = useLocation();
   const contentRef = useRef(null);
   const pageWidth = useMeasuredWidth(contentRef);
-  useLayoutEffect(() => { if (shown) setFlyout(false); }, [pathname]);
+  useLayoutEffect(() => { setFlyout(false); }, [pathname]);
   useLayoutEffect(() => {
     // A new page starts at the top, not wherever the last one was scrolled to.
     if (contentRef.current) contentRef.current.scrollTop = 0;
@@ -175,7 +163,7 @@ export default function AppLayout({ children }) {
   );
 
   const fullSidebar = (
-      <div style={slim ? { ...styles.sidebar, ...styles.flyoutPanel } : styles.sidebar} data-flyout={slim ? '' : undefined}>
+      <div style={styles.sidebar}>
         <div style={styles.dragArea} />
 
         <div style={styles.brandRow}>
@@ -236,7 +224,7 @@ export default function AppLayout({ children }) {
           onKeyDown={(e) => { if (e.key === 'Escape') setFlyout(false); }}
         >
           <SlimRail
-            hidden={shown}
+            open={flyout}
             onOpen={() => setFlyout(true)}
             user={user}
             hasBrandAccess={hasBrandAccess}
@@ -245,11 +233,6 @@ export default function AppLayout({ children }) {
             dots={{ home: anyEventNeedsMyJob, messages: unreadCount > 0, calendar: anyCalendarUnseen, directory: directoryNeedsAttention, profile: profileNeedsAttention }}
             onBell={() => setNotifOpen(true)}
           />
-          {shown ? (
-            <div style={{ ...styles.flyout, ...(flyout ? styles.flyoutOpen : styles.flyoutShut) }}>
-              {fullSidebar}
-            </div>
-          ) : null}
         </div>
       ) : (
         fullSidebar
@@ -267,46 +250,71 @@ export default function AppLayout({ children }) {
 
 // The slim sidebar for half-screen windows (Nov 2026): the four main places
 // as icons, a coloured dot per restaurant, and you at the bottom. Red dots
-// stay. Pointing at it (or clicking it) slides the full sidebar out.
-function SlimRail({ hidden, onOpen, user, hasBrandAccess, byBrand, worksChecklist, dots, onBell }) {
+// stay. Pointing at it widens the same strip in place: every icon stays
+// exactly where it is and its name fades in beside it, so opening and
+// closing is seamless.
+function SlimRail({ open, onOpen, user, hasBrandAccess, byBrand, worksChecklist, dots, onBell }) {
   const { pathname } = useLocation();
-  const icon = (to, name, label, dot, end = false) => (
-    <NavLink to={to} end={end} aria-label={label} title={label} style={({ isActive }) => ({ ...styles.railItem, ...(isActive ? styles.railItemActive : {}) })}>
+  const label = (text, extra) => (
+    <span style={{ ...styles.railLabel, ...(open ? styles.railLabelOn : {}), ...extra }}>{text}</span>
+  );
+  const row = (to, name, text, dot, end = false) => (
+    <NavLink to={to} end={end} aria-label={text} tabIndex={0} style={({ isActive }) => ({ ...styles.railRow, ...(isActive ? styles.railItemActive : {}) })}>
       {({ isActive }) => (
         <>
-          <Icon name={name} size={19} color={isActive ? 'var(--neon)' : 'var(--text-secondary)'} />
-          {dot ? <span style={styles.railDot} /> : null}
+          <span style={styles.railIcon}>
+            <Icon name={name} size={19} color={isActive ? 'var(--neon)' : 'var(--text-secondary)'} />
+            {dot ? <span style={styles.railDot} /> : null}
+          </span>
+          {label(text, isActive ? { color: 'var(--text-primary)' } : null)}
         </>
       )}
     </NavLink>
   );
   const mine = brands.filter((b) => hasBrandAccess(user, b.id));
+  const isAdmin = user?.role === 'admin';
   return (
-    <div style={{ ...styles.rail, visibility: hidden ? 'hidden' : 'visible' }}>
+    <div style={{ ...styles.rail, ...(open ? styles.railOpen : {}) }} data-flyout="">
       <div style={styles.dragArea} />
-      <button style={{ ...styles.badge, border: 'none', cursor: 'pointer', marginBottom: 14 }} onClick={onOpen} aria-label="Open the sidebar">CIG</button>
-      {icon('/', 'home', 'Home', dots.home, true)}
-      {icon('/messages', 'message', 'Messages', dots.messages)}
-      {icon('/calendar', 'calendar', 'Master Calendar', dots.calendar)}
-      {icon('/directory', 'grid', 'Directory', dots.directory)}
+      <button style={{ ...styles.railRow, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 10, fontFamily: 'inherit' }} onClick={onOpen} aria-label="Open the sidebar">
+        <span style={styles.railIcon}><span style={styles.badge}>CIG</span></span>
+        {label('Executive Hub', { fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' })}
+      </button>
+      {row('/', 'home', 'Home', dots.home, true)}
+      {row('/messages', 'message', 'Messages', dots.messages)}
+      {row('/calendar', 'calendar', 'Master Calendar', dots.calendar)}
+      {row('/directory', 'grid', 'Directory', dots.directory)}
       {mine.length ? <div style={styles.railSep} /> : null}
       <div style={styles.railBrands}>
         {mine.map((b) => {
           const here = pathname === '/brand/' + b.id || pathname.startsWith('/brand/' + b.id + '/');
           const late = worksChecklist ? byBrand?.[b.id]?.overdue ?? 0 : 0;
           return (
-            <NavLink key={b.id} to={'/brand/' + b.id} aria-label={b.name + (late ? ', ' + late + ' late' : '')} title={b.name} style={{ ...styles.railItem, ...(here ? styles.railItemActive : {}) }}>
-              <span style={{ ...styles.brandDot, width: 12, height: 12, borderRadius: 6, boxShadow: 'inset 0 0 0 1px rgba(var(--ink-rgb), 0.28)', background: brandColors[b.name] ?? '#A1A1AA' }} />
-              {late > 0 ? <span style={styles.railDot} /> : null}
+            <NavLink key={b.id} to={'/brand/' + b.id} aria-label={b.name + (late ? ', ' + late + ' late' : '')} style={{ ...styles.railRow, ...(here ? styles.railItemActive : {}) }}>
+              <span style={styles.railIcon}>
+                <span style={{ ...styles.brandDot, width: 12, height: 12, borderRadius: 6, boxShadow: 'inset 0 0 0 1px rgba(var(--ink-rgb), 0.28)', background: brandColors[b.name] ?? '#A1A1AA' }} />
+                {late > 0 ? <span style={{ ...styles.railDot, opacity: open ? 0 : 1 }} /> : null}
+              </span>
+              {label(b.name, { color: 'var(--text-primary)', fontSize: 14 })}
+              {late > 0 ? <span style={{ ...styles.lateCount, ...styles.railLabel, ...(open ? styles.railLabelOn : {}), flex: 'none', marginRight: 10 }}>{late}</span> : null}
             </NavLink>
           );
         })}
       </div>
       <div style={{ flex: 1 }} />
-      <NotificationsBell onClick={onBell} />
-      <NavLink to="/profile" aria-label="Profile" title="Profile" style={{ position: 'relative', marginTop: 8, textDecoration: 'none' }}>
-        <div style={styles.avatar}>{user?.name?.[0]?.toUpperCase() ?? '?'}</div>
-        {dots.profile ? <span style={styles.railDot} /> : null}
+      <div style={styles.railRow}>
+        <span style={styles.railIcon}><NotificationsBell onClick={onBell} /></span>
+        {label('Notifications')}
+      </div>
+      <NavLink to="/profile" aria-label="Profile" style={({ isActive }) => ({ ...styles.railRow, height: 46, marginTop: 4, ...(isActive ? styles.railItemActive : {}) })}>
+        <span style={styles.railIcon}>
+          <span style={styles.avatar}>{user?.name?.[0]?.toUpperCase() ?? '?'}</span>
+          {dots.profile ? <span style={styles.railDot} /> : null}
+        </span>
+        <span style={{ ...styles.railLabel, ...(open ? styles.railLabelOn : {}), display: 'flex', flexDirection: 'column' }}>
+          <span style={styles.userName}>{user?.name}</span>
+          <span style={styles.userRole}>{isAdmin ? 'Admin' : user?.role === 'executive' ? 'Executive' : 'Manager'}</span>
+        </span>
       </NavLink>
     </div>
   );
@@ -381,25 +389,31 @@ function SidebarRestaurants({ user, hasBrandAccess, hasLocationAccess, getByBran
 const styles = {
   // The page sits on the colour wash; the sidebar floats on it as glass.
   window: { display: 'flex', height: '100vh', background: 'transparent', padding: 14, gap: 14, boxSizing: 'border-box', position: 'relative' },
-  railWrap: { position: 'relative', flexShrink: 0, display: 'flex', zIndex: 60 },
+  // A 64px space in the layout; the strip itself floats over it so it can
+  // widen over the page without pushing anything.
+  railWrap: { position: 'relative', flexShrink: 0, width: 64, zIndex: 60 },
   rail: {
-    width: 64, background: 'var(--bg-sidebar)', border: '1px solid var(--glass-edge)', borderRadius: 22, boxShadow: 'var(--shadow-md)',
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '0 0 14px', boxSizing: 'border-box', overflow: 'hidden',
+    position: 'absolute', left: 0, top: 0, bottom: 0, width: 64,
+    background: 'var(--bg-sidebar)', border: '1px solid var(--glass-edge)', borderRadius: 22, boxShadow: 'var(--shadow-md)',
+    display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 4, padding: '0 0 14px', boxSizing: 'border-box', overflow: 'hidden',
+    transition: 'width 0.34s cubic-bezier(0.22, 1, 0.36, 1), border-radius 0.34s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.34s ease',
   },
-  railItem: { transition: 'background-color 0.22s ease, box-shadow 0.22s ease', position: 'relative', width: 42, height: 40, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 },
+  railOpen: { width: 256, borderRadius: 26, boxShadow: '0 20px 60px rgba(20,24,32,0.30)' },
+  // Each line: the icon in a fixed 42px box 10px from the edge (where it
+  // sits in the strip), then its name.
+  railRow: {
+    position: 'relative', display: 'flex', alignItems: 'center', height: 40, margin: '0 10px', borderRadius: 13, flexShrink: 0,
+    textDecoration: 'none', color: 'var(--text-secondary)', fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap',
+    transition: 'background-color 0.22s ease, box-shadow 0.22s ease',
+  },
+  railIcon: { position: 'relative', width: 42, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  railLabel: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', marginLeft: 4, opacity: 0, transform: 'translateX(-6px)', transition: 'opacity 0.16s ease, transform 0.16s ease' },
+  railLabelOn: { opacity: 1, transform: 'none', transition: 'opacity 0.24s ease 0.08s, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.06s' },
   railItemActive: { background: 'var(--surface)', boxShadow: '0 2px 10px rgba(30,40,60,0.08)' },
-  railDot: { position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 4, background: 'var(--danger)' },
-  railSep: { width: 26, height: 1, background: 'var(--border)', margin: '10px 0' },
-  railBrands: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, overflowY: 'auto', minHeight: 0 },
+  railDot: { position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: 4, background: 'var(--danger)', transition: 'opacity 0.2s ease' },
+  railSep: { height: 1, background: 'var(--border)', margin: '10px 19px', flexShrink: 0 },
+  railBrands: { display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 },
   // The full sidebar sliding out over the page from the slim strip.
-  // The full sidebar out of the strip (Nov 2026): it starts exactly where
-  // and as big as the strip, then widens - only its size animates. It is
-  // glass like the strip (Brenner), frosted without the lens bend so it
-  // stays smooth while it moves.
-  flyout: { position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 61, overflow: 'hidden', boxShadow: '0 20px 60px rgba(20,24,32,0.30)', willChange: 'width' },
-  flyoutOpen: { width: 256, borderRadius: 26, transition: 'width 0.36s cubic-bezier(0.22, 1, 0.36, 1), border-radius 0.36s' },
-  flyoutShut: { width: 64, borderRadius: 22, boxShadow: 'none', transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.28s, box-shadow 0.28s' },
-  flyoutPanel: { width: 256, height: '100%', boxSizing: 'border-box', borderRadius: 26 },
   scrim: { position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(20, 24, 32, 0.16)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', opacity: 0, pointerEvents: 'none', transition: 'opacity 0.3s ease' },
   scrimOn: { opacity: 1, pointerEvents: 'auto' },
   // dvh, not vh: the phone container has to shrink when the keyboard opens,
