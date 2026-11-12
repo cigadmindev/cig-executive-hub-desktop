@@ -155,7 +155,7 @@ export default function AppLayout({ children }) {
   );
 
   const fullSidebar = (
-      <div style={slim ? { ...styles.sidebar, ...styles.flyout } : styles.sidebar}>
+      <div style={slim ? { ...styles.sidebar, ...styles.flyoutPanel } : styles.sidebar}>
         <div style={styles.dragArea} />
 
         <div style={styles.brandRow}>
@@ -220,7 +220,9 @@ export default function AppLayout({ children }) {
             dots={{ home: anyEventNeedsMyJob, messages: unreadCount > 0, calendar: anyCalendarUnseen, directory: directoryNeedsAttention, profile: profileNeedsAttention }}
             onBell={() => setNotifOpen(true)}
           />
-          {flyout ? fullSidebar : null}
+          <div style={{ ...styles.flyout, ...(flyout ? styles.flyoutOpen : styles.flyoutShut) }} aria-hidden={flyout ? undefined : true}>
+            {fullSidebar}
+          </div>
         </div>
       ) : (
         fullSidebar
@@ -363,7 +365,14 @@ const styles = {
   railSep: { width: 26, height: 1, background: 'var(--border)', margin: '10px 0' },
   railBrands: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, overflowY: 'auto', minHeight: 0 },
   // The full sidebar sliding out over the page from the slim strip.
-  flyout: { position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 61, background: 'var(--bg-sidebar-solid, var(--bg-sidebar))', backdropFilter: 'blur(28px) saturate(1.6)', WebkitBackdropFilter: 'blur(28px) saturate(1.6)', boxShadow: '0 18px 50px rgba(20,24,32,0.28)', animation: 'hubFlyIn 0.22s cubic-bezier(0.22,1,0.36,1)' },
+  // The full sidebar is always there, inside a holder that is only as
+  // wide as the strip until you point at it; opening widens the holder from
+  // the strip outwards, so the strip never peeks through (Nov 2026). Width,
+  // not a clip, because a clip switches off the glass lens in Chrome.
+  flyout: { position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 61, overflow: 'hidden', borderRadius: 26, boxShadow: '0 18px 50px rgba(20,24,32,0.28)' },
+  flyoutOpen: { width: 256, opacity: 1, pointerEvents: 'auto', transition: 'width 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.06s linear' },
+  flyoutShut: { width: 64, opacity: 0, pointerEvents: 'none', transition: 'width 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.08s linear 0.2s' },
+  flyoutPanel: { width: 256, height: '100%', boxSizing: 'border-box', background: 'var(--bg-sidebar-solid, var(--bg-sidebar))' },
   // dvh, not vh: the phone container has to shrink when the keyboard opens,
   // or the fixed bar strands itself mid-screen.
   narrowWindow: { height: '100dvh', background: 'transparent' },

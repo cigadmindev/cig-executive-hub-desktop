@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CountUp } from '../components/Motion';
 import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useTight } from '../hooks/usePageWidth';
+import SideScroller from '../components/SideScroller';
 import Icon from '../components/Icon';
 import { printOpeningSheet } from '../lib/printSheet';
 import { assigneesOf, assigneeFields, shortNames, isAssignedTo } from '../data/assignees';
@@ -1064,13 +1065,13 @@ export default function OpeningChecklistScreen() {
             computer; chips you scroll sideways on a phone. Tapping one jumps
             to it. */}
         {isNarrow ? (
-          <div style={styles.navChips}>
+          <SideScroller style={styles.navChips} label="More sections">
             {navGroups.flatMap((g) => g.sections).map((s) => (
               <button key={s.id} style={{ ...styles.navChip, ...(activeSection === s.id ? styles.navChipOn : {}) }} onClick={() => jumpTo(s.id)}>
                 {s.num ? s.num + ' ' : ''}{s.name} <span style={styles.navChipCount}>{s.countOnly ? s.total : s.done + '/' + s.total}</span>
               </button>
             ))}
-          </div>
+          </SideScroller>
         ) : (
           <div style={styles.nav}>
             {navGroups.map((g) => (
